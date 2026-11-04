@@ -12,8 +12,8 @@ To je to, za co může mít smysl platit – lety a radar zůstanou zdarma.
 | Zdarma | Placené („Odemknout cestu“) |
 | --- | --- |
 | Lety, radar, hlídání cen, Objevuj | **⚡ Poskládej celou cestu za mě** (hotová cesta jedním klepnutím) |
-| Ruční cesta na **jedno místo**: let → ubytování → auto → program → shrnutí | **Trasa přes víc míst** s přejezdy a rozdělením nocí |
-| Sdílení plánu, kalendář, Moje cesty | (později) itinerář k tisku a offline |
+| Ruční cesta na **jedno místo**: let → trasa (jedno místo) → ubytování → auto → program → shrnutí | **Trasa přes víc míst** s přejezdy a rozdělením nocí |
+| Sdílení plánu, kalendář, Moje cesty, program dne offline (Na cestě) | (později) itinerář k tisku |
 
 Proč ne zamknout celého průvodce: v kroku Ubytování lidé klikají na Booking.com – to je hlavní zdroj provizí
 (Travelpayouts). Zamčený průvodce = méně dokončených cest = méně provizí.
@@ -33,16 +33,23 @@ ATLAS nemá účty a server o lidech nic neukládá – placení to nemá změni
    platební stránky Stripe.
 2. Po zaplacení Stripe vrátí člověka do aplikace s `session_id`. Aplikace ho pošle na `POST /api/unlock`.
 3. Server se zeptá Stripe API, jestli je session zaplacená (klíč `STRIPE_SECRET_KEY` jen v proměnné prostředí), a vrátí
-   **podepsaný token** (HMAC klíčem `UNLOCK_SECRET`): id cesty (`created`) a platnost. Nic neukládá – token ověří podpisem.
-4. Token je u cesty v prohlížeči (localStorage), přenese se zálohou i 📲 přenosem. Na jiné cestě neplatí.
+   **podepsaný token** (HMAC klíčem `UNLOCK_SECRET`) s platností. Nic neukládá – token ověří podpisem.
+4. Token je u cesty v prohlížeči (localStorage), přenese se zálohou i 📲 přenosem.
 5. Stejný `session_id` dá vždy stejný token (opakované otevření návratové adresy nic nepokazí).
+
+**Vazba na jednu cestu je jen v aplikaci.** Id cesty (`created`) si dává aplikace sama a volání průvodce (`api/stayplan`)
+id cesty nenesou – server nepozná, ke které cestě token patří. Kdo aplikaci obejde, odemkne si jednou platbou víc cest.
+Při ceně kolem 99 Kč je to přijatelné; přísněji jen s účty, které ATLAS mít nechce.
 
 Webhook ani databáze nejsou potřeba. Vrácení peněz řeší provozovatel ve Stripe (token pak sám nezneplatní – při ceně
 99 Kč to nevadí).
 
 ## Co server hlídá
-- **Trasa přes víc míst**: `POST /api/stayplan` s víc místy (`bases.length > 1`) jen s platným tokenem cesty – bez něj
-  odpověď „odemkni cestu“. Jedno místo dál zdarma.
+- **Trasa přes víc míst po zemi**: `POST /api/stayplan` jen s platným tokenem, a to obojí – **návrh trasy** (bez `bases`,
+  trip.js `suggestRoute`; vrací víc míst) i přepočet trasy s víc místy (`bases.length > 1`). Bez tokenu odpověď
+  „odemkni cestu“. Jedno místo dál zdarma.
+- **Cesta přes víc měst letadlem** (Lety → Víc měst): trasu dávají lety, server ji nepočítá (trip.js `isFly` – návrh
+  trasy se pro ni nevolá) – ve verzi 1 ji hlídá jen aplikace.
 - **⚡ Poskládej celou cestu**: skládá ji aplikace z volání, která jsou zdarma i pro ruční cestu (ubytování, program) –
   ve verzi 1 ji hlídá jen aplikace. Kdo ji obejde přes vývojářské nástroje, dostane jen to, co by si naklikal ručně.
   Plné hlídání by chtělo skládání na serveru (`/api/compose`) – až podle zájmu.

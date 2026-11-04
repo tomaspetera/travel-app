@@ -774,6 +774,8 @@
   // cena z paměti tras o její stáří dřív
   // stops = cíle letů cesty přes víc měst (t.mid = lety mezi nimi): trasa podle letů (flyBases)
   function start({ t, g, result, ccs = null, at = 0, stops = null }) {
+    // průvodce použitý: karta 🧳 Naplánuj celou dovolenou na Přehledu se už neukáže (app.js renderPlanCard)
+    try { if (localStorage.getItem('atlas_plancard') !== 'off') localStorage.setItem('atlas_plancard', 'used'); } catch (e) { /* soukromé okno */ }
     const originsBy = Object.fromEntries((result.origins || []).map(o => [o.iata, o]));
     const dest = g ? g.dest : { label: t.out.to, cc: '', country: '', lat: null, lon: null };
     const mem = memAgeMs(t);
@@ -3721,7 +3723,8 @@
     if (window.Flights && Flights.warm && window.About && About.okPay) Flights.warm().then(hl => {
       const url = hl && hl.support && hl.support.url, el = $('#sumSupport');
       if (!el || !About.okPay(url)) return;
-      el.innerHTML = `Pomohl ti ATLAS naplánovat cestu? <a href="${esc(url)}" target="_blank" rel="noopener">💛 Podpořit ATLAS ↗</a> – je zdarma a částku si zvolíš.`;
+      // (zdarma je ATLAS, ne příspěvek – dřívější „– je zdarma a částku si zvolíš“ se dalo číst obráceně)
+      el.innerHTML = `ATLAS je zdarma. Jestli ti pomohl naplánovat cestu, můžeš přispět částkou podle sebe: <a href="${esc(url)}" target="_blank" rel="noopener">💛 Podpořit ATLAS ↗</a>`;
       el.hidden = false;
     }, () => { /* bez serveru bez věty */ });
     // okno Sdílet: celá cesta kamarádům (share – jako dřív) nebo karta „Jede někdo se mnou?“ na sítě (sharecard.js)

@@ -21,8 +21,9 @@ export const cleanEmail = (v) => { const s = String(v || '').trim(); return /^[\
 // ?dotazu – aplikace u něj píše, že platbu zpracovává Stripe; cokoli jiného → '' (tlačítko se neukáže).
 export const cleanPayUrl = (v) => { const s = String(v || '').trim(); return /^https:\/\/buy\.stripe\.com\/[A-Za-z0-9_-]{4,80}$/.test(s) ? s : ''; };
 // Provozovatel do ℹ️ O aplikaci (OPERATOR, např. „Jan Novák, IČO 12345678, Praha“): jeden řádek obyčejného textu, nejvýš
-// 200 znaků – bez řídicích znaků a zalomení; v aplikaci se vypíše jako text (escapovaný).
-export const cleanOperator = (v) => String(v || '').replace(/[\u0000-\u001f\u007f\u200b-\u200f\u2028-\u202e\u2066-\u2069]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 200);
+// 200 znaků – bez řídicích a neviditelných znaků (i C1, měkké rozdělení, směr textu) a zalomení; zkrácení po znacích,
+// ne po půlkách emoji. V aplikaci se vypíše jako text (escapovaný).
+export const cleanOperator = (v) => Array.from(String(v || '').replace(/[\u0000-\u001f\u007f-\u009f\u00ad\u061c\u200b-\u200f\u2028-\u202e\u2060-\u2064\u2066-\u2069\ufeff]/g, ' ').replace(/\s+/g, ' ').trim()).slice(0, 200).join('').trim();
 // Veřejná adresa webu (PUBLIC_URL): http(s) bez lomítka na konci, bez ?dotazu a #; cokoli jiného → '' (pak výchozí).
 export const cleanSiteUrl = (v) => {
   try {

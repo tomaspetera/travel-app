@@ -115,6 +115,12 @@
   #heroBox p{margin-top:6px;max-width:760px;font-size:15px}
   #heroBox .hero-search2{margin-top:18px}
   #heroBox .smart-try{margin-top:12px}
+  /* 🧳 Naplánovat celou dovolenou: od 1280 px vpravo nahoře vedle nadpisu – pod příklady vět by úvod zvýšil o řádek
+     a první řada radaru by na 1366 × 768 spadla pod ohyb; užší počítač ho má pod příklady jako telefon */
+  @media (min-width:1280px){
+    #heroBox .hero-plan{position:absolute;top:0;right:0;margin-top:0}
+    #heroBox h1,#heroBox p{max-width:min(760px,calc(100% - 270px))}
+  }
   /* klávesa „/“ skočí do pole Kam (app.js) – nenápadná nápověda u popisku Kam */
   .hero-search2 .hs-field:nth-child(2) .hs-lab::after{content:"/";display:inline-grid;place-items:center;min-width:16px;height:16px;
     margin-left:8px;padding:0 4px;border-radius:5px;border:1px solid rgba(255,255,255,.35);font:700 10px/1 Inter,sans-serif;

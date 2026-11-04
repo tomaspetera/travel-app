@@ -44,18 +44,21 @@ test('karta 🧳 pod radarem: dokud uživatel průvodce nepoužil a kartu neskry
   assert.notEqual((tipPick(s, { plan: true }, null, '2026-11-04') || {}).id, 'auto');
 });
 
-test('příklady vět na kartě: týden, prodloužený víkend a s domovem trasa přes dvě města; spouští se jako ✨ Zkus napsat', () => {
+test('příklady vět na kartě: prodloužený víkend, týden a dvě města s přejezdem (bez letu Lisabon → Porto); spouští se jako ✨ Zkus napsat', () => {
   const src = fl.slice(fl.indexOf('const homeWord = '), fl.indexOf('function paintSmartTry()'));
   const ctx = vm.createContext({ S: { home: null }, MNS_IN: [], today: () => '2026-11-04' });
-  vm.runInContext(`${src}; this.planExamples = planExamples;`, ctx);
-  assert.deepEqual([...ctx.planExamples('')], ['Lisabon na týden', 'Řím na prodloužený víkend']);
-  assert.deepEqual([...ctx.planExamples('Praha')], ['Lisabon na týden', 'Řím na prodloužený víkend', 'Praha → Lisabon → Porto → Praha']);
+  vm.runInContext(`${src}; this.planExamples = planExamples; this.homeWord = homeWord;`, ctx);
+  assert.deepEqual([...ctx.planExamples()], ['Řím na prodloužený víkend', 'Barcelona na týden', 'Lisabon a zpět z Porta na týden']);
+  // domov celá země do věty „Česko → Řím → …“ ne (byla by to cesta do Česka); letiště a město ano, 📍 Moje poloha ne
+  assert.equal(ctx.homeWord({ id: 'cc:CZ', label: 'Česko' }), '');
+  assert.equal(ctx.homeWord({ id: 'ap:PRG', label: 'Praha (PRG)' }), 'Praha');
+  assert.equal(ctx.homeWord({ id: 'geo:50.1,14.4|Moje poloha', label: 'Moje poloha' }), '');
   assert.match(fl, /\$\$\('\[data-try\]', host\)\.forEach\(b => b\.onclick = \(\) => trySentence\(TRY\[\+b\.dataset\.try\], b\)\);/);
   assert.match(app, /\$\$\('\[data-pex\]', el\)\.forEach\(b => b\.onclick = \(\) => Flights\.trySentence\(ex\[\+b\.dataset\.pex\], b\)\);/);
   assert.match(fl, /renderFav, planExamples, trySentence,/);
 });
 
-test('příklady vět z karty Smart rozumí: týden a prodloužený víkend; trasa přes dvě města jako ✨ příklad s Římem a Barcelonou', () => {
+test('příklady vět z karty Smart rozumí: prodloužený víkend, týden a tam do Lisabonu, zpět z Porta', () => {
   const ctx = { window: {}, console };
   vm.createContext(ctx);
   vm.runInContext(read('js/searchhelp.js'), ctx);
@@ -63,10 +66,27 @@ test('příklady vět z karty Smart rozumí: týden a prodloužený víkend; tra
   const { Smart, SearchHelp } = ctx.window;
   const presets = { weekend: { nMin: 1, nMax: 3, out: [4, 5, 6], back: [0, 1] }, long: { nMin: 3, nMax: 5, out: [3, 4, 5], back: [0, 1, 2] }, week: { nMin: 5, nMax: 9, out: [], back: [] }, '2weeks': { nMin: 11, nMax: 16, out: [], back: [] } };
   const P = q => JSON.parse(JSON.stringify(Smart.parse(q, { today: '2026-11-04', presets, holidays: SearchHelp.holidayList('2026-11-04'), holidayDates: SearchHelp.holidayDates })));
-  const w = P('Lisabon na týden');
-  assert.deepEqual([w.to, w.patch.len], [['Lisabon'], 'week']);
+  const w = P('Barcelona na týden');
+  assert.deepEqual([w.to, w.patch.len], [['Barcelona'], 'week']);
   const l = P('Řím na prodloužený víkend');
   assert.deepEqual([l.to, l.patch.len], [['Řím'], 'long']);
-  // trasu z „→“ skládá až hledání (flights.js smartRun) – věta se rozloží stejně jako osvědčený příklad v ✨ Zkus napsat
-  assert.deepEqual(P('Praha → Lisabon → Porto → Praha'), { ...P('Praha → Řím → Barcelona → Praha'), to: ['Lisabon', 'Porto', 'Praha'] });
+  // tam do Lisabonu, zpět z Porta (back) – mezi nimi průvodce navrhne přejezd
+  const o = P('Lisabon a zpět z Porta na týden');
+  assert.deepEqual([o.to, o.back, o.patch.len], [['Lisabon'], 'Porta', 'week']);
+});
+
+test('karta se po použití průvodce nevrátí (ani po ↺ Začít znovu nebo smazání cest); dlouhá věta ji nerozšíří', () => {
+  assert.match(app, /const planOff = \(\) => \{ if \(planMem\) return true; try \{ return \/\^\(off\|used\)\$\/\.test\(localStorage\.getItem\('atlas_plancard'\) \|\| ''\); \}/);
+  assert.match(app, /if \(!planCardOn\(S, false\) && !planOff\(\)\) planMark\('used'\);/);
+  assert.match(trip, /function start\(\{ t, g, result, ccs = null, at = 0, stops = null \}\) \{\n {4}\/\/[^\n]*\n {4}try \{ if \(localStorage\.getItem\('atlas_plancard'\) !== 'off'\) localStorage\.setItem\('atlas_plancard', 'used'\); \}/);
+  const css = read('css/atlas.css');
+  assert.match(css, /\.plan-card\{display:grid;grid-template-columns:minmax\(0,1fr\);/);
+  assert.match(css, /\.plc-try \.recent-chip\{white-space:normal;/);
+});
+
+test('písmo tlačítek: font zkratkou s „inherit“ prohlížeč zahodí celé – v CSS nikde', () => {
+  for (const f of ['atlas.css', 'flights.css', 'trip.css', 'desktop.css', 'desktop-flights.css', 'desktop-trip.css', 'desktop-explore.css', 'pretrip.css', 'pwa.css']) {
+    assert.doesNotMatch(read(`css/${f}`), /font:\s*\d[^;}]*\binherit/, f); // „font:700 14px/1.25 inherit“ = neplatné
+  }
+  assert.match(read('css/flights.css'), /\.hero-plan\{[^}]*font-weight:700;font-size:14px;line-height:1\.25;font-family:inherit;/);
 });

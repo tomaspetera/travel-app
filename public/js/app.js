@@ -1246,13 +1246,17 @@ function renderDashTip() {
   $('#dtGo').onclick = () => tip.run();
   $('#dtX').onclick = () => { put({ day: today, id: null, hid: [...hid, tip.id] }); el.hidden = true; };
 }
-// ✕ na kartě 🧳 Naplánuj celou dovolenou: atlas_plancard = 'off' (kopie v paměti, když úložiště nejde zapsat – jako tipMem)
-let planMem = false;
-const planOff = () => { if (planMem) return true; try { return localStorage.getItem('atlas_plancard') === 'off'; } catch (e) { return false; } };
+// Karta 🧳 Naplánuj celou dovolenou už ne: atlas_plancard = 'off' (✕) nebo 'used' (průvodce použitý – zapíše i trip.js
+// start; karta se pak nevrátí ani po ↺ Začít znovu nebo smazání všech cest). Kopie v paměti, když úložiště nejde zapsat.
+let planMem = '';
+const planOff = () => { if (planMem) return true; try { return /^(off|used)$/.test(localStorage.getItem('atlas_plancard') || ''); } catch (e) { return false; } };
+const planMark = v => { planMem = v; try { localStorage.setItem('atlas_plancard', v); } catch (e) { /* platí kopie v paměti */ } };
 /** 🧳 Karta na Přehledu: co průvodce cestou poskládá, příklady vět (Flights.planExamples – hledání jako ✨ Zkus napsat;
  *  u nabídky pak Naplánovat celou cestu) a Začít plánovat (záložka Cesty s polem Kam chceš jet?). */
 function renderPlanCard() {
   const el = $('#planCard'); if (!el) return;
+  // průvodce už použitý (rozpracovaná nebo uložená cesta z něj – i z doby před kartou): zapamatovat napořád
+  if (!planCardOn(S, false) && !planOff()) planMark('used');
   const on = planCardOn(S, planOff());
   el.hidden = !on;
   if (!on) { el.innerHTML = ''; return; }
@@ -1266,8 +1270,7 @@ function renderPlanCard() {
   $('#planCardGo').onclick = () => go('trip');
   $$('[data-pex]', el).forEach(b => b.onclick = () => Flights.trySentence(ex[+b.dataset.pex], b));
   $('#planCardX').onclick = () => {
-    planMem = true;
-    try { localStorage.setItem('atlas_plancard', 'off'); } catch (e) { /* platí kopie v paměti */ }
+    planMark('off');
     el.hidden = true;
     renderDashTip(); // ⚡ Hotová cesta se teď může ukázat jako tip
   };

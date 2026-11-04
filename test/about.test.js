@@ -135,3 +135,11 @@ test('shrnutí cesty: věta 💛 Podpořit ATLAS jen s odkazem z /api/health (ov
   assert.match(trip, /if \(!el \|\| !About\.okPay\(url\)\) return;/);
   assert.match(trip, /<a href="\$\{esc\(url\)\}" target="_blank" rel="noopener">💛 Podpořit ATLAS ↗<\/a>/);
 });
+
+test('OPERATOR: pryč i C1 řídicí znaky a měkké rozdělení; zkrácení po znacích nerozpůlí emoji', () => {
+  const c = String.fromCharCode;
+  assert.equal(cleanOperator(`Jan${c(0x85)}Novák${c(0xad)}!`), 'Jan Novák !');
+  const long = cleanOperator('x'.repeat(199) + String.fromCodePoint(0x1F600) + 'yyy');
+  assert.equal(Array.from(long).length, 200);
+  assert.equal(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])/.test(long), false, 'žádná osamocená půlka emoji');
+});

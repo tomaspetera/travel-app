@@ -821,7 +821,9 @@ html:has(#modalBg.show) body{overflow:hidden} /* na body, ne na html: přejde na
 .dt-x::after{content:"";position:absolute;inset:-8px} /* ✕ 29 × 27 px – plocha pro prst kolem 44 px, vzhled stejný */
 .dt-x:hover,.dt-x:focus-visible{color:var(--text);background:var(--surface-2)}
 /* 🧳 Naplánuj celou dovolenou (Přehled pod radarem, app.js renderPlanCard): co průvodce poskládá, příklady vět, Začít */
-.plan-card{display:grid;gap:10px;margin:18px 0;padding:14px 10px 14px 14px;font-size:13.5px;line-height:1.45}
+/* sloupec minmax(0,1fr): dlouhý příklad věty („Lisabon a zpět z Porta…“) kartu nerozšíří – stránka by jinak na telefonu
+   ujížděla do strany */
+.plan-card{display:grid;grid-template-columns:minmax(0,1fr);gap:10px;margin:18px 0;padding:14px 10px 14px 14px;font-size:13.5px;line-height:1.45}
 .plan-card[hidden]{display:none}
 .plc-top{display:flex;gap:10px;align-items:flex-start}
 .plc-top b{font-size:15px}
@@ -830,6 +832,7 @@ html:has(#modalBg.show) body{overflow:hidden} /* na body, ne na html: přejde na
 .plc-steps span{white-space:nowrap} /* ikona kroku se neodtrhne od názvu */
 .plc-try{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
 .plc-try .faint{font-size:12.5px;font-weight:700}
+.plc-try .recent-chip{white-space:normal;text-align:left} /* věta se zalomí, neuřízne */
 .plan-card>.btn{justify-self:start}
 /* 🕘 Od minula (Přehled nahoře po návratu jiný den, app.js renderSince): nejvýš 3 řádky, celý řádek je tlačítko
    (na telefonu dost velký cíl pro prst), dlouhý název se zalomí */
