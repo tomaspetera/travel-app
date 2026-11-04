@@ -223,18 +223,13 @@
     return { airline: c[0], closeH: c[1], fee, open: minus24h(l.dep.slice(0, 16), l.fromTz) };
   }
   // Místní čas o 24 skutečných hodin dřív – při změně letního času mezi tím o hodinu jinak než „stejný čas den předem“.
+  // Odlet převádí localToUtc jako událost letu: odlet ve 2:30 v noci změny na zimní čas je ten první (dřív se tu bral
+  // druhý a připomínka check-inu vyšla o hodinu později než 24 h před odletem v kalendáři).
   function minus24h(wall, tz) {
-    const w = Date.parse(wall + ':00Z');
-    const off = ms => { // posun pásma v minutách v okamžiku ms (UTC)
-      const p = new Intl.DateTimeFormat('en-US', { timeZone: tz, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date(ms));
-      const g = t => +p.find(x => x.type === t).value;
-      return (Date.UTC(g('year'), g('month') - 1, g('day'), g('hour'), g('minute')) - ms) / 6e4;
-    };
-    try {
-      if (!tz) throw 0;
-      const dep = w - off(w - off(w) * 6e4) * 6e4, open = dep - 864e5;
-      return new Date(open + off(open) * 6e4).toISOString().slice(0, 16);
-    } catch (e) { return new Date(w - 864e5).toISOString().slice(0, 16); }
+    const dep = localToUtc(wall, tz);
+    if (dep == null) return new Date(Date.parse(wall + ':00Z') - 864e5).toISOString().slice(0, 16);
+    const open = dep - 864e5;
+    return new Date(open + tzOffset(tz, open) * 6e4).toISOString().slice(0, 16);
   }
   /** Připomínka online check-inu jako událost (15 min v čase otevření), nebo null. */
   function checkinEvent(l) {
