@@ -56,14 +56,14 @@
 .smart-try{display:flex;gap:6px;overflow-x:auto;margin-top:10px;padding-bottom:2px;scrollbar-width:none;align-items:center}
 .smart-try::-webkit-scrollbar{display:none}
 .smart-try .st-lab{flex:none;font-size:12px;font-weight:700;color:rgba(255,255,255,.85)}
-.st-chip{flex:none;font:600 12.5px/1 inherit;color:#fff;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.28);border-radius:999px;padding:8px 12px;cursor:pointer;white-space:nowrap}
+.st-chip{flex:none;font-weight:600;font-size:12.5px;line-height:1;font-family:inherit;color:#fff;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.28);border-radius:999px;padding:8px 12px;cursor:pointer;white-space:nowrap}
 .st-chip:hover{background:rgba(255,255,255,.24)}
 .st-chip:disabled{opacity:.6}
 /* na fotce dne (světlá obloha, bílé domy) tmavé sklo – na světlém skle měl bílý text jen ~3,5 : 1 */
 .hero.ph .st-chip{background:rgba(10,14,30,.45)}
 .hero.ph .smart-try .st-lab{color:#fff}
 /* 🧳 druhá cesta z úvodu (celá dovolená): výraznější než příklady vět, ale pod hlavním „Najít lety“ */
-.hero-plan{display:inline-flex;align-items:center;gap:6px;margin-top:12px;max-width:100%;font:700 14px/1.25 inherit;color:#fff;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.4);border-radius:999px;padding:10px 16px;cursor:pointer;text-align:left}
+.hero-plan{display:inline-flex;align-items:center;gap:6px;margin-top:12px;max-width:100%;font-weight:700;font-size:14px;line-height:1.25;font-family:inherit;color:#fff;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.4);border-radius:999px;padding:10px 16px;cursor:pointer;text-align:left}
 .hero-plan:hover,.hero-plan:focus-visible{background:rgba(255,255,255,.26)}
 .hero.ph .hero-plan{background:rgba(10,14,30,.5)}
 .pi-dark{background:transparent;border:none;min-height:38px;padding:2px 0}

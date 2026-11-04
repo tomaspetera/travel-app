@@ -5168,8 +5168,9 @@
    * ✨ Zkus napsat: příklady vět pod hledáním na Přehledu (klepnutí = hledat) – podle ročního období (příští měsíc):
    * v létě k moři a na hory, v zimě za teplem a na lyže, jinak za teplem a k moři na jaře.
    */
-  // domov „📍 Moje poloha“ (geo:…|Moje poloha) do věty ne – podruhé ho nenajde a místo cesty přes víc měst by hledal tam a zpět
-  const homeWord = (h = S.home && S.home.from && S.home.from[0]) => (h && !/\|Moje poloha$/.test(h.id || '') ? String(h.label || '').replace(/\s*\(.*\)$/, '') : '');
+  // domov „📍 Moje poloha“ (geo:…|Moje poloha) do věty ne – podruhé ho nenajde a místo cesty přes víc měst by hledal tam a zpět;
+  // celá země (cc:CZ „Česko“) taky ne – „Česko → Řím → Barcelona → Česko“ by bylo hledání do Česka, ne cesta přes víc měst
+  const homeWord = (h = S.home && S.home.from && S.home.from[0]) => (h && !/\|Moje poloha$/.test(h.id || '') && !/^cc:/.test(h.id || '') ? String(h.label || '').replace(/\s*\(.*\)$/, '') : '');
   function tryList(t = today(), home = homeWord()) {
     const nm = (+t.slice(5, 7)) % 12, mn = MNS_IN[nm], summer = nm >= 4 && nm <= 8, hike = nm >= 5 && nm <= 8, snow = nm === 11 || nm <= 2;
     // před Vánoci (listopad – 20. 12.) i obojí svátky najednou – věta, kterou formulář sám nenastaví (přesná data ± 1 den);
@@ -5182,8 +5183,9 @@
       ...(home ? [`${home} → Řím → Barcelona → ${home}`] : [])];
   }
   // 🧳 karta „Naplánuj celou dovolenou“ na Přehledu (app.js renderPlanCard): věty, ze kterých se k letu poskládá celá
-  // cesta – týden na jednom místě, prodloužený víkend a s domovem i trasa přes dvě města (průvodce pak vede trasu podle letů)
-  const planExamples = (home = homeWord()) => ['Lisabon na týden', 'Řím na prodloužený víkend', ...(home ? [`${home} → Lisabon → Porto → ${home}`] : [])];
+  // cesta – prodloužený víkend, týden na jednom místě a dvě města s přejezdem (tam do Lisabonu, zpět z Porta – mezi nimi
+  // průvodce navrhne vlak; dřív let Lisabon → Porto, který low-cost aerolinky nelétají). Bez domova – věta platí odkudkoli.
+  const planExamples = () => ['Řím na prodloužený víkend', 'Barcelona na týden', 'Lisabon a zpět z Porta na týden'];
   /** Věta z příkladu (✨ Zkus napsat, 🧳 karta na Přehledu) jako napsaná do Kam: hledání podle ní z Odkud na Přehledu. */
   async function trySentence(text, b) {
     if (!window.Smart) return;
