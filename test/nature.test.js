@@ -251,6 +251,15 @@ test('Objevuj s horami: pěšky místo programu ve městě, okruh na celou oblas
   })();
 });
 
+test('nové místo: „Jiná trasa“ z předchozího místa neplatí – kolo i pěšky zase od první varianty', () => {
+  const ex = T.ex;
+  // varianty 0 a 1 vedou přes cíl (Sněžka), vyšší ne – přenesená varianta by na horu nevedla
+  Object.assign(ex.hike, { variant: 3 }); Object.assign(ex.bike, { variant: 7 });
+  T.setPlace({ label: 'Sněžka', lat: 50.736, lon: 15.7396, cc: 'CZ', nature: 'peak', km: 10 });
+  assert.deepEqual([ex.hike.variant, ex.bike.variant], [0, 0]);
+  Object.assign(ex, { mode: 'city', radius: 10, auto: null, place: null });
+});
+
 test('Pěšky u hor: druh a okruh oblasti do api/hike, start túry v kartě trasy a v plánovači; město beze změny', () => {
   // dotaz na server: jen u místa v přírodě (starší záznam bez km: pohoří a parky 20 km, jinak 10 km)
   assert.deepEqual(plain(T.hikeNature({ label: 'Sněžka', nature: 'peak', km: 10 })), { nature: 'peak', area: 10 });

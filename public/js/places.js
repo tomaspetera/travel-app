@@ -1350,6 +1350,9 @@
   function forget() {
     ex.listAll = false;
     ex.plan = null; ex.trips = {}; ex.bikeRoute = null; ex.trainRoute = null; ex.hikeRoute = null; ex.hikePlan = null; ex.hikeEx.clear(); ex.tripEx.clear(); ex.tripMust.clear();
+    // „Jiná trasa“ patřila předchozímu místu: nové začne první variantou (varianty 0 a 1 vedou přes horu, u vlaku
+    // první nádraží v pořadí – dřív Sněžka po třech „Jiná trasa“ v Brně na vrchol nevedla)
+    ex.bike.variant = 0; ex.hike.variant = 0;
     ex.cat = ''; ex.planState = null; ex.errs = {}; ex.loaded = null; ex.all = []; ex.items = []; ex.far = null; ex.country = null;
     for (const k of Object.keys(busy)) delete busy[k];
     redo.clear();
