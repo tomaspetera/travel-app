@@ -237,6 +237,11 @@ test('entry.json: povinné online formuláře k příletu (arrivalForm) – náz
     assert.ok(f.fromDeparture === undefined || (f.fromDeparture === true && f.hours > 0), `${at}: fromDeparture jen s hours`);
     assert.ok(f.free === undefined || f.free === true, `${at}: free`);
     for (const v of Object.values(f)) if (typeof v === 'string') assert.ok(!/[<>\u0000-\u001f]/.test(v), `${at}: HTML v datech formuláře`);
+    // poznámka a formulář si nesmí odporovat: lhůta z poznámky („do 3 dnů před příletem“, „72 h předem“) je v hours,
+    // „zdarma“ / „bezplatná“ ve free – jinak bublina lhůtu nebo „zdarma“ vynechá
+    const lhuty = [...r.notes.matchAll(/(\d+) (h|dny|dnů|dní) (?:před (?:příletem|příjezdem|cestou|letem|odletem)|předem)/g)].map((m) => (m[2] === 'h' ? +m[1] : m[1] * 24));
+    if (lhuty.length) assert.ok(lhuty.includes(f.hours), `${at}: lhůta v poznámce ${lhuty} h, ve formuláři ${f.hours}`);
+    if (/zdarma|bezplatn/i.test(r.notes)) assert.equal(f.free, true, `${at}: poznámka říká zdarma, formulář ne`);
   }
   assert.deepEqual(withForm.map((r) => r.iso2).sort(), ['BB', 'BN', 'DM', 'ID', 'IN', 'KH', 'KR', 'MU', 'MV', 'MY', 'NG', 'NZ', 'PG', 'PH', 'SG', 'TH', 'TT', 'TW', 'XK', 'ZA']);
   assert.deepEqual(plain(BY.TH.arrivalForm), { name: 'TDAC', full: 'Thailand Digital Arrival Card', url: 'https://tdac.immigration.go.th', hours: 72, free: true });
