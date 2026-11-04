@@ -46,6 +46,9 @@ export class TTLCache {
     const now = Date.now();
     if (now - this.swept >= SWEEP_MS) this.sweep(now);
     if (this.softBytes && now - this.memChecked >= MEM_CHECK_MS) this.checkMemory(now);
+    // Přepsaný klíč (obnovená data ubytování) by v Map zůstal na místě původního vložení – jako „nejstarší“ by ho
+    // strop vyhodil první, a při plné mezipaměti by kvůli němu zbytečně vypadla desetina ostatních. Proto napřed pryč.
+    this.map.delete(key);
     if (this.map.size >= this.max) {
       // Map drží pořadí vložení → smaž nejstarší desetinu.
       this.dropOldest(Math.ceil(this.max / 10));
