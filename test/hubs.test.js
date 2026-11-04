@@ -46,6 +46,23 @@ test('cíl = přestupní letiště v okolí (Mnichov): cesta do města tam i zp�
   assert.ok(all2.some((x) => x.out.from === 'PRG' && x.out.to === 'VIE'));
 });
 
+test('bez „návrat i na jiné letiště“: celá zpáteční letenka s návratem jinam (Kiwi) ve výpisu ani v kalendáři není', async () => {
+  // návrat do Prahy z Vídně je levnější – s open-jaw nejlevnější, bez něj vůbec
+  const pairs = [['PRG', 'BKK', 'PRG'], ['VIE', 'BKK', 'PRG']];
+  const kiwi = fakeKiwi(pairs);
+  const search0 = kiwi.search;
+  kiwi.search = async (a) => (await search0(a)).map((t) => (t.out.from === 'VIE' ? { ...t, flightCzk: 3000 } : t));
+  const q = { from: ['ap:PRG'], radiusKm: 100, to: ['ap:BKK'], dateFrom: ymdPlus(15), dateTo: ymdPlus(30), trip: 'return', nightsMin: 5, nightsMax: 9, kmRate: 0 };
+  const all = (r) => [...r.groups.flatMap((g) => g.options), ...r.top];
+  const on = await search(q, () => {}, { providers: [kiwi] });
+  assert.ok(all(on).some((t) => t.out.from === 'VIE' && t.back.to === 'PRG'), 's open-jaw nabídka z Vídně zpět do Prahy je');
+  assert.equal(on.calendar.out[0].cost, 3000);
+  const off = await search({ ...q, openJaw: false }, () => {}, { providers: [kiwi] });
+  assert.ok(all(off).length, 'nabídka tam i zpět z Prahy zůstává');
+  for (const t of all(off)) assert.ok(t.back.to === t.out.from && t.back.from === t.out.to, `${t.out.from}→${t.out.to}, zpět ${t.back.from}→${t.back.to}`);
+  assert.deepEqual(off.calendar.out.map((e) => [e.from, e.backTo, e.cost]), [['PRG', 'PRG', 4000]]);
+});
+
 test('kamkoliv: let mezi letišti v okruhu domova (Vídeň → Bratislava z cache) mezi cíli není', async () => {
   const d = ymdPlus(20), r = ymdPlus(25);
   const trip = (f, t) => makeTrip(makeLeg({ provider: 'travelpayouts', from: f, to: t, dep: `${d}T09:00:00`, czk: 900, price: 900, currency: 'CZK' }),

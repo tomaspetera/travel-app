@@ -1217,7 +1217,8 @@ export async function search(raw, emit = () => {}, opts = {}) {
         tr.push(...bestRoundTrips(warmOut, backs, rankGround, { ...constraints, limit: 300, perDestLimit: 120, perDay: 3, calendar: maps, ...dayOpts }));
         // Celé zpáteční letenky (Travelpayouts, dálkové hledání Kiwi) patří do kalendáře taky.
         for (const t of tr) {
-          if (!t.back || !t.combined || !warmLeg(t.out) || !depOk(t.out) || !live(t.out) || (car && t.back.to !== t.out.from)) continue;
+          if (!t.back || !t.combined || !warmLeg(t.out) || !depOk(t.out) || !live(t.out) || (car && t.back.to !== t.out.from)
+            || (!q.openJaw && !sameAirports(t))) continue;
           const n = daysBetween(t.out.date, t.back.date);
           const cost = t.flightCzk + legBagCzk(t.out, q.bags).czk + legBagCzk(t.back, q.bags).czk;
           const entry = { cost, from: t.out.from, to: t.out.to, backTo: t.back.to, outDate: t.out.date, backDate: t.back.date, provider: t.provider };
@@ -1842,6 +1843,8 @@ function shareDepartures(legs, flat, provider, carrier) {
 // Letiště domova, ke kterému nabídka patří: odlet a u zpáteční i návrat na totéž letiště; s návratem jinam (open-jaw)
 // k žádnému – filtr letišť ve výpisu ji schová u obou a čas cesty na letiště by „tam i zpět“ neplatil.
 const homeOf = (t) => (!t.back || t.back.to === t.out.from ? t.out.from : null);
+// Zpáteční cesta týmiž letišti tam i zpět (bez open-jaw doma i v cíli)
+const sameAirports = (t) => t.back.to === t.out.from && t.back.from === t.out.to;
 
 /**
  * „Odkud se vyplatí letět“: nejlevnější letenky na osobu (perPersonCzk) a počet nabídek podle letiště odletu
@@ -2029,6 +2032,9 @@ async function buildGroups(trips, { q, originSet, groundOf, park = null, arrOf =
     }
     // autem se vracíš tam, kde auto parkuje: zpáteční letenka s návratem na jiné letiště do výpisu nepatří (do statistiky cen ano)
     if (park && t.back && t.back.to !== t.out.from) continue;
+    // bez „návrat i na jiné letiště“ jen stejná letiště tam i zpět – i u celých zpátečních letenek (Kiwi z víc letišť
+    // najednou vrací i návrat jinam), optimalizátor takové kombinace sám neskládá
+    if (!q.openJaw && t.back && !sameAirports(t)) continue;
     if (q.maxPrice && t.perPersonCzk > q.maxPrice) {
       if (!cell) hiddenIds.maxPrice.add(t.id);
       continue;
