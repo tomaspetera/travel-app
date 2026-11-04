@@ -163,8 +163,8 @@ test('Sloučit: opakovaný přenos nic nezdvojí; Nahradit: jen data z odkazu, d
   assert.deepEqual(plain(r.home), home, 'odkaz domov nemá – zůstane ten ze zařízení');
   assert.deepEqual(plain(B.replace(cur, { ...inc, home: { from: [{ ...BRQ, id: 'ap:PRG', iata: 'PRG', label: 'Praha' }], radius: 100, adults: 1 } }, { watchKey: wk, deps }).home.from.map((p) => p.iata)), ['PRG']);
   // co by Nahradit smazalo nebo přepsalo (potvrzovací okno)
-  assert.deepEqual(plain(B.lost(cur, inc, { watchKey: wk, deps })), { trips: 1, changed: 1, watch: 1, pins: 1, dests: 2, visited: 2 });
-  assert.deepEqual(plain(B.lost(cur, B.parse(B.pack(mine), deps), { watchKey: wk, deps })), { trips: 0, changed: 0, watch: 0, pins: 0, dests: 0, visited: 0 }, 'vlastní odkaz nic nesmaže');
+  assert.deepEqual(plain(B.lost(cur, inc, { watchKey: wk, deps })), { trips: 1, changed: 1, refs: 0, watch: 1, pins: 1, dests: 2, visited: 2 });
+  assert.deepEqual(plain(B.lost(cur, B.parse(B.pack(mine), deps), { watchKey: wk, deps })), { trips: 0, changed: 0, refs: 0, watch: 0, pins: 0, dests: 0, visited: 0 }, 'vlastní odkaz nic nesmaže');
   // vstupní pole beze změny
   assert.equal(mine.trips.length, 2);
   assert.equal(inc.trips.length, 2);
@@ -177,6 +177,31 @@ test('Nahradit: stejná cesta nebo hledání v odkazu dvakrát jen jednou; limit
   assert.equal(r.trips.length, 1);
   assert.equal(r.watch.length, B.WATCH_CAP);
   assert.equal(new Set(r.watch.map(wk)).size, r.watch.length);
+});
+
+test('Nahradit: kódy rezervací ze zařízení, které stejná cesta v odkazu nemá, potvrzení hlásí (nejsou v podpisu cesty)', () => {
+  const refs = [{ co: 'Ryanair', kod: 'ABC123', pozn: '' }];
+  const rome = (o) => plannerOnly({ name: 'Řím', dest: 'Řím', iso: 'IT', start: '2026-12-01', end: '2026-12-04', pid: 'bbbbbbbb2', ...o });
+  const mine = device({ trips: [{ ...plannerOnly(), pid: 'aaaaaaaa1', refs }, rome({ refs })] });
+  const other = device({ trips: [{ ...plannerOnly(), pid: 'aaaaaaaa1' }, rome({ refs: [{ co: 'ryanair', kod: 'abc123', pozn: 'jinak' }] })] });
+  const inc = B.parse(B.pack(other), deps), cur = { ...mine, own: {} };
+  const ls = B.lost(cur, inc, { watchKey: wk, deps });
+  assert.equal(ls.trips, 0);
+  assert.equal(ls.changed, 0, 'plán stejný – cesta se jako změněná nehlásí');
+  assert.equal(ls.refs, 1, 'Lisabon kód ztratí; Řím má v odkazu tentýž (velikost písmen nevadí)');
+  assert.equal(B.replace(cur, inc, { watchKey: wk, deps }).trips[0].refs, undefined, 'Nahradit opravdu dá cestu z odkazu');
+});
+
+test('odkaz, který by druhé zařízení po rozbalení odmítlo (víc než ShareLink.MAX_JSON), se nenabídne ani jako QR – jen soubor', async () => {
+  const json = JSON.stringify({ app: 'atlas', v: B.V, data: { trips: [], notes: 'a'.repeat(ShareLink.MAX_JSON) } });
+  const url = `${ORIGIN}/#${T.KIND}=${await ShareLink.pack(json)}`;
+  assert.ok(T.payloadOf(url).length <= T.MAX_LINK, 'zkomprimovaný odkaz je krátký');
+  await assert.rejects(T.read(T.payloadOf(url), deps), /moc velký/, 'druhé zařízení ho nepřijme');
+  const f = T.fit(url, { json });
+  assert.equal(f.link, false);
+  assert.equal(f.qr, null);
+  const { json: ok, url: okUrl } = await linkOf(light());
+  assert.equal(T.fit(okUrl, { json: ok }).link, true);
 });
 
 test('počty a text „Přenese se“: české tvary, prázdné zařízení', () => {
