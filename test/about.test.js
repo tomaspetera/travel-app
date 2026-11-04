@@ -7,7 +7,7 @@ import vm from 'node:vm';
 
 process.env.ATLAS_MOCK = '1';
 const { createServer } = await import('../server/index.js');
-const { config, cleanEmail } = await import('../server/config.js');
+const { config, cleanEmail, cleanPayUrl, cleanOperator } = await import('../server/config.js');
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const ctx = { console };
@@ -81,4 +81,57 @@ test('soukromí podle kódu: v aplikaci žádné cookies, analytika ani měřic�
     assert.doesNotMatch(src, /mailto:[\w.+-]+@/i, `${f}: žádná adresa v kódu`);
   }
   assert.doesNotMatch(read('server/index.js'), /set-cookie/i, 'server cookies nenastavuje');
+});
+
+test('/api/health: 💛 odkaz na příspěvek a provozovatel jen s SUPPORT_URL a OPERATOR', async () => {
+  const prev = [config.supportUrl, config.operator];
+  try {
+    config.supportUrl = ''; config.operator = '';
+    const j = await (await fetch(`${base}/api/health`)).json();
+    assert.equal('support' in j, false);
+    assert.equal('operator' in j, false);
+    config.supportUrl = 'https://buy.stripe.com/test_7sI4hY0abc'; config.operator = 'Jan Novák, IČO 12345678, Praha';
+    const k = await (await fetch(`${base}/api/health`)).json();
+    assert.deepEqual(k.support, { url: 'https://buy.stripe.com/test_7sI4hY0abc' });
+    assert.equal(k.operator, 'Jan Novák, IČO 12345678, Praha');
+  } finally {
+    [config.supportUrl, config.operator] = prev;
+  }
+});
+
+test('SUPPORT_URL jen platební odkaz Stripe; OPERATOR jeden řádek textu do 200 znaků', () => {
+  assert.equal(cleanPayUrl(' https://buy.stripe.com/14k5ldAbC9xy '), 'https://buy.stripe.com/14k5ldAbC9xy');
+  for (const bad of ['', undefined, 'http://buy.stripe.com/abcd', 'https://buy.stripe.com.evil.cz/abcd', 'https://evil.cz/buy.stripe.com/abcd', 'https://buy.stripe.com/abcd?x=1', 'https://buy.stripe.com/ab', 'javascript:alert(1)', 'https://buy.stripe.com/a"b<c']) {
+    assert.equal(cleanPayUrl(bad), '', String(bad));
+  }
+  assert.equal(cleanOperator('  Jan  Novák,\r\nIČO 12345678\u202e '), 'Jan Novák, IČO 12345678');
+  assert.equal(cleanOperator('x'.repeat(300)).length, 200);
+  assert.equal(cleanOperator(undefined), '');
+});
+
+test('okno: 💛 Podpořit ATLAS a provozovatel jen s platnými údaji; text se escapuje', () => {
+  const none = A.html({ version: 'v' });
+  assert.doesNotMatch(none, /abSupport|Provozovatel|Příspěvek/);
+  const html = A.html({ version: 'v', support: 'https://buy.stripe.com/test_7sI4hY0abc', operator: 'Jan Novák, IČO 12345678' });
+  assert.match(html, /<a class="btn" id="abSupport" href="https:\/\/buy\.stripe\.com\/test_7sI4hY0abc" target="_blank" rel="noopener">💛 Podpořit ATLAS ↗<\/a>/);
+  assert.match(html, /zaplatíš kartou na stránce Stripe/);
+  assert.match(html, /<b>Příspěvek<\/b> \(💛 Podpořit ATLAS\): platíš na stránce Stripe/, 'v soukromí, kdo platbu zpracovává');
+  assert.match(html, /<h4 class="ab-h">Provozovatel<\/h4><p style="font-size:14px" id="abOp">Jan Novák, IČO 12345678<\/p>/);
+  for (const bad of ['https://evil.cz/x', 'javascript:alert(1)', 42, null]) {
+    assert.equal(A.okPay(bad), false, String(bad));
+    assert.doesNotMatch(A.html({ version: 'v', support: bad }), /abSupport/);
+  }
+  assert.match(A.html({ version: 'v', operator: '<img src=x onerror=alert(1)>' }), /id="abOp">&lt;img src=x onerror=alert\(1\)&gt;<\/p>/);
+  // v kódu žádný platební odkaz natvrdo – jen z proměnné prostředí
+  for (const f of ['public/js/about.js', 'public/js/trip.js', 'public/js/app.js', 'public/index.html']) {
+    // (kontrola v about.js je regulární výraz se zpětnými lomítky – skutečná adresa by byla https://buy.stripe.com/xxx)
+    assert.doesNotMatch(read(f), /https:\/\/buy\.stripe\.com\/[A-Za-z0-9]/, f);
+  }
+});
+
+test('shrnutí cesty: věta 💛 Podpořit ATLAS jen s odkazem z /api/health (ověřeným About.okPay)', () => {
+  const trip = read('public/js/trip.js');
+  assert.match(trip, /<p class="faint sum-support" id="sumSupport" hidden><\/p>/);
+  assert.match(trip, /if \(!el \|\| !About\.okPay\(url\)\) return;/);
+  assert.match(trip, /<a href="\$\{esc\(url\)\}" target="_blank" rel="noopener">💛 Podpořit ATLAS ↗<\/a>/);
 });

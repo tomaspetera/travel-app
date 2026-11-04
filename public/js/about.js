@@ -3,11 +3,14 @@
    server nemá účty ani cookies a nic nezapisuje na disk; ukládá jen cesty sdílené krátkým odkazem (server/lib/
    shortlinks.js – Upstash, 400 dní). test/about.test.js hlídá, že se to nezmění potichu.
    Tlačítko 💬 Napsat nám je jen s adresou z /api/health (feedback.email = proměnná FEEDBACK_EMAIL na serveru) –
-   v kódu žádná adresa není. */
+   v kódu žádná adresa není. Stejně 💛 Podpořit ATLAS (support.url = SUPPORT_URL, platební odkaz Stripe) a provozovatel
+   (operator = OPERATOR). */
 (function () {
   const h = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   // stejné pravidlo jako server (config.js cleanEmail) – cizí hodnota nesmí do mailto přidat adresáty ani hlavičky
   const okEmail = v => typeof v === 'string' && /^[\w.+-]{1,64}@[a-z0-9-]+(\.[a-z0-9-]+)*\.[a-z]{2,24}$/i.test(v);
+  // 💛 Podpořit ATLAS: jen platební odkaz Stripe (config.js cleanPayUrl) – u tlačítka stojí, že platbu zpracovává Stripe
+  const okPay = v => typeof v === 'string' && /^https:\/\/buy\.stripe\.com\/[A-Za-z0-9_-]{4,80}$/.test(v);
 
   // Odkud jsou data – podle server/providers, server/lib a README (Odkud bere ceny, Data a licence).
   const SOURCES = [
@@ -31,9 +34,11 @@
   }
 
   /** Obsah okna (čistá funkce – test/about.test.js). email = feedback.email z /api/health (jinak bez tlačítka),
+      support = support.url (💛 Podpořit ATLAS), operator = provozovatel – obojí z /api/health, jinak se neukáže;
       backup = je k dispozici 💾 Přenos a záloha. */
-  function html({ version = '', email = null, screen = '', backup = true } = {}) {
-    const mail = mailto(email, version, screen);
+  function html({ version = '', email = null, screen = '', backup = true, support = null, operator = '' } = {}) {
+    const mail = mailto(email, version, screen), pay = okPay(support) ? support : null;
+    const op = typeof operator === 'string' ? operator.trim().slice(0, 200) : '';
     return `<div class="modal-body about-modal">
       <h3 style="margin-bottom:8px">ℹ️ O aplikaci a soukromí</h3>
       <p style="font-size:14px">ATLAS najde levné letenky ze všech letišť ve tvém okolí a poskládá z nich celou cestu – ubytování, dopravu na letiště i na místě, program a shrnutí s odkazy k rezervaci. Je zdarma, bez účtu a bez registrace. Letenky ani hotely sám neprodává: rezervuješ vždy přímo u aerolinky nebo partnera.</p>
@@ -46,13 +51,18 @@
         <li><b>Co se na server posílá</b> – jen to, co je potřeba k odpovědi: u hledání letů odkud, kam, termín, počet cestujících, zavazadla a cesta na letiště (i 🏠 vlastní ceny); u ubytování místo, termín a počet hostů; v Objevuj místo a volby plánu; polohu, jen když sám použiješ 📍 Moje poloha nebo Moje okolí. Server odpovědi chvíli drží v mezipaměti (bez vazby na tebe) a IP adresu si pamatuje 10 minut kvůli limitu hledání.</li>
         <li><b>Přímo z prohlížeče</b> se načítá počasí a hledání míst (Open-Meteo), kurzy v okně země (open.er-api.com), písmo (Google Fonts), mapy (OpenFreeMap, OpenStreetMap) a fotky (Unsplash, Pexels, Wikimedia) – tyhle služby vidí tvou IP adresu jako u každého webu.</li>
         <li><b>Krátký odkaz na sdílenou cestu</b> (atlas…/c/…): když klepneš na Poslat kamarádům nebo Sdílet plán, cesta se uloží na serveru na 400 dní, aby šel odkaz otevřít – bez jména a kódů rezervací, nic dalšího se k němu neukládá. Bez krátkého odkazu (a odkaz 📲 přenosu) nese data část adresy za #, kterou prohlížeč na server neposílá. Po klepnutí na odkaz k rezervaci jsi na webu partnera a platí jeho pravidla.</li>
+        ${pay ? '<li><b>Příspěvek</b> (💛 Podpořit ATLAS): platíš na stránce Stripe, která platbu zpracovává – aplikace ani server ATLASu údaje o platbě a kartě nedostanou.</li>' : ''}
       </ul>
       ${backup ? '<button type="button" class="btn ghost" id="abBk">💾 Přenos a záloha <span class="faint">PC ↔ telefon</span></button>' : ''}
       <h4 class="ab-h">Jak se řadí výsledky</h4>
       <p style="font-size:14px">Pořadí určuje jen zvolené řazení (cena, termín, vzdálenost, dny dovolené…) – <b>žádná aerolinka ani partner si za lepší pozici neplatí</b>. Některé odkazy (Aviasales, Booking.com, DiscoverCars) můžou být partnerské a jsou označené <span class="ad-tag">reklama</span>: při nákupu přes ně může ATLAS dostat provizi, cenu ani pořadí to nemění.</p>
       <h4 class="ab-h">Ceny jsou orientační</h4>
       <p style="font-size:14px">Aerolinky a hotely ceny mění i během minut a ceny z mezipaměti (⏱) můžou být starší. Platí cena, kterou ukáže web prodejce před zaplacením – <b>vždy ji ověř u partnera</b>.</p>
+      ${pay ? `<h4 class="ab-h">Podpoř ATLAS</h4>
+      <p style="font-size:14px">ATLAS je zdarma a bez reklam v pořadí výsledků. Jestli ti pomohl, můžeš poslat dobrovolný příspěvek – částku si zvolíš, zaplatíš kartou na stránce Stripe.</p>
+      <a class="btn" id="abSupport" href="${h(pay)}" target="_blank" rel="noopener">💛 Podpořit ATLAS ↗</a>` : ''}
       ${mail ? `<a class="btn primary" id="abMail" href="${h(mail)}">💬 Napsat nám</a>` : ''}
+      ${op ? `<h4 class="ab-h">Provozovatel</h4><p style="font-size:14px" id="abOp">${h(op)}</p>` : ''}
       <p class="faint" style="font-size:12.5px;margin-top:12px">Verze ${h(version || '?')}</p>
     </div>`;
   }
@@ -66,25 +76,25 @@
 
   function open() {
     const version = versionNow(), screen = screenNow();
-    const paint = email => {
-      modalOpen(html({ version, email, screen, backup: Boolean(window.Backup) }));
+    const paint = (o = {}) => {
+      modalOpen(html({ version, screen, backup: Boolean(window.Backup), ...o }));
       const bk = document.querySelector('#abBk');
       if (bk) bk.onclick = () => { modalClose(); Backup.open(); };
     };
-    paint(null);
+    paint();
     document.querySelector('#modal').scrollTop = 0; // z ⋯ Další (okno už otevřené) začít nahoře
-    // adresa pro 💬 z /api/health (stejný dotaz, který app.js stahuje při startu) – okno se překreslí, jen když je
-    // pořád otevřené a adresa opravdu je
+    // adresa pro 💬, odkaz 💛 a provozovatel z /api/health (stejný dotaz, který app.js stahuje při startu) – okno se
+    // překreslí, jen když je pořád otevřené a aspoň něco z toho opravdu je
     if (!window.Flights || !Flights.warm) return;
     Flights.warm().then(hl => {
-      const email = hl && hl.feedback && hl.feedback.email;
+      const o = { email: hl && hl.feedback && hl.feedback.email, support: hl && hl.support && hl.support.url, operator: hl && typeof hl.operator === 'string' ? hl.operator : '' };
       const box = document.querySelector('#modal .about-modal');
-      if (okEmail(email) && box && document.querySelector('#modalBg.show')) {
+      if ((okEmail(o.email) || okPay(o.support) || o.operator.trim()) && box && document.querySelector('#modalBg.show')) {
         const top = document.querySelector('#modal').scrollTop;
-        paint(email);
+        paint(o);
         document.querySelector('#modal').scrollTop = top;
       }
-    }, () => { /* bez serveru zůstane okno bez tlačítka */ });
+    }, () => { /* bez serveru zůstane okno bez tlačítek */ });
   }
 
   /** Položka v ⋯ Další (app.js openMore). */
@@ -102,5 +112,5 @@
     }
   }
 
-  window.About = { open, html, mailto, subject, addToMenu, SOURCES };
+  window.About = { open, html, mailto, subject, addToMenu, okPay, SOURCES };
 })();

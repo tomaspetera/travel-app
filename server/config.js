@@ -17,6 +17,12 @@ const env = process.env;
 const num = (v, d) => (Number.isFinite(Number(v)) && v !== '' && v != null ? Number(v) : d);
 // Jedna obyčejná adresa (bez mezer, čárek a znaků, které by v mailto: odkazu přidaly další adresáty nebo hlavičky).
 export const cleanEmail = (v) => { const s = String(v || '').trim(); return /^[\w.+-]{1,64}@[a-z0-9-]+(\.[a-z0-9-]+)*\.[a-z]{2,24}$/i.test(s) ? s : ''; };
+// Odkaz na platbu pro 💛 Podpořit ATLAS (SUPPORT_URL): jen platební odkaz Stripe (buy.stripe.com/…, Payment Link) bez
+// ?dotazu – aplikace u něj píše, že platbu zpracovává Stripe; cokoli jiného → '' (tlačítko se neukáže).
+export const cleanPayUrl = (v) => { const s = String(v || '').trim(); return /^https:\/\/buy\.stripe\.com\/[A-Za-z0-9_-]{4,80}$/.test(s) ? s : ''; };
+// Provozovatel do ℹ️ O aplikaci (OPERATOR, např. „Jan Novák, IČO 12345678, Praha“): jeden řádek obyčejného textu, nejvýš
+// 200 znaků – bez řídicích znaků a zalomení; v aplikaci se vypíše jako text (escapovaný).
+export const cleanOperator = (v) => String(v || '').replace(/[\u0000-\u001f\u007f\u200b-\u200f\u2028-\u202e\u2066-\u2069]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 200);
 // Veřejná adresa webu (PUBLIC_URL): http(s) bez lomítka na konci, bez ?dotazu a #; cokoli jiného → '' (pak výchozí).
 export const cleanSiteUrl = (v) => {
   try {
@@ -116,6 +122,11 @@ export const config = {
   // 💬 Napsat nám v ℹ️ O aplikaci: kam vede mailto. Bez adresy (nebo s neplatnou) se tlačítko neukáže – adresa
   // jen v proměnné prostředí, v kódu žádná.
   feedbackEmail: cleanEmail(env.FEEDBACK_EMAIL),
+  // 💛 Podpořit ATLAS v ℹ️ O aplikaci a ve shrnutí cesty: dobrovolný příspěvek přes platební odkaz Stripe (částku si člověk
+  // zvolí na stránce Stripe). Server platby nezpracovává ani nevidí; bez odkazu se tlačítko neukáže.
+  supportUrl: cleanPayUrl(env.SUPPORT_URL),
+  // Provozovatel v ℹ️ O aplikaci (komerční web ho musí uvádět): jen z proměnné prostředí – osobní údaje v kódu nejsou.
+  operator: cleanOperator(env.OPERATOR),
   // Veřejná adresa webu pro kanonickou adresu, náhledy odkazů a sitemap.xml (server/lib/seo.js). Až bude vlastní doména
   // (.cz), stačí PUBLIC_URL na Renderu; bez ní výchozí z server/brand.js.
   publicUrl: cleanSiteUrl(env.PUBLIC_URL) || BRAND.url,
