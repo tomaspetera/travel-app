@@ -1358,6 +1358,16 @@ test('letiště na ostrově: hotely kolem místa z tabulky dopravy do města (Te
   assert.equal(normalizeStayQuery({ city: 'Memmingen', iata: 'FMM', lat: 47.9881, lon: 10.2382, checkin: ymdPlus(30), checkout: ymdPlus(33) }).lat, null);
 });
 
+test('normalizeStayQuery: přelom měsíce a roku platí, neexistující den (29. 2. mimo přestupný rok, 13. měsíc) ne', () => {
+  const stay = (checkin, checkout) => normalizeStayQuery({ city: 'Praha', checkin, checkout });
+  assert.equal(stay('2027-02-27', '2027-03-02').nights, 3, 'přelom února a března');
+  assert.equal(stay('2026-12-30', '2027-01-02').nights, 3, 'přelom roku');
+  assert.equal(stay('2028-02-28', '2028-03-01').nights, 2, 'přestupný rok');
+  for (const [a, b] of [['2027-02-29', '2027-03-02'], ['2027-02-27', '2027-02-30'], ['2027-13-01', '2027-13-03'], ['2027-04-31', '2027-05-02']]) {
+    assert.throws(() => stay(a, b), (e) => e.status === 400 && /Neplatné datum/.test(e.message), `${a} → ${b}`);
+  }
+});
+
 test('malé místo bez cen z TripAdvisoru: ubytování z OpenStreetMap jde vybrat bez ověřování volna, cenu doplníš ručně', async () => {
   const at = (dLat, dLon) => ({ lat: String(PRAGUE.lat + dLat), lon: String(PRAGUE.lon + dLon) });
   const rows = [
