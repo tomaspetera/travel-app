@@ -111,6 +111,11 @@ test('classifyText: kategorie z popisu, nádraží/ulice/školy pryč', async ()
   assert.equal(classifyText('národní park v Chorvatsku'), 'nature');
   assert.equal(classifyText('Pražský hrad'), 'castle');
   assert.equal(classifyText('městský park'), 'park');
+  // „metro“ jen jako slovo (záloha přes Wikipedii třídí i podle názvu): Metropolitan Museum ani katedrála nejsou metro
+  assert.equal(classifyText('art museum in New York City Metropolitan Museum of Art'), 'museum');
+  assert.equal(classifyText('cathedral in Liverpool Liverpool Metropolitan Cathedral'), 'church');
+  assert.equal(classifyText('metro station in Lisbon'), null);
+  assert.equal(classifyText('car park in Lisbon'), null, 'parkoviště není park');
 });
 
 test('findPlaces: při výpadku Wikidata SPARQL použije Wikipedia geosearch + počty jazykových verzí', async () => {
@@ -137,6 +142,9 @@ test('findPlaces: při výpadku Wikidata SPARQL použije Wikipedia geosearch + p
     assert.equal(hrad.category, 'castle');
     assert.equal(hrad.sitelinks, 80);
     assert.ok(hrad.score > items.find((p) => p.id === 'Q2').score);
+    // jazyk popisu i bez úvodu článku: anglický popis aplikace označí „anglicky“
+    assert.equal(hrad.descLang, 'cs');
+    assert.equal(items.find((p) => p.id === 'Q2').descLang, 'en');
   } finally {
     stub.restore();
   }

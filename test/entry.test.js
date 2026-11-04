@@ -602,6 +602,21 @@ test('countries.json: hlavní města i česky (capCs, jen když se liší), angl
   for (const c of COUNTRIES) if ('capCs' in c) assert.ok(typeof c.capCs === 'string' && c.capCs && c.capCs !== c.cap, c.iso2);
 });
 
+// Kontrola textů 11/2026: tykání jako v celé aplikaci („ověř“, „nejezdi“, ne „ověřte“, „nejezděte“), české uvozovky, lhůta příletové karty
+// podle pole hours („nejdříve 72 h před příletem“, ne „v 72 h“) a „údaj MZV je zastaralý“ místo „MZV je zastaralé“
+test('entry.json: texty bez vykání a rovných uvozovek, lhůta formuláře jako arrivalForm.hours', () => {
+  for (const e of ENTRY.countries) {
+    for (const k of ['notes', 'passportValidity', 'vaccinesRequired', 'vaccinesRecommended']) {
+      assert.doesNotMatch(e[k] || '', /\p{L}+(ejte|ujte|ňte|ěte|ďte|ijte)(?!\p{L})|(?<!\p{L})'|'(?!\p{L})/u, `${e.iso2}: ${k}`);
+    }
+  }
+  const by = Object.fromEntries(ENTRY.countries.map((e) => [e.iso2, e]));
+  assert.match(by.IN.notes, /nejdříve 72 h před příletem/);
+  assert.equal(by.IN.arrivalForm.hours, 72);
+  assert.match(by.GY.notes, /Údaj MZV je zastaralý\./);
+  assert.match(by.SB.notes, /„Mutual Exemption“.*Ověř\.$/);
+});
+
 test('režim s datem konce: po validUntil čip „ověř vstup“ místo „bez víza“ (over)', () => {
   const r = { validUntil: '2026-12-31' };
   assert.equal(Entry.over(r, '2026-12-31'), false);

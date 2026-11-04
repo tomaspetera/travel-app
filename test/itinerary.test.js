@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { planItinerary, visitMinutes, keepOf, dayCapacities } from '../server/lib/itinerary.js';
+import { planItinerary, visitMinutes, keepOf, dayCapacities, dayTimeline } from '../server/lib/itinerary.js';
 import { haversineKm } from '../server/lib/geo.js';
 import { LIS_PLACES, PRA_PLACES } from './fixtures/wikidata.js';
 
@@ -260,4 +260,33 @@ test('dayCapacities: první den od 9:00 jen s příletem do 7:30 (Objevuj posíl
   const pl = readFileSync(new URL('../public/js/places.js', import.meta.url), 'utf8');
   // (u místa tvé cesty časy příletu / odletu z ní – tripTimes)
   assert.match(pl, /makePlan\(st, p, \{ start: ex\.start, end: plusDays\(ex\.start, ex\.days - 1\), arrivalTime: '07:30', departureTime: null, \.\.\.planTimes\(p\) \}/);
+});
+
+test('s dětmi: celodenní výlet i přes kratší den (o 15 %), připnutý bez falešného „pobyt je krátký“', () => {
+  const c = { lat: 41.9, lon: 12.5 };
+  const city = Array.from({ length: 40 }, (_, i) => ({ id: `Q${i}`, name: `Místo ${i}`, lat: c.lat + (i % 8) * 0.003, lon: c.lon + Math.floor(i / 8) * 0.003, score: 80 - i, sitelinks: 60 - i, category: ['museum', 'church', 'square', 'park', 'viewpoint'][i % 5] }));
+  const trip = { id: 'QT', name: 'Tivoli', lat: 41.96, lon: 12.8, score: 1080, sitelinks: 90, category: 'daytrip', pinned: true };
+  for (const kids of [false, true]) {
+    const plan = planItinerary([...city, trip], { center: c, start: '2026-11-10', end: '2026-11-16', arrivalTime: '08:00', departureTime: '21:00', kids });
+    assert.ok(plan.days.some((d) => d.kind === 'daytrip' && d.items[0]?.id === 'QT'), `kids ${kids}: výlet v programu`);
+    assert.deepEqual(plan.warnings, [], `kids ${kids}`);
+  }
+});
+
+test('den bez programu: výlet do okolí jen z míst, která do programu smějí (s dětmi ne erotické muzeum, ne národní park kolem)', () => {
+  const c = { lat: 50.73, lon: 15.6 };
+  const church = { id: 'Q1', name: 'Kostel', lat: c.lat, lon: c.lon + 0.001, score: 40, sitelinks: 20, category: 'church' };
+  const adult = { id: 'Q2', name: 'Erotic Museum', lat: c.lat + 0.06, lon: c.lon, score: 60, sitelinks: 30, category: 'museum' };
+  const np = { id: 'Q3', name: 'Krkonošský národní park', lat: c.lat + 0.04, lon: c.lon, score: 90, sitelinks: 60, category: 'nature' };
+  const opts = { center: c, start: '2026-11-10', end: '2026-11-12', arrivalTime: '08:00', departureTime: '21:00' };
+  const ids = (plan) => plan.days.flatMap((d) => d.items.map((p) => p.id));
+  assert.ok(!ids(planItinerary([church, adult], { ...opts, kids: true })).includes('Q2'), 'erotické muzeum s dětmi');
+  assert.ok(!ids(planItinerary([church, np], opts)).includes('Q3'), 'národní park, ve kterém program je');
+  assert.ok(ids(planItinerary([church, adult], opts)).includes('Q2'), 'bez dětí výlet zůstane');
+});
+
+test('dayTimeline: ráno začatý den s dlouhou prohlídkou kolem 11:00 má oběd (ne celý den bez pauzy)', () => {
+  const at = (visitMin) => ({ lat: 41.9, lon: 12.5, visitMin });
+  const tl = dayTimeline([at(118), at(240), at(30), at(60)], { start: { lat: 41.9, lon: 12.5 }, from: 9 * 60 });
+  assert.ok(tl.lunch >= 0 && tl.lunchAt <= 14 * 60 + 45, JSON.stringify(tl));
 });

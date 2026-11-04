@@ -51,6 +51,26 @@ test('smazané datum neslije program do jednoho dne (dřív návrat prázdný = 
   assert.match(ed, /const nd = start \? shiftDays\(t\.days, t\.start, start, end\) : t\.days \|\| \{\};/);
 });
 
+test('nový odjezd posune i návrat (dřív návrat = odjezd a celý program se slil do jednoho dne)', () => {
+  const fe = src.match(/function shiftEnd\(oldStart, end, start\) \{[\s\S]*?\n\}/);
+  const shiftEnd = new Function('okYmd', `${fe[0]}; return shiftEnd;`)(okYmd);
+  // 10.–15. 12. → odjezd 20. 12.: návrat 25. 12., program 10., 12., 15. → 20., 22., 25. (ne vše na 20. 12.)
+  assert.equal(shiftEnd('2026-12-10', '2026-12-15', '2026-12-20'), '2026-12-25');
+  const days = { '2026-12-10': ['Koloseum'], '2026-12-12': ['Vatikán'], '2026-12-15': ['odlet'] };
+  assert.deepEqual(shiftDays(days, '2026-12-10', '2026-12-20', shiftEnd('2026-12-10', '2026-12-15', '2026-12-20')),
+    { '2026-12-20': ['Koloseum'], '2026-12-22': ['Vatikán'], '2026-12-25': ['odlet'] });
+  // dřív i přes přelom roku
+  assert.equal(shiftEnd('2026-12-28', '2027-01-02', '2026-12-20'), '2026-12-25');
+  assert.equal(shiftEnd('2026-12-28', '2027-01-02', '2027-01-05'), '2027-01-10');
+  // bez původního odjezdu nebo návratu: návrat před odjezdem jen srovnat, prázdný nechat
+  assert.equal(shiftEnd('', '2026-12-15', '2026-12-20'), '2026-12-20');
+  assert.equal(shiftEnd('', '2026-12-25', '2026-12-20'), '2026-12-25');
+  assert.equal(shiftEnd('2026-12-10', '', '2026-12-20'), '');
+  assert.equal(shiftEnd('2026-12-10', '2026-12-15', ''), '2026-12-15', 'smazaný odjezd návrat nemění');
+  const ed = src.match(/function editTrip\(i\) \{[\s\S]*?\n\}/)[0];
+  assert.match(ed, /en\.value = shiftEnd\(prev, en\.value, v\); en\.min = v; if \(okYmd\(v\)\) prev = v;/);
+});
+
 test('termín s programem nejde smazat (aktivity mimo termín by nebyly vidět a záloha i odkaz by je zahodily)', () => {
   const ed = src.match(/function editTrip\(i\) \{[\s\S]*?\n\}/)[0];
   // kontrola až po posunu programu: odjezd 1. → 10. 12. bez návratu s aktivitami 1., 3., 5. 12. → 10., 12., 14. 12. – nejde;

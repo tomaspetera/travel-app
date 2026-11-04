@@ -276,6 +276,14 @@ export async function routeTransfers(pairs, { route = driveRoute, deadlineMs = 9
     if (got.has(key)) continue;
     const hit = cache.get(key);
     if (hit) { got.set(key, hit.fail ? null : hit); continue; }
+    // Trasa z minulého přepočtu se ještě počítá na pozadí: počkat na ni – není nová (nebere rozpočet ani limit na IP),
+    // jinak by ji vyčerpaný limit odbyl odhadem bez pending, i když za pár sekund dorazí.
+    const running = cache.inflight.get(key);
+    if (running) {
+      got.set(key, undefined);
+      jobs.push(running.then((v) => { got.set(key, v && !v.fail ? v : null); }, () => { got.set(key, null); }));
+      continue;
+    }
     const air = haversineKm(a.lat, a.lon, b.lat, b.lon);
     if (!route || air < 2 || air > MAX_AIR_KM) { got.set(key, null); continue; }
     if (started >= maxNew) { got.set(key, null); later++; continue; }
