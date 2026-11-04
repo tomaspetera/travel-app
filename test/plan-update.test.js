@@ -88,6 +88,11 @@ test('náhled odkazu: 🔄 Aktualizovat i Uložit jako novou (u shody jen podle 
   assert.match(fn, /const key = x => \{ const \{ checklist, sid, ver, base, prev, \.\.\.rest \} = PlanShare\.sanitize\(x\); return JSON\.stringify\(rest\); \};/);
   assert.match(fn, /if \(i < 0\) \{ const \{ sid, ver, base, prev, \.\.\.q \} = p;/);
   assert.match(fn, /const snap = PlanShare\.snapOf\(p\);/);
+  // „Uložit si ji“ u plánu, který už mám: cesta jako objekt z otevření náhledu – index by po změně cest v jiném panelu
+  // ukázal na cizí cestu (dostala by sid kamarádova plánu a jeho další verze by ji přepsaly)
+  assert.match(fn, /sameT = same >= 0 \? S\.trips\[same\] : null;/);
+  assert.match(fn, /let i = sameT \? S\.trips\.indexOf\(sameT\) : -1;\s*if \(i < 0\) i = S\.trips\.findIndex\(t => t && key\(t\) === key\(p\)\);/);
+  assert.ok(!/S\.trips\[same\] \? same/.test(fn), 'žádný index z otevření náhledu');
 });
 
 test('sid a záznam toho, co odešlo, až odeslaným odkazem – otevření detailu ani zavřená nabídka je neuloží; existující záznam se nepřepíše', () => {

@@ -630,8 +630,9 @@ function pastRows(rows, hm, home) {
   if (home) return out;
   let later = false;
   for (let k = rows.length - 1; k >= 0; k--) {
-    const m = [...String(rows[k][2]).replace(/<[^>]*>/g, '').matchAll(/\b(\d{1,2}):(\d{2})\b/g)].at(-1);
-    if (m) later = later || `${m[1].padStart(2, '0')}:${m[2]}` < hm;
+    const m = [...String(rows[k][2]).replace(/<[^>]*>/g, '').matchAll(/\b(\d{1,2}):(\d{2})\b(\s*\+\d)?/g)].at(-1);
+    // přílet „03:45 +1“ (noční let, vlak po půlnoci) končí až zítra – dnes neproběhl, ani když je ráno po 3:45
+    if (m && !m[3]) later = later || `${m[1].padStart(2, '0')}:${m[2]}` < hm;
     out[k] = later;
   }
   return out;
@@ -2167,6 +2168,12 @@ function shiftDays(days, oldStart, start, end) {
   }
   return out;
 }
+// Nový odjezd v ✏️ Upravit: návrat se posune o stejný počet dní (délka cesty zůstane). Dřív se návrat před novým
+// odjezdem přepsal na odjezd – 10.–15. 12. → odjezd 20. 12. = jednodenní cesta a shiftDays slil celý program do 20. 12.
+function shiftEnd(oldStart, end, start) {
+  if (okYmd(oldStart) && okYmd(end) && okYmd(start)) return new Date(Date.parse(end) + Date.parse(start) - Date.parse(oldStart)).toISOString().slice(0, 10);
+  return end && okYmd(start) && end < start ? start : end;
+}
 /**
  * ✏️ Upravit v detailu cesty: název, termín a počet cestujících (dřív jen při vytvoření – překlep nebo posunutá cesta
  * znamenaly smazat a založit znovu). Cesta z průvodce má termín a cestující podle letu – ty se mění v průvodci (při
@@ -2180,11 +2187,12 @@ function editTrip(i) {
     <div class="field"><label for="etName">Název cesty</label><input class="input" id="etName" value="${esc(t.name || '')}" maxlength="120"></div>
     ${fixed ? `<div class="note info" style="margin-top:12px">📅 ${t.start ? esc(dateSpan(t.start, t.end, ' – ')) + ' – ' : ''}termín a počet cestujících jsou podle letu, změníš je v průvodci (🧳 Otevřít v průvodci).</div>`
     : `<div class="grid" style="grid-template-columns:repeat(2,minmax(0,1fr));margin-top:12px"><div class="field"><label for="etStart">Odjezd</label><input class="input" type="date" id="etStart" value="${okYmd(t.start) ? t.start : ''}"></div><div class="field"><label for="etEnd">Návrat</label><input class="input" type="date" id="etEnd" value="${okYmd(t.end) ? t.end : ''}" min="${okYmd(t.start) ? t.start : ''}"></div></div>
-    <div class="faint" style="font-size:12px;margin-top:6px">Program dnů se posune s odjezdem; co by vypadlo za návrat, přidám k poslednímu dni.</div>
+    <div class="faint" style="font-size:12px;margin-top:6px">Návrat i program dnů se posunou s odjezdem; co by vypadlo za návrat, přidám k poslednímu dni.</div>
     <div class="field" style="margin-top:12px"><label for="etPax">Cestující</label><select id="etPax">${[1, 2, 3, 4, 5, 6, 7, 8, 9].map(n => `<option ${n === (+t.pax || 2) ? 'selected' : ''}>${n}</option>`).join('')}</select></div>`}
     <div class="row" style="gap:8px;margin-top:18px"><button class="btn primary" style="flex:1" id="etSave">Uložit</button><button class="btn ghost" id="etBack">Zpět</button></div>
   </div>`);
-  const st = $('#etStart'); if (st) st.onchange = e => { $('#etEnd').min = e.target.value; if ($('#etEnd').value && $('#etEnd').value < e.target.value) $('#etEnd').value = e.target.value; };
+  const st = $('#etStart'); let prev = st && st.value;
+  if (st) st.onchange = e => { const v = e.target.value, en = $('#etEnd'); en.value = shiftEnd(prev, en.value, v); en.min = v; if (okYmd(v)) prev = v; };
   $('#etBack').onclick = () => openTrip(i);
   $('#etSave').onclick = () => {
     const x = S.trips[i]; if (x !== t) return modalClose(); // mezitím smazaná nebo jiná cesta (jiný panel, záloha)
@@ -2480,7 +2488,7 @@ function previewPlan(shared) {
   let upd = m.i >= 0 ? PlanShare.merge(S.trips[m.i], p) : null;
   // stejná verze znovu (jen u mě přibyly vlastní aktivity nebo odškrtnutí): aktualizace by nic nezměnila – „už máš“
   if (upd && key(upd) === key(S.trips[m.i]) && JSON.stringify(upd.checklist) === JSON.stringify(S.trips[m.i].checklist)) { same = m.i; m = { i: -1, byName: false }; upd = null; }
-  const mine = m.i >= 0 ? S.trips[m.i] : null;
+  const mine = m.i >= 0 ? S.trips[m.i] : null, sameT = same >= 0 ? S.trips[same] : null;
   const nActs = t => Object.values(t.days || {}).reduce((n, x) => n + (Array.isArray(x) ? x.length : 0), 0);
   // co aktualizace změní (termín, program, let)
   const diff = mine ? [
@@ -2506,7 +2514,9 @@ function previewPlan(shared) {
   // záznam vyměněné verze (sharedSnap) – při další aktualizaci se podle něj pozná, které aktivity a poznámky jsou tvoje
   const snap = PlanShare.snapOf(p);
   $('#planImport').onclick = () => {
-    let i = same >= 0 && S.trips[same] ? same : S.trips.findIndex(t => t && key(t) === key(p));
+    // cesta jako objekt, ne index z otevření: jiný panel mohl cesty mezitím posunout (sid by dostala cizí cesta)
+    let i = sameT ? S.trips.indexOf(sameT) : -1;
+    if (i < 0) i = S.trips.findIndex(t => t && key(t) === key(p));
     // „Uložit jako novou“: kopie bez sid – další verze od kamaráda se nabídne k té původní
     // ver / base z odkazu nepatří do cesty – jen otisk přijaté verze (gotVer), ať další odkaz řekne, co jsem viděl
     if (i < 0) { const { sid, ver, base, prev, ...q } = p; S.trips.push({ ...q, ...(mine ? {} : { ...(sid ? { sid } : {}), sharedSnap: snap, ...(ver ? { gotVer: ver } : {}) }), checklist: p.checklist.length ? p.checklist : PACK.map(t => ({ t, done: false })) }); i = S.trips.length - 1; save(); toast('Plán přidán do Mých cest'); }
