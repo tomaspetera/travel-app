@@ -428,7 +428,9 @@ const TEXT_CATS = [
   ['monument', /pomník|památník|socha|kašna|fontána|monument|memorial|statue|fountain/],
   ['market', /tržnice|trh\b|market|mercado|mercato/],
 ];
-const TEXT_EXCLUDE = /nádraží|stanice|zastávk|ulice|třída|škola|univerzit|nemocnic|firma|společnost|čtvrť|městská část|obec|okres|station|street|avenue|school|university|hospital|company|district|neighbourhood|neighborhood|municipality|metro|hotel|airport|letiště|football club|fotbalový klub|human settlement|commune|comune|village|town in|city in/;
+// „metro“ jen jako celé slovo – Metropolitan Museum of Art ani Liverpool Metropolitan Cathedral nejsou stanice metra;
+// parkoviště (car park) není park
+const TEXT_EXCLUDE = /nádraží|stanice|zastávk|ulice|třída|škola|univerzit|nemocnic|firma|společnost|čtvrť|městská část|obec|okres|station|street|avenue|school|university|hospital|company|district|neighbourhood|neighborhood|municipality|\bmetro\b|hotel|airport|letiště|football club|fotbalový klub|human settlement|commune|comune|village|town in|city in|parkoviště|car park|parking/;
 
 export function classifyText(text) {
   const t = String(text || '').toLowerCase();
@@ -469,8 +471,11 @@ export async function findPlacesViaWikipedia({ lat, lon }) {
       const q = pg.pageprops?.wikibase_item;
       const c = pg.coordinates?.[0];
       if (!q || !c) continue;
-      const p = by.get(q) || { id: q, name: pg.title, description: pg.description || '', lat: c.lat, lon: c.lon, sitelinks: 0, heritage: false, unesco: false, image: null, wiki: {} };
-      if (pg.lang === 'cs') { p.name = pg.title; p.description = pg.description || p.description; }
+      const p = by.get(q) || { id: q, name: pg.title, description: '', lat: c.lat, lon: c.lon, sitelinks: 0, heritage: false, unesco: false, image: null, wiki: {} };
+      if (pg.lang === 'cs') p.name = pg.title;
+      // popis česky, jinak anglicky – se značkou jazyka jako u Wikidat (anglický aplikace označí „anglicky“, i když se
+      // úvod článku nenačte)
+      if (pg.description && (pg.lang === 'cs' || !p.description)) { p.description = pg.description; p.descLang = pg.lang; }
       p.wiki[pg.lang] = pg.title;
       if (!p.image && pg.thumbnail?.source) p.image = pg.thumbnail.source;
       by.set(q, p);
