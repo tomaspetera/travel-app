@@ -62,6 +62,10 @@
 /* na fotce dne (světlá obloha, bílé domy) tmavé sklo – na světlém skle měl bílý text jen ~3,5 : 1 */
 .hero.ph .st-chip{background:rgba(10,14,30,.45)}
 .hero.ph .smart-try .st-lab{color:#fff}
+/* 🧳 druhá cesta z úvodu (celá dovolená): výraznější než příklady vět, ale pod hlavním „Najít lety“ */
+.hero-plan{display:inline-flex;align-items:center;gap:6px;margin-top:12px;max-width:100%;font:700 14px/1.25 inherit;color:#fff;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.4);border-radius:999px;padding:10px 16px;cursor:pointer;text-align:left}
+.hero-plan:hover,.hero-plan:focus-visible{background:rgba(255,255,255,.26)}
+.hero.ph .hero-plan{background:rgba(10,14,30,.5)}
 .pi-dark{background:transparent;border:none;min-height:38px;padding:2px 0}
 .pi-dark:focus-within{background:transparent}
 .pi-dark .pi-input{color:#fff;font-size:15.5px}
