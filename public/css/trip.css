@@ -123,7 +123,9 @@ table.bud-t tr.bud-sum td{font-weight:800;border-bottom:none}
 .bud-miss{font-size:12.5px;margin-top:4px;color:var(--warn)}
 [data-theme="light"] .bud-miss{color:#8a5a00}
 .timeline{display:flex;flex-direction:column;gap:2px;margin-top:8px}
-.tl-row{display:grid;grid-template-columns:90px 26px 1fr;gap:8px;padding:7px 0;border-bottom:1px dashed var(--border);font-size:13.5px}
+/* minmax(0,1fr) a zalomení kdekoli: vlastní aktivita („Přidej aktivitu…“, třeba vložený odkaz) nebo dlouhý název hotelu
+   by jinak sloupec roztáhla a kartu Průběh cesty vytlačila za pravý okraj telefonu */
+.tl-row{display:grid;grid-template-columns:90px 26px minmax(0,1fr);gap:8px;padding:7px 0;border-bottom:1px dashed var(--border);font-size:13.5px;overflow-wrap:anywhere}
 .tl-d{color:var(--muted);font-weight:700;font-size:12.5px}
 
 /* objevování a program */
