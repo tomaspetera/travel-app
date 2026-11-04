@@ -79,6 +79,10 @@
     + 'potrebuju potrebujeme vyroci rok krajin toho pondeli utery streda ctvrtek patek sobota nedele '
     // „odlet 20.11. návrat 25.11.“ – slova u data (dřív místo „odlet“)
     + 'odlet odletu odletem prilet priletu navrat navratu vracim vracime vratim vratime kocarkem kocarek '
+    // „cena do 4 tisíc“, „teplé destinace“, „poznávací výlet“, „na líbánky“, „v týdnu od 7. 12.“ – dřív místa
+    // („city break“ zvlášť pravidlem – samotné „city“ patří k Mexico City)
+    + 'cena ceny cenu cenou destinace destinaci citybreak mestsky mestskou poznavaci poznavacim lowcost '
+    + 'svatebni libanky libankach tydnu '
     // s kým („s přáteli do Paříže“, „s partou na hory“, „s mámou a tátou“) – dřív z toho bylo místo cesty
     + 'pratele prateli pratelama kamaradi kamarady kamaradama kamaradkami kamaradkama kamosi kamosema kamose partou parta partu '
     + 'kolegy kolegou kolegyni kolegynemi kolegama holkama klukama holkami kluky rodici rodicema babickou dedou dedeckem '
@@ -299,7 +303,8 @@
     // „na 10 dní“, „na 3 týdny“ je přibližná délka (jako „na 2 týdny“): od 5 nocí pár nocí na obě strany, kratší přesně
     const about = k => { const d = k <= 4 ? 0 : k <= 6 ? 1 : k <= 10 ? 2 : 3; return { n: k, lo: Math.max(1, k - d), hi: Math.min(30, k + d) }; };
     rule(new RegExp(`(?:na\\s+)?(${NUM_RE})\\s*(?:den|dny|dni|dnu)${W}`), m => { const n = num(m[1]); if (!(n >= 1 && n <= 31)) return false; len = n === 14 ? '2weeks' : about(Math.max(1, n - 1)); });
-    rule(new RegExp(`(?:na\\s+)?(${NUM_RE})\\s*tydn[uy]?${W}`), m => { const n = num(m[1]); if (!(n >= 1 && n <= 4)) return false; len = n === 1 ? 'week' : n === 2 ? '2weeks' : about(n * 7); });
+    // (i „na jeden týden“ – dřív „jeden“ jako místo)
+    rule(new RegExp(`(?:na\\s+)?(${NUM_RE})\\s*(?:tyden|tydn[uy]?)${W}`), m => { const n = num(m[1]); if (!(n >= 1 && n <= 4)) return false; len = n === 1 ? 'week' : n === 2 ? '2weeks' : about(n * 7); });
     rule(new RegExp(`(?:na\\s+)?(?:cely\\s+)?tyden${W}`), () => { len = len || 'week'; });
     rule(new RegExp(`(?:na\\s+)?par\\s+dni${W}|kratk[yeou]+\\s+(?:vylet|vyletu|pobyt)${W}`), () => { len = len || 'long'; });
 
@@ -588,7 +593,8 @@
     let backDow = null;
     rule(new RegExp(`(?:v|ve|o)\\s+(${WD.map(x => x[0]).join('|')})${W}`), (m, at) => {
       const d = WD.find(x => x[0] === m[1]);
-      if (retBefore(at)) { backDow = d[1]; chips.push(['🛬', `návrat v ${d[2]}`]); return; }
+      // (i „v neděli zpátky“ – slovo návratu až za dnem: „v pátek tam, v neděli zpátky“; „v pátek zpátky v neděli“ ne)
+      if (retBefore(at) || new RegExp(`^\\s*,?\\s*(?:zpet|zpatky|navrat\\w*)(?!\\s+(?:v|ve|o)\\s+(?:${WD.map(x => x[0]).join('|')}))(?=$|[^a-z])`).test(s.slice(at + m[0].length))) { backDow = d[1]; chips.push(['🛬', `návrat v ${d[2]}`]); return; }
       patch.outDays = [...new Set([...(patch.outDays || []), d[1]])].sort();
       chips.push(['🛫', `odlet v ${d[2]}`]);
     });
@@ -662,7 +668,8 @@
     // „se ženou“ = 2 osoby, „s mámou a tátou“ / „s klukem a dcerou“ = 3 (já + oba)
     const MATE = 'pritelkyni|pritelem|partnerem|partnerkou|manzelkou|manzelem|holkou|klukem|zenou|muzem|synem|dcerou|mamou|tatou|kamaradem|kamaradkou';
     rule(new RegExp(`(?:s|se)\\s+(?:${MATE})(\\s+(?:a|i)\\s+(?:se\\s+|s\\s+)?(?:${MATE}))?${W}`), m => { people(m[1] ? 3 : 2); });
-    rule(new RegExp(`(?:primy|prime|primo|primym|primou|bez\\s+prestupu|bez\\s+prestupovani)${W}`), () => { patch.directOnly = true; });
+    // (i „nonstop“, „bez mezipřistání“ – dřív místa)
+    rule(new RegExp(`(?:primy|prime|primo|primym|primou|bez\\s+prestupu|bez\\s+prestupovani|non-?stop|bez\\s+mezipristani)${W}`), () => { patch.directOnly = true; });
     // čas letu, přestupy a aerolinky formulář hledání nemá – vybírají se ve výsledcích (⚙️ Filtry). Věta je nebere jako
     // místo („Řím ráno“ dřív hledalo i místo „ráno“, „Ryanairem“ místo „Ryanairem“) a řekne, kde je najít.
     const later = new Set();
@@ -671,11 +678,14 @@
     rule(new RegExp(`(?:max(?:\\.|imalne)?\\s*)?(?:1|jeden|jednim)\\s+prestup\\w*${W}|s\\s+jednim\\s+prestupem${W}|kratk\\w+\\s+prestup\\w*${W}`), () => { later.add('přestupy'); });
     rule(new RegExp(`(?:s\\s+|se\\s+|bez\\s+|jen\\s+|pres\\s+)?(?:ryanair\\w*|wizz\\w*|easyjet\\w*|smartwings\\w*|lufthans\\w*|eurowings\\w*|vueling\\w*|transavi\\w*|norwegian\\w*|emirates\\w*|turkish\\w*)(?:\\s+air\\w*)?${W}`), () => { later.add('aerolinky'); });
     // „bez kufru“ před „kufr“ (jinak by „kufru“ znamenalo kufr k odbavení)
-    rule(new RegExp(`(?:jen\\s+(?:s\\s+)?batoh\\w*|bez\\s+(?:velk\\w+\\s+)?kufr\\w*|bez\\s+(?:odbaven\\w+\\s+)?zavazad\\w*|jen\\s+(?:s\\s+)?(?:malym\\s+)?(?:batoh\\w*|taskou|kabelkou))${W}`), () => { patch.bags = 'none'; });
-    rule(new RegExp(`(?:s\\s+)?(?:kabinov\\w*|prirucn\\w*)(?:\\s+(?:kufr\\w*|zavazad\\w*))?${W}|(?:s\\s+)?kufrik\\w*${W}`), () => { patch.bags = 'cabin'; });
-    rule(new RegExp(`(?:s\\s+)?(?:velk\\w+\\s+)?kufr\\w*(?:\\s+k\\s+odbaveni)?${W}|odbaven\\w*\\s+zavazad\\w*${W}`), () => { patch.bags = patch.bags || 'checked'; });
-    rule(new RegExp(`(?:jen\\s+tam|jednosmern\\w*|one\\s*way|bez\\s+zpatecni\\w*|bez\\s+navratu)${W}`), () => { patch.trip = 'oneway'; });
-    rule(new RegExp(`(?:tam\\s+(?:i|a)\\s+zpet|zpatecni\\w*)${W}`), () => { patch.trip = 'return'; });
+    // („s taškou pod sedadlo“ = jen věc pod sedadlo, bez kufru)
+    rule(new RegExp(`(?:jen\\s+(?:s\\s+)?batoh\\w*|bez\\s+(?:velk\\w+\\s+)?kufr\\w*|bez\\s+(?:odbaven\\w+\\s+)?zavazad\\w*|jen\\s+(?:s\\s+)?(?:malym\\s+)?(?:batoh\\w*|taskou|kabelkou)|(?:s\\s+|jen\\s+)?(?:task\\w*|batoh\\w*)\\s+pod\\s+sedadl\\w*)${W}`), () => { patch.bags = 'none'; });
+    rule(new RegExp(`(?:s\\s+)?(?:kabinov\\w*|prirucn\\w*)(?:\\s+(?:kufr\\w*|zavazad\\w*))?${W}|(?:s\\s+)?(?:kufrik\\w*|prirucak\\w*)${W}`), () => { patch.bags = 'cabin'; });
+    // „se zavazadlem“, „s velkým zavazadlem“ = kufr k odbavení (dřív místo „zavazadlem“); příruční vzalo pravidlo výš
+    rule(new RegExp(`(?:s\\s+)?(?:velk\\w+\\s+)?kufr\\w*(?:\\s+k\\s+odbaveni)?${W}|odbaven\\w*\\s+zavazad\\w*${W}|(?:s|se)\\s+(?:(?:jednim|velkym)\\s+)?zavazad\\w*${W}`), () => { patch.bags = patch.bags || 'checked'; });
+    rule(new RegExp(`city\\s+break\\w*${W}|low\\s*cost\\w*${W}`), () => {}); // druh cesty, ne místo
+    rule(new RegExp(`(?:jen\\s+tam|jednosmern\\w*|jednosmerk\\w*|one\\s*way|bez\\s+zpatecni\\w*|bez\\s+navratu)${W}`), () => { patch.trip = 'oneway'; });
+    rule(new RegExp(`(?:tam\\s+(?:i|a)\\s+zpet|zpatecni\\w*|zpateck\\w*)${W}`), () => { patch.trip = 'return'; });
 
     // --- kam: k moři, za teplem, exotika, kamkoliv ---
     rule(new RegExp(`(?:(?:k|ke|na|u)\\s+)?(?:mori|more|moricku|moricko|plaz\\w*|koupat|koupani|pobrezi)${W}`), (m, at) => {
@@ -690,7 +700,7 @@
     rule(new RegExp(`(?:na|do|po|v|ve)?\\s*(balkan\\w*|skandinavi\\w*|pobalti\\w*)${W}`), m => { group = /^balk/.test(m[1]) ? 'balkan' : /^sk/.test(m[1]) ? 'skandinavie' : 'pobalti'; });
     rule(new RegExp(`(?:za|do|na)?\\s*(?:tepl(?:o|a|em|e|eho|emu|ou|y|ych|ym|ymi|ejsi[a-z]*|eji|ot[a-z]*)|slunce|sluncem|slunicko|slunicka|slunickem|jih|jihu)${W}`), () => { kind = kind || 'warm'; patch.minTemp = Math.max(patch.minTemp || 0, 20); });
     rule(new RegExp(`(?:do\\s+)?(?:horka|horko|vedra|vedro)${W}`), () => { kind = kind || 'warm'; patch.minTemp = 25; });
-    rule(new RegExp(`(?:do\\s+|na\\s+)?(?:exotik\\w*|exoticky\\w*|tropu|tropy|do\\s+dalky|daleko)${W}`), () => { kind = 'exotic'; });
+    rule(new RegExp(`(?:do\\s+|na\\s+)?(?:exotik\\w*|exotick\\w*|tropu|tropy|do\\s+dalky|daleko)${W}`), () => { kind = 'exotic'; });
     rule(new RegExp(`(?:kamkoliv|kamkoli|kdekoliv|kdekoli|nekam|cokoliv|kamkolvek)${W}`), () => { kind = kind || 'any'; });
     // „hory“ bez „na/do“ hned za slovem názvu („z Kutné Hory“) je část jména místa, ne „na hory“
     rule(new RegExp(`(?:na\\s+|do\\s+)?(?:hory|horach|hor|alpy|alp|alpach|alpami|lyze|lyzemi|lyzovat|lyzovani|lyzovack\\w*|lyzak\\w*|na\\s+snih)${W}`), (m, at) => {
