@@ -175,7 +175,7 @@ let lastWorld = 'map';
    Zpět nesmí aplikaci zavřít uprostřed práce. Sekce otevřená z lišty (Lety, Cesta, Objevuj…) má nad Přehledem jeden
    krok historie (atlasV = hloubka nad Přehledem) – Zpět z ní vrátí na Přehled a teprve z něj aplikace skončí, jako
    aplikace s lištou dole na Androidu; přepínání sekcí v liště krok jen přepíše (Zpět neprochází všechno, co uživatel
-   kdy otevřel). Sekce otevřená z obsahu (Vybrat a pokračovat → Cesta, Uložit do plánovače) přidá krok navíc – Zpět
+   kdy otevřel). Sekce otevřená z obsahu (Naplánovat celou cestu → Cesta, Uložit do plánovače) přidá krok navíc – Zpět
    vrátí tam, odkud uživatel přišel (k výsledkům, do Shrnutí). Stejně sekce z postranního panelu na počítači: šipka Zpět
    prohlížeče vrací na předchozí sekci jako na webu (Lety → Země → Zpět = Lety), Přehled z panelu vrátí všechny kroky.
    Průvodce Cestou má nad sebou ještě krok průvodce (atlasT): Zpět vrací po krocích, kterými uživatel prošel (histTrip). Otevřené okno (list zespodu) má vlastní krok
@@ -943,7 +943,7 @@ const WHATS_NEW = [
   ['✨', 'Vyber za mě', 'v Cestě přes víc míst vybere v kroku Ubytování jedním klepnutím hotel s nejlepším poměrem ceny a hodnocení v každém místě – změnit ho můžeš kdykoliv.'],
   ['↩', 'Pokračuj, kde jsi skončil', 'na Přehledu je rozpracovaná cesta (u kterého kroku jsi) a poslední hledání – jedním klepnutím zpátky. Cesta přes víc měst letadlem jde do průvodce i bez návratu domů.'],
   ['✨', 'Chytré hledání', 'do pole <b>Kam</b> napiš celou větu – „k moři v květnu do 5000“, „Řím na víkend ve dvou“, „z Vídně do Barcelony 12. 11. – 16. 11.“ – a nahoře uvidíš, jak jí rozumím. Prázdné pole nabídne tipy podle toho, co hledáš. V Objevuj třeba „Lisabon na 3 dny“ nebo „výlety z Brna“.'],
-  ['🧳', 'Cesta přes víc měst letadlem', 'vyber v Letech <b>Víc měst</b> (třeba Praha → Řím → Barcelona → Praha) a <b>Vybrat a pokračovat</b>: v Cestě je trasa podle letů, ke každému městu ubytování a program, ve shrnutí všechny letenky.'],
+  ['🧳', 'Cesta přes víc měst letadlem', 'vyber v Letech <b>Víc měst</b> (třeba Praha → Řím → Barcelona → Praha) a <b>Naplánovat celou cestu</b>: v Cestě je trasa podle letů, ke každému městu ubytování a program, ve shrnutí všechny letenky.'],
   ['↺', 'Začít znovu', 'v Letech pod tlačítkem hledání, v Objevuj u místa (i ✕ v poli) a v Cestě nahoře vedle vlajky – vyprázdní, co si aplikace pamatuje.'],
   ['🏨', 'Ubytování najde víc', 'v Cestě se ceny hotelů samy doplňují (TripAdvisor je u nového termínu zjišťuje pomalu) a hotely, ke kterým cena ještě nepřišla, uvidíš s běžnou cenou <b>od ~… Kč/noc</b> a odkazem na ceny na tvoje dny.'],
   ['💸', 'Nejlevnější nahoře', 'po hledání Kamkoliv jsou první 3 cíle velké karty s fotkou; detail země má nahoře fotku hlavního města.'],
@@ -982,7 +982,7 @@ const wnMode = (seen, id = WN_ID) => (seen === id ? '' : seen === id + WN_NEW ||
 const wnAtStart = (seen, hash, id = WN_ID) => (!/^#sync=/.test(String(hash || '')) && firstVisit(seen) ? id + WN_NEW : seen === id + WN_NEW && (S.recent.length || S.watch.length) ? id : null);
 /**
  * Uvítání ještě během první návštěvy: nováček, který už hlídá cenu (prošel hledání až po ♡) nebo má cestu v Mých
- * cestách (hledání → Vybrat a pokračovat → průvodce), návod na první hledání nepotřebuje – při návratu na Přehled by
+ * cestách (hledání → Naplánovat celou cestu → průvodce), návod na první hledání nepotřebuje – při návratu na Přehled by
  * nad radarem jen odsouval jeho hlídanou cenu a rozpracovanou cestu. → true = skrýt jako „Rozumím“.
  * Mizí jen při vykreslení Přehledu (návrat z Letů, Cest), ne pod rukama; při dalším startu rozhoduje wnAtStart.
  */
@@ -1213,11 +1213,15 @@ const DASH_TIPS = [
     ok: (s, today) => Boolean(tipNext(s, today)), used: s => (s.trips || []).some(t => t && Array.isArray(t.refs) && t.refs.length),
     run: () => { const n = tipNext(S, todayLocal()); if (n) openTrip(n.i); } },
 ];
-/** Dnešní tip → položka DASH_TIPS nebo null. Týž den týž tip (po skrytí už žádný), další den další nepoužitý v pořadí. */
+/** 🧳 Karta „Naplánuj celou dovolenou“ na Přehledu: dokud uživatel průvodce cestou nepoužil (rozpracovaná ani uložená
+ *  cesta z průvodce) a kartu neskryl (off). Lidi průvodce jinak nenašli – do něj vedlo jen tlačítko u letu (dřív „Vybrat a pokračovat“). */
+const planCardOn = (s, off) => !off && !s.trip && !(s.trips || []).some(t => t && t.wizard);
+/** Dnešní tip → položka DASH_TIPS nebo null. Týž den týž tip (po skrytí už žádný), další den další nepoužitý v pořadí.
+ *  x.plan = karta 🧳 Naplánuj celou dovolenou je vidět – tip ⚡ Hotová cesta by říkal totéž. */
 function tipPick(s, x, mem, today) {
   if (!s.home || !s.home.from || !s.home.from.length || !(s.recent || []).length) return null;
   const m = mem && typeof mem === 'object' ? mem : {}, hid = Array.isArray(m.hid) ? m.hid : [];
-  const ok = DASH_TIPS.filter(t => !hid.includes(t.id) && (!t.ok || t.ok(s, today)) && !t.used(s, x));
+  const ok = DASH_TIPS.filter(t => !hid.includes(t.id) && !(x.plan && t.id === 'auto') && (!t.ok || t.ok(s, today)) && !t.used(s, x));
   if (m.day === today) return ok.find(t => t.id === m.id) || null;
   const k = DASH_TIPS.findIndex(t => t.id === m.id);
   return ok.find(t => DASH_TIPS.indexOf(t) > k) || ok[0] || null;
@@ -1232,7 +1236,7 @@ function renderDashTip() {
   let mem = null, explore = false;
   try { mem = JSON.parse(localStorage.getItem('atlas_tip')); explore = localStorage.getItem('atlas_explore_v1') != null; } catch (e) { /* soukromé okno, poškozený zápis */ }
   if (tipMem) mem = tipMem;
-  const today = todayLocal(), tip = tipPick(S, { explore }, mem, today), hid = mem && Array.isArray(mem.hid) ? mem.hid : [];
+  const today = todayLocal(), tip = tipPick(S, { explore, plan: planCardOn(S, planOff()) }, mem, today), hid = mem && Array.isArray(mem.hid) ? mem.hid : [];
   const put = m => { tipMem = m; try { localStorage.setItem('atlas_tip', JSON.stringify(m)); } catch (e) { /* nevadí – platí kopie v paměti */ } };
   el.hidden = !tip;
   if (!tip) { el.innerHTML = ''; return; }
@@ -1241,6 +1245,32 @@ function renderDashTip() {
     <div><button type="button" class="btn sm" id="dtGo">${esc(tip.btn)}</button></div></div><button type="button" class="dt-x" id="dtX" title="Skrýt tip" aria-label="Skrýt tip">✕</button>`;
   $('#dtGo').onclick = () => tip.run();
   $('#dtX').onclick = () => { put({ day: today, id: null, hid: [...hid, tip.id] }); el.hidden = true; };
+}
+// ✕ na kartě 🧳 Naplánuj celou dovolenou: atlas_plancard = 'off' (kopie v paměti, když úložiště nejde zapsat – jako tipMem)
+let planMem = false;
+const planOff = () => { if (planMem) return true; try { return localStorage.getItem('atlas_plancard') === 'off'; } catch (e) { return false; } };
+/** 🧳 Karta na Přehledu: co průvodce cestou poskládá, příklady vět (Flights.planExamples – hledání jako ✨ Zkus napsat;
+ *  u nabídky pak Naplánovat celou cestu) a Začít plánovat (záložka Cesty s polem Kam chceš jet?). */
+function renderPlanCard() {
+  const el = $('#planCard'); if (!el) return;
+  const on = planCardOn(S, planOff());
+  el.hidden = !on;
+  if (!on) { el.innerHTML = ''; return; }
+  const ex = window.Flights && Flights.planExamples ? Flights.planExamples() : [];
+  el.innerHTML = `<div class="plc-top"><span class="dt-ic" aria-hidden="true">🧳</span><div class="dt-b"><b>Naplánuj celou dovolenou</b>
+    <p>Vyber let a průvodce k němu poskládá ubytování, auto, program po dnech a cenu celkem – klidně i trasu přes víc měst.</p>
+    <p class="plc-steps faint">${['✈️ Let', '🏨 Ubytování', '🚗 Auto', '🗺️ Program', '✅ Cena celkem'].map(x => `<span>${x}</span>`).join(' → ')}</p></div>
+    <button type="button" class="dt-x" id="planCardX" title="Skrýt" aria-label="Skrýt kartu Naplánuj celou dovolenou">✕</button></div>
+    ${ex.length ? `<div class="plc-try"><span class="faint">Zkus:</span>${ex.map((x, i) => `<button type="button" class="recent-chip" data-pex="${i}">${esc(x)}</button>`).join('')}</div>` : ''}
+    <button type="button" class="btn sm primary" id="planCardGo">Začít plánovat →</button>`;
+  $('#planCardGo').onclick = () => go('trip');
+  $$('[data-pex]', el).forEach(b => b.onclick = () => Flights.trySentence(ex[+b.dataset.pex], b));
+  $('#planCardX').onclick = () => {
+    planMem = true;
+    try { localStorage.setItem('atlas_plancard', 'off'); } catch (e) { /* platí kopie v paměti */ }
+    el.hidden = true;
+    renderDashTip(); // ⚡ Hotová cesta se teď může ukázat jako tip
+  };
 }
 /** Přehled v otevřené aplikaci: každou minutu karta Dnes na cestě, nový den (půlnoc, návrat z pozadí ráno) celý Přehled. */
 function dashTick() {
@@ -1257,6 +1287,8 @@ function renderDash() {
   renderDashStats();
   renderWhatsNew();
   renderDashTip();
+  renderPlanCard();
+  const hp = $('#heroPlan'); if (hp) hp.onclick = () => go('trip');
   $$('.link[data-go]').forEach(l => { l.onclick = () => go(l.dataset.go); kbClick(l); });
   if (window.Flights) { Flights.renderResume(); Flights.renderQuick(); Flights.renderWatch(); Flights.renderRadar(); Flights.renderFav(); Flights.renderPins(); }
 }

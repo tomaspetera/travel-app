@@ -2424,11 +2424,13 @@
       ${idx != null && levelFor(t) ? `<button type="button" class="linkbtn pc-ask" data-pc="${idx}">Je to dobrá cena?</button>` : ''}</div>`;
   }
 
+  // tlačítko do průvodce cestou u nabídky: dřív „Vybrat a pokračovat“ – nebylo poznat, že k letu poskládá celou dovolenou
+  const PLAN_BTN = 'Naplánovat celou cestu →', PLAN_TIP = 'K letu ubytování, auto, program po dnech a cena celkem';
   function tripRow(t, g, idx) {
     return `<div class="trip-row" data-tid="${esc(t.id)}">
       <div class="tr-legs">${legHtml(t.out)}${t.back ? legHtml(t.back, true) : ''}<div class="tr-badges">${badges(t, g, idx)}</div>${scalSlot(t, idx)}</div>
       ${priceBox(t, idx)}
-      <div class="tr-act"><button type="button" class="btn sm primary" data-pick="${idx}">Vybrat a pokračovat →</button>
+      <div class="tr-act"><button type="button" class="btn sm primary" data-pick="${idx}" title="${PLAN_TIP}">${PLAN_BTN}</button>
         <div class="tr-buy">${bookButtons(t)}</div>${buyNote(t)}${kidsNote(lastResult.query, buyProvs(t))}
         <div class="tr-more"><span class="faint">Ověřit:</span> ${verifyLinks(t)}${SearchHelp.isCached(t) ? ` · <button type="button" class="linkbtn" data-live="${idx}">⚡ Ověřit cenu živě</button>` : ''}${g && byIso[g.dest.cc] ? ` · <button type="button" class="linkbtn" data-country="${g.dest.cc}">Info o zemi</button>${window.Entry && Entry.idNote(g.dest.cc) ? ' · ' + Entry.idNote(g.dest.cc) : ''}` : ''} · <button type="button" class="linkbtn pin-l" data-pin="${idx}">${pinOn(t) ? '📌 Odloženo ✓' : '📌 Odložit'}</button> · <button type="button" class="linkbtn" data-oshare="${idx}" title="Poslat odkaz na tuhle nabídku">📤 Sdílet</button></div>
       </div></div>`;
@@ -2846,7 +2848,7 @@
         ${SearchHelp.paxTotalOn(res.query) ? `<div class="pd">${SearchHelp.paxTotalLbl(res.query)}: <b>${czk(total * pax)}</b></div>` : ''}
         ${note ? `<div class="pd pax-note">👶 ${esc(note)}</div>` : ''}${kidsNote(res.query, opts.map(o => (o.bookUrl ? o.provider : o.out.bookUrl ? o.out.provider : null)))}
         ${sum('groundCzk') || sum('arrCzk') ? `<div class="pd px">${[sum('groundCzk') ? `<span title="${esc(groundFoot(res, true))}">${res.query.groundMode === 'car' ? '🚗 autem' : '🚆 doprava'} na letiště${res.returnsHome ? ' a zpět' : ''} ~${czk(sum('groundCzk'))}/os.</span>` : '', sum('arrCzk') ? `<span title="${esc(arrivalFoot(res, true))}">🚌 z letišť do měst a zpět ~${czk(sum('arrCzk'))}/os.</span>` : ''].filter(Boolean).join(' · ')}<span class="px-n">průměrná cena, odhad – v ceně letenek není</span></div>` : ''}</div>
-      <div class="tr-act"><button type="button" class="btn sm primary" data-mgo="1">${wiz ? 'Vybrat a pokračovat →' : 'Vybrat a uložit do Mých cest →'}</button>
+      <div class="tr-act"><button type="button" class="btn sm primary" data-mgo="1">${wiz ? PLAN_BTN : 'Vybrat a uložit do Mých cest →'}</button>
         ${wiz ? '<button type="button" class="btn sm" data-msave="1">💾 Do Mých cest</button>' : ''}
         <button type="button" class="btn sm" data-mics="1">📅 Do kalendáře (.ics)</button>
         <div class="tr-more faint">${why}</div></div>
@@ -3164,7 +3166,7 @@
     const [ic, ...w] = c.text.split(' ');
     return { ic, b: nbsp(cap(w.join(' '))), s: c.sub, title: c.title, warn: c.warn };
   });
-  // „Vybrat a pokračovat“: průvodce s nabídkou; res = výsledek, ze kterého nabídka je (i průběžný, když konečný čeká na
+  // „Naplánovat celou cestu“: průvodce s nabídkou; res = výsledek, ze kterého nabídka je (i průběžný, když konečný čeká na
   // překreslení) – jinak by cesta vzala statistiku cen průběžné skupiny jako konečnou; konečný už dorazil → statistika
   // z něj hned (finalStats na něj už nepočká); čas cen do průvodce („cena z 3. 10. 14:12“): konečný výsledek
   // z lastResultAt (i obnovený), náhled ze svého času (i ten, který po nedokončeném hledání zůstal na obrazovce);
@@ -3810,7 +3812,7 @@
     // výsledek, ze kterého řádek je (průběžný i tehdy, když konečný čeká na překreslení) – jinak by cesta vzala statistiku
     // cen průběžné skupiny jako konečnou; konečný už dorazil → statistika z něj hned (finalStats na něj už nepočká)
     $$('[data-pick]', host).forEach(b => b.onclick = () => { const r = rowRegistry[+b.dataset.pick]; pickTrip(r.t, r.g, shownRes || lastResult); });
-    // 🔎 Co tam je: náhled cíle s nejlepší nabídkou karty (první řádek karty – jeho Vybrat a pokračovat)
+    // 🔎 Co tam je: náhled cíle s nejlepší nabídkou karty (první řádek karty – jeho Naplánovat celou cestu)
     $$('[data-dp]', host).forEach(b => b.onclick = () => {
       const p = $('.trip-row [data-pick]', b.closest('.res-card')), r = p && rowRegistry[+p.dataset.pick];
       if (r) openDestPreview(r.g, r.t, { res: shownRes || lastResult, from: b });
@@ -5179,16 +5181,22 @@
       // víc měst jednou větou – z domova (bez něj by věta neměla odkud)
       ...(home ? [`${home} → Řím → Barcelona → ${home}`] : [])];
   }
+  // 🧳 karta „Naplánuj celou dovolenou“ na Přehledu (app.js renderPlanCard): věty, ze kterých se k letu poskládá celá
+  // cesta – týden na jednom místě, prodloužený víkend a s domovem i trasa přes dvě města (průvodce pak vede trasu podle letů)
+  const planExamples = (home = homeWord()) => ['Lisabon na týden', 'Řím na prodloužený víkend', ...(home ? [`${home} → Lisabon → Porto → ${home}`] : [])];
+  /** Věta z příkladu (✨ Zkus napsat, 🧳 karta na Přehledu) jako napsaná do Kam: hledání podle ní z Odkud na Přehledu. */
+  async function trySentence(text, b) {
+    if (!window.Smart) return;
+    const sm = Smart.parse(text, smartOpts()), hit = { sm, to: [], from: [], miss: [] };
+    if (b) b.disabled = true;
+    try { await smartResolve(hit, heroFrom.items[0]?.id || '', undefined); } catch (e) { /* bez míst */ } finally { if (b) b.disabled = false; }
+    smartRun(hit, heroFrom.items);
+  }
   function paintSmartTry() {
     const host = $('#smartTry'); if (!host || !window.Smart) return;
     const TRY = tryList();
     host.innerHTML = `<span class="st-lab">✨ Zkus napsat:</span>${TRY.map((x, i) => `<button type="button" class="st-chip" data-try="${i}">${esc(x)}</button>`).join('')}`;
-    $$('[data-try]', host).forEach(b => b.onclick = async () => {
-      const sm = Smart.parse(TRY[+b.dataset.try], smartOpts()), hit = { sm, to: [], from: [], miss: [] };
-      b.disabled = true;
-      try { await smartResolve(hit, heroFrom.items[0]?.id || '', undefined); } catch (e) { /* bez míst */ } finally { b.disabled = false; }
-      smartRun(hit, heroFrom.items);
-    });
+    $$('[data-try]', host).forEach(b => b.onclick = () => trySentence(TRY[+b.dataset.try], b));
   }
 
   /* ---------- ⭐ Moje cíle a 🙈 Nezajímá mě (S.fav, S.mute; SearchHelp.destPref…) ---------- */
@@ -5461,7 +5469,7 @@
       <div class="pin-ln">🗓️ ${day(t.out.date)}${t.back ? ` – ${day(t.back.date)}${t.nights != null ? ` · ${nightsTxt(t.nights)}` : ''}${lt ? ` · <span title="${esc(lt.title)}">${esc(lt.text)}</span>` : ''}` : ' · jen tam'}</div>
       ${pinLeg(t.out)}${t.back ? pinLeg(t.back, true) : ''}${tail}
       ${dw ? `<div class="pin-ln ${dw < 0 ? 'good' : 'pin-warn'}" title="Při odložení ${czk(p.was.czk)}/os.">${dw < 0 ? '↓' : '↑'} o ${czk(Math.abs(dw))} od odložení</div>` : ''}${pinLive(p)}
-      <div class="pin-act"><button type="button" class="btn sm primary" data-pgo="${esc(p.k)}">Vybrat a pokračovat →</button><div class="tr-buy">${bookButtons(t)}</div>${buyNote(t)}${kidsNote(p.q, buyProvs(t))}<div class="tr-more">${verifyLinks(t, p.q.adults)}</div></div></div>`;
+      <div class="pin-act"><button type="button" class="btn sm primary" data-pgo="${esc(p.k)}" title="${PLAN_TIP}">${PLAN_BTN}</button><div class="tr-buy">${bookButtons(t)}</div>${buyNote(t)}${kidsNote(p.q, buyProvs(t))}<div class="tr-more">${verifyLinks(t, p.q.adults)}</div></div></div>`;
   }
   // ⚡ Ověřit ceny: plné nabídky (ne demo) bez čerstvého ověření, nejstarší ceny první, nejvýš 3 na klepnutí
   let pinBusy = false;
@@ -5837,7 +5845,7 @@
 
   // běží hledání (uživatel, radar, kontrola hlídané ceny)? – PWA se pak po návratu sama neobnoví (zrušila by ho)
   const busy = () => busySearches > 0 || [...wState.values()].includes('run');
-  window.Flights = { init, warm, busy, ageCheck, lastPick, renderQuick, renderResume, resumeTrip, renderWatch, showWatch, renderRadar, renderNews, radarNow, renderFav, refreshPrefs: prefsPaint, homeChanged, homeFromChip,renderPins, refreshPins: pinsPaint, openOffer, searchTo, searchLegs, repaintMap: () => { if (view.mode === 'map' && lastResult) rerender(true); }, PlaceInput, smartRun, smartTips, runSearch, watchStatTxt, priceCheck: openPriceCheck, priceTag, watchKey, updateHomeChip,
+  window.Flights = { init, warm, busy, ageCheck, lastPick, renderQuick, renderResume, resumeTrip, renderWatch, showWatch, renderRadar, renderNews, radarNow, renderFav, planExamples, trySentence, refreshPrefs: prefsPaint, homeChanged, homeFromChip,renderPins, refreshPins: pinsPaint, openOffer, searchTo, searchLegs, repaintMap: () => { if (view.mode === 'map' && lastResult) rerender(true); }, PlaceInput, smartRun, smartTips, runSearch, watchStatTxt, priceCheck: openPriceCheck, priceTag, watchKey, updateHomeChip,
     // navštívené země se změnily (mapa, země, 💾 obnova) → 🆕 a „jen nové země“ ve výsledcích hned podle nich
     refreshVisited: () => { if (lastResult && lastResult.mode !== 'multi' && !running && $('#results') && $('#results').children.length) rerender(true); },
     // 🏠 vlastní ceny na letiště se změnily (💾 obnova) → náhled letišť a seznam cen ve formuláři znovu

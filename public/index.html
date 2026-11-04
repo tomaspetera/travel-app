@@ -196,7 +196,7 @@ if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configur
           <div class="hero-bg"></div><div class="hero-aurora"></div><div class="hero-grain"></div>
           <div class="hero-inner">
             <h1 id="heroGreet">Kam poletíme?</h1>
-            <p>Prohledám všechna letiště ve tvém okolí najednou – Ryanair, Wizz Air i další aerolinky – a spočítám i cestu na letiště. Stačí napsat odkud.</p>
+            <p>Prohledám všechna letiště ve tvém okolí najednou – Ryanair, Wizz Air i další aerolinky – a spočítám i cestu na letiště. K letu ti pak poskládám celou dovolenou: ubytování, program i cenu celkem.</p>
             <form class="hero-search2" id="heroSearch" autocomplete="off">
               <!-- třídy pi pi-dark (jinak je přidá až PlaceInput): pole mají výšku už před načtením skriptů – bez poskočení -->
               <div class="hs-field"><span class="hs-lab">Odkud</span><div class="place-input pi pi-dark" id="heroFrom"></div></div>
@@ -204,6 +204,8 @@ if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configur
               <button class="btn primary" type="submit">Najít lety</button>
             </form>
             <div class="smart-try" id="smartTry"></div>
+            <!-- 🧳 druhá cesta z úvodu: ATLAS neumí jen lety, ale celou dovolenou (průvodce cestou – app.js renderDash) -->
+            <button type="button" class="hero-plan" id="heroPlan">🧳 Naplánovat celou dovolenou <span aria-hidden="true">→</span></button>
           </div>
         </div>
         <!-- ↩ Pokračuj: rozpracovaná cesta v průvodci a poslední hledání (flights.js renderResume) -->
@@ -219,6 +221,9 @@ if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configur
         <div class="seg radar-modes" id="radarModes" role="group" aria-label="Termíny radaru" hidden><button type="button" data-m="all">Kdykoliv</button><button type="button" data-m="weekend">Víkendy</button><button type="button" data-m="holiday" title="Nejbližší prodloužený víkend kolem českého svátku">Svátky</button></div>
         <div class="radar-lw" id="radarLw" hidden></div>
         <div id="radar"></div>
+        <!-- 🧳 Naplánuj celou dovolenou: co průvodce cestou umí a příklady vět, dokud ho uživatel nepoužil nebo kartu neskryl
+             (app.js renderPlanCard) -->
+        <div class="card plan-card" id="planCard" hidden></div>
         <!-- ⭐ Moje cíle: nejnižší viděná cena z paměti cen, Hledat moje cíle (flights.js renderFav) -->
         <div class="fav-sec" id="favSec" hidden></div>
         <!-- 📌 Odložené nabídky: dlaždice a Porovnat (flights.js renderPins) -->
