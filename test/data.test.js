@@ -84,6 +84,20 @@ test('countries.json: hlavní město Řecka jako v celé aplikaci (server/lib/na
   assert.equal(BY.GR.capCs, 'Atény');
 });
 
+// sight-hours.json psal Akropoli do „Athén“ – památka v hlavním městě nese jeho český název z countries.json
+test('sight-hours.json: památky v hlavních městech mají město stejně jako countries.json', () => {
+  const R = 6371, rad = Math.PI / 180;
+  const km = (a, b, c, d) => 2 * R * Math.asin(Math.sqrt(Math.sin((c - a) * rad / 2) ** 2 + Math.cos(a * rad) * Math.cos(c * rad) * Math.sin((d - b) * rad / 2) ** 2));
+  let n = 0;
+  for (const s of read('sight-hours.json').sights) {
+    const c = COUNTRIES.find((x) => km(s.lat, s.lon, ...x.capLL) < 15);
+    if (!c) continue;
+    n++;
+    assert.equal(s.city, c.capCs || c.cap, s.name);
+  }
+  assert.ok(n >= 20, `památek v hlavních městech: ${n}`);
+});
+
 test('countries.json: poloha hlavního města (capLL) u každé země – počasí v okně země jedním dotazem a ve správné zemi', () => {
   const R = 6371, rad = Math.PI / 180;
   const km = (a, b, c, d) => 2 * R * Math.asin(Math.sqrt(Math.sin((c - a) * rad / 2) ** 2 + Math.cos(a * rad) * Math.cos(c * rad) * Math.sin((d - b) * rad / 2) ** 2));
@@ -129,8 +143,40 @@ test('airports.json a airport-pax.json: unikátní IATA, platné souřadnice, ty
     assert.ok(['L', 'M', 'S'].includes(type), `${iata}: typ ${type}`);
     assert.ok(typeof tz === 'string' && /^[A-Za-z_]+\/[A-Za-z_\-/]+$/.test(tz), `${iata}: pásmo ${tz}`);
   }
+  for (const a of AIRPORTS) assert.ok(!/\s{2}|^\s|\s$/.test(a[1]) && !/\s{2}|^\s|\s$/.test(a[2]), `${a[0]}: mezery v názvu „${a[1]}“ / „${a[2]}“`);
   for (const [iata, v] of Object.entries(PAX)) {
     assert.ok(seen.has(iata), `${iata}: cestující u letiště, které není v airports.json`);
     assert.ok(Array.isArray(v) && v.length === 2 && Number.isFinite(v[0]) && v[0] >= 0 && Number.isInteger(v[1]) && v[1] >= 1990 && v[1] <= 2026, `${iata}: ${v}`);
   }
+});
+
+// Pár letišť mělo město a časové pásmo z jiného letiště se stejným kódem (Aral v Číně: „Brisbane“, Australia/Brisbane;
+// Amravati v Indii: „Alverca“, Europe/Lisbon) – časy letů vycházely o hodiny vedle a hledání „Brisbane“ by našlo Čínu.
+// Pásmo musí sedět na zeměpisnou délku (sluneční čas ± 3,5 h – vejde se i Sin-ťiang s pekingským časem) a evropská pásma patří jedné zemi (Ženeva má Europe/Zurich jako ostatní švýcarská letiště).
+test('airports.json: časové pásmo a město odpovídají poloze letiště', () => {
+  const offs = new Map();
+  const off = (tz) => {
+    if (!offs.has(tz)) {
+      const s = new Intl.DateTimeFormat('en', { timeZone: tz, timeZoneName: 'longOffset' }).formatToParts(new Date('2026-01-15T12:00:00Z')).find((p) => p.type === 'timeZoneName').value;
+      const m = s.match(/GMT(?:([+-])(\d\d):(\d\d))?/);
+      offs.set(tz, m[1] ? (m[1] === '-' ? -1 : 1) * (+m[2] + m[3] / 60) : 0);
+    }
+    return offs.get(tz);
+  };
+  const bad = [];
+  for (const [iata, , , cc, , lon, , tz] of AIRPORTS) {
+    let d = Math.abs(off(tz) - lon / 15);
+    d = Math.min(d, 24 - d);
+    if (d > 3.5) bad.push(`${iata} ${cc} ${tz}`);
+  }
+  assert.deepEqual(bad, []);
+  const euro = {};
+  for (const a of AIRPORTS) if (a[7].startsWith('Europe/')) (euro[a[7]] ||= new Set()).add(a[3]);
+  // Kosovo patří do pásma Europe/Belgrade
+  const shared = Object.entries(euro).filter(([tz, s]) => s.size > 1 && tz !== 'Europe/Belgrade').map(([tz, s]) => `${tz}: ${[...s]}`);
+  assert.deepEqual(shared, []);
+  const AP = Object.fromEntries(AIRPORTS.map((a) => [a[0], a]));
+  const fixed = { AAP: ['Samarinda', 'Asia/Makassar'], ACF: ['Aral', 'Asia/Shanghai'], AVR: ['Amravati', 'Asia/Calcutta'], BOR: ['Bokeo', 'Asia/Vientiane'],
+    BXT: ['Bontang-Borneo Island', 'Asia/Makassar'], BPE: ['Qinhuangdao', 'Asia/Shanghai'], GES: ['General Santos', 'Asia/Manila'], GVA: ['Geneva', 'Europe/Zurich'] };
+  for (const [iata, [city, tz]] of Object.entries(fixed)) assert.deepEqual([AP[iata][2], AP[iata][7]], [city, tz], iata);
 });

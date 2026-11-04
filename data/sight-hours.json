@@ -164,7 +164,7 @@
       "closed": [], "dates": ["01-01", "05-01", "12-24", "12-25", "12-31"],
       "src": "https://castelodesaojorge.pt/en/plan-your-visit/schedules/", "checked": "2026-10-23" },
 
-    { "ids": ["Q421084"], "name": "Muzeum Akropolis", "names": ["Acropolis Museum"], "city": "Athény", "lat": 37.96842, "lon": 23.72847,
+    { "ids": ["Q421084"], "name": "Muzeum Akropolis", "names": ["Acropolis Museum"], "city": "Atény", "lat": 37.96842, "lon": 23.72847,
       "closed": [],
       "src": "https://www.theacropolismuseum.gr/en/plan-your-visit", "checked": "2026-10-23" },
     { "ids": ["Q274141"], "name": "Palác Dolmabahçe", "names": ["Dolmabahçe Palace", "Dolmabahçe Sarayı"], "city": "Istanbul", "lat": 41.03944, "lon": 29.00167,
