@@ -221,6 +221,8 @@
     if (!cache.has(ck)) {
       const p = fetchFn(`api/climate?lat=${(+lat).toFixed(3)}&lon=${(+lon).toFixed(3)}`).then(r => (r.ok ? r.json() : null)).catch(() => null);
       cache.set(ck, { at: Date.now(), data: p });
+      // chyba (bez sítě, server se probouzí) → příště znovu, jinak by průměr chyběl až do obnovení stránky
+      p.then(c => { if (!c && cache.get(ck)?.data === p) cache.delete(ck); });
     }
     const c = await cache.get(ck).data;
     const m = +String(ymd).slice(5, 7) - 1;

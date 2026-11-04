@@ -60,6 +60,13 @@ test('dlouhodobý průměr pro termín mimo předpověď', async () => {
   const n = await W.normal(50.0876, 14.4213, '2026-11-20', { fetchFn });
   assert.equal(n.hi, 7);
   assert.equal(n.text, 'Obvykle v listopadu: 7° / 2°, srážky ~43 mm za měsíc');
+  // chyba se nepamatuje: další otevření se zeptá znovu (úspěch už ano)
+  let calls = 0;
+  const flaky = async () => (++calls === 1 ? { ok: false, status: 503 } : okJson({ hi: Array(12).fill(20), lo: Array(12).fill(10), p: Array(12).fill(50) }));
+  assert.equal(await W.normal(48.2, 16.37, '2026-12-01', { fetchFn: flaky }), null);
+  assert.equal((await W.normal(48.2, 16.37, '2026-12-01', { fetchFn: flaky })).hi, 20);
+  await W.normal(48.2, 16.37, '2026-12-01', { fetchFn: flaky });
+  assert.equal(calls, 2);
   assert.equal(W.daysAhead('2026-10-20', NOW), 15);
   assert.equal(W.inForecast('2026-10-21', NOW), false);
 });
