@@ -57,7 +57,8 @@
   const timeOf = l => l.hasTime ? l.dep.slice(11, 16) : '';
   // přílet další den (noční a dálkové lety) → „00:20 +1“
   const arrTime = l => l.arr && l.hasTime ? (l.arrEst ? '~' : '') + l.arr.slice(11, 16) + (l.arr.slice(0, 10) > l.date ? ` +${SearchHelp.diffDays(l.date, l.arr.slice(0, 10))}` : '') : '';
-  const dur = m => m ? `${Math.floor(m / 60)}\u00a0h ${pad(m % 60)}\u00a0min` : ''; // jednotka se neodtrhne od čísla
+  // let pod hodinu bez „0 h“ (Vídeň–Salcburk „50 min“)
+  const dur = m => m && m < 60 ? `${m} min` : m ? `${Math.floor(m / 60)}\u00a0h ${pad(m % 60)}\u00a0min` : ''; // jednotka se neodtrhne od čísla
   // Let z cache (Travelpayouts / Aviasales): cena z hledání jiných uživatelů; u přestupu bez věrohodné délky i přílet neznámý.
   const CACHE_TIP = 'Cena z vyhledávání jiných uživatelů Aviasales za posledních ~48 h – let i cenu před nákupem ověř.';
   const UNK_TIP = 'Přílet neznám: cache u letu s přestupem neuvádí věrohodnou délku cesty (nejspíš jen čas ve vzduchu bez přestupu) – ověř v rezervaci.';
@@ -1143,7 +1144,8 @@
   const refreshOrigins = debounce(async () => {
     const f = getForm();
     const host = $('#originPills');
-    if (!f.from.length) { originPreview = []; apSumPaint(); host.innerHTML = '<span class="faint">Zadej, odkud letíš – třeba „Brno“, „Vídeň“, „Česko“ nebo použij 📍 polohu.</span>'; return; }
+    // renderOwn: bez letišť schová i „Jezdíš levněji?“ (jinak tam zůstala letiště smazaného Odkud)
+    if (!f.from.length) { originPreview = []; apSumPaint(); renderOwn(); host.innerHTML = '<span class="faint">Zadej, odkud letíš – třeba „Brno“, „Vídeň“, „Česko“ nebo použij 📍 polohu.</span>'; return; }
     try {
       // cesta na letiště jako v hledání: veřejnou dopravou na osobu tam, autem tam i zpět s parkováním na typickou délku cesty
       const nights = previewNights(f), g = groundPayload(f);
@@ -2665,7 +2667,7 @@
       <div class="legs-cols${ret ? '' : ' one'}">${cols}</div>
       <div class="section-head legs-pick" id="legPick"><h2>${title}</h2>${sel ? '<button type="button" class="linkbtn" data-lclear="1">Zrušit výběr</button>' : ''}</div>
       ${picked.length ? `<div class="card res-card flat">${rows}</div>` : '<div class="empty">Tyhle dva lety spolu zkombinovat nejdou – vyber jiný let.</div>'}
-      ${picked.length > n ? `<button type="button" class="more-btn" data-lmore="1">▼ ${ret ? 'Další kombinace' : 'Další lety'} (${Math.min(30, picked.length) - n})</button>` : ''}`;
+      ${Math.min(30, picked.length) > n ? `<button type="button" class="more-btn" data-lmore="1">▼ ${ret ? 'Další kombinace' : 'Další lety'} (${Math.min(30, picked.length) - n})</button>` : ''}`;
   }
   function legCol(trips, side, ret, res, before = 0) {
     const pair = ret ? view.leg[side === 'out' ? 'back' : 'out'] : null;
@@ -5594,7 +5596,7 @@
       <div class="card pin-card">
         <div class="pin-h"><span class="pin-f">${flag(o.dest.cc)}</span><b class="pin-n">${esc(o.dest.label)}</b>${o.demo ? '<span class="b warn" title="Demo data – cena je vymyšlená">DEMO</span>' : ''}</div>
         <div class="pbox"><div class="pp">${czk(o.czk)}</div><div class="pl">${o.back ? 'letenky tam i zpět' : 'letenka'} na osobu${o.bags !== 'none' ? ` · ${esc(PIN_BAGS[o.bags])}` : ''}</div>${SearchHelp.paxTotalOn(pq) && o.total ? `<div class="pd">${SearchHelp.paxTotalLbl(pq)}: <b>${czk(o.total)}</b></div>` : ''}${note ? `<div class="pd pax-note">👶 ${esc(note)}</div>` : ''}</div>
-        <div class="pin-ln">🗓️ ${o.back ? `${o.nights != null ? nightsTxt(o.nights) : `${SearchHelp.diffDays(o.out.date, o.back.date)} dní`}` : 'jen tam'}</div>
+        <div class="pin-ln">🗓️ ${o.back ? `${o.nights != null ? nightsTxt(o.nights) : nightsTxt(SearchHelp.diffDays(o.out.date, o.back.date))}` : 'jen tam'}</div>
         ${offerLeg(o.out)}${o.back ? offerLeg(o.back, true) : ''}
         <div class="pin-act"><button type="button" class="btn sm primary" id="ofAgain">🔎 Hledat znovu</button>${buy && !past ? `<div class="tr-buy">${buy}</div>` : ''}</div>
       </div></div>`);
