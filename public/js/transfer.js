@@ -24,11 +24,13 @@
 
   /**
    * Co s odkazem jde: { qr: QR kód (null = nevejde se ani do verze 40-L), link: false = moc dlouhý i na odkaz }.
-   * Krátký odkaz → malá verze kódu (snadno se čte i z displeje telefonu).
+   * Krátký odkaz → malá verze kódu (snadno se čte i z displeje telefonu). json = zabalená data: rozbalená nad
+   * ShareLink.MAX_JSON by druhé zařízení odmítlo („moc velký“), i když je zkomprimovaný odkaz krátký – pak jen soubor.
    */
-  function fit(url, { maxVersion = 40 } = {}) {
+  function fit(url, { maxVersion = 40, json = '' } = {}) {
     const payload = payloadOf(url) || '';
-    return { qr: window.QR ? QR.encode(url, { maxVersion }) : null, link: payload.length <= MAX_LINK, bytes: new TextEncoder().encode(url).length };
+    const link = payload.length <= MAX_LINK && !(window.ShareLink && new TextEncoder().encode(json).length > ShareLink.MAX_JSON);
+    return { qr: link && window.QR ? QR.encode(url, { maxVersion }) : null, link, bytes: new TextEncoder().encode(url).length };
   }
 
   /** Šířka QR kódu v CSS px: celé pixely displeje na modul (stejně široké moduly – ostřejší pro fotoaparát), nejvýš max. */
@@ -139,7 +141,7 @@
     Promise.resolve(e.url || e.done).then(url => {
       const box = $('#tfBox');
       if (my !== token || !box) return; // okno mezitím zavřené nebo otevřené znovu
-      const f = fit(url), lead = $('#tfLead');
+      const f = fit(url, { json }), lead = $('#tfLead');
       // bez QR kódu: úvod o odkazu (ne „naskenuj“)
       if ((!f.link || !f.qr) && lead) lead.innerHTML = `${f.link ? 'Pošli si odkaz do druhého zařízení a otevři ho tam' : 'Přenes data souborem zálohy'} – ATLAS ukáže, co přibude, a nabídne <b>Sloučit</b> nebo <b>Nahradit</b>. Bez účtu, nic se neukládá na server.`;
       if (!f.link) {

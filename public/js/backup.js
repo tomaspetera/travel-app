@@ -133,11 +133,12 @@
     return o;
   }
   // druh výsledku z Objevuj (city, bike, hike, train, day-car, loop-transit…) → řádky dnů, které tam uložil
+  const EX_KEY = /^[a-z]{2,10}(-[a-z]{2,10})?$/;
   function cleanExplore(e, plan, d) {
     if (!obj(e)) return null;
     const o = {};
     for (const [k, v] of Object.entries(e).slice(0, 12)) {
-      if (!/^[a-z]{2,10}(-[a-z]{2,10})?$/.test(k)) continue;
+      if (!EX_KEY.test(k)) continue;
       o[k] = d.sanitizePlan({ start: plan.start, end: plan.end, days: v }, LIM).days;
     }
     return Object.keys(o).length ? o : null;
@@ -185,6 +186,13 @@
     if (Array.isArray(raw.genChecklist)) t.genChecklist = raw.genChecklist.slice(0, LIM.ck).map(x => d.txt(x, LIM.ckLen, false, true)).filter(Boolean);
     const ex = cleanExplore(raw.explore, plan, d);
     if (ex) t.explore = ex;
+    // druh výsledku, ze kterého cesta vznikla, a jeho poznámky (odkazy na trasu) – bez nich by „Jiná trasa“ po obnově
+    // nechala v poznámkách i odkazy na starou trasu a název by se už neměnil s trasou (places.js mergeInto)
+    if (typeof raw.src === 'string' && EX_KEY.test(raw.src)) t.src = raw.src;
+    if (obj(raw.exploreNotes)) {
+      const en = Object.entries(raw.exploreNotes).slice(0, 12).filter(([k, v]) => EX_KEY.test(k) && typeof v === 'string');
+      if (en.length) t.exploreNotes = Object.fromEntries(en.map(([k, v]) => [k, d.txt(v, LIM.notes, true, true)]));
+    }
     const refs = cleanRefs(raw.refs, d.txt);
     if (refs.length) t.refs = refs;
     // záznam naposledy vyměněné verze sdíleného plánu (PlanShare.snapOf): bez něj by další aktualizace od kamaráda
@@ -437,16 +445,20 @@
   }
   /**
    * Co by 📲 Nahradit v zařízení smazalo nebo přepsalo: cesty, které přenos nemá (lost.trips) nebo má v jiné verzi
-   * (changed), hledání, odložené nabídky, ⭐ / 🙈 města a navštívené země, které přenos nemá.
+   * (changed), hledání, odložené nabídky, ⭐ / 🙈 města a navštívené země, které přenos nemá, a cesty, kterým by
+   * zmizely kódy rezervací (refs).
    */
   function lost(cur, inc, { watchKey = w => w.id, deps = DEPS() } = {}) {
     const d = { txt: defTxt, ...deps };
     const ms = match(cur, inc, d), kept = new Set(ms.filter(x => x.i != null).map(x => x.i));
     const wk = new Set(inc.watch.map(watchKey)), wid = new Set(inc.watch.map(w => w.id));
     const pk = new Set((inc.pins || []).map(p => p.k)), dk = new Set([...inc.fav, ...inc.mute].map(x => x.key)), vis = new Set(inc.visited);
+    // 🔖 kódy rezervací nejsou v podpisu cesty: stejná cesta bez kódů ze zařízení by je nahrazením potichu ztratila
+    const refsGone = new Set(ms.filter(x => x.i != null && x.st !== 'dup' && (cur.trips[x.i].refs || []).some(r => !(x.t.refs || []).some(q => refKey(q) === refKey(r)))).map(x => x.i));
     return {
       trips: (cur.trips || []).filter((t, i) => !kept.has(i)).length,
       changed: ms.filter(x => x.st === 'changed').length,
+      refs: refsGone.size,
       watch: (cur.watch || []).filter(w => obj(w) && !wk.has(watchKey(w)) && !wid.has(w.id)).length,
       pins: (cur.pins || []).filter(p => obj(p) && !pk.has(p.k)).length,
       dests: [...(cur.fav || []), ...(cur.mute || [])].filter(x => obj(x) && !dk.has(x.key)).length,
@@ -573,7 +585,7 @@
     const ls = lost(current(), inc, { watchKey }), r = replace(current(), inc, { watchKey });
     const gone = [ls.trips ? pl(ls.trips, 'cesta', 'cesty', 'cest') : '', ls.watch ? pl(ls.watch, 'hlídaná cena', 'hlídané ceny', 'hlídaných cen') : '',
       ls.pins ? pl(ls.pins, 'odložená nabídka', 'odložené nabídky', 'odložených nabídek') : '', ls.dests ? `${pl(ls.dests, 'město', 'města', 'měst')} z ⭐ / 🙈` : '',
-      ls.visited ? `${pl(ls.visited, 'země', 'země', 'zemí')} z mapy` : ''].filter(Boolean);
+      ls.visited ? `${pl(ls.visited, 'země', 'země', 'zemí')} z mapy` : '', ls.refs ? `🔖 kódy rezervací u ${pl(ls.refs, 'cesty', 'cest', 'cest')}` : ''].filter(Boolean);
     body.innerHTML = `<p style="font-size:14px;margin-bottom:10px"><b>Nahradit data v tomhle zařízení?</b> Zůstane jen to z odkazu: ${esc(countsTxt(counts(r)) || 'nic')}.</p>
       ${gone.length ? `<div class="note warn" style="margin:8px 0">⚠️ <div>Z tohoto zařízení zmizí ${esc(gone.join(', '))}.</div></div>` : '<div class="note info" style="margin:8px 0">ℹ️ <div>Nic se neztratí – všechno z tohoto zařízení odkaz má.</div></div>'}
       ${ls.changed ? `<div class="note warn" style="margin:8px 0">✏️ <div>${pl(ls.changed, 'cesta se přepíše', 'cesty se přepíšou', 'cest se přepíše')} verzí z odkazu.</div></div>` : ''}
