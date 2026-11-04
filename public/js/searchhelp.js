@@ -136,7 +136,7 @@
   function nearStrip(side, { minDate = null } = {}) {
     if (!side || !side.from || !side.to) return [];
     const byDate = new Map((side.days || []).map(d => [d.date, d]));
-    const costs = (side.days || []).map(d => d.cost);
+    const costs = (side.days || []).filter(d => !(minDate && d.date < minDate)).map(d => d.cost); // vypnutý den nejlevnější není
     const min = costs.length ? Math.min(...costs) : null;
     const out = [];
     for (let d = side.from, i = 0; d <= side.to && i < 15; d = addDays(d, 1), i++) {
@@ -157,25 +157,29 @@
    */
   function nearHeadline(nb) {
     if (!nb) return null;
+    // návrat před odletem nejde (pruh ho má vypnutý – nearStrip minDate) – u krátké cesty ho věta nesmí nabídnout
+    const ok = (x, d) => !(x === nb.back && nb.out && nb.out.around && d < nb.out.around);
+    const daysOf = x => (x.days || []).filter(d => ok(x, d.date));
     const parts = [];
     for (const [what, x] of [['odletu', nb.out], ['návratu', nb.back]]) {
-      if (!x || x.lowcostOnDay || !(x.lowcostNear || []).length) continue;
+      const lcNear = x ? (x.lowcostNear || []).filter(d => ok(x, d)) : [];
+      if (!x || x.lowcostOnDay || !lcNear.length) continue;
       // „nemá volný let“: nelétá, nebo je let vyprodaný (obojí ve zdrojích chybí stejně)
       const names = x.lowcostNames || [];
       const who = names.length > 1 ? `nemají ${names.slice(0, -1).join(', ')} ani ${names[names.length - 1]}` : names.length ? `nemá ${names[0]}` : 'nemají nízkonákladovky';
-      const near = x.lowcostNear.slice().sort((a, b) => Math.abs(diffDays(x.around, a)) - Math.abs(diffDays(x.around, b)) || a.localeCompare(b)).slice(0, 2).sort();
-      const price = d => { const y = (x.days || []).find(z => z.date === d); return y ? ` od ${kc(y.cost)}` : ''; };
+      const near = lcNear.sort((a, b) => Math.abs(diffDays(x.around, a)) - Math.abs(diffDays(x.around, b)) || a.localeCompare(b)).slice(0, 2).sort();
+      const price = d => { const y = daysOf(x).find(z => z.date === d); return y ? ` od ${kc(y.cost)}` : ''; };
       // nejlevnější den poblíž, pokud to není jeden z nejbližších
-      const cheap = (x.days || []).filter(d => d.date !== x.around).reduce((m, d) => (!m || d.cost < m.cost ? d : m), null);
+      const cheap = daysOf(x).filter(d => d.date !== x.around).reduce((m, d) => (!m || d.cost < m.cost ? d : m), null);
       const extra = cheap && !near.includes(cheap.date) ? ` · nejlevněji ${dm(cheap.date)} od ${kc(cheap.cost)}` : '';
       parts.push(`V den ${what} ${who} volný let – ${near.map(d => dm(d) + price(d)).join(', ')}${extra}`);
     }
     if (parts.length) return parts.join(' · ');
     const cheaper = [];
     for (const [what, x] of [['tam', nb.out], ['zpět', nb.back]]) {
-      if (!x || !(x.days || []).length) continue;
-      const on = x.days.find(d => d.date === x.around);
-      const best = x.days.filter(d => d.date !== x.around).reduce((m, d) => (!m || d.cost < m.cost ? d : m), null);
+      if (!x || !daysOf(x).length) continue;
+      const on = daysOf(x).find(d => d.date === x.around);
+      const best = daysOf(x).filter(d => d.date !== x.around).reduce((m, d) => (!m || d.cost < m.cost ? d : m), null);
       if (best && (!on || best.cost < on.cost * 0.9)) cheaper.push(`${what} ${dm(best.date)} od ${kc(best.cost)}`);
     }
     return cheaper.length ? `Levněji vedle: ${cheaper.join(' · ')}` : null;
@@ -637,7 +641,11 @@
       if (fl < 3) add('flex3', '± 3 dny', { xFlex: 3 });
     } else {
       if ((f.outDays || []).length || (ret && (f.backDays || []).length)) add('anyDay', 'Libovolný den v týdnu', { outDays: [], backDays: [], len: 'custom' });
-      if (f.dFrom && f.dTo && diffDays(f.dFrom, f.dTo) < 50) add('longer', `Delší termín (až do ${dm(addDays(f.dTo, 30))})`, { dTo: addDays(f.dTo, 30) });
+      // server hledá nejvýš 360 dní dopředu (dates.js clampRange) – delší konec by ořízl a hledalo by se totéž znovu
+      if (f.dFrom && f.dTo && diffDays(f.dFrom, f.dTo) < 50) {
+        const maxTo = today ? addDays(today, 360) : null, dTo = [addDays(f.dTo, 30), maxTo].filter(Boolean).sort()[0];
+        if (dTo > f.dTo) add('longer', `Delší termín (až do ${dm(dTo)})`, { dTo });
+      }
       if (ret && f.nMax - f.nMin < 4) {
         const nMin = Math.max(0, f.nMin - 2), nMax = Math.min(45, f.nMax + 2);
         add('nights', `Víc nocí (${nMin}–${nMax})`, { nMin, nMax, len: 'custom' });
