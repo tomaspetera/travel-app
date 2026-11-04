@@ -25,6 +25,9 @@ export function normalizeStayQuery(raw = {}) {
   const checkin = String(raw.checkin || '');
   const checkout = String(raw.checkout || '');
   if (!isYmd(checkin) || !isYmd(checkout)) throw new StayQueryError('Chybí datum příjezdu nebo odjezdu.');
+  // Neexistující den (30. 2., 13. měsíc) isYmd pustí – Date ho přetočí do dalšího měsíce; noci by se spočítaly
+  // z přetočeného data, ale do odkazů na weby (Booking, Google Hotels…) a na Xotelo by šel neplatný termín.
+  if (addDays(checkin, 0) !== checkin || addDays(checkout, 0) !== checkout) throw new StayQueryError('Neplatné datum příjezdu nebo odjezdu.');
   if (checkin < addDays(todayYmd(), -1)) throw new StayQueryError('Datum příjezdu je v minulosti.');
   const nights = daysBetween(checkin, checkout);
   if (nights < 1 || nights > 45) throw new StayQueryError('Pobyt musí mít 1 až 45 nocí.');
