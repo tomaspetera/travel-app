@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ATLAS – návrh identity C „Mapa“</title>
+<!-- Samostatný návrh: žádné vnější zdroje (písma, obrázky, CDN) – jen systémová písma, inline SVG a CSS.
+     Barvy v ukázkách telefonu jsou přesně ty z tabulky ve varianta-c.md. -->
+<style>
+:root{
+  --ink:#12302f; --muted:#466260; --paper:#fbf9f4; --sand:#f3efe6; --petrol:#0f5c63; --night:#0b1f22; --vermilion:#b8400f;
+  --font:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font:16px/1.5 var(--font);color:var(--ink);background:var(--paper);-webkit-text-size-adjust:100%}
+/* motiv poledníků a rovnoběžek: jemná síť na pozadí stránky (jako okraj mapy v atlase) */
+body{background-image:linear-gradient(rgba(15,92,99,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(15,92,99,.05) 1px,transparent 1px);background-size:48px 48px}
+.page{max-width:980px;margin:0 auto;padding:24px 16px 64px}
+h1{font-size:28px;line-height:1.15;letter-spacing:-.01em}
+h2{font-size:21px;margin:40px 0 6px;padding-top:14px;border-top:1px solid rgba(18,48,47,.14)}
+h3{font-size:15px;margin:0 0 8px}
+p.lead{color:var(--muted);margin-top:8px;max-width:62ch}
+.note{color:var(--muted);font-size:14px;margin:4px 0 14px;max-width:70ch}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+.panel{border-radius:20px;padding:22px 18px;border:1px solid rgba(18,48,47,.12);background:#fff}
+.panel.dark{background:var(--night);border-color:transparent;color:#eef3ee}
+.panel.sand{background:var(--sand)}
+.cap{font-size:12.5px;color:var(--muted);margin-top:12px}
+.panel.dark .cap{color:#a6bbb6}
+
+/* ---------- značka: kompasová růžice ---------- */
+.rose{--r-ring:#0f5c63;--r-star:#12302f;--r-north:#b8400f;--r-dot:#fbf9f4;display:block}
+.on-dark .rose,.rose.on-dark{--r-ring:#4fb3ad;--r-star:#eef3ee;--r-north:#ff8a5c;--r-dot:#0b1f22}
+.logo{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.logo .rose{width:84px;height:84px;flex:none}
+.wm{font:800 46px/1 var(--font);letter-spacing:.16em;margin-right:-.16em}
+.tag{font-size:14px;color:var(--muted);letter-spacing:.02em;margin-top:6px}
+.on-dark .tag{color:#a6bbb6}
+.logo-sm{display:flex;align-items:center;gap:10px;margin-top:22px}
+.logo-sm .rose{width:32px;height:32px}
+.logo-sm b{font:800 19px/1 var(--font);letter-spacing:.14em}
+
+/* ---------- ikona ---------- */
+.icon-big{width:100%;max-width:320px;height:auto;display:block;margin:0 auto;border-radius:22%;box-shadow:0 18px 40px -20px rgba(11,31,34,.6)}
+.icon-row{display:flex;gap:18px;align-items:flex-end;flex-wrap:wrap;margin-top:6px}
+.icon-cell{text-align:center;font-size:12px;color:var(--muted)}
+.icon-cell .bgbox{width:96px;height:96px;border-radius:18px;display:grid;place-items:center;margin-bottom:6px}
+.icon-cell svg{width:48px;height:48px;border-radius:11px}
+.home{display:grid;grid-template-columns:repeat(4,48px);gap:16px 18px;justify-content:center;padding:18px 10px;border-radius:18px;
+  background:linear-gradient(160deg,#7a9e9a,#33504f)}
+.home div{width:48px;text-align:center;font-size:10.5px;color:#fff;line-height:1.2}
+.home i{display:block;width:48px;height:48px;border-radius:12px;background:rgba(255,255,255,.28);margin-bottom:4px}
+.home svg{display:block;width:48px;height:48px;border-radius:12px;margin-bottom:4px}
+
+/* ---------- paleta ---------- */
+.swatches{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+.sw{border-radius:16px;overflow:hidden;border:1px solid rgba(18,48,47,.12);background:#fff}
+.sw .c{height:72px;display:flex;align-items:flex-end;padding:8px 10px;font-weight:700;font-size:13px}
+.sw .t{padding:8px 10px 10px;font-size:12.5px;color:var(--muted)}
+.sw .t b{display:block;color:var(--ink);font-size:13.5px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+
+/* ---------- ukázka aplikace na telefonu ---------- */
+.phones{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:24px;justify-items:center}
+.phone{width:100%;max-width:380px;border-radius:38px;padding:10px;background:#1b1f20;box-shadow:0 26px 60px -28px rgba(11,31,34,.7)}
+.scr{position:relative;border-radius:30px;overflow:hidden;background:var(--bg);color:var(--text);font-family:var(--font);padding-bottom:92px}
+/* navržené hodnoty proměnných z public/css/atlas.css (varianta-c.md) */
+.t-light{--bg:#f3efe6;--bg2:#fbf9f4;--surface-solid:#ffffff;--card:rgba(255,255,255,.86);--text:#12302f;--muted:#466260;--faint:#526a67;
+  --accent:#0f5c63;--accent2:#b8400f;--accent3:#9c7636;--accent-ink:#0b5a60;--on-accent2:#ffffff;
+  --grad:linear-gradient(135deg,#0f5c63 0%,#1d7470 55%,#2c8378 100%);
+  --good:#047857;--warn:#8a5a00;--bad:#be123c;--border:rgba(18,48,47,.12);--input-bg:#fbf9f4;
+  --nav-bg:rgba(251,249,244,.94);--nav-line:rgba(18,48,47,.1);--nav-ico:#4a6461;--nav-on:#12302f;--nav-on-ink:#ffffff;
+  --tile-sea:#d5e7e3;--tile-land:#fbf6ea;--tile-line:rgba(156,118,54,.45);--shadow:0 1px 2px rgba(18,48,47,.05),0 12px 30px -18px rgba(18,48,47,.35)}
+.t-dark{--bg:#0b1f22;--bg2:#0f272b;--surface-solid:#163539;--card:rgba(22,53,57,.72);--text:#eef3ee;--muted:#a6bbb6;--faint:#93aaa5;
+  --accent:#4fb3ad;--accent2:#ff8a5c;--accent3:#d8bf8a;--accent-ink:#7dd3c8;--on-accent2:#0b1f22;
+  --grad:linear-gradient(135deg,#0f3d42 0%,#13494d 55%,#16575a 100%);
+  --good:#34d399;--warn:#fbbf24;--bad:#fb7185;--border:rgba(238,243,238,.1);--input-bg:#0f272b;
+  --nav-bg:rgba(23,58,64,.88);--nav-line:rgba(238,243,238,.1);--nav-ico:rgba(238,243,238,.68);--nav-on:#4fb3ad;--nav-on-ink:#0b1f22;
+  --tile-sea:#0f2c30;--tile-land:#1d4549;--tile-line:rgba(216,191,138,.35);--shadow:0 12px 30px -16px rgba(0,0,0,.6)}
+.sbar{display:flex;justify-content:space-between;padding:12px 22px 4px;font-size:13px;font-weight:600}
+.topbar{display:flex;align-items:center;gap:8px;padding:8px 14px 12px}
+.page-title{font-size:21px;font-weight:800;letter-spacing:-.01em;line-height:1.15}
+.sp{flex:1}
+.home-chip{font:600 12.5px var(--font);color:var(--text);background:var(--surface-solid);border:1px solid var(--border);border-radius:12px;padding:8px 10px;white-space:nowrap}
+.home-chip span{color:var(--muted)}
+.icon-btn{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;background:var(--surface-solid);border:1px solid var(--border);color:var(--text);flex:none}
+.icon-btn svg{width:18px;height:18px}
+.hero{position:relative;margin:0 12px;border-radius:22px;overflow:hidden;background:var(--grad);color:#fff;padding:20px 16px 16px}
+.hero .topo{position:absolute;inset:0;width:100%;height:100%}
+.hero>*:not(.topo){position:relative}
+.hero h1{font-size:26px;line-height:1.1;letter-spacing:-.015em}
+.hero p{font-size:13.5px;line-height:1.45;margin-top:8px;color:rgba(255,255,255,.9)}
+/* hledací karta: plná (ne sklo) – štítky polí tak mají kontrast jako text, ne jako průhledná bílá na fotce */
+.search{margin-top:14px;background:var(--surface-solid);color:var(--text);border-radius:18px;padding:6px;box-shadow:var(--shadow)}
+.hs-field{display:flex;flex-direction:column;padding:8px 10px;border-bottom:1px solid var(--border)}
+.hs-lab{font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;font-weight:800;color:var(--muted)}
+.hs-val{font-size:16px;font-weight:600;margin-top:2px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.hs-val .ph{color:var(--faint);font-weight:500}
+.pchip{font-size:13px;font-weight:600;background:var(--input-bg);border:1px solid var(--border);border-radius:999px;padding:2px 9px}
+.pchip small{color:var(--faint);font-weight:600}
+.btn-go{display:block;width:100%;margin-top:6px;border:0;border-radius:13px;padding:13px;font:800 16px var(--font);background:var(--accent2);color:var(--on-accent2)}
+.hero-plan{display:inline-flex;gap:6px;margin-top:12px;font-weight:700;font-size:14px;color:#fff;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.38);border-radius:999px;padding:9px 14px}
+.section-head{display:flex;align-items:baseline;justify-content:space-between;padding:20px 16px 10px}
+.section-head h2{all:unset;font-size:18px;font-weight:800}
+.link{font-size:13.5px;font-weight:700;color:var(--accent-ink)}
+.rcard{margin:0 12px;border-radius:22px;overflow:hidden;background:var(--card);border:1px solid var(--border);box-shadow:var(--shadow)}
+.tile{position:relative;display:block;width:100%;height:auto}
+.tile-wrap{position:relative}
+.b-good{position:absolute;top:10px;left:10px;font-size:11.5px;font-weight:700;color:#fff;background:rgba(4,100,72,.9);border-radius:999px;padding:4px 9px}
+.rc-panel{padding:11px 14px 13px}
+.rc-city{font-size:18px;font-weight:800;letter-spacing:-.01em}
+.rc-meta{font-size:12.5px;color:var(--muted);margin-top:1px}
+.rc-sub{font-size:12.5px;color:var(--faint)}
+.rc-foot{display:flex;align-items:center;justify-content:space-between;margin-top:6px}
+.rc-price{font-size:24px;font-weight:800;color:var(--accent2);font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.rc-price small{font-size:13px;font-weight:700;color:var(--muted);margin-left:2px}
+.rc-go{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:var(--bg);color:var(--text);font-size:20px;font-weight:700}
+.mobile-nav{position:absolute;left:10px;right:10px;bottom:12px;display:grid;grid-template-columns:repeat(5,1fr);gap:2px;padding:6px;border-radius:22px;
+  background:var(--nav-bg);border:1px solid var(--nav-line);box-shadow:var(--shadow)}
+.mi{display:flex;flex-direction:column;align-items:center;gap:2px;padding:7px 0 6px;border-radius:16px;font-size:10.5px;font-weight:700;color:var(--nav-ico)}
+.mi svg{width:21px;height:21px}
+.mi.active{background:var(--nav-on);color:var(--nav-on-ink)}
+.phone-cap{text-align:center;font-size:13px;color:var(--muted);margin-top:10px}
+
+table{border-collapse:collapse;width:100%;font-size:13.5px;margin-top:8px}
+th,td{text-align:left;padding:7px 8px;border-bottom:1px solid rgba(18,48,47,.12)}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.92em}
+footer{margin-top:44px;font-size:13px;color:var(--muted)}
+</style>
+</head>
+<body>
+<!-- Sdílené tvary: kompasová růžice (barvy z proměnných --r-*, aby jedna kresba šla na světlé i tmavé pozadí)
+     a vrstevnice (motiv mapy na pozadí hlavní karty a ikony) -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="rose" viewBox="0 0 64 64">
+      <circle cx="32" cy="32" r="28" fill="none" style="stroke:var(--r-ring)" stroke-width="3.6"/>
+      <path d="M32 7 37.5 26.5 57 32 37.5 37.5 32 57 26.5 37.5 7 32 26.5 26.5Z" style="fill:var(--r-star)"/>
+      <path d="M32 7 37.5 26.5 32 32 26.5 26.5Z" style="fill:var(--r-north)"/>
+      <circle cx="32" cy="32" r="3.2" style="fill:var(--r-dot)"/>
+    </symbol>
+    <path id="contour" d="M300 30C362 40 404 92 392 150 380 206 318 236 262 222 206 208 176 166 190 112 204 60 246 22 300 30Z"/>
+  </defs>
+</svg>
+
+<div class="page">
+  <h1>ATLAS – návrh identity C „Mapa“</h1>
+  <p class="lead">Klidný kartografický styl: hluboká petrolej a mořská zelená, písek jako papír mapy a jeden výrazný akcent –
+    rumělka – jen pro ceny a hlavní tlačítko. Značka je kompasová růžice se severním hrotem v barvě akcentu. Motiv
+    vrstevnic a poledníků je jen jemně v pozadí, aby nepřekážel čtení cen.</p>
+
+  <!-- ================= LOGO ================= -->
+  <h2>Logo</h2>
+  <p class="note">Kompasová růžice (čtyři hroty v kruhu, sever v barvě akcentu) a nápis ATLAS systémovým písmem s prostrkáním.
+    Růžice funguje i samostatně – jako ikona, favicon, malá značka v hlavičce.</p>
+  <div class="grid">
+    <div class="panel">
+      <div class="logo">
+        <svg class="rose" viewBox="0 0 64 64" role="img" aria-label="Kompasová růžice ATLAS"><use href="#rose"/></svg>
+        <div><div class="wm">ATLAS</div><div class="tag">letenky odkudkoliv kamkoliv</div></div>
+      </div>
+      <div class="logo-sm"><svg class="rose" viewBox="0 0 64 64" aria-hidden="true"><use href="#rose"/></svg><b>ATLAS</b></div>
+      <div class="cap">Na světlém (papír #fbf9f4 / bílá): petrolej #0f5c63, inkoust #12302f, sever #b8400f.</div>
+    </div>
+    <div class="panel dark on-dark">
+      <div class="logo">
+        <svg class="rose" viewBox="0 0 64 64" role="img" aria-label="Kompasová růžice ATLAS"><use href="#rose"/></svg>
+        <div><div class="wm">ATLAS</div><div class="tag">letenky odkudkoliv kamkoliv</div></div>
+      </div>
+      <div class="logo-sm"><svg class="rose" viewBox="0 0 64 64" aria-hidden="true"><use href="#rose"/></svg><b>ATLAS</b></div>
+      <div class="cap">Na tmavém (noční moře #0b1f22): mořská zelená #4fb3ad, světlá #eef3ee, sever #ff8a5c.</div>
+    </div>
+  </div>
+
+  <!-- ================= IKONA ================= -->
+  <h2>Ikona aplikace na plochu</h2>
+  <p class="note">512 × 512, petrolejový čtverec s vrstevnicemi, pískový kruh a bílá růžice. Celá růžice leží uvnitř kruhu
+    s poloměrem 40 % (bezpečná zóna maskovatelné ikony), takže ji Android neořízne do kruhu ani kapky.</p>
+  <div class="grid">
+    <div class="panel sand">
+      <svg class="icon-big" id="icon512" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Ikona ATLAS 512 × 512">
+        <rect width="512" height="512" fill="#0f4c52"/>
+        <g fill="none" stroke="#e9dcc0" stroke-opacity=".13" stroke-width="5">
+          <circle cx="96" cy="430" r="110"/><circle cx="96" cy="430" r="190"/><circle cx="96" cy="430" r="270"/><circle cx="96" cy="430" r="350"/><circle cx="96" cy="430" r="430"/>
+        </g>
+        <circle cx="256" cy="256" r="150" fill="#0f4c52" stroke="#e9dcc0" stroke-width="22"/>
+        <path d="M256 126 284.6 227.4 386 256 284.6 284.6 256 386 227.4 284.6 126 256 227.4 227.4Z" fill="#ffffff"/>
+        <path d="M256 256 386 256 284.6 284.6ZM256 256 256 386 227.4 284.6ZM256 256 126 256 227.4 227.4Z" fill="#e9dcc0"/>
+        <path d="M256 126 284.6 227.4 256 256 227.4 227.4Z" fill="#ff7a45"/>
+        <circle cx="256" cy="256" r="13" fill="#0f4c52"/>
+      </svg>
+      <div class="cap" style="text-align:center">512 × 512 (zobrazeno zmenšeně)</div>
+    </div>
+    <div class="panel">
+      <h3>Zmenšená 48 px</h3>
+      <div class="icon-row">
+        <div class="icon-cell"><div class="bgbox" style="background:#fbf9f4;border:1px solid rgba(18,48,47,.12)"><svg viewBox="0 0 512 512"><use href="#icon512-g"/></svg></div>světlé pozadí</div>
+        <div class="icon-cell"><div class="bgbox" style="background:#0b1f22"><svg viewBox="0 0 512 512"><use href="#icon512-g"/></svg></div>tmavé pozadí</div>
+        <div class="icon-cell"><div class="bgbox" style="background:#d9c7a3"><svg viewBox="0 0 512 512"><use href="#icon512-g"/></svg></div>písková tapeta</div>
+      </div>
+      <h3 style="margin-top:18px">Na ploše telefonu (48 px)</h3>
+      <div class="home">
+        <div><i></i>Mapy</div>
+        <div><svg viewBox="0 0 512 512" aria-label="ATLAS"><use href="#icon512-g"/></svg>ATLAS</div>
+        <div><i></i>Počasí</div>
+        <div><i></i>Fotky</div>
+      </div>
+      <div class="cap">Ve 48 px zůstane čitelný kruh, bílá hvězda a oranžový sever; vrstevnice se slijí v jemnou texturu.</div>
+    </div>
+  </div>
+  <!-- kopie ikony jako symbol pro malé náhledy (use na celé <svg> s id nefunguje ve všech prohlížečích) -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><g id="icon512-g">
+    <rect width="512" height="512" fill="#0f4c52"/>
+    <g fill="none" stroke="#e9dcc0" stroke-opacity=".13" stroke-width="5"><circle cx="96" cy="430" r="110"/><circle cx="96" cy="430" r="190"/><circle cx="96" cy="430" r="270"/><circle cx="96" cy="430" r="350"/><circle cx="96" cy="430" r="430"/></g>
+    <circle cx="256" cy="256" r="150" fill="#0f4c52" stroke="#e9dcc0" stroke-width="22"/>
+    <path d="M256 126 284.6 227.4 386 256 284.6 284.6 256 386 227.4 284.6 126 256 227.4 227.4Z" fill="#ffffff"/>
+    <path d="M256 256 386 256 284.6 284.6ZM256 256 256 386 227.4 284.6ZM256 256 126 256 227.4 227.4Z" fill="#e9dcc0"/>
+    <path d="M256 126 284.6 227.4 256 256 227.4 227.4Z" fill="#ff7a45"/>
+    <circle cx="256" cy="256" r="13" fill="#0f4c52"/>
+  </g></defs></svg>
+
+  <!-- ================= PALETA ================= -->
+  <h2>Paleta</h2>
+  <p class="note">Základ jsou tři tóny mapy (petrolej, písek, noční moře). Rumělka je jediná „hlasitá“ barva: cena a hlavní
+    tlačítko – oko na obrazovce hned najde, kolik let stojí. Kontrasty jsou ve varianta-c.md.</p>
+  <div class="swatches">
+    <div class="sw"><div class="c" style="background:#0f5c63;color:#fff">Petrolej</div><div class="t"><b>#0f5c63</b>--accent (světlý)</div></div>
+    <div class="sw"><div class="c" style="background:#4fb3ad;color:#0b1f22">Mořská zelená</div><div class="t"><b>#4fb3ad</b>--accent (tmavý)</div></div>
+    <div class="sw"><div class="c" style="background:#b8400f;color:#fff">Rumělka</div><div class="t"><b>#b8400f</b>ceny a tlačítko (světlý)</div></div>
+    <div class="sw"><div class="c" style="background:#ff8a5c;color:#0b1f22">Světlá rumělka</div><div class="t"><b>#ff8a5c</b>ceny a tlačítko (tmavý)</div></div>
+    <div class="sw"><div class="c" style="background:#12302f;color:#fff">Inkoust</div><div class="t"><b>#12302f</b>text (světlý)</div></div>
+    <div class="sw"><div class="c" style="background:#0b1f22;color:#eef3ee">Noční moře</div><div class="t"><b>#0b1f22</b>pozadí (tmavý)</div></div>
+    <div class="sw"><div class="c" style="background:#f3efe6;color:#12302f">Písek</div><div class="t"><b>#f3efe6</b>pozadí (světlý)</div></div>
+    <div class="sw"><div class="c" style="background:#fbf9f4;color:#12302f">Papír</div><div class="t"><b>#fbf9f4</b>--bg2, lišta</div></div>
+    <div class="sw"><div class="c" style="background:#9c7636;color:#fff">Okr</div><div class="t"><b>#9c7636</b>--accent3, vrstevnice</div></div>
+    <div class="sw"><div class="c" style="background:#d8bf8a;color:#0b1f22">Světlý okr</div><div class="t"><b>#d8bf8a</b>--accent3 (tmavý)</div></div>
+    <div class="sw"><div class="c" style="background:#047857;color:#fff">Levně</div><div class="t"><b>#047857 / #34d399</b>--good</div></div>
+    <div class="sw"><div class="c" style="background:#be123c;color:#fff">Draze</div><div class="t"><b>#be123c / #fb7185</b>--bad</div></div>
+  </div>
+
+  <!-- ================= UKÁZKA APLIKACE ================= -->
+  <h2>Úvodní obrazovka na telefonu</h2>
+  <p class="note">Rozložení a texty podle skutečného Přehledu (public/index.html): hlavička s domovem, „Kam poletíme?“ s poli
+    Odkud a Kam, „Kam letět levně“ s kartou radaru a spodní lišta. Místo fotky cíle je tu výřez mapy – fotky zůstávají,
+    jen tady nejsou, protože stránka nesmí stahovat nic zvenku.</p>
+  <div class="phones">
+    <div>
+      <div class="phone"><div class="scr t-light">
+        <div class="sbar"><span>9:41</span><span>▂▄▆ 5G ▮</span></div>
+        <header class="topbar">
+          <div class="page-title">Přehled</div>
+          <div class="sp"></div>
+          <span class="home-chip">📍 Praha <span>+100 km</span></span>
+          <span class="icon-btn" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.5 9a9 9 0 0 1 14.9-3.4L23 10M1 14l4.6 4.4A9 9 0 0 0 20.5 15"/></svg></span>
+        </header>
+        <div class="hero">
+          <svg class="topo" viewBox="0 0 400 300" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><g fill="none" stroke="#e9dcc0" stroke-opacity=".16" stroke-width="1.4">
+            <use href="#contour"/><use href="#contour" transform="translate(290 126) scale(1.35) translate(-290 -126)"/><use href="#contour" transform="translate(290 126) scale(1.75) translate(-290 -126)"/><use href="#contour" transform="translate(290 126) scale(2.2) translate(-290 -126)"/><use href="#contour" transform="translate(290 126) scale(.62) translate(-290 -126)"/></g></svg>
+          <h1>Kam poletíme?</h1>
+          <p>Prohledám všechna letiště ve tvém okolí najednou – Ryanair, Wizz Air i další aerolinky – a spočítám i cestu na letiště. K letu ti pak poskládám celou dovolenou: ubytování, program i cenu celkem.</p>
+          <div class="search">
+            <div class="hs-field"><span class="hs-lab">Odkud</span><span class="hs-val"><span class="pchip">Praha <small>+100 km</small></span></span></div>
+            <div class="hs-field"><span class="hs-lab">Kam</span><span class="hs-val"><span class="ph">Např. Barcelona, k moři, Itálie…</span></span></div>
+            <span class="btn-go" role="presentation" style="text-align:center">Najít lety</span>
+          </div>
+          <span class="hero-plan">🧳 Naplánovat celou dovolenou <span aria-hidden="true">→</span></span>
+        </div>
+        <div class="section-head"><h2>Kam letět levně</h2><span class="link">Obnovit →</span></div>
+        <div class="rcard">
+          <div class="tile-wrap">
+            <svg class="tile" viewBox="0 0 340 130" aria-hidden="true">
+              <rect width="340" height="130" style="fill:var(--tile-sea)"/>
+              <path d="M0 0H340V58C318 64 300 52 280 62 262 72 250 92 226 96 208 99 196 86 178 90 160 94 150 116 128 118 110 120 96 100 74 104 50 108 30 130 0 126Z" style="fill:var(--tile-land)"/>
+              <g fill="none" style="stroke:var(--tile-line)" stroke-width="1"><path d="M0 16C60 26 120 6 180 18S300 30 340 20"/><path d="M0 36C70 46 130 26 190 38S290 48 340 40"/></g>
+              <path d="M268 30Q190 0 112 84" fill="none" style="stroke:var(--accent2)" stroke-width="2.4" stroke-dasharray="6 5" stroke-linecap="round"/>
+              <circle cx="268" cy="30" r="5" style="fill:var(--accent)"/><circle cx="112" cy="84" r="6" style="fill:var(--accent2)"/>
+              <text x="278" y="34" font-size="11" font-weight="700" style="fill:var(--text)" font-family="system-ui,sans-serif">PRG</text>
+              <text x="70" y="88" font-size="11" font-weight="700" style="fill:var(--text)" font-family="system-ui,sans-serif">BCN</text>
+            </svg>
+            <span class="b-good">💚 Levně</span>
+          </div>
+          <div class="rc-panel">
+            <div class="rc-city">Barcelona</div>
+            <div class="rc-meta">🇪🇸 Španělsko · 13.–17. 3.</div>
+            <div class="rc-sub">PRG → BCN · 4 noci</div>
+            <div class="rc-foot"><div class="rc-price">1 290 Kč<small>/os.</small></div><span class="rc-go" aria-hidden="true">›</span></div>
+          </div>
+        </div>
+        <nav class="mobile-nav" aria-label="Sekce (ukázka)">
+          <span class="mi active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12l9-9 9 9M5 10v10h14V10"/></svg>Přehled</span>
+          <span class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>Lety</span>
+          <span class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6V4h6v2M3 7h18v13H3zM8 7v13M16 7v13"/></svg>Cesty</span>
+          <span class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a7 7 0 017 7c0 5-7 13-7 13S5 14 5 9a7 7 0 017-7zM12 11.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z"/></svg>Objevuj</span>
+          <span class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z"/></svg>Další</span>
+        </nav>
+      </div></div>
+      <div class="phone-cap">Světlý režim (hlavní uživatel)</div>
+    </div>
+
+    <div>
+      <div class="phone"><div class="scr t-dark">
+        <div class="sbar"><span>21:30</span><span>▂▄▆ 5G ▮</span></div>
+        <header class="topbar">
+          <div class="page-title">Přehled</div>
+          <div class="sp"></div>
+          <span class="home-chip">📍 Praha <span>+100 km</span></span>
+          <span class="icon-btn" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.5 9a9 9 0 0 1 14.9-3.4L23 10M1 14l4.6 4.4A9 9 0 0 0 20.5 15"/></svg></span>
+        </header>
+        <div class="hero">
+          <svg class="topo" viewBox="0 0 400 300" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><g fill="none" stroke="#e9dcc0" stroke-opacity=".12" stroke-width="1.4">
+            <use href="#contour"/><use href="#contour" transform="translate(290 126) scale(1.35) translate(-290 -126)"/><use href="#contour" transform="translate(290 126) scale(1.75) translate(-290 -126)"/><use href="#contour" transform="translate(290 126) scale(2.2) translate(-290 -126)"/><use href="#contour" transform="translate(290 126) scale(.62) translate(-290 -126)"/></g></svg>
+          <h1>Kam poletíme?</h1>
+          <p>Prohledám všechna letiště ve tvém okolí najednou – Ryanair, Wizz Air i další aerolinky – a spočítám i cestu na letiště. K letu ti pak poskládám celou dovolenou: ubytování, program i cenu celkem.</p>
+          <div class="search">
+            <div class="hs-field"><span class="hs-lab">Odkud</span><span class="hs-val"><span class="pchip">Praha <small>+100 km</small></span></span></div>
+            <div class="hs-field"><span class="hs-lab">Kam</span><span class="hs-val"><span class="ph">Např. Barcelona, k moři, Itálie…</span></span></div>
+            <span class="btn-go" role="presentation" style="text-align:center">Najít lety</span>
+          </div>
+          <span class="hero-plan">🧳 Naplánovat celou dovolenou <span aria-hidden="true">→</span></span>
+        </div>
+        <div class="section-head"><h2>Kam letět levně</h2><span class="link">Obnovit →</span></div>
+        <div class="rcard">
+          <div class="tile-wrap">
+            <svg class="tile" viewBox="0 0 340 130" aria-hidden="true">
+              <rect width="340" height="130" style="fill:var(--tile-sea)"/>
+              <path d="M0 0H340V58C318 64 300 52 280 62 262 72 250 92 226 96 208 99 196 86 178 90 160 94 150 116 128 118 110 120 96 100 74 104 50 108 30 130 0 126Z" style="fill:var(--tile-land)"/>
+              <g fill="none" style="stroke:var(--tile-line)" stroke-width="1"><path d="M0 16C60 26 120 6 180 18S300 30 340 20"/><path d="M0 36C70 46 130 26 190 38S290 48 340 40"/></g>
+              <path d="M268 30Q190 0 112 84" fill="none" style="stroke:var(--accent2)" stroke-width="2.4" stroke-dasharray="6 5" stroke-linecap="round"/>
+              <circle cx="268" cy="30" r="5" style="fill:var(--accent)"/><circle cx="112" cy="84" r="6" style="fill:var(--accent2)"/>
+              <text x="278" y="34" font-size="11" font-weight="700" style="fill:var(--text)" font-family="system-ui,sans-serif">PRG</text>
+              <text x="70" y="88" font-size="11" font-weight="700" style="fill:var(--text)" font-family="system-ui,sans-serif">BCN</text>
+            </svg>
+            <span class="b-good">💚 Levně</span>
+          </div>
+          <div class="rc-panel">
+            <div class="rc-city">Barcelona</div>
+            <div class="rc-meta">🇪🇸 Španělsko · 13.–17. 3.</div>
+            <div class="rc-sub">PRG → BCN · 4 noci</div>
+            <div class="rc-foot"><div class="rc-price">1 290 Kč<small>/os.</small></div><span class="rc-go" aria-hidden="true">›</span></div>
+          </div>
+        </div>
+        <nav class="mobile-nav" aria-label="Sekce (ukázka)">
+          <span class="mi active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12l9-9 9 9M5 10v10h14V10"/></svg>Přehled</span>
+          <span class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>Lety</span>
+          <span class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6V4h6v2M3 7h18v13H3zM8 7v13M16 7v13"/></svg>Cesty</span>
+          <span class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a7 7 0 017 7c0 5-7 13-7 13S5 14 5 9a7 7 0 017-7zM12 11.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z"/></svg>Objevuj</span>
+          <span class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z"/></svg>Další</span>
+        </nav>
+      </div></div>
+      <div class="phone-cap">Tmavý režim</div>
+    </div>
+  </div>
+
+  <h2>Barva lišty (theme_color)</h2>
+  <table>
+    <tr><th>Kde</th><th>Hodnota</th></tr>
+    <tr><td><code>manifest.webmanifest</code> theme_color a background_color</td><td><code>#f3efe6</code> (písek – hlavní uživatel je ve světlém režimu)</td></tr>
+    <tr><td><code>&lt;meta name="theme-color"&gt;</code> světlý</td><td><code>#f3efe6</code></td></tr>
+    <tr><td><code>&lt;meta name="theme-color"&gt;</code> tmavý</td><td><code>#0b1f22</code></td></tr>
+  </table>
+
+  <footer>Návrh – v aplikaci se zatím nic nemění. Hodnoty proměnných a kontrasty: <code>docs/identita/varianta-c.md</code>.</footer>
+</div>
+</body>
+</html>
