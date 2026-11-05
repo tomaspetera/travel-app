@@ -144,6 +144,15 @@ test('Ground: HTML spojů a odkazů – cizí texty escapované, odkazy jen http
   assert.match(typ, /skutečných spojů a cen z 15\. 10\./);
 });
 
+test('Ground: poslední volná místa a „další spoje“ v českých tvarech (1 místo, 3 místa, 12 míst; další 1 spoj, další 3 spoje, dalších 5 spojů)', () => {
+  const seats = n => Ground.connRow(live({ seats: n })).match(/<span class="warn">([^<]*)<\/span>/)[1];
+  assert.deepEqual([1, 3, 12].map(seats), ['1 místo', '3 místa', '12 míst']);
+  assert.ok(!Ground.connRow(live({ seats: 339 })).includes('class="warn"'), 'dost míst – bez upozornění');
+  const more = n => Ground.liveHtml({ est: null, live: { ok: true, count: 2 + n, items: Array.from({ length: 2 + n }, (_, i) => live({ id: `s${i}` })) } }, { max: 2 })
+    .match(/gc-more">([^<]*)</)[1];
+  assert.deepEqual([1, 3, 5].map(more), ['a další 1 spoj na webu RegioJetu', 'a další 3 spoje na webu RegioJetu', 'a dalších 5 spojů na webu RegioJetu']);
+});
+
 test('SearchHelp: blízký cíl s málo lety → nabídka vlaku/busu; daleký cíl ne; jen filtry času → ne', () => {
   const form = { from: [{ id: 'ap:PRG', label: 'Praha' }], to: [{ id: 'ap:VIE', label: 'Vídeň', type: 'airport' }], dateMode: 'exact', xOut: '2026-11-10', xBack: '2026-11-14', xFlex: 0, trip: 'return', radius: 100 };
   const res = { mode: 'route', groups: [], top: [], destination: { kind: 'airports' }, destinationLabels: [{ id: 'ap:VIE', cc: 'AT' }], ground: { min: 234, czk: 299, worth: true, q: { from: 'ap:PRG', to: 'ap:VIE' } } };
