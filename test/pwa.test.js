@@ -547,6 +547,31 @@ test('service worker: pomalá síť nebo uspaný server → uložená stránka a
   assert.equal(await text(fresh.event('fetch', { request: req('/', { mode: 'navigate' }), resultingClientId: 'x' })), '<html>v2</html>');
 });
 
+test('service worker: „Obnovit“ na pomalé síti (atlas-fresh) – příští stránka ze sítě, ne zase uložená stará verze; jen jednou, offline dál uložená', async () => {
+  const src = read('public/sw.js').replace(/^const BUILD = .*$/m, "const BUILD = 'v1';")
+    .replace(/^const PRECACHE = .*$/m, `const PRECACHE = ${JSON.stringify(['./', 'js/app.js'])};`)
+    .replace(/^const PAGE_TIMEOUT = .*$/m, 'const PAGE_TIMEOUT = 30;');
+  const sw = loadSw(src);
+  const { net, event, handlers } = sw;
+  const file = (p, body, type = 'text/javascript') => { net.files[SCOPE + p] = { body, type }; };
+  const open = async (id) => (await event('fetch', { request: req('/', { mode: 'navigate' }), resultingClientId: id }).responded).text();
+  const fresh = () => new Promise((resolve) => handlers.message({ data: 'atlas-fresh', ports: [{ postMessage: resolve }] }));
+  const page = (build) => { net.files[SCOPE] = { body: `<html>${build}</html>`, type: 'text/html; charset=utf-8', headers: { 'x-atlas-build': build } }; };
+  page('v1');
+  file('js/app.js', 'app v1');
+  await Promise.all(event('install').waits);
+  page('v2'); // nasazená nová verze – pod uloženou v1 se neuloží
+  net.delay = 120;
+  assert.equal(await open('a'), '<html>v1</html>', 'pomalá síť: uložená stránka (pwa.js pak nabídne „Obnovit“)');
+  assert.equal(await fresh(), 'ok');
+  assert.equal(await open('b'), '<html>v2</html>', 'po „Obnovit“ počká na síť – nová verze, nabídka zmizí');
+  assert.equal(await open('c'), '<html>v1</html>', 'jen jednou – další otevření zase rychle z uložené kopie');
+  net.offline = true;
+  await fresh();
+  assert.equal(await open('d'), '<html>v1</html>', 'offline i po „Obnovit“ uložená stránka');
+  assert.match(read('public/js/pwa.js'), /onclick = \(\) => reloadFresh\(\)/, 'tlačítko Obnovit posílá atlas-fresh');
+});
+
 test('service worker: uspaný server (aplikace se serveru dlouho neptala) → uložená stránka hned, bez čekání PAGE_TIMEOUT; čas posledního požadavku přežije uspání service workeru', async () => {
   const src = read('public/sw.js').replace(/^const BUILD = .*$/m, "const BUILD = 'v1';")
     .replace(/^const PRECACHE = .*$/m, `const PRECACHE = ${JSON.stringify(['./', 'js/app.js'])};`)
@@ -678,6 +703,22 @@ test('service worker v akci: instalace ze sítě s ověřením, aktivace smaže 
   let answer = null;
   sw.handlers.message({ data: 'atlas-build', ports: [{ postMessage: (m) => { answer = m; } }] });
   assert.equal(answer, 'v2');
+});
+
+test('service worker: instalace během nasazení – stránka od starého serveru (jiná X-Atlas-Build) se neuloží, instalace selže a zkusí se znovu', async () => {
+  const src = read('public/sw.js').replace(/^const BUILD = .*$/m, "const BUILD = 'v2';").replace(/^const PRECACHE = .*$/m, `const PRECACHE = ${JSON.stringify(['./', 'js/app.js'])};`);
+  const page = (build) => ({ body: `<html>${build}</html>`, type: 'text/html; charset=utf-8', headers: { 'x-atlas-build': build } });
+  const sw = loadSw(src);
+  sw.net.files[SCOPE] = page('v1');
+  sw.net.files[`${SCOPE}js/app.js`] = { body: 'app' };
+  await assert.rejects(Promise.all(sw.event('install').waits), /verze v1/);
+  assert.equal(sw.calls.skip, 0, 'starý service worker zůstane se svou úplnou sadou');
+  assert.ok(!(sw.store.get('atlas-v2') || new Map()).has(SCOPE), 'stránka starší verze se pod novou verzi neuloží');
+  // další pokus, už odpovídá nový server
+  sw.net.files[SCOPE] = page('v2');
+  await Promise.all(sw.event('install').waits);
+  assert.equal(sw.store.get('atlas-v2').get(SCOPE), '<html>v2</html>');
+  assert.equal(sw.calls.skip, 1);
 });
 
 test('service worker: soubory s otiskem v adrese (js/app.js?v=…) bez ověření u serveru; uloží jen obsah, který server potvrdil (X-Atlas-Hash)', async () => {

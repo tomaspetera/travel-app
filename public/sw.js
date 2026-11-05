@@ -38,6 +38,10 @@ const SEEN = 'atlas-seen';
 // stránku ze sítě se stejnou verzí (X-Atlas-Build = BUILD – otisk obsahu všech souborů, uložená sada je tedy totožná).
 // Ušetří ověřování ~30 souborů u serveru při každém otevření; jiná verze = soubory dál ze sítě, nikdy starý kód.
 const fromCache = new Set();
+// Uživatel klepl na „Obnovit“ (pwa.js 'atlas-fresh'): příští stránka se čeká ze sítě i přes PAGE_TIMEOUT a ASLEEP_AFTER –
+// server právě nahlásil novou verzi, takže je vzhůru. Jinak by na pomalé síti přišla zase uložená stránka staré verze
+// a nabídka „Obnovit“ by se vracela dokola. Offline a při chybě serveru dál uložená stránka. Platí krátce a jednou.
+let freshUntil = 0;
 
 /**
  * Kam s požadavkem (čistá funkce – test/pwa.test.js):
@@ -138,6 +142,8 @@ async function networkFirst(event, kind) {
   }
   // spící server (ASLEEP_AFTER): na síť se nečeká – co už přišlo, má ale přednost (Promise.race)
   const asleep = kind === 'page' && Date.now() - (await lastSeen()) > ASLEEP_AFTER;
+  const wait = kind === 'page' && freshUntil > Date.now();
+  if (kind === 'page') freshUntil = 0;
   touch(event);
   // stránka: požadavek, který prohlížeč poslal už při spouštění service workeru (navigation preload); bez něj (starší
   // prohlížeč, nepovedený) nový požadavek jako dřív
@@ -146,7 +152,7 @@ async function networkFirst(event, kind) {
     : fetch(fresh(req, kind));
   let res;
   try {
-    if (kind === 'page') {
+    if (kind === 'page' && !wait) {
       let timer;
       const slow = new Promise((resolve) => { timer = setTimeout(resolve, asleep ? 0 : PAGE_TIMEOUT, 'slow'); });
       const first = await Promise.race([net, slow]).finally(() => clearTimeout(timer));
@@ -202,6 +208,11 @@ self.addEventListener('install', (event) => {
     // zastaví a prohlížeč ji zkusí znovu při další návštěvě.
     await Promise.all(PRECACHE.map(async (u) => {
       const res = await fetch(new Request(u, { cache: versioned(u) ? 'default' : 'no-cache' }));
+      // Stránka jiné verze (během nasazení odpoví ještě starý server): uložená by se offline a na pomalé síti otvírala
+      // se skripty, které v téhle sadě nejsou, a „Obnovit“ by ji vracel pořád dokola až do dalšího nasazení. Instalace
+      // radši selže – zůstane starý service worker se svou úplnou sadou a prohlížeč to zkusí znovu (pwa.js reg.update).
+      const build = res.ok ? res.headers.get('x-atlas-build') : null;
+      if (build && build !== BUILD) throw new Error(`sw.js: stránka verze ${build}, čekána ${BUILD}`);
       if (res.ok && confirmed(u, res)) await cache.put(u, res);
     }));
     // Nový service worker hned převezme otevřené stránky: soubory bere vždy ze sítě stejně jako ten starý, takže jim
@@ -247,10 +258,15 @@ self.addEventListener('fetch', (event) => {
 });
 
 // Stránka načtená offline se ptá, z jaké verze je její uložená kopie (pwa.js – upozornění na novou verzi).
-// pwa.js: 'atlas-build' → verze uložené sady; 'atlas-served' → 'cache', když se tazateli dala uložená stránka.
+// pwa.js: 'atlas-build' → verze uložené sady; 'atlas-served' → 'cache', když se tazateli dala uložená stránka;
+// 'atlas-fresh' → příští stránka ze sítě (freshUntil), odpověď 'ok' až pak pwa.js obnoví stránku.
 self.addEventListener('message', (event) => {
   const port = event.ports && event.ports[0];
   if (!port) return;
   if (event.data === 'atlas-build') port.postMessage(BUILD);
+  else if (event.data === 'atlas-fresh') {
+    freshUntil = Date.now() + 10e3;
+    port.postMessage('ok');
+  }
   else if (event.data === 'atlas-served') port.postMessage(event.source && fromCache.has(event.source.id) ? 'cache' : 'network');
 });

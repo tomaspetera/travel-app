@@ -269,6 +269,9 @@
     sw.controller.postMessage(msg, [ch.port2]);
   });
   const cachedBuild = () => askSw('atlas-build');
+  // obnovení kvůli nové verzi: service worker má příští stránku počkat ze sítě, ne dát uloženou (sw.js freshUntil) –
+  // jinak by na pomalé síti přišla zase stará verze a nabídka „Obnovit“ hned znovu
+  const reloadFresh = () => askSw('atlas-fresh').then(() => location.reload());
 
   // verze stránky dosazená serverem (server/lib/pwa.js serveIndex) – platí i pro stránku z uložené kopie
   const pageBuild = () => {
@@ -304,7 +307,7 @@
     const b = await serverBuild().catch(() => null);
     if (!b || b === mine || b === dismissed) return;
     if (resumed && Date.now() - t0 < 4000 && isApp() && quietToReload()) {
-      location.reload();
+      reloadFresh();
       return;
     }
     showUpdate(b);
@@ -315,7 +318,7 @@
       updBar.className = 'pwa-update';
       updBar.setAttribute('role', 'status');
       updBar.innerHTML = '<span>✨ Je k dispozici nová verze ATLASu</span><button type="button" class="btn sm primary">Obnovit</button><button type="button" class="pwa-x" aria-label="Zavřít" title="Později">×</button>';
-      updBar.querySelector('.btn').onclick = () => location.reload();
+      updBar.querySelector('.btn').onclick = () => reloadFresh();
       updBar.querySelector('.pwa-x').onclick = () => { updBar.hidden = true; dismissed = updBar.dataset.build; };
       document.body.append(updBar);
     }
