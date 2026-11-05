@@ -1368,6 +1368,18 @@ test('normalizeStayQuery: přelom měsíce a roku platí, neexistující den (29
   }
 });
 
+test('normalizeStayQuery: poloha mimo zeměkouli je chyba 400, prázdné lat/lon bez města nejsou poloha', () => {
+  const stay = (extra) => normalizeStayQuery({ checkin: ymdPlus(30), checkout: ymdPlus(33), ...extra });
+  for (const pos of [{ lat: 999, lon: 14 }, { lat: 50, lon: -181 }, { lat: '-91', lon: '0' }]) {
+    assert.throws(() => stay({ city: 'Praha', ...pos }), (e) => e.status === 400 && /Neplatná poloha/.test(e.message), JSON.stringify(pos));
+  }
+  // dřív Number('') = 0 prošlo jako poloha a hledalo se bez města i bez polohy
+  assert.throws(() => stay({ lat: '', lon: '' }), (e) => e.status === 400 && /Chybí cílové město/.test(e.message));
+  // hraniční a platná poloha dál projde
+  assert.equal(stay({ lat: 90, lon: -180 }).lat, 90);
+  assert.equal(stay({ city: 'Praha', lat: '', lon: '' }).lat, null);
+});
+
 test('malé místo bez cen z TripAdvisoru: ubytování z OpenStreetMap jde vybrat bez ověřování volna, cenu doplníš ručně', async () => {
   const at = (dLat, dLon) => ({ lat: String(PRAGUE.lat + dLat), lon: String(PRAGUE.lon + dLon) });
   const rows = [

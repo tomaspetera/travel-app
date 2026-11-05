@@ -278,6 +278,8 @@
   // přechod hranice krátce (časová osa, plánovač)
   const borderTxt = x => (x && x.border ? ` · 🛂 hranice ${ccName(x.border.from)} → ${ccName(x.border.to)}` : '');
   const nightWord = n => n === 1 ? 'noc' : n >= 2 && n <= 4 ? 'noci' : 'nocí';
+  // krok Trasa, noci rozdělené celé: „Všechny 3 noci rozděleny“, ale „Všech 5 nocí rozděleno“ (ne „Všech 3 noci rozděleno“)
+  const splitDoneTxt = (total, n) => `✓ ${total >= 2 && total <= 4 ? `Všechny ${total} noci rozděleny` : `Všech ${nightsTxt(total)} rozděleno`} mezi ${n} ${n <= 4 ? 'místa' : 'míst'}`;
   const distKm = (a, b) => {
     const r = Math.PI / 180, dLat = (b.lat - a.lat) * r, dLon = (b.lon - a.lon) * r;
     const h = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * r) * Math.cos(b.lat * r) * Math.sin(dLon / 2) ** 2;
@@ -1727,7 +1729,7 @@
     const dates = baseDates(t);
     const ov = ovOn(t), o = outLeg(t), bk = backLeg(t), lastLeg = bk ? legs[legs.length - 1] : null;
     const sum = n < 2 ? ['warn', 'Přidej aspoň jedno další místo (níže), nebo zůstaň na jednom místě.']
-      : left === 0 ? ['ok', `✓ Všech ${nightsTxt(total)} rozděleno mezi ${n} ${n <= 4 ? 'místa' : 'míst'}`]
+      : left === 0 ? ['ok', splitDoneTxt(total, n)]
         : left > 0 ? ['warn', `Rozděleno ${total - left} z ${total} nocí – zbývá rozdělit ${nightsTxt(left)} (tlačítko +)`]
           : ['warn', `Rozděleno o ${nightsTxt(-left)} víc, než trvá pobyt (${nightsTxt(total)}) – ${r.bases.some(b => b.nights > 1) ? 'uber tlačítkem −' : 'odeber místo tlačítkem ✕'}`];
     list.innerHTML = `${r.demo ? '<div class="faint" style="font-size:12px;margin-bottom:8px">⚠️ demo data – vymyšlená města</div>' : ''}
@@ -4475,5 +4477,5 @@
 
   window.Trip = { start, progSpan, cardData, pastHtml, flyOk, finalStats, statsGiveUp, openSaved, saveToPlanner, unsavedNow, stepTo, render: safeRender, mine, ageRefresh, importFromHash, costs, budgetGroups, budgetLeft, budgetMissing, sanitizeTrip, calendarEvents, leaveBy, baseDates, baseProgram, legBrief, stayDates, tripEvent, tripCountries, tripVia, groundLines, groundApps, timeline, placeOn, placePt, rideLegs, legBack,
     // doprava po úsecích trasy a auto jen na některé dny, tlačítko kroku nad spodní lištou (testy)
-    routeLegs, carRuns, suggestModes, setLegModes, rangeModes, carDays, carRange, carStart, transferParts, phoneNext };
+    routeLegs, carRuns, suggestModes, setLegModes, rangeModes, carDays, carRange, carStart, transferParts, phoneNext, splitDoneTxt };
 })();
