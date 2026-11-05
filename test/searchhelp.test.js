@@ -1523,3 +1523,14 @@ test('nováček vyplní Odkud v hledání na Přehledu → domov jako z uvítán
   assert.match(fl, /heroFrom = new PlaceInput\(\$\('#heroFrom'\), \{ [^}]*max: 3, onChange: heroHome \}\);/);
   assert.match(fl, /renderRadar\(true\); heroFrom && heroFrom\.set\(home\.from, true\);/);
 });
+
+test('nightsAround: ± 2 noci kolem přesných dat, tam i zpět v jeden den = 0–2 (Kamkoliv → Všechna data)', () => {
+  assert.deepEqual(plain(H.nightsAround('2026-12-05', '2026-12-05')), { nMin: 0, nMax: 2 });
+  assert.deepEqual(plain(H.nightsAround('2026-12-05', '2026-12-06')), { nMin: 1, nMax: 3 });
+  assert.deepEqual(plain(H.nightsAround('2026-12-05', '2026-12-12')), { nMin: 5, nMax: 9 });
+  // tlačítko „Všechna data“ bere rozsah odsud – dřív Math.max(1, …) dalo u jednodenní cesty 1–3 noci
+  const src = readFileSync(new URL('../public/js/flights.js', import.meta.url), 'utf8');
+  const h = src.slice(src.indexOf("$$('[data-alldates]'"), src.indexOf("$$('[data-day]'"));
+  assert.match(h, /SearchHelp\.nightsAround\(lf\.xOut, lf\.xBack\)/);
+  assert.doesNotMatch(h, /Math\.max\(1,/);
+});

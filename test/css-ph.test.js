@@ -21,6 +21,18 @@ test('trip.css: řádek Průběhu cesty s dlouhou vlastní aktivitou (odkaz) nep
   assert.match(rule, /overflow-wrap:anywhere/);
 });
 
+test('trip.css: místo v Objevuj (.poi) a bod programu dne (.dp-item) s dlouhým slovem v názvu nepřeteče na telefonu', () => {
+  const css = readFileSync(new URL('trip.css', dir), 'utf8');
+  for (const [sel, cols] of [['poi', '96px minmax\\(0,1fr\\)'], ['dp-item', '22px minmax\\(0,1fr\\) auto']]) {
+    const rule = css.match(new RegExp(`(^|\\n)\\.${sel}\\{[^}]*\\}`))[0];
+    assert.match(rule, new RegExp(`grid-template-columns:${cols}`), sel);
+    assert.match(rule, /overflow-wrap:anywhere/, sel);
+  }
+  // telefon (≤ 560 px) zúží obrázek na 72 px – i tam minmax(0,1fr), holé 1fr by se roztáhlo podle nejdelšího slova
+  assert.match(css, /\.poi\{grid-template-columns:72px minmax\(0,1fr\)\}/);
+  assert.doesNotMatch(css, /\.(poi|dp-item)\{[^}]*grid-template-columns:[^;}]*\s1fr/);
+});
+
 test('flights.css: vysvětlivka „Co to znamená?“ v modré poznámce nepřebírá žlutou barvu varování', () => {
   assert.match(readFileSync(new URL('flights.css', dir), 'utf8'), /\.mc-note \.mc-why\{[^}]*color:inherit/);
 });
