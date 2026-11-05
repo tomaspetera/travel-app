@@ -663,7 +663,7 @@ async function route(req, res) {
     const lat = Number(url.searchParams.get('lat'));
     const lon = Number(url.searchParams.get('lon'));
     const radius = Math.min(600, Number(url.searchParams.get('radius')) || 250);
-    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return sendJson(req, res, 400, { error: 'Chybí lat/lon' });
+    if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return sendJson(req, res, 400, { error: 'Chybí lat/lon' });
     const ap = accessParams(url.searchParams);
     const items = airportsNear(lat, lon, radius).slice(0, 15).map((a) => ({
       iata: a.iata, name: a.name, city: a.cityCs, cc: a.cc, lat: a.lat, lon: a.lon,
