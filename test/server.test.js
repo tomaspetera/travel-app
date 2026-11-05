@@ -743,6 +743,16 @@ test('POST /api/itinerary (DEMO): časy zastávek, oběd a konec dne; s dětmi (
   assert.deepEqual(str.days.map((d) => d.cap), plan.days.map((d) => d.cap));
 });
 
+test('POST /api/itinerary: poloha mimo zeměkouli je 400 (jako /api/poi), ne dotaz na místa', async () => {
+  const post = (body) => fetch(`${base}/api/itinerary`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-forwarded-for': '10.20.30.78' }, body: JSON.stringify(body) });
+  const start = ymdPlus(20);
+  for (const [lat, lon] of [[1000, 2.17], [41.39, -500]]) {
+    const r = await post({ lat, lon, start, end: start });
+    assert.equal(r.status, 400, `${lat},${lon}`);
+    assert.match((await r.json()).error, /poloha/);
+  }
+});
+
 test('POST /api/itinerary (DEMO) po ✕: keep nechá ostatní místa ve svých dnech; neplatný keep se zahodí (jako bez něj)', async () => {
   const headers = { 'content-type': 'application/json', 'x-forwarded-for': '10.20.30.77' };
   const post = async (body) => (await fetch(`${base}/api/itinerary`, { method: 'POST', headers, body: JSON.stringify(body) })).json();

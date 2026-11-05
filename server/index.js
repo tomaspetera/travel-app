@@ -868,7 +868,7 @@ async function route(req, res) {
     if (!b || typeof b !== 'object' || Array.isArray(b)) return sendJson(req, res, 400, { error: 'Neplatný JSON' });
     const lat = Number(b.lat);
     const lon = Number(b.lon);
-    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return sendJson(req, res, 400, { error: 'Chybí poloha (lat/lon).' });
+    if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return sendJson(req, res, 400, { error: 'Chybí poloha (lat/lon).' });
     if (!isYmd(b.start) || !isYmd(b.end) || daysBetween(b.start, b.end) < 0 || daysBetween(b.start, b.end) > 30) return sendJson(req, res, 400, { error: 'Neplatné datum (max. 31 dní).' });
     // Okruh jako u seznamu míst (/api/poi) – program pak použije už načtená místa z mezipaměti; starší klient bez něj 10 km.
     const near = { lat, lon, radiusKm: Math.min(25, Math.max(1, Number(b.radius) || 10)), dayTrips: true };
