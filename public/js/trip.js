@@ -158,6 +158,9 @@
 
   // Přílet po půlnoci (do 5:00) → pokoj už od předchozího večera, ať je kde přespat.
   const checkinOf = l => { const a = arrivalAt(l); return l.hasTime && +a.slice(11, 13) < 5 ? addDaysYmd(a.slice(0, 10), -1) : a.slice(0, 10); };
+  // Odchod z místa k letu: v den odletu, u letu mezi místy (mid) nejpozději v den, od kterého má pokoj další místo – let
+  // po půlnoci (odlet 0:30, přílet 2:15) má pokoj v dalším místě už od večera předem (checkinOf), ta noc se neplatí dvakrát.
+  const leaveDayOf = (l, mid) => (mid ? [l.date, checkinOf(l)].sort()[0] : l.date);
   const daysBetween = (a, b) => Math.round((new Date(b) - new Date(a)) / 864e5);
   function stayDates(t) {
     const o = outLeg(t), b = backLeg(t);
@@ -185,7 +188,7 @@
     const arr = [f.out, ...(f.mid || [])], dep = [...(f.mid || []), f.back || null];
     if (!Array.isArray(stops) || stops.length !== arr.length) return null;
     const bases = arr.map((l, i) => {
-      const s = stops[i], nights = dep[i] ? daysBetween(checkinOf(l), dep[i].date) : last;
+      const s = stops[i], nights = dep[i] ? daysBetween(checkinOf(l), leaveDayOf(dep[i], i < arr.length - 1)) : last;
       if (!s || !Number.isFinite(s.lat) || !Number.isFinite(s.lon) || !(nights >= 1 && nights <= 30)) return null;
       return {
         id: /^[\w:.,-]{1,100}$/.test(s.id || '') ? s.id : `fly${i}`, name: String(s.label || l.to).replace(/ \(.*\)$/, '').slice(0, 80), nameEn: '',
@@ -219,7 +222,7 @@
     if (isFly(t)) {
       const arr = [t.flight.out, ...midLegs(t)], dep = [...midLegs(t), t.flight.back || null];
       return t.route.bases.map((b, i) => {
-        const checkin = checkinOf(arr[i]), checkout = dep[i] ? dep[i].date : addDaysYmd(checkin, t.nightsOneWay || 3);
+        const checkin = checkinOf(arr[i]), checkout = dep[i] ? leaveDayOf(dep[i], i < arr.length - 1) : addDaysYmd(checkin, t.nightsOneWay || 3);
         return { checkin, checkout, nights: daysBetween(checkin, checkout) };
       });
     }
@@ -3168,7 +3171,8 @@
     if (isFly(t)) {
       // trasa podle letů: od příletu do místa (rezervu na cestu z letiště má program sám) do odletu dalšího letu
       const a = arrivalAt(i ? midLegs(t)[i - 1] : t.flight.out), n = last ? b : midLegs(t)[i];
-      return { start: a.slice(0, 10), end: d.checkout, arrivalTime: a.slice(11, 16), departureTime: n && n.hasTime ? n.dep.slice(11, 16) : null };
+      // konec programu v den odletu (let po půlnoci: pokoj končí den předem, čas odletu platí pro den odletu)
+      return { start: a.slice(0, 10), end: n ? n.date : d.checkout, arrivalTime: a.slice(11, 16), departureTime: n && n.hasTime ? n.dep.slice(11, 16) : null };
     }
     const arr = arrivalAt(outLeg(t)), a0 = arr.slice(11, 16);
     // Cesta z letiště (města příjezdu) na 1. místo a z posledního zpět: hodinu kryje rezerva programu
