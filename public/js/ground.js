@@ -12,6 +12,8 @@
   const hhmm = s => (typeof s === 'string' && s.length >= 16 ? s.slice(11, 16) : '');
   const days = (a, b) => Math.round((Date.parse(b.slice(0, 10) + 'T12:00:00Z') - Date.parse(a.slice(0, 10) + 'T12:00:00Z')) / 864e5);
   const dm = d => `${+d.slice(8, 10)}. ${+d.slice(5, 7)}.`;
+  // české tvary podle počtu: 1 místo / 2 místa / 5 míst (ukazuje se právě u posledních pár míst ve spoji)
+  const nTxt = (n, one, few, many) => `${n} ${n === 1 ? one : n >= 2 && n <= 4 ? few : many}`;
 
   /** Běžná cena odhadu (podle ní se rozhoduje a srovnává); starší odhad bez ní = „od“. */
   const typOf = g => (g && g.typ > 0 ? g.typ : g ? g.czk : 0);
@@ -143,7 +145,7 @@
     const st = [x.fromStation, x.toStation].every(Boolean) ? ` · ${esc(x.fromStation)} → ${esc(x.toStation)}` : '';
     const price = x.bookable ? `<b>${czk(x.priceFrom)}</b>${x.priceTo && x.priceTo > x.priceFrom ? `<small>až ${czk(x.priceTo)}</small>` : ''}` : '<small>vyprodáno</small>';
     const inner = `<span class="gc-t">${kindIco(x.kinds)} <b>${esc(hhmm(x.dep))}</b> → <b>${esc(hhmm(x.arr))}</b>${plus}</span>
-      <span class="gc-x">${esc(hm(x.min))} · ${esc(x.transfers ? `${x.transfers}× přestup` : 'přímý')} · ${esc(kindsTxt(x.kinds))}${st}${x.bookable && x.seats != null && x.seats < 20 ? ` · <span class="warn">${+x.seats} míst</span>` : ''}</span>
+      <span class="gc-x">${esc(hm(x.min))} · ${esc(x.transfers ? `${x.transfers}× přestup` : 'přímý')} · ${esc(kindsTxt(x.kinds))}${st}${x.bookable && x.seats != null && x.seats < 20 ? ` · <span class="warn">${nTxt(+x.seats, 'místo', 'místa', 'míst')}</span>` : ''}</span>
       <span class="gc-p">${price}</span>`;
     if (!sel) return `<div class="gc-row${x.bookable ? '' : ' off'}">${inner}</div>`;
     return `<label class="gc-row sel${x.bookable ? '' : ' off'}"><input type="radio" name="${esc(sel.name)}" value="${esc(x.id)}" ${sel.checked ? 'checked' : ''} ${x.bookable ? '' : 'disabled'}>${inner}</label>`;
@@ -168,7 +170,7 @@
       html += `<div class="gc-head"><span class="b good">RegioJet – živé ceny${live.demo ? ' (DEMO)' : ''}</span><span class="faint">${items.length ? `${live.count} ${live.count === 1 ? 'spoj' : live.count >= 2 && live.count <= 4 ? 'spoje' : 'spojů'} ke koupi · cena na osobu, jedním směrem` : 'tento den RegioJet nejede'}</span>${rjLink ? `<a class="btn sm ghost" href="${esc(safeUrl(rjLink.url))}" target="_blank" rel="noopener">Koupit na RegioJet ↗</a>` : ''}</div>`;
       if (live.demo) html += '<div class="faint gc-demo">⚠️ DEMO režim – spoje i ceny jsou vymyšlené.</div>';
       html += `<div class="gc-list">${items.slice(0, max).map(x => connRow(x, sel && { name: sel, checked: picked === x.id })).join('')}${sel ? estRow(j.est, { name: sel, checked: !picked }) : ''}</div>`;
-      if (items.length > max) html += `<div class="faint gc-more">a dalších ${items.length - max} spojů na webu RegioJetu</div>`;
+      if (items.length > max) html += `<div class="faint gc-more">a ${items.length - max <= 4 ? 'další' : 'dalších'} ${nTxt(items.length - max, 'spoj', 'spoje', 'spojů')} na webu RegioJetu</div>`;
     } else {
       const why = live ? live.error : 'Živé spoje se načtou po výběru data.';
       html += `<div class="gc-head"><span class="b">odhad</span><span class="faint">${esc(why || '')}</span></div><div class="gc-list">${estRow(j.est, sel && { name: sel, checked: true })}</div>`;
