@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ATLAS – návrh identity A „Evoluce“</title>
+<!-- Samostatná stránka bez vnějších zdrojů: inline SVG a CSS, systémová písma. Jen návrh – aplikace (public/) se nemění. -->
+<style>
+  :root{
+    --ink:#101828; --ink2:#4f5b7a; --paper:#f3f5fa; --line:rgba(16,24,40,.1);
+    --grad:linear-gradient(135deg,#0b9dbd 0%,#3366ee 50%,#7a45d8 100%);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--paper);color:var(--ink);line-height:1.5;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1080px;margin:0 auto;padding:28px 16px 60px}
+  h1{font-size:26px;font-weight:800;letter-spacing:-.02em}
+  h2{font-size:19px;font-weight:800;letter-spacing:-.01em;margin:40px 0 6px}
+  .lead{color:var(--ink2);font-size:15px;max-width:640px;margin-top:6px}
+  .note{color:var(--ink2);font-size:13.5px;margin-bottom:14px;max-width:680px}
+  .row{display:flex;flex-wrap:wrap;gap:16px}
+  .panel{flex:1 1 300px;border-radius:20px;padding:30px 22px;display:grid;place-items:center;border:1px solid var(--line)}
+  .panel.light{background:#fff}
+  .panel.dark{background:#0b1020;border-color:transparent}
+  .panel small{display:block;margin-top:14px;font-size:12px;color:var(--ink2);text-align:center}
+  .panel.dark small{color:#a3aec8}
+
+  /* logo: značka + nápis; nápis systémovým písmem, tučně, mírně prostrčený – čitelný i ve 20 px v liště */
+  .logo{display:flex;align-items:center;gap:14px}
+  .logo svg{width:64px;height:64px;flex:none}
+  .logo b{font-size:44px;font-weight:800;letter-spacing:.06em;line-height:1}
+  .logo i{display:block;font-style:normal;font-size:13px;font-weight:600;letter-spacing:.01em;margin-top:6px;color:#4f5b7a}
+  .panel.dark .logo b{color:#e8edf8}
+  .panel.dark .logo i{color:#a3aec8}
+  .logo.sm svg{width:38px;height:38px}
+  .logo.sm b{font-size:22px}
+
+  .icons{display:flex;flex-wrap:wrap;align-items:flex-end;gap:26px}
+  .icons figure{text-align:center;font-size:12px;color:var(--ink2)}
+  .icons svg{display:block;margin:0 auto 8px}
+  .i512{width:min(256px,70vw);height:auto;filter:drop-shadow(0 10px 22px rgba(16,24,40,.18))}
+  .home{display:flex;gap:18px;padding:18px 20px;border-radius:20px;background:#dfe5f1}
+  .home.dk{background:#1b2440;color:#e8edf8}
+  .home figure{color:inherit;font-size:11px}
+
+  /* paleta */
+  .pal{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+  .sw{border-radius:14px;overflow:hidden;border:1px solid var(--line);background:#fff;font-size:12.5px}
+  .sw div{height:62px}
+  .sw p{padding:8px 10px;line-height:1.35}
+  .sw p b{display:block;font-size:13px}
+  .sw code{font:12px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:var(--ink2)}
+
+  /* ===== ukázka telefonu – stejné proměnné jako public/css/atlas.css, hodnoty varianty A ===== */
+  .phones{display:flex;flex-wrap:wrap;gap:22px;justify-content:center}
+  .phone{width:min(360px,100%);border-radius:34px;padding:10px;background:#1d2333;box-shadow:0 24px 60px -28px rgba(16,24,40,.55)}
+  .ph-cap{text-align:center;font-size:12.5px;color:var(--ink2);margin-top:10px}
+  .scr{position:relative;height:740px;border-radius:26px;overflow:hidden;background:var(--bg);color:var(--text);font-size:14px}
+  .scr[data-theme="light"]{
+    --accent:#2f62e8; --accent2:#7a45d8; --accent3:#0a7690; --accent-ink:#2553c9;
+    --bg:#f3f5fa; --bg2:#ffffff; --surface-solid:#ffffff; --card:#ffffff; --tile:#eef1f7;
+    --text:#101828; --muted:#4f5b7a; --faint:#5f6b88;
+    --good:#047857; --warn:#a8500a; --bad:#c4244a;
+    --border:rgba(16,24,40,.1); --nav-bg:#ffffff; --nav-ico:#56627f; --nav-on:#101828; --nav-on-ink:#ffffff;
+    --shadow:0 1px 2px rgba(16,24,40,.05),0 10px 26px -18px rgba(16,24,40,.3);
+  }
+  .scr[data-theme="dark"]{
+    --accent:#2f62e8; --accent2:#a78bfa; --accent3:#22c5e0; --accent-ink:#86a6ff;
+    --bg:#0b1020; --bg2:#0f1629; --surface-solid:#141c31; --card:#141c31; --tile:#1b2440;
+    --text:#e8edf8; --muted:#a3aec8; --faint:#8f9bba;
+    --good:#34d399; --warn:#fbbf24; --bad:#fb7185;
+    --border:rgba(255,255,255,.08); --nav-bg:#172038; --nav-ico:#a9b4cc; --nav-on:#ffffff; --nav-on-ink:#0b1020;
+    --shadow:0 12px 30px -18px rgba(0,0,0,.7);
+  }
+  .sb{display:flex;justify-content:space-between;padding:10px 20px 0;font-size:12px;font-weight:700}
+  .top{display:flex;align-items:center;gap:10px;padding:10px 16px 12px}
+  .top .lg{width:30px;height:30px;flex:none}
+  .top h4{font-size:21px;font-weight:800;letter-spacing:-.02em}
+  .top .sp{flex:1}
+  .chip{font-size:12.5px;font-weight:700;padding:7px 11px;border-radius:11px;background:var(--surface-solid);border:1px solid var(--border);color:var(--text)}
+  .ib{width:36px;height:36px;border-radius:11px;display:grid;place-items:center;background:var(--surface-solid);border:1px solid var(--border);color:var(--muted)}
+  .ib svg{width:18px;height:18px}
+  .body{padding:0 14px}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:20px;box-shadow:var(--shadow)}
+  /* úvod: plná karta s tenkým barevným proužkem nahoře místo záře a zrnitého přechodu přes celou plochu */
+  .hero{position:relative;overflow:hidden;padding:20px 16px 16px}
+  .hero::before{content:"";position:absolute;inset:0 0 auto;height:4px;background:var(--grad)}
+  .hero h5{font-size:24px;font-weight:800;letter-spacing:-.02em}
+  .hero p{font-size:13px;color:var(--muted);margin:4px 0 12px;line-height:1.45}
+  .fld{display:block;padding:8px 12px;border-radius:13px;background:var(--tile);margin-bottom:8px}
+  .fld span{display:block;font-size:11px;font-weight:700;color:var(--faint);text-transform:uppercase;letter-spacing:.05em}
+  .fld b{font-size:15px}
+  .btn{display:block;width:100%;padding:12px;border-radius:13px;border:0;background:var(--accent);color:#fff;font:800 15px/1.2 system-ui,sans-serif;text-align:center}
+  .plan{display:block;margin-top:10px;font-size:13.5px;font-weight:700;color:var(--accent-ink)}
+  .sh{display:flex;justify-content:space-between;align-items:baseline;margin:18px 2px 8px}
+  .sh h6{font-size:16px;font-weight:800}
+  .sh a{font-size:13px;font-weight:700;color:var(--accent-ink);text-decoration:none}
+  .res{padding:14px 14px 12px}
+  .rc-head{display:flex;align-items:center;gap:10px}
+  .rc-flag{font-size:28px;line-height:1}
+  .rc-head h3{font-size:17px;font-weight:800;line-height:1.2}
+  .rc-head .faint{font-size:12.5px;color:var(--faint)}
+  .price{margin-left:auto;text-align:right}
+  .price b{display:block;font-size:22px;font-weight:800;letter-spacing:-.02em}
+  .price small{font-size:11.5px;color:var(--faint)}
+  .leg{display:flex;align-items:center;gap:8px;font-size:13px;padding:3px 0}
+  .legs{margin-top:10px;padding-top:8px;border-top:1px solid var(--border)}
+  .cb{flex:none;min-width:28px;height:22px;border-radius:7px;display:grid;place-items:center;color:#fff;font-weight:800;font-size:10.5px;background:#073590}
+  .ld{min-width:62px;color:var(--muted);font-weight:600;font-size:12px}
+  .tm{color:var(--muted)}
+  .badges{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+  .b{font-size:11.5px;font-weight:700;padding:3px 8px;border-radius:7px;background:var(--tile);color:var(--muted)}
+  .b.good{color:var(--good);background:color-mix(in srgb,var(--good) 12%,transparent)}
+  .b.warn{color:var(--warn);background:color-mix(in srgb,var(--warn) 12%,transparent)}
+  .nav{position:absolute;left:12px;right:12px;bottom:12px;height:60px;padding:6px;display:flex;gap:2px;border-radius:999px;
+    background:var(--nav-bg);border:1px solid var(--border);box-shadow:0 14px 30px -16px rgba(16,24,40,.45)}
+  .mi{flex:1 1 0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border-radius:26px;color:var(--nav-ico);font-size:10.5px;font-weight:700}
+  .mi svg{width:20px;height:20px}
+  .mi.on{background:var(--nav-on);color:var(--nav-on-ink)}
+  footer{margin-top:44px;font-size:12.5px;color:var(--ink2)}
+</style>
+</head>
+<body>
+<!-- jedna značka pro celou stránku: zaoblený čtverec v klidném přechodu, papírové letadlo a čárkovaná stopa (cesta) -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <linearGradient id="gA" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0b9dbd"/><stop offset=".5" stop-color="#3366ee"/><stop offset="1" stop-color="#7a45d8"/></linearGradient>
+  <symbol id="mark" viewBox="0 0 48 48">
+    <rect width="48" height="48" rx="12" fill="url(#gA)"/>
+    <path d="M38.5 10.5 20 24.2 8.5 19.4z" fill="#fff"/>
+    <path d="M38.5 10.5 25.8 37.5 20 24.2z" fill="#fff" fill-opacity=".72"/>
+    <path d="M17.2 29.6c-2.6 2.4-5 4.6-8.4 6.6" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-dasharray="0.1 4.4" stroke-opacity=".85"/>
+  </symbol>
+</defs></svg>
+
+<div class="wrap">
+  <h1>ATLAS – identita A „Evoluce“</h1>
+  <p class="lead">Známý ATLAS, jen dospělejší: stejné barvy (tyrkysová → modrá → fialová) a papírové letadlo, ale přechod jen ve značce, plné plochy místo záře a skla, jedna hlavní modrá pro tlačítka a jasné signální barvy.</p>
+
+  <h2>Logo</h2>
+  <p class="note">Značka + nápis. Letadlo je stejné jako dnes (dva trojúhelníky), přibyla čárkovaná stopa – cesta, ne jen jeden let. Na světlém i tmavém pozadí stejná značka, mění se jen barva nápisu.</p>
+  <div class="row">
+    <div class="panel light">
+      <div class="logo"><svg aria-hidden="true"><use href="#mark"/></svg><div><b>ATLAS</b><i>letenky odkudkoliv kamkoliv</i></div></div>
+      <small>světlé pozadí · nápis #101828</small>
+    </div>
+    <div class="panel dark">
+      <div class="logo"><svg aria-hidden="true"><use href="#mark"/></svg><div><b>ATLAS</b><i>letenky odkudkoliv kamkoliv</i></div></div>
+      <small>tmavé pozadí · nápis #e8edf8</small>
+    </div>
+  </div>
+  <div class="row" style="margin-top:16px">
+    <div class="panel light" style="padding:18px"><div class="logo sm"><svg aria-hidden="true"><use href="#mark"/></svg><b>ATLAS</b></div><small>malé logo (postranní lišta, 38 px)</small></div>
+    <div class="panel dark" style="padding:18px"><div class="logo sm"><svg aria-hidden="true"><use href="#mark"/></svg><b>ATLAS</b></div><small>malé logo na tmavém</small></div>
+  </div>
+
+  <h2>Ikona aplikace na plochu</h2>
+  <p class="note">512 × 512 (zobrazená zmenšeně) a 48 px vedle jiných ikon na ploše telefonu. Bez vnitřní záře a stínu; letadlo zabírá ~60 % plochy, takže se vejde i do bezpečné zóny maskovatelné ikony (kruh 80 %).</p>
+  <div class="icons">
+    <figure>
+      <svg class="i512" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Ikona ATLAS 512 × 512"><use href="#mark" width="512" height="512"/></svg>
+      512 × 512
+    </figure>
+    <div class="home">
+      <figure><svg width="48" height="48" aria-hidden="true"><use href="#mark"/></svg>ATLAS</figure>
+      <figure><svg width="48" height="48" aria-hidden="true"><rect width="48" height="48" rx="12" fill="#c9d2e4"/></svg>Mapy</figure>
+      <figure><svg width="48" height="48" aria-hidden="true"><rect width="48" height="48" rx="12" fill="#b9c4da"/></svg>Počasí</figure>
+    </div>
+    <div class="home dk">
+      <figure><svg width="48" height="48" aria-hidden="true"><use href="#mark"/></svg>ATLAS</figure>
+      <figure><svg width="48" height="48" aria-hidden="true"><rect width="48" height="48" rx="12" fill="#2a3556"/></svg>Mapy</figure>
+    </div>
+  </div>
+
+  <h2>Paleta</h2>
+  <p class="note">Přechod jen pro značku a tenký proužek. Tlačítka jednou modrou, text odkazů tmavší modrou. Signální barvy ve světlém režimu tmavší – dnešní #34d399 / #fbbf24 / #fb7185 mají na světlém pozadí jen 1,5–2,4 : 1.</p>
+  <div class="pal">
+    <div class="sw"><div style="background:linear-gradient(135deg,#0b9dbd,#3366ee 50%,#7a45d8)"></div><p><b>Přechod značky</b><code>#0b9dbd → #3366ee → #7a45d8</code></p></div>
+    <div class="sw"><div style="background:#2f62e8"></div><p><b>Modrá ATLAS</b><code>#2f62e8</code> · bílý text 5,2 : 1</p></div>
+    <div class="sw"><div style="background:#2553c9"></div><p><b>Odkazy (světlý)</b><code>#2553c9</code> · 6,1 : 1</p></div>
+    <div class="sw"><div style="background:#86a6ff"></div><p><b>Odkazy (tmavý)</b><code>#86a6ff</code> · 8,0 : 1</p></div>
+    <div class="sw"><div style="background:#0a7690"></div><p><b>Tyrkysová</b><code>#0a7690</code> / tmavý <code>#22c5e0</code></p></div>
+    <div class="sw"><div style="background:#7a45d8"></div><p><b>Fialová</b><code>#7a45d8</code> / tmavý <code>#a78bfa</code></p></div>
+    <div class="sw"><div style="background:#101828"></div><p><b>Inkoust</b><code>#101828</code> · text</p></div>
+    <div class="sw"><div style="background:#f3f5fa"></div><p><b>Papír</b><code>#f3f5fa</code> · pozadí</p></div>
+    <div class="sw"><div style="background:#0b1020"></div><p><b>Noc</b><code>#0b1020</code> · tmavé pozadí</p></div>
+    <div class="sw"><div style="background:#047857"></div><p><b>Levné / dobré</b><code>#047857</code> / <code>#34d399</code></p></div>
+    <div class="sw"><div style="background:#a8500a"></div><p><b>Pozor</b><code>#a8500a</code> / <code>#fbbf24</code></p></div>
+    <div class="sw"><div style="background:#c4244a"></div><p><b>Drahé / chyba</b><code>#c4244a</code> / <code>#fb7185</code></p></div>
+  </div>
+
+  <h2>Úvodní obrazovka na telefonu</h2>
+  <p class="note">Rozložení a texty jako v aplikaci (Přehled: úvod „Kam poletíme?“ s poli Odkud a Kam, radar „Kam letět levně“, plovoucí spodní lišta). Ceny a lety jsou vymyšlené.</p>
+  <div class="phones">
+    <div>
+      <div class="phone"><div class="scr" data-theme="light">
+        <div class="sb"><span>9:41</span><span>●●● 5G</span></div>
+        <div class="top"><svg class="lg" aria-hidden="true"><use href="#mark"/></svg><h4>Přehled</h4><span class="sp"></span><span class="chip">📍 Praha</span>
+          <span class="ib"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.5 9a9 9 0 0 1 14.9-3.4L23 10M1 14l4.6 4.4A9 9 0 0 0 20.5 15"/></svg></span></div>
+        <div class="body">
+          <div class="card hero">
+            <h5>Kam poletíme?</h5>
+            <p>Prohledám všechna letiště ve tvém okolí najednou a k letu ti poskládám celou dovolenou.</p>
+            <div class="fld"><span>Odkud</span><b>Praha a okolí</b></div>
+            <div class="fld"><span>Kam</span><b>Kamkoliv</b></div>
+            <div class="btn">Najít lety</div>
+            <span class="plan">🧳 Naplánovat celou dovolenou →</span>
+          </div>
+          <div class="sh"><h6>Kam letět levně</h6><a>Obnovit →</a></div>
+          <div class="card res">
+            <div class="rc-head"><span class="rc-flag">🇮🇹</span><div><h3>Řím</h3><span class="faint">Itálie · 4 noci</span></div><div class="price"><b>1 290 Kč</b><small>tam i zpět</small></div></div>
+            <div class="legs">
+              <div class="leg"><span class="cb">FR</span><span class="ld">čt 12. 3.</span><span><b>PRG</b> <span class="tm">06:10</span> → <b>CIA</b> <span class="tm">08:05</span></span></div>
+              <div class="leg"><span class="cb">FR</span><span class="ld">↩ po 16. 3.</span><span><b>CIA</b> <span class="tm">20:40</span> → <b>PRG</b> <span class="tm">22:35</span></span></div>
+            </div>
+            <div class="badges"><span class="b good">nejlevnější</span><span class="b">🌡️ 17 °C</span><span class="b warn">jen příruční</span></div>
+          </div>
+        </div>
+        <div class="nav">
+          <span class="mi on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12l9-9 9 9M5 10v10h14V10"/></svg>Přehled</span>
+          <span class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>Lety</span>
+          <span class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6V4h6v2M3 7h18v13H3zM8 7v13M16 7v13"/></svg>Cesty</span>
+          <span class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a7 7 0 017 7c0 5-7 13-7 13S5 14 5 9a7 7 0 017-7zM12 11.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z"/></svg>Objevuj</span>
+          <span class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z"/></svg>Další</span>
+        </div>
+      </div></div>
+      <p class="ph-cap">Světlý režim (hlavní)</p>
+    </div>
+    <div>
+      <div class="phone"><div class="scr" data-theme="dark">
+        <div class="sb"><span>21:15</span><span>●●● 5G</span></div>
+        <div class="top"><svg class="lg" aria-hidden="true"><use href="#mark"/></svg><h4>Přehled</h4><span class="sp"></span><span class="chip">📍 Praha</span>
+          <span class="ib"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.5 9a9 9 0 0 1 14.9-3.4L23 10M1 14l4.6 4.4A9 9 0 0 0 20.5 15"/></svg></span></div>
+        <div class="body">
+          <div class="card hero">
+            <h5>Kam poletíme?</h5>
+            <p>Prohledám všechna letiště ve tvém okolí najednou a k letu ti poskládám celou dovolenou.</p>
+            <div class="fld"><span>Odkud</span><b>Praha a okolí</b></div>
+            <div class="fld"><span>Kam</span><b>Kamkoliv</b></div>
+            <div class="btn">Najít lety</div>
+            <span class="plan">🧳 Naplánovat celou dovolenou →</span>
+          </div>
+          <div class="sh"><h6>Kam letět levně</h6><a>Obnovit →</a></div>
+          <div class="card res">
+            <div class="rc-head"><span class="rc-flag">🇮🇹</span><div><h3>Řím</h3><span class="faint">Itálie · 4 noci</span></div><div class="price"><b>1 290 Kč</b><small>tam i zpět</small></div></div>
+            <div class="legs">
+              <div class="leg"><span class="cb">FR</span><span class="ld">čt 12. 3.</span><span><b>PRG</b> <span class="tm">06:10</span> → <b>CIA</b> <span class="tm">08:05</span></span></div>
+              <div class="leg"><span class="cb">FR</span><span class="ld">↩ po 16. 3.</span><span><b>CIA</b> <span class="tm">20:40</span> → <b>PRG</b> <span class="tm">22:35</span></span></div>
+            </div>
+            <div class="badges"><span class="b good">nejlevnější</span><span class="b">🌡️ 17 °C</span><span class="b warn">jen příruční</span></div>
+          </div>
+        </div>
+        <div class="nav">
+          <span class="mi on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12l9-9 9 9M5 10v10h14V10"/></svg>Přehled</span>
+          <span class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>Lety</span>
+          <span class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6V4h6v2M3 7h18v13H3zM8 7v13M16 7v13"/></svg>Cesty</span>
+          <span class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a7 7 0 017 7c0 5-7 13-7 13S5 14 5 9a7 7 0 017-7zM12 11.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z"/></svg>Objevuj</span>
+          <span class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z"/></svg>Další</span>
+        </div>
+      </div></div>
+      <p class="ph-cap">Tmavý režim</p>
+    </div>
+  </div>
+
+  <footer>Návrh A „Evoluce“ – hodnoty CSS proměnných a kontrasty v <code>docs/identita/varianta-a.md</code>. Aplikace se tímto souborem nemění.</footer>
+</div>
+</body>
+</html>
