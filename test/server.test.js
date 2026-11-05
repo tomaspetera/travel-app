@@ -198,6 +198,10 @@ test('GET /api/origins a /api/nearby – autem podle pohonu: nafta, benzín, ele
   }
   const nl = await (await fetch(`${base}/api/nearby?lat=50.0755&lon=14.4378&radius=150&groundMode=car&carKmCzk=2`)).json();
   assert.ok(nl.items.every((x) => x.ground.carFuel === null && x.ground.fuelCzk === x.ground.roadKm * 2));
+  // poloha mimo rozsah (|lat| > 90, |lon| > 180) nebo nečíselná → 400 jako u /api/poi
+  for (const qs of ['lat=91&lon=14', 'lat=-90.5&lon=14', 'lat=50&lon=181', 'lat=50&lon=-200', 'lat=x&lon=14']) {
+    assert.equal((await fetch(`${base}/api/nearby?${qs}`)).status, 400, qs);
+  }
 });
 
 test('POST /api/search – kamkoliv, zpáteční, průběh se streamuje', async () => {
