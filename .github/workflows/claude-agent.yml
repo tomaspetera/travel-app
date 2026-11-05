@@ -59,8 +59,9 @@ jobs:
           EVENT: ${{ github.event_name }}
         run: |
           if [ "$HAS_KEY" != true ]; then echo "::notice::Bez ANTHROPIC_API_KEY se nic nespouští"; echo run=false >> "$GITHUB_OUTPUT"; exit 0; fi
-          # propagační kredit platí do 8. 11. 2026 – denní kontrola potom nic nespustí (ruční úkol a @claude ano)
-          if [ "$EVENT" = schedule ] && [[ "$(date -u +%F)" > "2026-11-08" ]]; then echo "::notice::Kredit vypršel, denní kontrola stojí"; echo run=false >> "$GITHUB_OUTPUT"; exit 0; fi
+          # propagační kredit platí do 8. 11. 2026; zbytek (~10 $) šel 5. 11. na ruční úkoly, tak denní kontrola
+          # od 6. 11. nic nespustí, ať kredit nepřečerpá (ruční úkol a @claude ano)
+          if [ "$EVENT" = schedule ] && [[ "$(date -u +%F)" > "2026-11-05" ]]; then echo "::notice::Kredit vypršel, denní kontrola stojí"; echo run=false >> "$GITHUB_OUTPUT"; exit 0; fi
           echo run=true >> "$GITHUB_OUTPUT"
       - name: Kontrola klíče Anthropic API
         if: steps.gate.outputs.run == 'true'
