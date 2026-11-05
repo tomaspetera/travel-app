@@ -72,6 +72,18 @@ test('cesta přes víc měst: trasa podle letů – místa, noci a termíny z le
   // program místa: od příletu do odletu dalšího letu
   assert.deepEqual(plain(c2.window.Trip.baseProgram(t2, 1)), { start: '2026-11-14', end: '2026-11-16', arrivalTime: '06:30', departureTime: '18:10' });
   assert.deepEqual(plain(c2.window.Trip.baseProgram(t2, 0)), { start: '2026-11-10', end: '2026-11-13', arrivalTime: '12:00', departureTime: '23:00' });
+  // let po půlnoci (odlet 13. 11. v 0:30, přílet ve 2:15): pokoj v Barceloně od 12. večer → Řím jen do 12., noc 12./13.
+  // se neplatí dvakrát; noci míst dají celý pobyt; program v Římě dál končí v den odletu
+  const c3 = load();
+  const t3 = begin(c3, { mid: [leg('FCO', 'BCN', '2026-11-13', '00:30', '02:15', 'Europe/Rome', 'Europe/Madrid')] });
+  assert.deepEqual(plain(c3.window.Trip.baseDates(t3)), [{ checkin: '2026-11-10', checkout: '2026-11-12', nights: 2 }, { checkin: '2026-11-12', checkout: '2026-11-16', nights: 4 }]);
+  assert.deepEqual(plain(t3.route.bases.map((b) => b.nights)), [2, 4]);
+  assert.equal(c3.window.Trip.stayDates(t3).nights, 6);
+  assert.deepEqual(plain(c3.window.Trip.baseProgram(t3, 0)), { start: '2026-11-10', end: '2026-11-13', arrivalTime: '12:00', departureTime: '00:30' });
+  // odlet po půlnoci, přílet až ráno: noc v letadle dál do žádného místa nepatří
+  const c4 = load();
+  const t4 = begin(c4, { mid: [leg('FCO', 'BCN', '2026-11-13', '01:00', '07:00', 'Europe/Rome', 'Europe/Madrid')] });
+  assert.deepEqual(plain(c4.window.Trip.baseDates(t4).map((d) => [d.checkin, d.checkout])), [['2026-11-10', '2026-11-13'], ['2026-11-13', '2026-11-16']]);
 });
 
 test('cesta přes víc měst: krok Let ukáže všechny lety bez živého ověření, Trasa je jen přehled, Auto radí půjčit jen na místě', () => {
