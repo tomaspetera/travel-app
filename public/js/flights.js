@@ -3792,8 +3792,9 @@
       view.mode = 'cal';
       // po hledání na přesná data kalendář kolem nich (flexibilně, ± 2 noci) – jinak by ukázal jen ty dva dny
       const lf = lastForm || getForm(), x = lf.dateMode === 'exact' && lf.xOut;
-      const n = x && lf.trip === 'return' && lf.xBack ? Math.max(1, SearchHelp.diffDays(lf.xOut, lf.xBack)) : null;
-      const flexPatch = x ? { dateMode: 'flex', dFrom: [today(), addDays(lf.xOut, -14)].sort()[1], dTo: addDays(lf.xOut, 30), outDays: [], backDays: [], ...(n ? { len: 'custom', nMin: Math.max(1, n - 2), nMax: n + 2 } : {}) } : {};
+      // tam i zpět v jeden den = 0–2 noci (stejně jako „Celý měsíc flexibilně“), ne 1–3 bez jednodenní cesty
+      const n = x && lf.trip === 'return' && lf.xBack ? SearchHelp.nightsAround(lf.xOut, lf.xBack) : null;
+      const flexPatch = x ? { dateMode: 'flex', dFrom: [today(), addDays(lf.xOut, -14)].sort()[1], dTo: addDays(lf.xOut, 30), outDays: [], backDays: [], ...(n ? { len: 'custom', ...n } : {}) } : {};
       rerun({ ...flexPatch, to: [{ id: g.dest.id, label: g.dest.label, flag: flag(g.dest.cc) }] }, { cal: true });
     });
     // den v kalendáři: všechny délky pobytu (z buňky mřížky téhož dne nejdřív na celý den, znovu = zrušit)

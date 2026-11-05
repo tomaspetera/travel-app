@@ -202,6 +202,13 @@
     return +a === +b ? `${a} ${w(+a)}` : `${a}–${b} ${w(+b)}`;
   }
 
+  // Počet nocí ± 2 kolem přesných dat pro flexibilní hledání (celý měsíc, kalendář cen „Všechna data“): tam i zpět
+  // v jeden den = 0–2 noci, jinak nejméně 1 noc (jednodenní výlet k vícedenní cestě nepatří)
+  function nightsAround(out, back) {
+    const n = Math.max(0, diffDays(out, back));
+    return { nMin: Math.max(n ? 1 : 0, n - 2), nMax: Math.min(45, n + 2) };
+  }
+
   /**
    * Výpadek Ryanairu nebo Wizz Air v tomto hledání (hlavní zdroje nejlevnějších letů) → [{ id, name, level }]
    * (level 'down' | 'blocked' | 'partial'); bez výpadku []. Výsledky pak vypadají úplně, ale nejlevnější lety chybí.
@@ -684,8 +691,7 @@
       const patch = { dateMode: 'flex', dFrom: today && first < today ? today : first, dTo: last, outDays: [], backDays: [] };
       let txt = '';
       if (ret && f.xBack) {
-        const n = Math.max(0, diffDays(f.xOut, f.xBack));
-        Object.assign(patch, { len: 'custom', nMin: Math.max(n ? 1 : 0, n - 2), nMax: Math.min(45, n + 2) });
+        Object.assign(patch, { len: 'custom', ...nightsAround(f.xOut, f.xBack) });
         txt = ` (${nightsRange(patch.nMin, patch.nMax)})`;
       }
       const m = +f.xOut.slice(5, 7) - 1;
@@ -2182,7 +2188,7 @@
     ARRIVAL_WARN, arrivalFare, arrivalWarn, arrivalVia, arrivalLine, arrivalSource, arrivalChips, arrivalLegChips,
     groundForm, parkDays, parkStay, parkCzk, carTrip, accessLabel, originCompare, originDiffTxt, originFoot,
     CAR_FUELS, carOpts, carEnergy, carPayload, fuelCzk, fuelItem, fuelFormula, fuelLine, energyTxt, kmTxt, priceTxt, OWN_MAX, OWN_MAX_CZK, ownClean, ownQs, groundChanged, ownPrint, ownPrintFor,
-    legSig, returnFits, composeTrip, distinctLegs, sortLegs, pricedTimes, freeDeps, nearStrip, nearHeadline, kiwiOutage, lowcostOutage, nightsRange, activeFilters, isThin, nearHubs, smartActions, dm, addDays, diffDays,
+    legSig, returnFits, composeTrip, distinctLegs, sortLegs, pricedTimes, freeDeps, nearStrip, nearHeadline, kiwiOutage, lowcostOutage, nightsRange, nightsAround, activeFilters, isThin, nearHubs, smartActions, dm, addDays, diffDays,
     DAYPARTS, freshTime, dayPart, legMinutes, maxLayover, timeActive, timeFails, timeOk, fillLegs, fastPair, directHint, directNear, timeHidden, timeStats, timeChips, hm, multiPlan, multiWhy,
     REACH, reach, reachCtx, clockTxt, ve,
     radarQuery, radarStale, radarSame, radarDiff, radarEntry, radarOwnOk,

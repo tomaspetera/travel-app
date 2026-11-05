@@ -136,7 +136,8 @@ table.bud-t tr.bud-sum td{font-weight:800;border-bottom:none}
 .ex-layout{display:grid;grid-template-columns:1.3fr 1fr;gap:14px;align-items:start}
 .ex-map{height:520px;border-radius:var(--radius);overflow:hidden;border:1px solid var(--border);background:var(--card);position:sticky;top:90px}
 .poi-list{display:flex;flex-direction:column;gap:10px}
-.poi{display:grid;grid-template-columns:96px 1fr;gap:12px;padding:10px;border-radius:14px;border:1px solid var(--border);background:var(--btn-bg,var(--surface));box-shadow:var(--btn-sh,none);cursor:pointer;transition:.15s}
+/* minmax(0,1fr) a overflow-wrap jako .tl-row: dlouhé slovo v názvu místa jinak roztáhne sloupec za okraj telefonu */
+.poi{display:grid;grid-template-columns:96px minmax(0,1fr);gap:12px;padding:10px;border-radius:14px;border:1px solid var(--border);background:var(--btn-bg,var(--surface));box-shadow:var(--btn-sh,none);cursor:pointer;transition:.15s;overflow-wrap:anywhere}
 .poi:hover,.poi.hl{border-color:var(--accent)}
 .poi-img{width:96px;height:80px;border-radius:10px;background:var(--surface-2) center/cover no-repeat;display:grid;place-items:center;font-size:26px;position:relative;overflow:hidden}
 /* fotka přes ikonu – nenačtená fotka nechá vidět ikonu (places.js poiImg) */
@@ -147,7 +148,7 @@ table.bud-t tr.bud-sum td{font-weight:800;border-bottom:none}
 .poi-acts{display:flex;flex-wrap:wrap;gap:4px 10px;margin-top:6px;font-size:12px}
 .day-plan{border:1px solid var(--border);border-radius:14px;padding:12px 14px;margin-bottom:10px;background:var(--surface)}
 .day-plan h4{font-size:14px;font-weight:800;display:flex;justify-content:space-between;align-items:center;gap:8px}
-.dp-item{display:grid;grid-template-columns:22px 1fr auto;gap:8px;align-items:start;padding:7px 0;border-top:1px dashed var(--border);font-size:13.5px}
+.dp-item{display:grid;grid-template-columns:22px minmax(0,1fr) auto;gap:8px;align-items:start;padding:7px 0;border-top:1px dashed var(--border);font-size:13.5px;overflow-wrap:anywhere}
 .dp-item:first-of-type{border-top:none}
 .dp-n{width:22px;height:22px;border-radius:50%;background:var(--grad);color:#fff;display:grid;place-items:center;font-size:11px;font-weight:800;box-shadow:inset 0 0 0 11px rgba(0,0,0,.2)} /* stín přes celé kolečko ztmaví přechod: bílé číslo z 3,6 na ~5 : 1 */
 .dp-walk{font-size:11.5px;color:var(--faint)}
@@ -257,7 +258,7 @@ details.more.ex-places>summary::before{content:none}
 @media(max-width:860px){.sum-grid{grid-template-columns:1fr}.manual-row{grid-template-columns:1fr 1fr}.manual-row>div{grid-column:1/-1}.manual-row .input{padding-left:10px;padding-right:10px}.ex-back{bottom:calc(90px + env(safe-area-inset-bottom,0px))}
   /* název ubytování přes celou šířku, cena s Uložit pod ním (jako u auta) – vedle ceny se „Název (nepovinné)“ na 360 px nevešel */
   .manual-row #manName{grid-column:1/-1}}
-@media(max-width:560px){.ex-search{grid-template-columns:auto minmax(0,1fr)}.ex-search>.field:first-child{grid-column:1/-1}.poi{grid-template-columns:72px 1fr}.poi-img{width:72px;height:64px}
+@media(max-width:560px){.ex-search{grid-template-columns:auto minmax(0,1fr)}.ex-search>.field:first-child{grid-column:1/-1}.poi{grid-template-columns:72px minmax(0,1fr)}.poi-img{width:72px;height:64px}
   /* kategorie v jednom posuvném řádku místo pěti; chyba se „Zkusit znovu“ pod textem */
   .ex-cats{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
   .ex-cats button{flex:none;white-space:nowrap}
