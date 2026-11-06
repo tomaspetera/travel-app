@@ -14,8 +14,9 @@ mimo aplikaci.
 
 **Letsi** se česky čte jako **„Leť si!“** (dopřej si to, leť, kam chceš) a anglicky zní jako **„let’s see“**
 (uvidíme, pojďme se podívat). Ve značce **letsi** žádné znaménko není. Jediný ozdobný nápad identity je
-**„si“ kurzívou se sluncem nad i**: „si“ jsi ty a slunce je to nejlevnější, co jsme našli. Proto každá výzva
-značky končí „si“ (zaleť si, projeď si, zacestuj si, vyber si). Gramatika značky: **Rovně stojí, co platí. Kurzívou letí, o čem
+**„si“ kurzívou se sluncem nad i**: „si“ jsi ty a slunce je to nejlevnější, co jsme našli. Proto výzvy
+značky končí „si“ a sloveso před ním se obměňuje podle situace: zaleť si, projeď si, vyber si, odpočiň si…
+Pevné je jen „si“, sloveso není hotový slogan. Gramatika značky: **Rovně stojí, co platí. Kurzívou letí, o čem
 sníš.** Tenhle nápad nepřebíjíme dalšími slovními hříčkami.
 
 ---
@@ -188,8 +189,9 @@ Neprodává ti. Ví, kde je háček, a řekne ti ho.
   „Let’s see“ anglicky. Kdo si všimne obojího, má radost z objevu.
 - **Nekomolíme slova.** Žádné „Let’s sea“, „Letsi go!“, „Letsíme“, „Leťte si s námi“, „Seeya v Letsi“.
 - **Hra je v „si“, ne v pravopisu.** Vtip se značkou (viz claimy 13, 14 a EN 10) stojí na „si“ a slunci:
-  si = ty, slunce = to nejlevnější. Říká něco pravdivého, proto ho smíme použít. Výzvy končí „si“ (zaleť si,
-  projeď si, zacestuj si, vyber si, dopřej si), „si“ nekomolíme ani nelepíme k dalším slovům.
+  si = ty, slunce = to nejlevnější. Říká něco pravdivého, proto ho smíme použít. Výzvy končí „si“ a sloveso
+  se obměňuje podle toho, co zrovna nabízíme (let → zaleť si, vlak → projeď si, celá cesta → zacestuj si, výběr
+  dne → vyber si). Na jedné ploše jedno sloveso. „si“ nekomolíme ani nelepíme k dalším slovům.
 - **Jedna slovní hříčka na kampaň.** Ve zbytku claimů už jen fakta.
 
 ### Česky (30)
@@ -208,7 +210,7 @@ Neprodává ti. Ví, kde je háček, a řekne ti ho.
 | 10 | **Od letenky po poslední večer.** | Totéž, víc obrazně. Kampaň na plánování dovolené. |
 | 11 | **Ty plánuješ, Letsi hlídá cenu.** | Hlídání ceny bez slibu upozornění. Jasné rozdělení rolí. |
 | 12 | **Hlídá ceny, ne tebe.** | Soukromí: bez účtu, bez sledování. Krátké a s pointou. |
-| 13 | **Zaleť si. Projeď si. Zacestuj si.** | Vzor značky: výzvy, které končí „si“, tedy „ty“. Letadlo, vlak i celá cesta. Série plakátů nebo závěr spotu, s logem. |
+| 13 | **… si.** (obměňovaný claim) | Pevná je jen koncovka „si“ se sluncem, sloveso se mění podle nabídky: Zaleť si. Projeď si. Zacestuj si. Odpočiň si. Na plakátu nebo v závěru spotu vždy jedno, s logem. Série plakátů tak drží pohromadě bez jednoho pevného sloganu. |
 | 14 | **Slunce svítí jen nad tou nejlevnější.** | Nejsilnější hra se sluncem nad i. Říká pravdu o produktu: na obrazovce svítí vždy jen jedno slunce. Jen jednou v kampani. |
 | 15 | **Zdarma. Doopravdy.** | Proti hvězdičkám u konkurence. Dvě slova, bez vykřičníku. |
 | 16 | **Žádné triky. Jen ceny.** | Důvěra v penězích. Obecný claim do sítí. |
