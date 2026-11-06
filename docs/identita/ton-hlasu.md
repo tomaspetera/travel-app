@@ -15,7 +15,7 @@ mimo aplikaci.
 **Letsi** se česky čte jako **„Leť si!“** (dopřej si to, leť, kam chceš) a anglicky zní jako **„let’s see“**
 (uvidíme, pojďme se podívat). Ve značce **letsi** žádné znaménko není. Jediný ozdobný nápad identity je
 **„si“ kurzívou se sluncem nad i**: „si“ jsi ty a slunce je to nejlevnější, co jsme našli. Proto každá výzva
-značky končí „si“ (leť si, vyber si, dopřej si). Gramatika značky: **Rovně stojí, co platí. Kurzívou letí, o čem
+značky končí „si“ (zaleť si, projeď si, zacestuj si, vyber si). Gramatika značky: **Rovně stojí, co platí. Kurzívou letí, o čem
 sníš.** Tenhle nápad nepřebíjíme dalšími slovními hříčkami.
 
 ---
@@ -53,6 +53,8 @@ Neprodává ti. Ví, kde je háček, a řekne ti ho.
 - **V aplikaci mluví Letsi v první osobě jednotného čísla:** „Nic jsem nenašel“, „Nastavím lety mezi městy“.
   Dnešní texty používají mužský rod („našel“, „smazal“), tak ho držíme. Kde to jde, volíme tvary bez rodu:
   „Nic se nenašlo“, „Hotovo“, „Mám to“.
+- **Za Letsi mluví kukátko** (dvě okénka letadla se zorničkami v logu). Co dělá očima, říká i slovy, a jen když
+  hledá nebo najde: „Projdu si 7 letišť…“, „Mám to, mrkni si.“ Na obrazovce nejvýš jedna věta se „si“ mimo logo.
 - **V marketingu a PR mluvíme o Letsi ve třetí osobě** („Letsi ti najde…“) nebo rozkazovacím způsobem („Leť si“,
   „Napiš kamkoliv“). Minulému času se jménem se vyhýbáme (viz kapitola 4).
 - **„My“ jen v e-mailu podpory a v PR**, kde za Letsi stojí lidé: „Podívali jsme se na to.“
@@ -186,8 +188,8 @@ Neprodává ti. Ví, kde je háček, a řekne ti ho.
   „Let’s see“ anglicky. Kdo si všimne obojího, má radost z objevu.
 - **Nekomolíme slova.** Žádné „Let’s sea“, „Letsi go!“, „Letsíme“, „Leťte si s námi“, „Seeya v Letsi“.
 - **Hra je v „si“, ne v pravopisu.** Vtip se značkou (viz claimy 13, 14 a EN 10) stojí na „si“ a slunci:
-  si = ty, slunce = to nejlevnější. Říká něco pravdivého, proto ho smíme použít. Výzvy končí „si“ (vyber si,
-  zabal si, užij si, dopřej si, odpočiň si), „si“ nekomolíme ani nelepíme k dalším slovům.
+  si = ty, slunce = to nejlevnější. Říká něco pravdivého, proto ho smíme použít. Výzvy končí „si“ (zaleť si,
+  projeď si, zacestuj si, vyber si, dopřej si), „si“ nekomolíme ani nelepíme k dalším slovům.
 - **Jedna slovní hříčka na kampaň.** Ve zbytku claimů už jen fakta.
 
 ### Česky (30)
@@ -206,7 +208,7 @@ Neprodává ti. Ví, kde je háček, a řekne ti ho.
 | 10 | **Od letenky po poslední večer.** | Totéž, víc obrazně. Kampaň na plánování dovolené. |
 | 11 | **Ty plánuješ, Letsi hlídá cenu.** | Hlídání ceny bez slibu upozornění. Jasné rozdělení rolí. |
 | 12 | **Hlídá ceny, ne tebe.** | Soukromí: bez účtu, bez sledování. Krátké a s pointou. |
-| 13 | **Vyber si. Zabal si. Leť si.** | Vzor značky: výzvy, které končí „si“, tedy „ty“. Série plakátů nebo závěr spotu, s logem. |
+| 13 | **Zaleť si. Projeď si. Zacestuj si.** | Vzor značky: výzvy, které končí „si“, tedy „ty“. Letadlo, vlak i celá cesta. Série plakátů nebo závěr spotu, s logem. |
 | 14 | **Slunce svítí jen nad tou nejlevnější.** | Nejsilnější hra se sluncem nad i. Říká pravdu o produktu: na obrazovce svítí vždy jen jedno slunce. Jen jednou v kampani. |
 | 15 | **Zdarma. Doopravdy.** | Proti hvězdičkám u konkurence. Dvě slova, bez vykřičníku. |
 | 16 | **Žádné triky. Jen ceny.** | Důvěra v penězích. Obecný claim do sítí. |
@@ -415,8 +417,7 @@ doložit nejde, citylight cenu neobsahuje.)
 **PR (první odstavec)**
 > Česká aplikace na levné letenky ATLAS se přejmenovává na Letsi. Název se česky čte „Leť si!“ a anglicky zní jako
 > „let’s see“. V logu je „si“ kurzívou a nad i svítí jediné oranžové slunce: si jsi ty, slunce je to nejlevnější.
-> Aplikace
-> prohledá všechna letiště v okolí najednou, ke ceně letenky připočítá cestu na letiště a z nalezeného letu
+> Aplikace prohledá všechna letiště v okolí najednou, ke ceně letenky připočítá cestu na letiště a z nalezeného letu
 > poskládá celou cestu. Je zdarma a bez registrace.
 
 ---
