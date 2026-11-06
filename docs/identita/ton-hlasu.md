@@ -13,9 +13,10 @@ mimo aplikaci.
 ## 0. Název v jedné větě
 
 **Letsi** se česky čte jako **„Leť si!“** (dopřej si to, leť, kam chceš) a anglicky zní jako **„let’s see“**
-(uvidíme, pojďme se podívat). Ve značce **let’si** je jediné znaménko. Česky je to háček v „leť“, anglicky
-apostrof v „let’s“. **Jedno znaménko, dva jazyky.** Je to jediný ozdobný nápad identity, takže ho nepřebíjíme
-dalšími slovními hříčkami.
+(uvidíme, pojďme se podívat). Ve značce **letsi** žádné znaménko není. Jediný ozdobný nápad identity je
+**„si“ kurzívou se sluncem nad i**: „si“ jsi ty a slunce je to nejlevnější, co jsme našli. Proto každá výzva
+značky končí „si“ (zaleť si, projeď si, zacestuj si, vyber si). Gramatika značky: **Rovně stojí, co platí. Kurzívou letí, o čem
+sníš.** Tenhle nápad nepřebíjíme dalšími slovními hříčkami.
 
 ---
 
@@ -52,6 +53,8 @@ Neprodává ti. Ví, kde je háček, a řekne ti ho.
 - **V aplikaci mluví Letsi v první osobě jednotného čísla:** „Nic jsem nenašel“, „Nastavím lety mezi městy“.
   Dnešní texty používají mužský rod („našel“, „smazal“), tak ho držíme. Kde to jde, volíme tvary bez rodu:
   „Nic se nenašlo“, „Hotovo“, „Mám to“.
+- **Za Letsi mluví kukátko** (dvě okénka letadla se zorničkami v logu). Co dělá očima, říká i slovy, a jen když
+  hledá nebo najde: „Projdu si 7 letišť…“, „Mám to, mrkni si.“ Na obrazovce nejvýš jedna věta se „si“ mimo logo.
 - **V marketingu a PR mluvíme o Letsi ve třetí osobě** („Letsi ti najde…“) nebo rozkazovacím způsobem („Leť si“,
   „Napiš kamkoliv“). Minulému času se jménem se vyhýbáme (viz kapitola 4).
 - **„My“ jen v e-mailu podpory a v PR**, kde za Letsi stojí lidé: „Podívali jsme se na to.“
@@ -184,8 +187,9 @@ Neprodává ti. Ví, kde je háček, a řekne ti ho.
 - **Dvojí čtení necháváme na čtenáři.** Nevysvětlujeme ho v každém claimu. Stačí, že „Leť si“ funguje česky a
   „Let’s see“ anglicky. Kdo si všimne obojího, má radost z objevu.
 - **Nekomolíme slova.** Žádné „Let’s sea“, „Letsi go!“, „Letsíme“, „Leťte si s námi“, „Seeya v Letsi“.
-- **Hra je v znaménku, ne v pravopisu.** Vtip s háčkem (viz claimy 13, 14 a EN 10) říká něco pravdivého:
-  bez háčku = bez triku. Proto ho smíme použít.
+- **Hra je v „si“, ne v pravopisu.** Vtip se značkou (viz claimy 13, 14 a EN 10) stojí na „si“ a slunci:
+  si = ty, slunce = to nejlevnější. Říká něco pravdivého, proto ho smíme použít. Výzvy končí „si“ (zaleť si,
+  projeď si, zacestuj si, vyber si, dopřej si), „si“ nekomolíme ani nelepíme k dalším slovům.
 - **Jedna slovní hříčka na kampaň.** Ve zbytku claimů už jen fakta.
 
 ### Česky (30)
@@ -204,8 +208,8 @@ Neprodává ti. Ví, kde je háček, a řekne ti ho.
 | 10 | **Od letenky po poslední večer.** | Totéž, víc obrazně. Kampaň na plánování dovolené. |
 | 11 | **Ty plánuješ, Letsi hlídá cenu.** | Hlídání ceny bez slibu upozornění. Jasné rozdělení rolí. |
 | 12 | **Hlídá ceny, ne tebe.** | Soukromí: bez účtu, bez sledování. Krátké a s pointou. |
-| 13 | **Bez registrace. Bez háčku.** | „Bez háčku“ = bez triku. Ironie: háček je ve značce. Použít spolu s logem. |
-| 14 | **Jediný háček najdeš v logu.** | Nejsilnější hra se znaménkem. Říká pravdu o produktu (zdarma, bez účtu). Jen jednou v kampani. |
+| 13 | **Zaleť si. Projeď si. Zacestuj si.** | Vzor značky: výzvy, které končí „si“, tedy „ty“. Letadlo, vlak i celá cesta. Série plakátů nebo závěr spotu, s logem. |
+| 14 | **Slunce svítí jen nad tou nejlevnější.** | Nejsilnější hra se sluncem nad i. Říká pravdu o produktu: na obrazovce svítí vždy jen jedno slunce. Jen jednou v kampani. |
 | 15 | **Zdarma. Doopravdy.** | Proti hvězdičkám u konkurence. Dvě slova, bez vykřičníku. |
 | 16 | **Žádné triky. Jen ceny.** | Důvěra v penězích. Obecný claim do sítí. |
 | 17 | **Někdy je lepší vlak. Letsi to řekne.** | Nečekaná poctivost aplikace na letenky. PR, rozhovory. |
@@ -239,8 +243,8 @@ Anglická verze míří hlavně na cizince žijící v Česku a na zahraniční 
 | 7 | **Every airport nearby. One search.** | Hlavní výhoda, přesný překlad CZ #4. |
 | 8 | **Cheapest flight ≠ cheapest trip.** | Myšlenka řazení s cestou na letiště. Tech a produktová média. |
 | 9 | **From the ticket to the last night.** | Celá cesta. Pár k CZ #10. |
-| 10 | **No catch. Just a háček.** | „Háček“ znamená „háček“, tedy i malý trik. Jen pro publikum, které diakritiku zná (Praha, expati), s logem. |
-| 11 | **One mark, two languages.** | Příběh značky. PR, prezentace designu, ne reklama. |
+| 10 | **One sun. The cheapest one.** | Slunce nad i = to nejlevnější. Pár k CZ #14, jen s logem, aby bylo jasné, o jakém slunci je řeč. |
+| 11 | **One name, two languages.** | Příběh názvu (Leť si / let’s see). PR, prezentace designu, ne reklama. |
 | 12 | **Free. Really.** | Pár k CZ #15. |
 | 13 | **Tracks prices, not you.** | Soukromí. Pár k CZ #12. |
 | 14 | **Sometimes the train wins. We’ll tell you.** | Poctivost. Pár k CZ #17. |
@@ -262,14 +266,13 @@ Anglická verze míří hlavně na cizince žijící v Česku a na zahraniční 
 | Kde | Jak | Příklad |
 |---|---|---|
 | Běžný text, UI, e-mail, PR | **Letsi** – velké L, bez znaménka | „Otevři Letsi a napiš kamkoliv.“ |
-| Logo, ikona, titulky ve značce | **let’si** – malými, typografický apostrof ’ (U+2019) mezi t a s | let’si |
+| Logo, ikona, titulky ve značce | **letsi** – malými, bez znaménka; „let“ rovně, „si“ kurzívou, nad i oranžové slunce | let*si* |
 | Adresa, hashtag, uživatelské jméno | **letsi** – malými, bez znaménka | #letsi, @letsi |
 
-- **Znaménko patří jen do značky.** V textu ho nepíšeme: „Let’si“ v odstavci působí jako překlep a nedá se
-  vyhledat.
-- **Nikdy:** „LETSI“ verzálkami v textu, „LetSi“, „Lets“, „Let’s i“, „Leťsi“, rovný apostrof `'` ve značce.
-- **Ve značce je znaménko vždy ’ (zahnutá čárka nahoře),** tvar mezi háčkem v „ť“ a apostrofem. V logu se nikdy
-  nemění na klasický háček ˇ ani na rovnou čárku.
+- **Kurzíva patří jen do značky.** „si“ kurzívou píšeme jen v logu a titulcích ve značce, nikdy celé slovo
+  kurzívou. V běžném textu je **Letsi** rovně.
+- **Slunce je jedno.** Na obrazovce svítí vždy jen jedno slunce (tečka nad i), druhé vedle loga nepřidáváme.
+- **Nikdy:** „LETSI“ verzálkami v textu, „LetSi“, „Lets“, „let’si“, „Let’si“, „leťsi“, apostrof ani háček ve značce.
 - Na začátku věty i v nadpisu je to **Letsi** (ne „letsi“), stejně jako v textu.
 
 ### Výslovnost
@@ -366,7 +369,7 @@ Anglická verze míří hlavně na cizince žijící v Česku a na zahraniční 
 - Peníze: **1 890 Kč** (nezlomitelná mezera mezi tisíci i před Kč), v eurech **55 €**.
 - Datum **12. 10.**, s rokem **12. 10. 2026**. Rozsah **4.–6. 12.** Čas **10:42**. Délka **3 h 25 min**.
 - Pomlčka **–** mezi větami a v rozsazích, ne spojovník `-`. Šipka **→** v trasách: Praha → Řím.
-- České uvozovky **„takhle“**. Apostrof ’ jen ve značce.
+- České uvozovky **„takhle“**. Apostrof ’ jen v anglických slovech (let’s), ve značce nikdy.
 - Emoji na začátku řádku nebo tlačítka, jedno. Mají pevný význam: ✈️ let, 🧳 cesty, ♡ hlídání, 📌 odložit,
   📤 sdílet, 💾 uložit, 🚆 vlak/bus, 🔎 hledat/prozkoumat, ✨ hledání větou, 💡 tip, ⚠️ varování.
 
@@ -381,8 +384,8 @@ Hlas je všude stejný (kamarád, který se vyzná). Mění se jen hlasitost a d
 | **Aplikace** | tichá | co nejkratší | já (Letsi) → ty | Užitek první. Každá hláška má další krok. Žádný marketing uvnitř aplikace, žádné „ohodnoť nás“. |
 | **Instagram** | o stupeň hlasitější | 1–3 věty + konkrétní cena/místo | Letsi → ty | Skutečné nálezy („Z Vídně do Neapole 1 290 Kč tam i zpět, říjen“) s datem nalezení. Humor ano, ironie s mírou. Hashtagy max. 3, česky. |
 | **E-mail podpory** | klidná | kolik je potřeba | my → ty | Tykáme. Poděkovat, odpovědět hned v první větě, přiznat chybu, říct, co uděláme. Podpis jménem člověka. |
-| **Reklama, citylight** | nejhlasitější, ale ne křiklavá | max. 6 slov + logo | rozkaz / Letsi | Jeden claim, jedno místo nebo cena, logo let’si. Žádné hvězdičky, žádná drobná písmena. |
-| **PR, tisk** | věcná | odstavce | my / Letsi ve 3. os. | Fakta, čísla, jak to funguje. Příběh názvu (jedno znaménko, dva jazyky) jednou, na začátku. |
+| **Reklama, citylight** | nejhlasitější, ale ne křiklavá | max. 6 slov + logo | rozkaz / Letsi | Jeden claim, jedno místo nebo cena, logo letsi. Žádné hvězdičky, žádná drobná písmena. |
+| **PR, tisk** | věcná | odstavce | my / Letsi ve 3. os. | Fakta, čísla, jak to funguje. Příběh názvu (Leť si / let’s see) jednou, na začátku. |
 
 ### Příklady
 
@@ -406,15 +409,15 @@ Hlas je všude stejný (kamarád, který se vyzná). Mění se jen hlasitost a d
 
 **Citylight**
 > Listopad je dlouhý. **Leť si.**
-> Praha → Lisabon od 1 990 Kč · let’si
+> Praha → Lisabon od 1 990 Kč · letsi
 
 (Cena na citylightu musí být doložitelná ke dni výlepu a doplněná datem nalezení v malém řádku. Když ji
 doložit nejde, citylight cenu neobsahuje.)
 
 **PR (první odstavec)**
 > Česká aplikace na levné letenky ATLAS se přejmenovává na Letsi. Název se česky čte „Leť si!“ a anglicky zní jako
-> „let’s see“. Ve značce let’si stojí jediné znaménko, které je česky háčkem a anglicky apostrofem. Aplikace
-> prohledá všechna letiště v okolí najednou, ke ceně letenky připočítá cestu na letiště a z nalezeného letu
+> „let’s see“. V logu je „si“ kurzívou a nad i svítí jediné oranžové slunce: si jsi ty, slunce je to nejlevnější.
+> Aplikace prohledá všechna letiště v okolí najednou, ke ceně letenky připočítá cestu na letiště a z nalezeného letu
 > poskládá celou cestu. Je zdarma a bez registrace.
 
 ---
@@ -483,4 +486,4 @@ Výjimky, které česky zní normálně: online check-in, low-cost (v titulcích
 4. Má chyba nebo prázdný stav důvod a další krok?
 5. Dá se věta zkrátit?
 6. Je tam slovo ze seznamu zakázaných?
-7. Je název napsaný správně (Letsi v textu, let’si ve značce)?
+7. Je název napsaný správně (Letsi v textu, letsi malými se „si“ kurzívou ve značce)?
