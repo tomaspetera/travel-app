@@ -34,13 +34,17 @@ export function normalizeStayQuery(raw = {}) {
   const lat = Number(raw.lat);
   const lon = Number(raw.lon);
   const city = String(raw.city || '').slice(0, 80).trim();
-  if (!city && !(Number.isFinite(lat) && Number.isFinite(lon))) throw new StayQueryError('Chybí cílové město.');
+  const pos = raw.lat !== '' && raw.lat != null && raw.lon !== '' && raw.lon != null && Number.isFinite(lat) && Number.isFinite(lon);
+  // poloha mimo zeměkouli (lat 999) by šla jako střed hledání hotelů – jako u ostatních dotazů s polohou chyba 400;
+  // prázdné lat/lon (Number('') = 0) nejsou poloha, bez města tedy „Chybí cílové město“
+  if (pos && (Math.abs(lat) > 90 || Math.abs(lon) > 180)) throw new StayQueryError('Neplatná poloha.');
+  if (!city && !pos) throw new StayQueryError('Chybí cílové město.');
   const ap = getAirport(raw.iata);
   const metro = ap?.metro ? METRO_BY_CODE.get(ap.metro) : null;
   // Poloha = souřadnice samotného letiště (cíl mimo metropoli) → nepoužít, vzdálenost hotelů se
   // má měřit od centra města (dopočte se geokódováním v searchStays).
-  const atAirport = ap && Number.isFinite(lat) && Number.isFinite(lon) && haversineKm(lat, lon, ap.lat, ap.lon) < 1.5;
-  const hasPos = Number.isFinite(lat) && Number.isFinite(lon) && raw.lat !== '' && raw.lat != null && raw.lon !== '' && raw.lon != null && !atAirport;
+  const atAirport = ap && pos && haversineKm(lat, lon, ap.lat, ap.lon) < 1.5;
+  const hasPos = pos && !atAirport;
   // Letiště na ostrově („Tenerife“ → geokódování skončí uprostřed ostrova u Teide, kde TripAdvisor nemá žádné místo s hotely
   // – Tenerife Jih, Lanzarote, Gran Canaria, Rhodos vracely 0 hotelů): střed místa, kam z letiště jezdí doprava do města
   // (ověřená tabulka data/arrival.json – Los Cristianos, Arrecife, Las Palmas, město Rhodos).
@@ -59,7 +63,6 @@ export function normalizeStayQuery(raw = {}) {
   // Země: zadaná, letiště, jinak podle polohy (místo trasy z Wikidat nebo přidané ručně) – bez ní LiteAPI
   // nehledá a odkazy na partnery neznají zemi.
   const ccIn = String(raw.cc || '').toUpperCase();
-  const pos = raw.lat !== '' && raw.lat != null && raw.lon !== '' && raw.lon != null && Number.isFinite(lat) && Number.isFinite(lon);
   const cc = /^[A-Z]{2}$/.test(ccIn) ? ccIn : ap?.cc || (pos ? countryAt(lat, lon) : '');
   return {
     city,

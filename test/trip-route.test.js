@@ -244,3 +244,10 @@ test('kalendář: přejezd a vlak mezi místy v časovém pásmu místa odjezdu 
   t.route.bases[1].cc = '';
   assert.equal(plain(Trip.rideLegs(t))[1].tz, 'Europe/Madrid');
 });
+
+test('krok Trasa: hotové rozdělení nocí česky správně (Všechny 3 noci rozděleny, Všech 5 nocí rozděleno)', () => {
+  assert.equal(Trip.splitDoneTxt(2, 2), '✓ Všechny 2 noci rozděleny mezi 2 místa');
+  assert.equal(Trip.splitDoneTxt(4, 3), '✓ Všechny 4 noci rozděleny mezi 3 místa');
+  assert.equal(Trip.splitDoneTxt(5, 2), '✓ Všech 5 nocí rozděleno mezi 2 místa');
+  assert.equal(Trip.splitDoneTxt(12, 5), '✓ Všech 12 nocí rozděleno mezi 5 míst');
+});
