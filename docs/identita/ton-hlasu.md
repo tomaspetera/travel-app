@@ -268,7 +268,7 @@ Anglická verze míří hlavně na cizince žijící v Česku a na zahraniční 
 | Kde | Jak | Příklad |
 |---|---|---|
 | Běžný text, UI, e-mail, PR | **Letsi** – velké L, bez znaménka | „Otevři Letsi a napiš kamkoliv.“ |
-| Logo, ikona, titulky ve značce | **letsi** – malými, bez znaménka; „let“ rovně, „si“ kurzívou, nad i oranžové slunce | let*si* |
+| Logo, ikona, titulky ve značce | **letsi** – malými, bez znaménka; „let“ rovně, „si“ kurzívou, nad i červené slunce (Rajče) | let*si* |
 | Adresa, hashtag, uživatelské jméno | **letsi** – malými, bez znaménka | #letsi, @letsi |
 
 - **Kurzíva patří jen do značky.** „si“ kurzívou píšeme jen v logu a titulcích ve značce, nikdy celé slovo
@@ -418,7 +418,7 @@ doložit nejde, citylight cenu neobsahuje.)
 
 **PR (první odstavec)**
 > Česká aplikace na levné letenky ATLAS se přejmenovává na Letsi. Název se česky čte „Leť si!“ a anglicky zní jako
-> „let’s see“. V logu je „si“ kurzívou a nad i svítí jediné oranžové slunce: si jsi ty, slunce je to nejlevnější.
+> „let’s see“. V logu je „si“ kurzívou a nad i svítí jediné červené slunce: si jsi ty, slunce je to nejlevnější.
 > Aplikace prohledá všechna letiště v okolí najednou, ke ceně letenky připočítá cestu na letiště a z nalezeného letu
 > poskládá celou cestu. Je zdarma a bez registrace.
 
