@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>ATLAS – vizuální identita, varianta B „Slunce a cesta“</title>
+<meta name="theme-color" content="#fbf6f0">
+<!-- Návrh: samostatná stránka bez vnějších zdrojů (žádná písma ani CDN) – otevře se i offline přímo ze souboru.
+     Hodnoty barev jsou stejné jako v tabulce ve varianta-b.md; v aplikaci se zatím nic nemění. -->
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --navy:#10223f; --cream:#fbf6f0; --coral:#c2401f; --coral-ink:#b23c1f; --apricot:#f98a4b; --sun:#ffc23d;
+    --muted:#4b5872; --line:rgba(16,34,63,.12);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  }
+  body{background:var(--cream);color:var(--navy);line-height:1.5;-webkit-text-size-adjust:100%}
+  .wrap{max-width:1040px;margin:0 auto;padding:24px 16px 64px}
+  header.doc{display:flex;gap:14px;align-items:center;margin-bottom:8px}
+  header.doc svg{width:48px;height:48px;flex:none}
+  h1.doc-h{font-size:22px;line-height:1.2;font-weight:800}
+  .lead{color:var(--muted);margin:6px 0 28px;font-size:15px}
+  h2.sec{font-size:18px;font-weight:800;margin:36px 0 12px;display:flex;gap:8px;align-items:baseline}
+  h2.sec small{font-size:13px;font-weight:600;color:var(--muted)}
+  p.note{color:var(--muted);font-size:14px;margin-top:8px}
+  .grid2{display:grid;gap:14px;grid-template-columns:1fr}
+  @media (min-width:760px){.grid2{grid-template-columns:1fr 1fr}}
+
+  /* ---------- logo ---------- */
+  .logo-panel{border-radius:22px;padding:40px 20px;display:flex;flex-direction:column;align-items:center;gap:10px;border:1px solid var(--line)}
+  .logo-panel.on-light{background:#fff}
+  .logo-panel.on-dark{background:#0b1729;color:#f7f0e7;border-color:transparent}
+  .lockup{display:flex;align-items:center;gap:14px}
+  .lockup svg{width:72px;height:72px;flex:none}
+  .wordmark{font-size:44px;font-weight:800;letter-spacing:.14em;line-height:1}
+  .tagline{font-size:14px;font-weight:600;color:var(--muted);letter-spacing:.02em}
+  .on-dark .tagline{color:#b7bfce}
+  .panel-cap{font-size:12px;color:var(--muted);margin-top:14px}
+  .on-dark .panel-cap{color:#9ea8bb}
+
+  /* ---------- ikona ---------- */
+  .icon-big{display:block;width:100%;max-width:512px;height:auto;aspect-ratio:1;margin:0 auto;filter:drop-shadow(0 18px 40px rgba(16,34,63,.25))}
+  .icon-row{display:flex;gap:14px;flex-wrap:wrap}
+  .home{flex:1 1 180px;border-radius:18px;padding:18px;display:flex;gap:22px;justify-content:center;align-items:flex-start}
+  .home.l{background:linear-gradient(160deg,#e9edf5,#f6efe6)}
+  .home.d{background:linear-gradient(160deg,#141821,#22293a)}
+  .app-ic{display:flex;flex-direction:column;align-items:center;gap:5px;font-size:11.5px;width:64px;text-align:center}
+  .home.l .app-ic{color:#1d2433}.home.d .app-ic{color:#f2f2f2}
+  .app-ic svg{width:48px;height:48px;display:block}
+  .app-ic .ph-ic{width:48px;height:48px;border-radius:11px}
+
+  /* ---------- paleta ---------- */
+  .pal{display:grid;gap:10px;grid-template-columns:repeat(2,minmax(0,1fr))}
+  @media (min-width:640px){.pal{grid-template-columns:repeat(4,minmax(0,1fr))}}
+  .sw{border-radius:16px;overflow:hidden;background:#fff;border:1px solid var(--line)}
+  .sw i{display:block;height:64px}
+  .sw div{padding:8px 10px 10px;font-size:12.5px;line-height:1.35}
+  .sw b{display:block;font-size:13.5px}
+  .sw code{font:600 12.5px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  .sw span{color:var(--muted);display:block}
+  h3.pal-h{font-size:14px;margin:18px 0 8px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.06em}
+
+  /* ---------- ukázka telefonu ---------- */
+  .phones{display:grid;gap:20px;grid-template-columns:1fr;justify-items:center}
+  @media (min-width:860px){.phones{grid-template-columns:1fr 1fr}}
+  .ph-cap{font-size:13px;font-weight:700;color:var(--muted);margin-bottom:8px;text-align:center}
+  .ph{
+    width:min(100%,380px);border-radius:34px;padding:10px 12px 12px;position:relative;overflow:hidden;
+    background:var(--bg);color:var(--text);box-shadow:0 0 0 8px #1b1f2a,0 30px 60px -20px rgba(16,34,63,.45);
+    font-size:14px;line-height:1.4;
+  }
+  .ph.l{
+    --bg:#fbf6f0; --bg2:#ffffff; --surface-solid:#ffffff; --card:rgba(255,255,255,.85);
+    --text:#10223f; --muted:#4b5872; --faint:#5a6680; --accent:#c2401f; --accent-ink:#b23c1f;
+    --good:#0b7a52; --warn:#8f5300; --bad:#be2b37; --border:rgba(16,34,63,.1); --input-line:rgba(16,34,63,.16);
+    --nav-bg:rgba(255,255,255,.92); --nav-line:rgba(16,34,63,.09); --nav-ico:#55617a; --nav-on-bg:#10223f; --nav-on:#fff;
+    --hero:linear-gradient(160deg,#fff3e6 0%,#ffe0cc 100%); --hero-sun:rgba(255,194,61,.55);
+    --btn-bg:#10223f; --btn-tx:#fff; --shadow:0 1px 2px rgba(16,34,63,.05),0 12px 32px -18px rgba(16,34,63,.28);
+  }
+  .ph.d{
+    --bg:#0b1729; --bg2:#0f1e35; --surface-solid:#14263f; --card:rgba(20,38,63,.72);
+    --text:#f7f0e7; --muted:#b7bfce; --faint:#9ea8bb; --accent:#cc4620; --accent-ink:#ff8f6b;
+    --good:#4fd69a; --warn:#ffc65c; --bad:#ff8189; --border:rgba(247,240,231,.1); --input-line:rgba(247,240,231,.16);
+    --nav-bg:rgba(23,42,70,.85); --nav-line:rgba(247,240,231,.1); --nav-ico:rgba(247,240,231,.68); --nav-on-bg:#cc4620; --nav-on:#fff;
+    --hero:linear-gradient(160deg,#14263f 0%,#1c2747 100%); --hero-sun:rgba(249,138,75,.28);
+    --btn-bg:#cc4620; --btn-tx:#fff; --shadow:0 10px 40px -12px rgba(0,0,0,.55);
+  }
+  .ph svg{display:block}
+  .ph .topbar{display:flex;align-items:center;gap:10px;padding:10px 4px 12px}
+  .ph .topbar .mk{width:30px;height:30px;flex:none}
+  .ph .pt{font-weight:800;font-size:19px;line-height:1.15}
+  .ph .ps{font-size:12px;color:var(--muted)}
+  .ph .sp{flex:1}
+  .ph .home-chip{font:inherit;font-size:12.5px;font-weight:700;color:var(--text);background:var(--surface-solid);border:1px solid var(--border);border-radius:999px;padding:5px 10px;white-space:nowrap}
+  .ph .ib{width:34px;height:34px;border-radius:12px;display:grid;place-items:center;background:var(--surface-solid);border:1px solid var(--border);color:var(--text);flex:none}
+  .ph .ib svg{width:17px;height:17px}
+
+  .ph .hero{position:relative;border-radius:22px;padding:18px 16px 16px;background:var(--hero);overflow:hidden;border:1px solid var(--border)}
+  /* slunce nad obzorem i v úvodu: kruh v rohu, pod ním čára – stejná myšlenka jako značka */
+  .ph .hero::before{content:"";position:absolute;right:-38px;top:-46px;width:150px;height:150px;border-radius:50%;background:radial-gradient(circle,var(--hero-sun) 0%,transparent 70%)}
+  .ph .hero h1{position:relative;font-size:24px;line-height:1.15;font-weight:800;letter-spacing:-.01em}
+  .ph .hero p{position:relative;color:var(--muted);font-size:13px;margin:6px 0 12px}
+  .ph .hs-field{position:relative;background:var(--bg2);border:1px solid var(--input-line);border-radius:14px;padding:7px 12px 8px;margin-bottom:8px}
+  .ph .hs-lab{display:block;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+  .ph .hs-val{font-weight:700;font-size:15px}
+  .ph .hs-val small{font-weight:500;color:var(--faint);font-size:12.5px}
+  .ph .btn-p{position:relative;width:100%;border:0;border-radius:14px;padding:12px;font:inherit;font-size:15px;font-weight:800;background:var(--btn-bg);color:var(--btn-tx)}
+  .ph .hero-plan{position:relative;display:block;margin-top:10px;font-weight:700;font-size:13.5px;color:var(--accent-ink)}
+
+  .ph .sh{display:flex;justify-content:space-between;align-items:baseline;margin:18px 4px 8px}
+  .ph .sh h2{font-size:16px;font-weight:800}
+  .ph .sh h2 span{font-size:12px;font-weight:500;color:var(--faint)}
+  .ph .link{font-size:13px;font-weight:700;color:var(--accent-ink)}
+
+  .ph .res{background:var(--card);border:1px solid var(--border);border-radius:22px;padding:14px;box-shadow:var(--shadow)}
+  .ph .rc-head{display:flex;gap:10px;align-items:center}
+  .ph .rc-flag{font-size:26px;line-height:1}
+  .ph .rc-name{flex:1;min-width:0}
+  .ph .rc-name h3{font-size:16px;font-weight:800}
+  .ph .rc-name div{font-size:12px;color:var(--faint)}
+  .ph .ghost{font:inherit;font-size:12px;font-weight:700;color:var(--text);background:var(--bg2);border:1px solid var(--input-line);border-radius:10px;padding:5px 8px;white-space:nowrap}
+  .ph .why{font-size:12px;color:var(--good);margin:8px 0 0;font-weight:600}
+  .ph .trip{display:flex;align-items:center;gap:10px;margin-top:10px;padding:10px 12px;border-radius:14px;background:var(--bg2);border:1px solid var(--border)}
+  .ph .tm-when{flex:1;min-width:0}
+  .ph .tm-when b{display:block;font-size:14px}
+  .ph .tm-when small{display:block;font-size:12px;color:var(--faint)}
+  .ph .tm-price{text-align:right;font-size:19px;font-weight:800;white-space:nowrap;line-height:1.1}
+  .ph .tm-price small{font-size:12px;font-weight:600;color:var(--faint)}
+  .ph .tm-price em{display:block;font-style:normal;font-size:11.5px;font-weight:700;color:var(--good)}
+  .ph .chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+  .ph .chip{font-size:11.5px;font-weight:700;padding:3px 8px;border-radius:999px;border:1px solid var(--border);color:var(--muted)}
+  .ph .chip.good{color:var(--good);border-color:transparent;background:color-mix(in srgb,var(--good) 12%,transparent)}
+  .ph .chip.warn{color:var(--warn);border-color:transparent;background:color-mix(in srgb,var(--warn) 12%,transparent)}
+
+  .ph .nav{margin:18px 2px 2px;display:flex;justify-content:space-between;background:var(--nav-bg);border:1px solid var(--nav-line);border-radius:24px;padding:6px;box-shadow:0 14px 34px -16px rgba(16,34,63,.38)}
+  .ph .mi{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 2px;border-radius:18px;color:var(--nav-ico);font-size:10.5px;font-weight:700}
+  .ph .mi svg{width:21px;height:21px}
+  .ph .mi.on{background:var(--nav-on-bg);color:var(--nav-on)}
+  .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+</style>
+</head>
+<body>
+<!-- definice značky jednou, dál jen <use>; svg schované mimo obraz (display:none by v některých prohlížečích vypnulo
+     přechod slunce) -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <linearGradient id="sunG" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffc23d"/><stop offset=".55" stop-color="#f98a4b"/><stop offset="1" stop-color="#e4572e"/>
+    </linearGradient>
+  </defs>
+  <!-- dlaždice: ikona aplikace a logo na světlém pozadí. Obsah leží v kruhu 80 % – i jako maskovatelná ikona se nic neořízne -->
+  <symbol id="mTile" viewBox="0 0 48 48">
+    <rect width="48" height="48" rx="11" fill="#10223f"/>
+    <path d="M13 27a11 11 0 0 1 22 0z" fill="url(#sunG)"/>
+    <path d="M9 27h30" stroke="#f7f0e7" stroke-width="2.6" stroke-linecap="round"/>
+    <path d="M22.8 30.5h2.4L30 39H18z" fill="#f7f0e7" fill-opacity=".55"/>
+  </symbol>
+  <!-- bez dlaždice: na tmavém pozadí (obzor a cesta barvou textu) -->
+  <symbol id="mBare" viewBox="0 0 48 48">
+    <path d="M10 28a14 14 0 0 1 28 0z" fill="url(#sunG)"/>
+    <path d="M4 28h40" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+    <path d="M22.5 32h3l6 12h-15z" fill="currentColor" fill-opacity=".5"/>
+  </symbol>
+</svg>
+
+<div class="wrap">
+  <header class="doc">
+    <svg aria-hidden="true"><use href="#mTile"/></svg>
+    <h1 class="doc-h">Vizuální identita ATLAS – varianta B „Slunce a cesta“</h1>
+  </header>
+  <p class="lead">Návrh, v aplikaci se zatím nic nemění. Slunce nad obzorem, pod ním cesta k němu: levná letenka je začátek,
+    na konci je dovolená. Teplá korálová a sluneční barva, základ (text, tlačítka) hluboká námořnická modrá – aby stránka
+    s cenami působila klidně a důvěryhodně.</p>
+
+  <!-- ===== LOGO ===== -->
+  <h2 class="sec">1. Logo</h2>
+  <div class="grid2">
+    <div class="logo-panel on-light">
+      <div class="lockup"><svg aria-hidden="true"><use href="#mTile"/></svg><span class="wordmark">ATLAS</span></div>
+      <div class="tagline">letenky odkudkoliv kamkoliv</div>
+      <div class="panel-cap">Světlé pozadí – značka v modré dlaždici, nápis #10223f</div>
+    </div>
+    <div class="logo-panel on-dark">
+      <div class="lockup"><svg aria-hidden="true"><use href="#mBare"/></svg><span class="wordmark">ATLAS</span></div>
+      <div class="tagline">letenky odkudkoliv kamkoliv</div>
+      <div class="panel-cap">Tmavé pozadí – značka bez dlaždice, obzor a nápis #f7f0e7</div>
+    </div>
+  </div>
+  <p class="note">Písmo nápisu: systémové bezpatkové, tučnost 800, proložení 0,14 em, jen velká písmena. Slunce je vždy
+    stejný přechod (#ffc23d → #f98a4b → #e4572e) – na bílém pozadí samotné slunce nemá kontrast, proto tam značka stojí
+    v dlaždici.</p>
+
+  <!-- ===== IKONA ===== -->
+  <h2 class="sec">2. Ikona aplikace <small>512 × 512 a 48 px</small></h2>
+  <svg class="icon-big" viewBox="0 0 48 48" role="img" aria-label="Ikona ATLAS 512 × 512"><use href="#mTile"/></svg>
+  <p class="note" style="text-align:center">512 × 512 (na telefonu zmenšeno na šířku obrazovky). Pro manifest jako
+    „any maskable“ – obsah je uvnitř bezpečného kruhu.</p>
+  <div class="icon-row" style="margin-top:16px">
+    <div class="home l">
+      <div class="app-ic"><svg aria-hidden="true"><use href="#mTile"/></svg>ATLAS</div>
+      <div class="app-ic"><i class="ph-ic" style="background:#4285f4"></i>Mapy</div>
+      <div class="app-ic"><i class="ph-ic" style="background:#25d366"></i>Zprávy</div>
+    </div>
+    <div class="home d">
+      <div class="app-ic"><svg aria-hidden="true"><use href="#mTile"/></svg>ATLAS</div>
+      <div class="app-ic"><i class="ph-ic" style="background:#4285f4"></i>Mapy</div>
+      <div class="app-ic"><i class="ph-ic" style="background:#25d366"></i>Zprávy</div>
+    </div>
+  </div>
+  <p class="note">Skutečná velikost 48 px na světlé i tmavé ploše. Ikona je tmavá dlaždice se světlým sluncem – na obou
+    plochách je vidět a mezi barevnými ikonami ostatních aplikací nezanikne.</p>
+
+  <!-- ===== PALETA ===== -->
+  <h2 class="sec">3. Paleta barev</h2>
+  <h3 class="pal-h">Značka</h3>
+  <div class="pal">
+    <div class="sw"><i style="background:#10223f"></i><div><b>Námořní</b><code>#10223f</code><span>text, tlačítka, dlaždice ikony</span></div></div>
+    <div class="sw"><i style="background:#c2401f"></i><div><b>Korál</b><code>#c2401f</code><span>--accent (v tmavém #cc4620), bílý text 5,2 : 1</span></div></div>
+    <div class="sw"><i style="background:#f98a4b"></i><div><b>Meruňka</b><code>#f98a4b</code><span>--accent2, jen ozdoby</span></div></div>
+    <div class="sw"><i style="background:#ffc23d"></i><div><b>Slunce</b><code>#ffc23d</code><span>--accent3, jen ozdoby</span></div></div>
+    <div class="sw"><i style="background:linear-gradient(135deg,#c2401f 0%,#9c3a4f 55%,#10223f 100%)"></i><div><b>Přechod --grad</b><code>#c2401f → #9c3a4f → #10223f</code><span>západ slunce nad mořem; bílý text ≥ 5,2 : 1</span></div></div>
+    <div class="sw"><i style="background:linear-gradient(180deg,#ffc23d,#f98a4b 55%,#e4572e)"></i><div><b>Slunce ve značce</b><code>#ffc23d → #e4572e</code><span>jen značka a ilustrace, bez textu</span></div></div>
+    <div class="sw"><i style="background:#fbf6f0"></i><div><b>Krém</b><code>#fbf6f0</code><span>pozadí světlého režimu, theme_color</span></div></div>
+    <div class="sw"><i style="background:#0b1729"></i><div><b>Noc</b><code>#0b1729</code><span>pozadí tmavého režimu</span></div></div>
+  </div>
+  <h3 class="pal-h">Světlý režim – text a stavy</h3>
+  <div class="pal">
+    <div class="sw"><i style="background:#10223f"></i><div><b>--text</b><code>#10223f</code><span>14,8 : 1 na pozadí</span></div></div>
+    <div class="sw"><i style="background:#4b5872"></i><div><b>--muted</b><code>#4b5872</code><span>6,7 : 1</span></div></div>
+    <div class="sw"><i style="background:#5a6680"></i><div><b>--faint</b><code>#5a6680</code><span>5,4 : 1</span></div></div>
+    <div class="sw"><i style="background:#b23c1f"></i><div><b>--accent-ink</b><code>#b23c1f</code><span>odkazy, 5,5 : 1</span></div></div>
+    <div class="sw"><i style="background:#0b7a52"></i><div><b>--good</b><code>#0b7a52</code><span>levné, 5,0 : 1</span></div></div>
+    <div class="sw"><i style="background:#8f5300"></i><div><b>--warn</b><code>#8f5300</code><span>5,7 : 1</span></div></div>
+    <div class="sw"><i style="background:#be2b37"></i><div><b>--bad</b><code>#be2b37</code><span>5,4 : 1</span></div></div>
+    <div class="sw"><i style="background:#55617a"></i><div><b>--nav-ico</b><code>#55617a</code><span>6,2 : 1 na bílé liště</span></div></div>
+  </div>
+  <h3 class="pal-h">Tmavý režim – text a stavy</h3>
+  <div class="pal">
+    <div class="sw"><i style="background:#f7f0e7"></i><div><b>--text</b><code>#f7f0e7</code><span>13,5 : 1 na kartě</span></div></div>
+    <div class="sw"><i style="background:#b7bfce"></i><div><b>--muted</b><code>#b7bfce</code><span>8,2 : 1</span></div></div>
+    <div class="sw"><i style="background:#9ea8bb"></i><div><b>--faint</b><code>#9ea8bb</code><span>6,4 : 1</span></div></div>
+    <div class="sw"><i style="background:#ff8f6b"></i><div><b>--accent-ink</b><code>#ff8f6b</code><span>odkazy, 6,8 : 1</span></div></div>
+    <div class="sw"><i style="background:#4fd69a"></i><div><b>--good</b><code>#4fd69a</code><span>8,3 : 1</span></div></div>
+    <div class="sw"><i style="background:#ffc65c"></i><div><b>--warn</b><code>#ffc65c</code><span>9,8 : 1</span></div></div>
+    <div class="sw"><i style="background:#ff8189"></i><div><b>--bad</b><code>#ff8189</code><span>6,4 : 1</span></div></div>
+    <div class="sw"><i style="background:#14263f"></i><div><b>--surface-solid</b><code>#14263f</code><span>karty a okna</span></div></div>
+  </div>
+  <p class="note">Kontrasty proti nejsvětlejší (u tmavého režimu) nebo nejtmavší ploše, kde se barva používá – výpočet
+    podle WCAG 2.1, přehled ve varianta-b.md.</p>
+
+  <!-- ===== UKÁZKA ===== -->
+  <h2 class="sec">4. Úvodní obrazovka na telefonu</h2>
+  <div class="phones">
+    <div>
+      <div class="ph-cap">Světlý režim (hlavní)</div>
+      <div class="ph l" id="phL"></div>
+    </div>
+    <div>
+      <div class="ph-cap">Tmavý režim</div>
+      <div class="ph d" id="phD"></div>
+    </div>
+  </div>
+  <noscript><p class="note">Ukázka telefonu se vkládá krátkým skriptem – zapni JavaScript.</p></noscript>
+  <p class="note">Texty a pořadí podle skutečné aplikace: hlavička Přehled, úvodní karta s Odkud / Kam, sekce Kam letět
+    levně s kartou výsledku a spodní lišta s pěti místy. Ceny a termíny jsou vymyšlené.</p>
+
+  <!-- obsah obou telefonů je stejný, liší se jen proměnné .ph.l / .ph.d; šablonu do nich zkopíruje skript níže.
+       Bez skriptu (např. náhled, který skripty blokuje) zůstanou telefony prázdné – ostatní části stránky skript nepotřebují. -->
+  <template id="phT">
+    <div class="topbar">
+      <svg class="mk" aria-hidden="true"><use href="#mTile"/></svg>
+      <div><div class="pt">Přehled</div><div class="ps">Tvůj cestovní přehled</div></div>
+      <div class="sp"></div>
+      <span class="home-chip">📍 Praha</span>
+      <span class="ib" aria-label="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></span>
+    </div>
+    <div class="hero">
+      <h1>Kam poletíme?</h1>
+      <p>Prohledám všechna letiště ve tvém okolí najednou – Ryanair, Wizz Air i další aerolinky – a spočítám i cestu na letiště.</p>
+      <div class="hs-field"><span class="hs-lab">Odkud</span><div class="hs-val">Praha <small>+ letiště do 200 km</small></div></div>
+      <div class="hs-field"><span class="hs-lab">Kam</span><div class="hs-val">Kamkoliv <small>nebo napiš „k moři v květnu“</small></div></div>
+      <button class="btn-p" type="button">Najít lety</button>
+      <span class="hero-plan">🧳 Naplánovat celou dovolenou →</span>
+    </div>
+    <div class="sh"><h2>Kam letět levně <span>z Prahy a okolí</span></h2><span class="link">Obnovit →</span></div>
+    <div class="res">
+      <div class="rc-head">
+        <div class="rc-flag" aria-hidden="true">🇪🇸</div>
+        <div class="rc-name"><h3>Barcelona</h3><div>Španělsko · BCN · 1 350 km</div></div>
+        <span class="ghost">🔎 Co tam je</span>
+      </div>
+      <div class="why">✓ o 38 % levnější než obvykle</div>
+      <div class="trip">
+        <div class="tm-when"><b>pá 12. 3. – po 15. 3.</b><small>3 noci · PRG → BCN ↩ PRG · přímý</small></div>
+        <div class="tm-price">1 890 Kč<small>/os.</small><em>💚 nízká cena</em></div>
+      </div>
+      <div class="chips"><span class="chip good">Ryanair · živá cena</span><span class="chip warn">jen příruční zavazadlo</span><span class="chip">🌡️ 17 °C</span></div>
+    </div>
+    <nav class="nav" aria-label="Sekce (ukázka)">
+      <span class="mi on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12l9-9 9 9M5 10v10h14V10"/></svg>Přehled</span>
+      <span class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>Lety</span>
+      <span class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6V4h6v2M3 7h18v13H3zM8 7v13M16 7v13"/></svg>Cesty</span>
+      <span class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a7 7 0 017 7c0 5-7 13-7 13S5 14 5 9a7 7 0 017-7zM12 11.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z"/></svg>Objevuj</span>
+      <span class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6h-6zM14 14h6v6h-6z"/></svg>Další</span>
+    </nav>
+  </template>
+</div>
+<script>
+  for (const id of ['phL', 'phD']) document.getElementById(id).append(document.getElementById('phT').content.cloneNode(true));
+</script>
+</body>
+</html>
