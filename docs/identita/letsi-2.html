@@ -1,0 +1,830 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Letsi – vizuální identita, koncept 2 „Let's see“</title>
+<!-- Samostatná stránka bez vnějších zdrojů: všechno je inline SVG a CSS. Písma Manrope a Inter se tu nenačítají
+     (žádné Google Fonts) – náhled používá nejbližší systémová písma, skutečná písma viz oddíl 4. -->
+<style>
+:root{
+  --mt:#12B886;--mt-d:#0A7A58;--ink:#0E2A21;--sun:#FFC145;--sky:#BFE6F2;--cor:#E5484D;--cor-d:#C42F35;
+  --air:#F3FBF7;--mist:#E2F0E9;--sage:#4D655C;--stone:#586C64;--night:#0A1612;--night2:#142620;
+  --mt-n:#3DDBA6;--sun-n:#FFC94D;
+  --f-head:"Manrope",ui-rounded,"SF Pro Rounded","Segoe UI Variable Display","Segoe UI",system-ui,-apple-system,Roboto,sans-serif;
+  --f-text:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{background:var(--air);color:var(--ink);font:400 15px/1.55 var(--f-text);font-variant-numeric:tabular-nums}
+h1,h2,h3,h4{font-family:var(--f-head);letter-spacing:-.02em;line-height:1.15}
+h2{font-size:26px;font-weight:800;margin:0 0 6px}
+h3{font-size:17px;font-weight:800;margin:26px 0 10px}
+p{max-width:68ch}
+p+p{margin-top:8px}
+small,.note{color:var(--sage);font-size:13px}
+code{font:500 12.5px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:var(--mist);padding:1px 5px;border-radius:5px}
+.wrap{max-width:1120px;margin:0 auto;padding:0 18px}
+section{padding:44px 0;border-top:1px solid rgba(14,42,33,.09)}
+.num{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:50%;background:var(--ink);color:var(--sun);font:800 14px var(--f-head);margin-right:8px;vertical-align:3px}
+.lead{font-size:16.5px;color:var(--sage);margin-bottom:18px}
+.grid{display:grid;gap:14px}
+.g2{grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr))}
+.g3{grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr))}
+.g4{grid-template-columns:repeat(auto-fit,minmax(min(100%,170px),1fr))}
+.card{background:#fff;border:1px solid rgba(14,42,33,.09);border-radius:20px;padding:18px;box-shadow:0 1px 2px rgba(14,42,33,.04),0 12px 30px -20px rgba(14,42,33,.3)}
+.tile{border-radius:18px;padding:22px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;min-height:170px}
+.tile .cap{font-size:12px;font-weight:600;opacity:.8}
+.lab{font:700 11px/1.3 var(--f-text);text-transform:uppercase;letter-spacing:.07em;color:var(--sage);margin-bottom:8px}
+svg{display:block}
+.defs{position:absolute;width:0;height:0;overflow:hidden}
+
+/* Hlavička */
+.hero{padding:34px 0 40px;position:relative;overflow:hidden}
+.hero-rings{position:absolute;right:-180px;top:-120px;width:560px;opacity:.55;pointer-events:none}
+.hero h1{font-size:clamp(34px,7vw,58px);font-weight:800;margin:18px 0 10px;max-width:14ch}
+.hero h1 em{font-style:normal;background:linear-gradient(transparent 62%,var(--sun) 62%)}
+.pills{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.pill{font:700 12.5px var(--f-text);padding:6px 11px;border-radius:999px;background:#fff;border:1px solid rgba(14,42,33,.12)}
+.concept{display:grid;gap:18px;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));align-items:start}
+.why li{margin:0 0 8px 18px}
+.meaning{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,150px),1fr));gap:10px;margin-top:14px}
+.meaning div{background:#fff;border-radius:16px;padding:12px;border:1px solid rgba(14,42,33,.09);font-size:13px}
+.meaning b{display:block;font:800 14px var(--f-head);margin-top:6px}
+
+/* Barvy */
+.sw{border-radius:18px;overflow:hidden;background:#fff;border:1px solid rgba(14,42,33,.09)}
+.sw .chip{height:96px;display:flex;align-items:flex-end;padding:10px 12px;font:800 15px var(--f-head)}
+.sw .meta{padding:10px 12px;font-size:12px;line-height:1.6}
+.sw .meta b{font:800 13px var(--f-text)}
+.sw .meta span{display:block;color:var(--sage)}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{text-align:left;padding:7px 8px;border-bottom:1px solid rgba(14,42,33,.09);vertical-align:top}
+th{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--sage)}
+.tbl{overflow-x:auto;-webkit-overflow-scrolling:touch;background:#fff;border-radius:16px;border:1px solid rgba(14,42,33,.09);padding:4px 6px}
+.dot{display:inline-block;width:12px;height:12px;border-radius:4px;vertical-align:-1px;margin-right:6px;border:1px solid rgba(14,42,33,.15)}
+.ok{color:var(--mt-d);font-weight:800}.no{color:var(--cor-d);font-weight:800}
+.pair{display:inline-block;padding:2px 8px;border-radius:7px;font-weight:700}
+
+/* Cenovky: slunce = cena, obrácená cenovka s ▼ = zlevnění */
+.price{display:inline-flex;align-items:center;gap:4px;background:var(--sun);color:var(--ink);font:800 15px var(--f-text);padding:5px 11px;border-radius:999px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.drop{display:inline-flex;align-items:center;gap:3px;background:var(--ink);color:var(--sun);font:800 12px var(--f-text);padding:4px 8px;border-radius:999px;white-space:nowrap}
+.rise{display:inline-flex;align-items:center;gap:3px;color:var(--cor-d);font:800 12px var(--f-text)}
+
+/* Typografie */
+.type-big{font-family:var(--f-head);font-weight:800;font-size:clamp(40px,9vw,76px);line-height:1;letter-spacing:-.03em}
+.scale div{display:flex;align-items:baseline;gap:12px;padding:8px 0;border-bottom:1px dashed rgba(14,42,33,.12)}
+.scale span:first-child{flex:0 0 112px;font:600 11.5px var(--f-text);color:var(--sage)}
+.prices{font:700 18px var(--f-text);font-variant-numeric:tabular-nums;text-align:right;line-height:1.7}
+
+/* Ikony */
+.icons{display:flex;flex-wrap:wrap;gap:16px}
+.icons figure{width:76px;text-align:center;font-size:11.5px;color:var(--sage)}
+.icons svg{width:44px;height:44px;margin:0 auto 6px;color:var(--ink);background:#fff;border-radius:14px;padding:10px;border:1px solid rgba(14,42,33,.09);box-sizing:content-box}
+
+/* Spouštěcí obrazovka – animace loga */
+.splash{border-radius:28px;background:var(--air);height:340px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;position:relative;overflow:hidden}
+.splash.dk{background:var(--night)}
+.sp-ring{stroke-dasharray:163;stroke-dashoffset:163;animation:sp-ring 4s var(--e,cubic-bezier(.22,.61,.36,1)) infinite}
+.sp-pupil{transform-origin:53px 47px;transform:scale(0);animation:sp-pupil 4s cubic-bezier(.34,1.56,.64,1) infinite}
+.sp-sun{transform:translate(-24px,24px) scale(.4);opacity:0;animation:sp-sun 4s cubic-bezier(.34,1.56,.64,1) infinite;transform-box:fill-box;transform-origin:center}
+.sp-wm{opacity:0;transform:translateY(8px);animation:sp-wm 4s ease-out infinite}
+@keyframes sp-ring{0%{stroke-dashoffset:163}22%,88%{stroke-dashoffset:0}100%{stroke-dashoffset:0;opacity:0}}
+@keyframes sp-pupil{0%,14%{transform:scale(0)}28%,88%{transform:scale(1)}100%{transform:scale(1);opacity:0}}
+@keyframes sp-sun{0%,24%{transform:translate(-24px,24px) scale(.4);opacity:0}30%{opacity:1}42%,88%{transform:none;opacity:1}100%{opacity:0}}
+@keyframes sp-wm{0%,40%{opacity:0;transform:translateY(8px)}52%,88%{opacity:1;transform:none}100%{opacity:0}}
+@media (prefers-reduced-motion:reduce){.sp-ring,.sp-pupil,.sp-sun,.sp-wm{animation:none;stroke-dashoffset:0;transform:none;opacity:1}}
+
+/* Telefon */
+.phones{display:flex;flex-wrap:wrap;gap:22px;justify-content:center}
+.phone{width:300px;flex:0 0 300px;height:630px;border-radius:44px;background:#0b1410;padding:10px;box-shadow:0 30px 60px -30px rgba(14,42,33,.6)}
+.scr{height:100%;border-radius:35px;overflow:hidden;position:relative;display:flex;flex-direction:column;
+  --b:#F3FBF7;--c:#fff;--t:#0E2A21;--m:#4D655C;--f:#586C64;--ln:rgba(14,42,33,.1);--ac:#0A7A58;--cta:#FFC145;--cta-t:#0E2A21;
+  --plan:#12B886;--plan-t:#0E2A21;--nav:rgba(255,255,255,.94);--navi:#4D655C;--nav-on:#0E2A21;--drop-b:#0E2A21;--drop-t:#FFC145;--drop-l:transparent;--ring:#12B886;--pupil:#0E2A21;--sun:#FFC145;--wm:#0E2A21;
+  background:var(--b);color:var(--t)}
+.scr.dk{--b:#0A1612;--c:#142620;--t:#E8F5EF;--m:#A3BDB3;--f:#8FA99F;--ln:rgba(232,245,239,.1);--ac:#3DDBA6;--cta:#FFC94D;--cta-t:#0A1612;
+  --plan:#3DDBA6;--plan-t:#0A1612;--nav:rgba(20,38,32,.94);--navi:#A3BDB3;--nav-on:#E8F5EF;--drop-b:transparent;--drop-t:#FFC94D;--drop-l:#FFC94D;--ring:#3DDBA6;--pupil:#E8F5EF;--sun:#FFC94D;--wm:#E8F5EF}
+.scr .st{display:flex;justify-content:space-between;padding:12px 22px 4px;font:700 12px var(--f-text)}
+.scr .hd{display:flex;align-items:center;justify-content:space-between;padding:8px 16px 4px}
+.scr .av{width:30px;height:30px;border-radius:50%;background:var(--c);border:1px solid var(--ln);display:grid;place-items:center;font:800 12px var(--f-head);color:var(--m)}
+.scr .body{flex:1;padding:6px 14px 0;overflow:hidden;position:relative}
+.scr h4{font-size:26px;font-weight:800;margin:6px 2px 2px}
+.scr .sub{font-size:12px;color:var(--m);margin:0 2px 10px}
+.scr .srch{background:var(--c);border:1px solid var(--ln);border-radius:18px;padding:6px;box-shadow:0 10px 24px -18px rgba(14,42,33,.5)}
+.scr .fld{display:flex;align-items:center;gap:9px;padding:8px 9px;border-radius:12px}
+.scr .fld+.fld{border-top:1px solid var(--ln);border-radius:0}
+.scr .fld svg{width:18px;height:18px;flex:0 0 18px;color:var(--ac)}
+.scr .fld small{display:block;font:700 9.5px var(--f-text);text-transform:uppercase;letter-spacing:.07em;color:var(--f)}
+.scr .fld b{font:700 13px var(--f-text)}
+.scr .cta{display:block;width:100%;margin-top:6px;border:0;border-radius:13px;background:var(--cta);color:var(--cta-t);font:800 14px var(--f-text);padding:11px}
+.scr .sec{display:flex;justify-content:space-between;align-items:baseline;margin:14px 2px 7px;font:800 13px var(--f-head)}
+.scr .sec a{font:700 11.5px var(--f-text);color:var(--ac);text-decoration:none}
+.scr .res{background:var(--c);border:1px solid var(--ln);border-radius:16px;padding:10px 11px;display:flex;align-items:center;gap:10px}
+.scr .res+.res{margin-top:7px}
+.scr .res .th{width:40px;height:40px;border-radius:12px;flex:0 0 40px;overflow:hidden}
+.scr .res .tx{flex:1;min-width:0}
+.scr .res b{display:block;font:800 13.5px var(--f-head)}
+.scr .res small{display:block;font-size:10.5px;color:var(--f);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.scr .res .pr{display:flex;flex-direction:column;align-items:flex-end;gap:4px}
+.scr .price{font-size:13px;padding:4px 9px;background:var(--cta);color:var(--cta-t)}
+.scr .drop{font-size:10px;padding:2px 6px;background:var(--drop-b);color:var(--drop-t);box-shadow:inset 0 0 0 1.2px var(--drop-l)}
+.scr .plan{margin-top:10px;border-radius:18px;background:var(--plan);color:var(--plan-t);padding:13px 14px;position:relative;overflow:hidden}
+.scr .plan b{font:800 15px var(--f-head);display:block;max-width:15ch}
+.scr .plan small{font-size:11px;opacity:.85;display:block;margin-top:3px;max-width:22ch}
+.scr .plan .go{position:absolute;right:14px;bottom:13px;width:30px;height:30px;border-radius:50%;background:var(--plan-t);color:var(--plan);display:grid;place-items:center;font-weight:800}
+.scr .plan svg{position:absolute;right:-30px;top:-34px;width:130px;opacity:.28}
+.scr .nav{display:flex;justify-content:space-around;background:var(--nav);border-top:1px solid var(--ln);padding:8px 6px 18px}
+.scr .nav span{display:flex;flex-direction:column;align-items:center;gap:3px;font:600 9.5px var(--f-text);color:var(--navi);width:52px}
+.scr .nav svg{width:21px;height:21px}
+.scr .nav .on{color:var(--nav-on);font-weight:800}
+.scr .nav .on svg{color:var(--ac)}
+
+/* Plocha telefonu */
+.home{background:linear-gradient(170deg,#cfe7ef 0%,#e9efe2 55%,#f6dcc3 100%);padding:44px 18px 0}
+.apps{display:grid;grid-template-columns:repeat(4,1fr);gap:18px 10px}
+.app{display:flex;flex-direction:column;align-items:center;gap:5px;font:500 10.5px var(--f-text);color:#1b2420}
+.app i{width:54px;height:54px;border-radius:14px;display:grid;place-items:center;box-shadow:0 4px 10px -6px rgba(0,0,0,.4)}
+.app i svg{width:28px;height:28px;color:#fff}
+.dock{position:absolute;left:12px;right:12px;bottom:14px;background:rgba(255,255,255,.45);border-radius:28px;padding:12px;display:flex;justify-content:space-around}
+
+/* Média */
+.media{border-radius:16px;overflow:hidden;box-shadow:0 18px 40px -26px rgba(14,42,33,.6);background:#fff}
+.media svg{width:100%;height:auto}
+.mcap{font-size:12.5px;color:var(--sage);margin-top:8px}
+.msg{max-width:440px;background:#fff;border-radius:18px;border:1px solid rgba(14,42,33,.1);overflow:hidden}
+.msg .meta{padding:10px 12px;font-size:12.5px}
+.msg .meta b{display:block;font-size:13.5px}
+.msg .meta span{color:var(--sage)}
+
+/* Tón hlasu */
+.voice td:first-child{font-weight:800;white-space:nowrap}
+.voice td{font-size:13.5px}
+.voice .en{color:var(--sage)}
+
+footer{padding:30px 0 50px;color:var(--sage);font-size:13px}
+@media (min-width:900px){
+  h2{font-size:32px}
+  section{padding:64px 0}
+}
+</style>
+</head>
+<body>
+
+<!-- Sdílené tvary: značka, slovní značka, ikony. Skryté přes nulovou velikost, ne display:none – jinak by v Chromu
+     nefungovaly přechody a vzory, na které odkazují ostatní SVG. Barvy jdou zvenku přes CSS proměnné
+     (--ring, --pupil, --sun, --ink), které se dědí i do <use>. -->
+<svg class="defs" aria-hidden="true">
+  <defs>
+    <!-- Značka „Průhled“: kruh (čočka / okénko / kruh letišť) s mezerou vpravo nahoře, zornice „ty“ lehce
+         natočená ke slunci (díváš se, kam poletíš) a slunce, které z mezery právě vychází. Mřížka 100 × 100,
+         kruh r 32, tah 13, mezera 70° (od −10° do −80°), slunce r 9 ve vzdálenosti 38 pod úhlem −45°. -->
+    <symbol id="mk" viewBox="0 0 100 100">
+      <path d="M81.51 44.44A32 32 0 1 1 55.56 18.49" fill="none" stroke-width="13" stroke-linecap="round" style="stroke:var(--ring,#12B886)"/>
+      <circle cx="53" cy="47" r="10" style="fill:var(--pupil,#0E2A21)"/>
+      <circle cx="76.87" cy="23.13" r="9" style="fill:var(--sun,#FFC145)"/>
+    </symbol>
+    <!-- Slovní značka „Letsi“: vlastní kresba monolineárním geometrickým tahem 12 (kruhová „e“, „s“ ze dvou elips),
+         x-výška 56, verzálka 84, oblé konce = přátelské jako značka. Tečka nad „i“ je slunce ze značky, posunutá
+         doprava – „odlétá“. Pro výrobu převést tahy na obrysy (Outline Stroke) a doladit přesahy oblých tvarů. -->
+    <symbol id="wm" viewBox="2 10 244 96">
+      <g fill="none" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" style="stroke:var(--ink,#0E2A21)">
+        <path d="M14 22V94H44"/>
+        <path d="M66 72H110A22 22 0 1 0 99 91.05"/>
+        <path d="M136 30V80A14 14 0 0 0 150 94H154M124 50H150"/>
+        <path d="M201.1 55.5A14 11 0 1 0 189 72A14 11 0 1 1 176.9 88.5"/>
+        <path d="M225 50V94"/>
+      </g>
+      <circle cx="231" cy="26" r="8.5" style="fill:var(--sun,#FFC145)"/>
+    </symbol>
+    <!-- Horizontální lockup: kruh značky sahá od verzálky po účaří slovní značky -->
+    <symbol id="lh" viewBox="8 4 334 96">
+      <use href="#mk" x="0" y="0" width="104" height="104"/>
+      <use href="#wm" x="104.3" y="6.3" width="232.4" height="91.4"/>
+    </symbol>
+    <symbol id="lv" viewBox="0 8 244 200">
+      <use href="#mk" x="62" y="0" width="120" height="120"/>
+      <use href="#wm" x="0" y="112" width="244" height="96"/>
+    </symbol>
+    <!-- Favicony: vlastní zjednodušená kresba pro pixelovou mřížku – silnější tah, mezera 90°, aby se slunce
+         neslilo s kruhem -->
+    <symbol id="fav16" viewBox="0 0 16 16">
+      <path d="M12.5 8.5A5 5 0 1 1 7.5 3.5" fill="none" stroke="#12B886" stroke-width="2.6" stroke-linecap="round"/>
+      <circle cx="7.9" cy="8.1" r="1.7" fill="#0E2A21"/>
+      <circle cx="11.95" cy="4.05" r="2.1" fill="#F5A800"/>
+    </symbol>
+    <symbol id="fav32" viewBox="0 0 32 32">
+      <path d="M24.96 16.13A10 10 0 1 1 15.87 7.04" fill="none" stroke="#12B886" stroke-width="4.6" stroke-linecap="round"/>
+      <circle cx="15.8" cy="16.2" r="3.2" fill="#0E2A21"/>
+      <circle cx="23.63" cy="8.37" r="3.6" fill="#FFC145"/>
+    </symbol>
+    <!-- Ikona aplikace: přechod od svěží máty vlevo dole k hlubší mátě vpravo nahoře, kde vychází slunce –
+         slunce #FFC145 na #08805D má ≈ 3,0 : 1 (na čisté mátě by mělo jen 1,6 : 1) -->
+    <linearGradient id="g-ic" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#1CC793"/><stop offset=".55" stop-color="#12A87B"/><stop offset="1" stop-color="#08805D"/>
+    </linearGradient>
+    <linearGradient id="g-sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#9ED8EA"/><stop offset=".62" stop-color="#E6F6F4"/><stop offset=".63" stop-color="#FFE3A3"/><stop offset="1" stop-color="#FFF4D6"/>
+    </linearGradient>
+    <linearGradient id="g-story" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#12B886"/><stop offset="1" stop-color="#0A7A58"/>
+    </linearGradient>
+    <radialGradient id="g-glow" cx=".5" cy=".5" r=".5">
+      <stop offset="0" stop-color="#FFC145" stop-opacity=".55"/><stop offset="1" stop-color="#FFC145" stop-opacity="0"/>
+    </radialGradient>
+    <symbol id="ic" viewBox="0 0 512 512">
+      <rect width="512" height="512" rx="115" fill="url(#g-ic)"/>
+      <use href="#mk" x="96" y="96" width="320" height="320" style="--ring:#fff;--pupil:#0E2A21;--sun:#FFC145"/>
+    </symbol>
+    <!-- Vzor „Letokruhy“: soustředné kruhy s jedním sluncem – na pozadí karet, obalů, sociálních sítí -->
+    <pattern id="pt" width="64" height="64" patternUnits="userSpaceOnUse">
+      <circle cx="32" cy="32" r="22" fill="none" stroke="#12B886" stroke-width="2.4" stroke-opacity=".35"/>
+      <circle cx="32" cy="32" r="12" fill="none" stroke="#12B886" stroke-width="2.4" stroke-opacity=".22"/>
+      <circle cx="32" cy="32" r="3" fill="#0E2A21" fill-opacity=".18"/>
+    </pattern>
+    <!-- Ikony: mřížka 24, tah 2, oblé konce a spoje, rohy r 3, žádné výplně – kruh je základní tvar -->
+    <symbol id="i-home" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11l8-7 8 7v8a1.5 1.5 0 0 1-1.5 1.5H15v-6H9v6H5.5A1.5 1.5 0 0 1 4 19z"/></g></symbol>
+    <symbol id="i-plane" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 3L3 10.5l7 2.5 2.5 7.5z"/><path d="M10 13l6-6"/></g></symbol>
+    <symbol id="i-case" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="3"/><path d="M8.5 7V5.5A1.5 1.5 0 0 1 10 4h4a1.5 1.5 0 0 1 1.5 1.5V7M3 12.5h18"/></g></symbol>
+    <symbol id="i-lens" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M16 16l4.5 4.5"/></g><circle cx="11.6" cy="10.4" r="2" fill="currentColor"/></symbol>
+    <symbol id="i-globe" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3.5 9h17M3.5 15h17M12 3c-4 4.5-4 13.5 0 18M12 3c4 4.5 4 13.5 0 18"/></g></symbol>
+    <symbol id="i-bell" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 16v-5a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 21h4"/></g></symbol>
+    <symbol id="i-cal" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15.5" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/></g></symbol>
+    <symbol id="i-pin" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3"/></g></symbol>
+    <symbol id="i-down" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v15M6 13l6 6 6-6"/></g></symbol>
+    <symbol id="i-train" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3.5" width="14" height="14" rx="4"/><path d="M5 11h14M8 21l2-3.5M16 21l-2-3.5"/></g></symbol>
+  </defs>
+</svg>
+
+<header class="hero">
+  <div class="wrap">
+    <svg class="hero-rings" viewBox="0 0 400 400" aria-hidden="true"><g fill="none" stroke="#12B886"><circle cx="200" cy="200" r="70" stroke-width="2" opacity=".5"/><circle cx="200" cy="200" r="120" stroke-width="2" opacity=".35"/><circle cx="200" cy="200" r="170" stroke-width="2" opacity=".2"/></g></svg>
+    <svg viewBox="8 4 334 96" width="190" height="55" role="img" aria-label="Letsi"><use href="#lh"/></svg>
+    <h1>Koncept 2: <em>Let's see.</em> Kruh, kterým vidíš všechny možnosti.</h1>
+    <p class="lead">Návrh vizuální identity pro aplikaci, která se dnes jmenuje ATLAS. Letsi = česky „Leť si!“, anglicky „let's see“. Paleta stojí na směru B „Mátový vzduch“ ze <code>strategie.md</code>, s vlastním signálem pro ceny.</p>
+    <div class="pills"><span class="pill">máta + slunce + zelený inkoust</span><span class="pill">Manrope + Inter</span><span class="pill">slunce = cena</span><span class="pill">čitelné v 16 px</span></div>
+  </div>
+</header>
+
+<!-- ============ 1. KONCEPT ============ -->
+<section id="koncept"><div class="wrap">
+  <h2><span class="num">1</span>Koncept</h2>
+  <div class="concept">
+    <div>
+      <p class="lead" style="color:var(--ink)"><b>Letsi je pohled ven.</b> Značka je jeden kruh – čočka, okénko letadla i oko. V jeho středu jsi ty, a z mezery v kruhu právě vychází slunce: cíl, na který se díváš. Nejdřív uvidíš všechny možnosti i ceny najednou (<i>let's see</i>), pak vyrazíš (<i>leť si</i>).</p>
+      <h3>Proč je to chytré</h3>
+      <ul class="why">
+        <li><b>Jeden tvar, čtyři čtení</b> – oko („let's see“), okénko letadla, kruh letišť kolem tebe (hlavní myšlenka strategie „Kruh, ze kterého se vylétá“) a slunce nad obzorem (dovolená, odlet).</li>
+        <li><b>Zornice se dívá ke slunci.</b> Bod „ty“ je o 4 % natočený k mezeře – značka má pohled a směr, a přitom zůstává klidná a geometrická.</li>
+        <li><b>Slunce spojuje vše:</b> je to tečka nad „i“ ve slovní značce, je to barva ceny v aplikaci a je to akcent hlavního tlačítka. Kdo jednou pochopí „žlutá = kolik to stojí“, čte aplikaci bez návodu.</li>
+        <li><b>Průhlednost = důvěra.</b> Kruh je otevřený, nic neschovává – stejně jako aplikace ukazuje celkovou cenu i s cestou na letiště.</li>
+        <li><b>Mimo modrou.</b> Máta a slunce na světlém „vzduchu“ nemají nic společného s námořnickou modrou aerolinek a srovnávačů.</li>
+      </ul>
+    </div>
+    <div>
+      <div class="card" style="display:flex;justify-content:center;padding:26px">
+        <svg viewBox="0 0 100 100" width="220" height="220" role="img" aria-label="Značka Letsi"><use href="#mk"/></svg>
+      </div>
+      <div class="meaning">
+        <div><svg viewBox="0 0 100 100" width="36" height="36"><use href="#mk"/></svg><b>Oko</b>let's see – podívej se, kam to vyjde</div>
+        <div><svg viewBox="0 0 100 100" width="36" height="36"><use href="#mk" style="--sun:#BFE6F2"/></svg><b>Okénko</b>pohled z letadla, ne letadlo zvenku</div>
+        <div><svg viewBox="0 0 100 100" width="36" height="36"><use href="#mk" style="--sun:transparent"/></svg><b>Kruh letišť</b>všechna letiště kolem tebe najednou</div>
+        <div><svg viewBox="0 0 100 100" width="36" height="36"><use href="#mk" style="--pupil:transparent"/></svg><b>Slunce</b>vychází z kruhu = odlet, léto</div>
+      </div>
+    </div>
+  </div>
+</div></section>
+
+<!-- ============ 2. LOGO ============ -->
+<section id="logo"><div class="wrap">
+  <h2><span class="num">2</span>Logo systém</h2>
+  <p class="lead">Všechno níže je kresba v SVG (žádný <code>&lt;text&gt;</code>). Slovní značka je vlastní geometrický monolineární tah – kulaté „e“ navazuje na kruh značky, tečka nad „i“ je slunce.</p>
+
+  <h3>Značka, slovní značka, lockupy</h3>
+  <div class="grid g2">
+    <div class="card tile"><div class="lab">Značka (symbol)</div><svg viewBox="0 0 100 100" width="150" height="150" role="img" aria-label="Značka"><use href="#mk"/></svg></div>
+    <div class="card tile"><div class="lab">Slovní značka</div><svg viewBox="2 10 244 96" width="250" height="98" role="img" aria-label="Letsi"><use href="#wm"/></svg></div>
+    <div class="card tile"><div class="lab">Horizontální lockup – hlavní</div><svg viewBox="8 4 334 96" width="290" height="83" role="img" aria-label="Letsi"><use href="#lh"/></svg></div>
+    <div class="card tile"><div class="lab">Vertikální lockup</div><svg viewBox="0 8 244 200" width="160" height="131" role="img" aria-label="Letsi"><use href="#lv"/></svg></div>
+  </div>
+
+  <h3>Na pozadí</h3>
+  <div class="grid g4">
+    <div class="tile" style="background:#fff;border:1px solid rgba(14,42,33,.1)"><svg viewBox="8 4 334 96" width="170" height="49"><use href="#lh"/></svg><span class="cap">Světlé – bílá / Vzduch</span></div>
+    <div class="tile" style="background:var(--night);color:#E8F5EF"><svg viewBox="8 4 334 96" width="170" height="49"><use href="#lh" style="--ring:#3DDBA6;--pupil:#E8F5EF;--sun:#FFC94D;--ink:#E8F5EF"/></svg><span class="cap">Tmavé – Noc #0A1612</span></div>
+    <div class="tile" style="background:var(--mt)"><svg viewBox="8 4 334 96" width="170" height="49"><use href="#lh" style="--ring:#fff;--pupil:#0E2A21;--sun:#FFC145;--ink:#0E2A21"/></svg><span class="cap">Máta – kruh bílý, text inkoust</span></div>
+    <div class="tile" style="background:var(--sun)"><svg viewBox="8 4 334 96" width="170" height="49"><use href="#lh" style="--ring:#0E2A21;--pupil:#0E2A21;--sun:#0E2A21;--ink:#0E2A21"/></svg><span class="cap">Slunce – jen jednobarevně inkoustem</span></div>
+    <div class="tile" style="background:var(--ink);color:#fff"><svg viewBox="8 4 334 96" width="170" height="49"><use href="#lh" style="--ring:#12B886;--pupil:#fff;--sun:#FFC145;--ink:#fff"/></svg><span class="cap">Zelený inkoust</span></div>
+    <div class="tile" style="background:#fff;border:1px solid rgba(14,42,33,.1)"><svg viewBox="8 4 334 96" width="170" height="49"><use href="#lh" style="--ring:#000;--pupil:#000;--sun:#000;--ink:#000"/></svg><span class="cap">Jednobarevná černá (razítko, fax, gravura)</span></div>
+    <div class="tile" style="background:#222"><svg viewBox="8 4 334 96" width="170" height="49"><use href="#lh" style="--ring:#fff;--pupil:#fff;--sun:#fff;--ink:#fff"/></svg><span class="cap" style="color:#fff">Jednobarevná bílá (výsek, fotografie)</span></div>
+    <div class="tile" style="background:linear-gradient(160deg,#9ED8EA,#FFE3A3)"><svg viewBox="8 4 334 96" width="170" height="49"><use href="#lh" style="--ring:#0E2A21;--pupil:#0E2A21;--sun:#fff;--ink:#0E2A21"/></svg><span class="cap">Na fotografii – inkoust, slunce bílé</span></div>
+  </div>
+  <p class="note" style="margin-top:10px">Pravidlo: slunce je žluté jen tam, kde má proti pozadí aspoň 3 : 1 (bílá, Vzduch, Noc, inkoust, hluboká máta). Na čisté mátě a na slunci se značka sází jednobarevně, nebo s bílým kruhem. Logo se neotáčí, nedeformuje, nedostává stín ani obrys.</p>
+
+  <h3>Minimální velikost a ochranná zóna</h3>
+  <div class="grid g2">
+    <div class="card">
+      <div class="lab">Ochranná zóna</div>
+      <!-- obsah loga zabírá x 12–337, y 12–92; s ≈ 16 (slunce r 8,5 × 0,952), zóna 2 s = 32 -->
+      <svg viewBox="-36 -36 444 176" width="100%" role="img" aria-label="Ochranná zóna">
+        <rect x="-20" y="-20" width="389" height="144" fill="none" stroke="#E5484D" stroke-dasharray="6 5" stroke-width="1.5"/>
+        <rect x="12" y="12" width="325" height="80" fill="rgba(18,184,134,.07)"/>
+        <use href="#lh" x="8" y="4" width="334" height="96"/>
+        <g fill="#FFC145" opacity=".9"><circle cx="-4" cy="52" r="16"/><circle cx="353" cy="52" r="16"/><circle cx="180" cy="-4" r="16"/><circle cx="180" cy="108" r="16"/></g>
+        <g font-family="Inter,system-ui,sans-serif" font-size="12" font-weight="800" fill="#0E2A21" text-anchor="middle"><text x="-4" y="56">2s</text><text x="353" y="56">2s</text><text x="180" y="0">2s</text><text x="180" y="112">2s</text></g>
+      </svg>
+      <p class="note">Kolem loga vždy volné místo <b>2 s</b>, kde <b>s</b> = průměr slunce (tečky nad „i“). Samostatná značka: volno 25 % její šířky na každé straně.</p>
+    </div>
+    <div class="card">
+      <div class="lab">Minimální velikost</div>
+      <div style="display:flex;align-items:flex-end;gap:22px;flex-wrap:wrap;padding:10px 0">
+        <div style="text-align:center"><svg viewBox="8 4 334 96" width="84" height="24"><use href="#lh"/></svg><small>lockup 84 px / 20 mm</small></div>
+        <div style="text-align:center"><svg viewBox="2 10 244 96" width="56" height="22"><use href="#wm"/></svg><small>slovní 56 px / 14 mm</small></div>
+        <div style="text-align:center"><svg viewBox="0 0 100 100" width="24" height="24" style="margin:0 auto"><use href="#mk"/></svg><small>značka 24 px / 6 mm</small></div>
+        <div style="text-align:center"><svg viewBox="0 0 16 16" width="16" height="16" style="margin:0 auto"><use href="#fav16"/></svg><small>pod 24 px jen favicon</small></div>
+      </div>
+      <p class="note">Pod 24 px se nepoužívá zmenšená značka, ale vlastní kresba faviconu se silnějším tahem a širší mezerou.</p>
+    </div>
+  </div>
+
+  <h3>Ikona aplikace a favicon</h3>
+  <div class="grid g3">
+    <div class="card tile">
+      <div class="lab">512 × 512, zaoblený čtverec</div>
+      <svg viewBox="0 0 512 512" width="180" height="180" role="img" aria-label="Ikona aplikace"><use href="#ic"/></svg>
+      <div style="display:flex;gap:12px;align-items:flex-end"><svg viewBox="0 0 512 512" width="60" height="60"><use href="#ic"/></svg><svg viewBox="0 0 512 512" width="40" height="40"><use href="#ic"/></svg><svg viewBox="0 0 512 512" width="29" height="29"><use href="#ic"/></svg></div>
+    </div>
+    <div class="card tile">
+      <div class="lab">Maskable (Android) – bezpečná zóna 80 %</div>
+      <svg viewBox="0 0 512 512" width="180" height="180" role="img" aria-label="Maskable ikona">
+        <rect width="512" height="512" fill="url(#g-ic)"/>
+        <use href="#mk" x="116" y="116" width="280" height="280" style="--ring:#fff;--pupil:#0E2A21;--sun:#FFC145"/>
+        <circle cx="256" cy="256" r="204.8" fill="none" stroke="#fff" stroke-dasharray="8 8" stroke-width="3" opacity=".8"/>
+      </svg>
+      <div style="display:flex;gap:12px;align-items:center">
+        <svg viewBox="0 0 512 512" width="56" height="56"><clipPath id="cc"><circle cx="256" cy="256" r="256"/></clipPath><g clip-path="url(#cc)"><rect width="512" height="512" fill="url(#g-ic)"/><use href="#mk" x="116" y="116" width="280" height="280" style="--ring:#fff;--pupil:#0E2A21;--sun:#FFC145"/></g></svg>
+        <svg viewBox="0 0 512 512" width="56" height="56"><clipPath id="cs"><path d="M256 0C460 0 512 52 512 256S460 512 256 512 0 460 0 256 52 0 256 0z"/></clipPath><g clip-path="url(#cs)"><rect width="512" height="512" fill="url(#g-ic)"/><use href="#mk" x="116" y="116" width="280" height="280" style="--ring:#fff;--pupil:#0E2A21;--sun:#FFC145"/></g></svg>
+        <small>kruh a „squircle“</small>
+      </div>
+    </div>
+    <div class="card tile">
+      <div class="lab">Favicon 16 a 32 px</div>
+      <div style="display:flex;gap:18px;align-items:flex-end">
+        <div style="text-align:center"><svg viewBox="0 0 16 16" width="16" height="16" style="margin:0 auto 6px"><use href="#fav16"/></svg><small>16</small></div>
+        <div style="text-align:center"><svg viewBox="0 0 32 32" width="32" height="32" style="margin:0 auto 6px"><use href="#fav32"/></svg><small>32</small></div>
+        <div style="text-align:center"><svg viewBox="0 0 16 16" width="96" height="96" style="margin:0 auto 6px;background:#fff;border:1px solid rgba(14,42,33,.1);border-radius:8px"><use href="#fav16"/></svg><small>16 zvětšeno 6×</small></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;background:#dfe5e2;border-radius:10px 10px 0 0;padding:7px 10px;width:100%;max-width:240px;font-size:12px">
+        <svg viewBox="0 0 16 16" width="16" height="16"><use href="#fav16"/></svg><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Letsi – levné letenky odkudkoliv</span>
+      </div>
+      <small>Slunce ve 16 px je tmavší (#F5A800), aby na bílé záložce nezmizelo.</small>
+    </div>
+  </div>
+</div></section>
+
+<!-- ============ 3. BARVY ============ -->
+<section id="barvy"><div class="wrap">
+  <h2><span class="num">3</span>Paleta</h2>
+  <p class="lead">Směr B „Mátový vzduch“, vylepšený: máta je značka a plochy, zelený inkoust text, <b>slunce je výhradně cena a hlavní akce</b>. Zelená tak nikdy neznamená „levné“ – zlevnění má vlastní tvar (obrácená cenovka s ▼).</p>
+  <div class="grid g4">
+    <div class="sw"><div class="chip" style="background:#12B886">Máta</div><div class="meta"><b>#12B886</b><span>RGB 18, 184, 134</span><span>CMYK ≈ 76 / 0 / 60 / 0</span><span>primární – značka, plochy, karty s inkoustem</span></div></div>
+    <div class="sw"><div class="chip" style="background:#0A7A58;color:#fff">Máta hluboká</div><div class="meta"><b>#0A7A58</b><span>RGB 10, 122, 88</span><span>CMYK ≈ 88 / 22 / 74 / 12</span><span>odkazy, text v barvě, ikony na bílé</span></div></div>
+    <div class="sw"><div class="chip" style="background:#0E2A21;color:#fff">Zelený inkoust</div><div class="meta"><b>#0E2A21</b><span>RGB 14, 42, 33</span><span>CMYK ≈ 82 / 50 / 70 / 72</span><span>sekundární – text, logo, tmavé plochy</span></div></div>
+    <div class="sw"><div class="chip" style="background:#FFC145">Slunce</div><div class="meta"><b>#FFC145</b><span>RGB 255, 193, 69</span><span>CMYK ≈ 0 / 28 / 80 / 0</span><span>akcent – ceny, hlavní tlačítko, tečka nad i</span></div></div>
+    <div class="sw"><div class="chip" style="background:#BFE6F2">Obloha</div><div class="meta"><b>#BFE6F2</b><span>RGB 191, 230, 242</span><span>CMYK ≈ 25 / 0 / 5 / 0</span><span>doplňková – moře na mapě, ilustrace</span></div></div>
+    <div class="sw"><div class="chip" style="background:#E5484D;color:#fff">Korál</div><div class="meta"><b>#E5484D</b> / text <b>#C42F35</b><span>RGB 229, 72, 77</span><span>CMYK ≈ 0 / 82 / 62 / 0</span><span>zdražilo, chyba – nikdy jako značka</span></div></div>
+    <div class="sw"><div class="chip" style="background:#F3FBF7;border-bottom:1px solid rgba(14,42,33,.08)">Vzduch</div><div class="meta"><b>#F3FBF7</b><span>RGB 243, 251, 247</span><span>CMYK ≈ 4 / 0 / 3 / 0</span><span>pozadí aplikace (světlý režim)</span></div></div>
+    <div class="sw"><div class="chip" style="background:#E2F0E9">Mlha</div><div class="meta"><b>#E2F0E9</b><span>RGB 226, 240, 233</span><span>CMYK ≈ 12 / 0 / 9 / 0</span><span>dlaždice, oddělovače, pole</span></div></div>
+    <div class="sw"><div class="chip" style="background:#4D655C;color:#fff">Šalvěj</div><div class="meta"><b>#4D655C</b><span>RGB 77, 101, 92</span><span>CMYK ≈ 65 / 38 / 55 / 30</span><span>vedlejší text (--muted)</span></div></div>
+    <div class="sw"><div class="chip" style="background:#586C64;color:#fff">Kámen</div><div class="meta"><b>#586C64</b><span>RGB 88, 108, 100</span><span>CMYK ≈ 60 / 35 / 52 / 25</span><span>popisky a poznámky (--faint)</span></div></div>
+    <div class="sw"><div class="chip" style="background:#0A1612;color:#E8F5EF">Noc</div><div class="meta"><b>#0A1612</b> / karta <b>#142620</b><span>RGB 10, 22, 18</span><span>jen obrazovka</span><span>pozadí tmavého režimu</span></div></div>
+    <div class="sw"><div class="chip" style="background:#142620;color:#3DDBA6">Máta noc <span style="color:#FFC94D;margin-left:6px">Slunce noc</span></div><div class="meta"><b>#3DDBA6</b> · <b>#FFC94D</b><span>RGB 61, 219, 166 · 255, 201, 77</span><span>jen obrazovka</span><span>máta a slunce v tmavém režimu</span></div></div>
+  </div>
+  <p class="note" style="margin-top:10px">CMYK je přibližný odhad pro křídový papír (prostý přepočet z RGB dává u máty nepoužitelných 90/0/27/28). Před tiskem ověřit nátiskem nebo vzorníkem Pantone.</p>
+
+  <h3>Signál ceny: slunce = kolik to stojí</h3>
+  <div class="card" style="display:flex;flex-wrap:wrap;gap:22px;align-items:center">
+    <div><div class="lab">Cena</div><span class="price">1 890 Kč</span></div>
+    <div><div class="lab">Zlevnilo – obrácená cenovka</div><span class="drop"><svg viewBox="0 0 24 24" width="12" height="12"><use href="#i-down"/></svg>18 %</span> <s style="color:var(--stone);font-size:13px;margin-left:4px">2 300 Kč</s></div>
+    <div><div class="lab">Zdražilo</div><span class="rise">▲ 6 %</span></div>
+    <div><div class="lab">Hlavní tlačítko</div><span class="price" style="border-radius:13px;padding:10px 18px;font-size:14px">Hledat lety</span></div>
+    <p class="note" style="flex-basis:100%">Zlevnění se pozná třemi způsoby najednou – tvar (▼), obrácení barev (inkoust + slunce) a číslo v procentech – takže funguje i pro barvoslepé a v jednobarevném tisku. Máta se u cen nepoužívá nikdy.</p>
+  </div>
+
+  <h3>Tokeny pro světlý a tmavý režim</h3>
+  <p class="note">Mapování na proměnné z <code>public/css/atlas.css</code>. Jen návrh – aplikace se nemění. Nové proměnné <code>--price*</code> a <code>--drop*</code> by přibyly.</p>
+  <div class="tbl"><table>
+    <tr><th>Proměnná</th><th>Světlý</th><th>Tmavý</th><th>Role</th></tr>
+    <tr><td><code>--bg</code></td><td><i class="dot" style="background:#F3FBF7"></i>#F3FBF7</td><td><i class="dot" style="background:#0A1612"></i>#0A1612</td><td>Vzduch / Noc</td></tr>
+    <tr><td><code>--bg2</code>, <code>--surface-solid</code></td><td><i class="dot" style="background:#fff"></i>#FFFFFF</td><td><i class="dot" style="background:#142620"></i>#142620</td><td>karta, okno</td></tr>
+    <tr><td><code>--card</code></td><td>rgba(255,255,255,.86)</td><td>rgba(20,38,32,.72)</td><td>průsvitná karta</td></tr>
+    <tr><td><code>--surface</code> / <code>--surface-2</code></td><td>rgba(14,42,33,.04 / .07)</td><td>rgba(232,245,239,.05 / .08)</td><td>dlaždice</td></tr>
+    <tr><td><code>--border</code> / <code>--border-2</code></td><td>rgba(14,42,33,.10 / .18)</td><td>rgba(232,245,239,.10 / .17)</td><td>okraje</td></tr>
+    <tr><td><code>--text</code></td><td><i class="dot" style="background:#0E2A21"></i>#0E2A21</td><td><i class="dot" style="background:#E8F5EF"></i>#E8F5EF</td><td>zelený inkoust</td></tr>
+    <tr><td><code>--muted</code></td><td><i class="dot" style="background:#4D655C"></i>#4D655C</td><td><i class="dot" style="background:#A3BDB3"></i>#A3BDB3</td><td>Šalvěj</td></tr>
+    <tr><td><code>--faint</code></td><td><i class="dot" style="background:#586C64"></i>#586C64</td><td><i class="dot" style="background:#8FA99F"></i>#8FA99F</td><td>Kámen</td></tr>
+    <tr><td><code>--accent</code></td><td><i class="dot" style="background:#12B886"></i>#12B886</td><td><i class="dot" style="background:#3DDBA6"></i>#3DDBA6</td><td>máta (plochy, aktivní prvky)</td></tr>
+    <tr><td><code>--accent2</code></td><td><i class="dot" style="background:#FFC145"></i>#FFC145</td><td><i class="dot" style="background:#FFC94D"></i>#FFC94D</td><td>slunce</td></tr>
+    <tr><td><code>--accent3</code></td><td><i class="dot" style="background:#BFE6F2"></i>#BFE6F2</td><td><i class="dot" style="background:#7CCDE6"></i>#7CCDE6</td><td>obloha</td></tr>
+    <tr><td><code>--accent-ink</code></td><td><i class="dot" style="background:#0A7A58"></i>#0A7A58</td><td><i class="dot" style="background:#3DDBA6"></i>#3DDBA6</td><td>odkazy, text v barvě</td></tr>
+    <tr><td><code>--grad</code></td><td colspan="2"><span style="display:inline-block;width:120px;height:14px;border-radius:7px;vertical-align:-2px;background:linear-gradient(135deg,#12B886,#8FDDB4 55%,#FFC145)"></span> 135°, #12B886 → #8FDDB4 → #FFC145</td><td>máta → slunce (úsvit)</td></tr>
+    <tr><td><code>--grad-warm</code></td><td colspan="2"><span style="display:inline-block;width:120px;height:14px;border-radius:7px;vertical-align:-2px;background:linear-gradient(135deg,#FFC145,#FF9466)"></span> #FFC145 → #FF9466</td><td>teplé zvýraznění</td></tr>
+    <tr><td><code>--good</code></td><td>#0A7A58</td><td>#3DDBA6</td><td>„v pořádku, hotovo“ – <b>ne</b> cena</td></tr>
+    <tr><td><code>--warn</code></td><td>#9A5B00</td><td>#FFC94D</td><td>upozornění (text)</td></tr>
+    <tr><td><code>--bad</code></td><td>#C42F35</td><td>#FF8A8D</td><td>zdražilo, chyba</td></tr>
+    <tr><td><code>--info</code></td><td>#1F7A99</td><td>#7CCDE6</td><td>informace</td></tr>
+    <tr><td><code>--price-bg</code> / <code>--price-ink</code></td><td>#FFC145 / #0E2A21</td><td>#FFC94D / #0A1612</td><td>cenovka, hlavní tlačítko</td></tr>
+    <tr><td><code>--drop-bg</code> / <code>--drop-ink</code></td><td>#0E2A21 / #FFC145</td><td>průhledná + obrys / #FFC94D</td><td>zlevnění (obrácená cenovka)</td></tr>
+    <tr><td><code>--nav-bg</code> / <code>--nav-ico</code></td><td>rgba(255,255,255,.94) / #4D655C</td><td>rgba(20,38,32,.94) / #A3BDB3</td><td>spodní lišta</td></tr>
+    <tr><td><code>--map-sea</code> / <code>--map-land</code></td><td>#CDEBF3 / #FDFCF7</td><td>#0C1D24 / #22382F</td><td>mapa</td></tr>
+    <tr><td><code>--map-cheap/mid/pricey</code></td><td>#0A7A58 / #C98500 / #D6383D</td><td>#3DDBA6 / #FFC94D / #FF8A8D</td><td>stupnice cen na mapě</td></tr>
+    <tr><td><code>--radius</code> / <code>--radius-sm</code></td><td colspan="2">22 px / 14 px (beze změny; kruhová tlačítka a cenovky 999 px)</td><td>zaoblení</td></tr>
+  </table></div>
+
+  <h3>Kontrast textových dvojic (WCAG 2)</h3>
+  <p class="note">Spočítáno vzorcem WCAG 2.1 z relativní jasnosti, zaokrouhleno na desetiny. AA = 4,5 : 1 pro běžný text, 3 : 1 pro velký text a grafiku.</p>
+  <div class="tbl"><table>
+    <tr><th>Dvojice</th><th>Ukázka</th><th>Poměr</th><th>Výsledek</th></tr>
+    <tr><td>Inkoust na Vzduchu</td><td><span class="pair" style="background:#F3FBF7;color:#0E2A21">Kam letíš?</span></td><td>14,5</td><td class="ok">AAA</td></tr>
+    <tr><td>Inkoust na bílé</td><td><span class="pair" style="background:#fff;color:#0E2A21;border:1px solid #ddd">Kam letíš?</span></td><td>15,3</td><td class="ok">AAA</td></tr>
+    <tr><td>Šalvěj na Vzduchu / bílé / Mlze</td><td><span class="pair" style="background:#F3FBF7;color:#4D655C">čt 12. 3. · přímý</span></td><td>6,0 / 6,3 / 5,4</td><td class="ok">AA</td></tr>
+    <tr><td>Kámen na Vzduchu / bílé / Mlze</td><td><span class="pair" style="background:#E2F0E9;color:#586C64">cena z 8. 11.</span></td><td>5,3 / 5,6 / 4,8</td><td class="ok">AA</td></tr>
+    <tr><td>Máta hluboká na bílé / Vzduchu</td><td><span class="pair" style="background:#fff;color:#0A7A58;border:1px solid #ddd">Obnovit →</span></td><td>5,3 / 5,1</td><td class="ok">AA</td></tr>
+    <tr><td>Bílá na Mátě hluboké</td><td><span class="pair" style="background:#0A7A58;color:#fff">Uložit</span></td><td>5,3</td><td class="ok">AA</td></tr>
+    <tr><td>Inkoust na Mátě</td><td><span class="pair" style="background:#12B886;color:#0E2A21">Naplánuj dovolenou</span></td><td>6,0</td><td class="ok">AA</td></tr>
+    <tr><td>Bílá na Mátě</td><td><span class="pair" style="background:#12B886;color:#fff">nepoužívat</span></td><td>2,6</td><td class="no">✗ jen logo</td></tr>
+    <tr><td>Máta na bílé (grafika)</td><td><span class="pair" style="background:#fff;color:#12B886;border:1px solid #ddd">●●●</span></td><td>2,6</td><td class="no">✗ jen velké plochy a logo; ikony → Máta hluboká</td></tr>
+    <tr><td>Inkoust na Slunci (cena, tlačítko)</td><td><span class="pair" style="background:#FFC145;color:#0E2A21">1 890 Kč</span></td><td>9,5</td><td class="ok">AAA</td></tr>
+    <tr><td>Slunce na Inkoustu (zlevnění)</td><td><span class="pair" style="background:#0E2A21;color:#FFC145">▼ 18 %</span></td><td>9,5</td><td class="ok">AAA</td></tr>
+    <tr><td>Korál tmavý na bílé / Vzduchu</td><td><span class="pair" style="background:#fff;color:#C42F35;border:1px solid #ddd">▲ 6 %</span></td><td>5,5 / 5,2</td><td class="ok">AA</td></tr>
+    <tr><td>Varování #9A5B00 / Info #1F7A99 na bílé</td><td><span class="pair" style="color:#9A5B00">odhad</span> <span class="pair" style="color:#1F7A99">tip</span></td><td>5,4 / 4,9</td><td class="ok">AA</td></tr>
+    <tr><td>Inkoust na Obloze</td><td><span class="pair" style="background:#BFE6F2;color:#0E2A21">Lisabon</span></td><td>11,5</td><td class="ok">AAA</td></tr>
+    <tr><td>Slunce na hluboké mátě ikony (#08805D)</td><td><span class="pair" style="background:#08805D;color:#FFC145">●</span></td><td>3,0</td><td class="ok">grafika</td></tr>
+    <tr><td colspan="4" style="font-weight:800;padding-top:12px">Tmavý režim</td></tr>
+    <tr><td>Text #E8F5EF na Noci / kartě</td><td><span class="pair" style="background:#0A1612;color:#E8F5EF">Kam letíš?</span></td><td>16,5 / 14,1</td><td class="ok">AAA</td></tr>
+    <tr><td>Muted #A3BDB3 na Noci / kartě</td><td><span class="pair" style="background:#142620;color:#A3BDB3">čt 12. 3.</span></td><td>9,2 / 7,9</td><td class="ok">AAA</td></tr>
+    <tr><td>Faint #8FA99F na kartě / dlaždici #1C3029</td><td><span class="pair" style="background:#1C3029;color:#8FA99F">cena z 8. 11.</span></td><td>6,3 / 5,5</td><td class="ok">AA</td></tr>
+    <tr><td>Máta noc na Noci / kartě</td><td><span class="pair" style="background:#142620;color:#3DDBA6">Obnovit →</span></td><td>10,5 / 9,0</td><td class="ok">AAA</td></tr>
+    <tr><td>Noc na Slunci noc / Slunce noc na kartě</td><td><span class="pair" style="background:#FFC94D;color:#0A1612">1 890 Kč</span> <span class="pair" style="background:#142620;color:#FFC94D;box-shadow:inset 0 0 0 1.2px #FFC94D">▼ 18 %</span></td><td>12,1 / 10,3</td><td class="ok">AAA</td></tr>
+    <tr><td>Korál noc #FF8A8D na kartě</td><td><span class="pair" style="background:#142620;color:#FF8A8D">▲ 6 %</span></td><td>7,0</td><td class="ok">AAA</td></tr>
+  </table></div>
+</div></section>
+
+<!-- ============ 4. TYPOGRAFIE ============ -->
+<section id="pismo"><div class="wrap">
+  <h2><span class="num">4</span>Typografie</h2>
+  <p class="lead">Dvě volná písma (SIL OFL 1.1, Google Fonts, hostovat přímo v <code>public/</code>): <b>Manrope</b> na nadpisy – geometrické, kulaté „o“ a „e“ jako kruh značky; <b>Inter</b> na text a ceny – vzor čitelnosti na telefonu, jisté tabulkové číslice (<code>tnum</code>). Obě mají plnou češtinu i slovenštinu a polštinu.</p>
+  <p class="note">V tomto náhledu se písma nenačítají (stránka je bez vnějších zdrojů): nadpisy se sázejí systémovým písmem <code>ui-rounded</code> / SF Pro Rounded / Segoe UI, text <code>system-ui</code> (SF Pro, Segoe UI, Roboto). Ve skutečnosti: <b>Manrope 700–800</b> a <b>Inter 400–700</b>.</p>
+  <div class="grid g2" style="margin-top:14px">
+    <div class="card">
+      <div class="lab">Nadpisy – Manrope 800</div>
+      <div class="type-big">Leť si.</div>
+      <p style="font:700 20px/1.3 var(--f-head);margin-top:10px">Příliš žluťoučký kůň úpěl ďábelské ódy</p>
+      <p style="font:600 15px var(--f-head);color:var(--sage);margin-top:6px">ĚŠČŘŽÝÁÍÉÚŮĎŤŇ · ľĺŕôä · ąęłńśźż</p>
+    </div>
+    <div class="card" style="display:flex;gap:18px;justify-content:space-between;flex-wrap:wrap">
+      <div style="flex:1;min-width:180px">
+        <div class="lab">Text a ceny – Inter</div>
+        <p style="font-size:15px">Nejlevněji z Katovic: 890 Kč + 310 Kč autobus. Čas cesty na letiště je odhad, rezervuješ přímo u prodejce.</p>
+        <p style="font:600 13px var(--f-text);color:var(--sage);margin-top:8px">Inter 400 / 600 / 800</p>
+      </div>
+      <div><div class="lab">tabular-nums</div><div class="prices">1 111 Kč<br>8 888 Kč<br>10 490 Kč<br><span class="price" style="font-size:15px">1 890 Kč</span></div></div>
+    </div>
+  </div>
+  <h3>Škála pro telefon (412 px)</h3>
+  <div class="card scale">
+    <div><span>Display · 32/36 · 800 · −0,03 em · Manrope</span><b style="font:800 32px/1.1 var(--f-head);letter-spacing:-.03em">Kam letíš?</b></div>
+    <div><span>H1 · 26/30 · 800 · Manrope</span><b style="font:800 26px/1.15 var(--f-head)">Najdi nejlevnější let</b></div>
+    <div><span>H2 · 20/26 · 700 · Manrope</span><b style="font:700 20px/1.3 var(--f-head)">Naplánuj celou dovolenou</b></div>
+    <div><span>H3 · 17/22 · 700 · Manrope</span><b style="font:700 17px/1.3 var(--f-head)">Nejlevněji teď</b></div>
+    <div><span>Cena velká · 28 · 800 · Inter tnum</span><b style="font:800 28px var(--f-text);font-variant-numeric:tabular-nums">1 890 Kč</b></div>
+    <div><span>Cena v seznamu · 16 · 800 · Inter tnum</span><b style="font:800 16px var(--f-text)">2 340 Kč</b></div>
+    <div><span>Text · 15/22 · 400 · Inter</span><span style="font-size:15px">Ze všech letišť kolem tebe najednou.</span></div>
+    <div><span>Pole formuláře · 16 · 500 · Inter</span><span style="font:500 16px var(--f-text)">Praha + okolí</span></div>
+    <div><span>Malý · 13/18 · 500 · Inter</span><span style="font:500 13px var(--f-text);color:var(--sage)">čt 12. 3. · přímý · 3 h 20 min</span></div>
+    <div><span>Štítek · 11 · 700 · +0,07 em · verzálky</span><span class="lab" style="margin:0">Odkud</span></div>
+  </div>
+  <p class="note" style="margin-top:8px">Pole formulářů zůstávají 16 px (iPhone jinak při klepnutí přiblíží stránku). Ceny vždy Inter s <code>font-variant-numeric:tabular-nums</code>; Manrope <code>tnum</code> ověřit na konkrétní verzi, pro ceny se nepoužívá.</p>
+</div></section>
+
+<!-- ============ 5. GRAFICKÉ PRVKY ============ -->
+<section id="prvky"><div class="wrap">
+  <h2><span class="num">5</span>Grafické prvky</h2>
+  <div class="grid g2">
+    <div class="card">
+      <div class="lab">Motiv „Letokruhy“ a „Obzor“</div>
+      <svg viewBox="0 0 320 170" width="100%" role="img" aria-label="Vzor">
+        <rect width="320" height="170" rx="14" fill="#F3FBF7"/>
+        <rect width="150" height="170" rx="14" fill="url(#pt)"/>
+        <g transform="translate(240 190)" fill="none" stroke="#12B886" stroke-width="2.4"><circle r="40" opacity=".9"/><circle r="70" opacity=".5"/><circle r="100" opacity=".28"/><circle r="130" opacity=".15"/></g>
+        <circle cx="240" cy="80" r="14" fill="#FFC145"/>
+        <path d="M240 190 Q 210 120 240 80" fill="none" stroke="#0E2A21" stroke-width="2" stroke-dasharray="2 6" stroke-linecap="round"/>
+      </svg>
+      <p class="note">Vlevo opakovatelný vzor (pozadí karet, obalů, sociálních sítí, max. 35 % krytí). Vpravo „Obzor“: soustředné kruhy jako vlny kolem tebe, nad nimi slunce a tečkovaná trasa – hlavní ilustrační motiv.</p>
+    </div>
+    <div class="card">
+      <div class="lab">Styl ikon – tah 2 px na mřížce 24, oblé konce, rohy r 3</div>
+      <div class="icons">
+        <figure><svg viewBox="0 0 24 24"><use href="#i-pin"/></svg>okolí</figure>
+        <figure><svg viewBox="0 0 24 24"><use href="#i-plane"/></svg>letenky</figure>
+        <figure><svg viewBox="0 0 24 24"><use href="#i-case"/></svg>celá cesta</figure>
+        <figure><svg viewBox="0 0 24 24"><use href="#i-lens"/></svg>objevuj</figure>
+        <figure><svg viewBox="0 0 24 24"><use href="#i-globe"/></svg>svět</figure>
+        <figure><svg viewBox="0 0 24 24"><use href="#i-bell"/></svg>hlídání</figure>
+        <figure><svg viewBox="0 0 24 24"><use href="#i-cal"/></svg>termín</figure>
+        <figure><svg viewBox="0 0 24 24"><use href="#i-train"/></svg>vlak</figure>
+      </div>
+      <p class="note">Jen obrys, žádné výplně kromě „bodu ty“ (malý plný kruh). Letadlo je papírová vlaštovka (navazuje na dnešní logo). Na bílé v barvě Inkoust nebo Máta hluboká, nikdy v čisté mátě. Emoji zůstávají jen jako drobné ikony položek, jak je aplikace používá dnes.</p>
+    </div>
+    <div class="card">
+      <div class="lab">Fotografie a ilustrace</div>
+      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+        <svg viewBox="0 0 120 160" width="110" role="img" aria-label="Pohled z okénka">
+          <rect x="4" y="4" width="112" height="152" rx="56" fill="#E2F0E9"/>
+          <rect x="16" y="16" width="88" height="128" rx="44" fill="url(#g-sky)"/>
+          <circle cx="78" cy="88" r="12" fill="#FFC145"/>
+          <path d="M16 96 Q 40 88 60 94 T 104 92 V144 H16z" fill="#12B886" opacity=".55"/>
+          <rect x="16" y="16" width="88" height="128" rx="44" fill="none" stroke="#fff" stroke-width="3"/>
+        </svg>
+        <ul class="why" style="flex:1;min-width:200px;font-size:13.5px">
+          <li><b>Vždy z pohledu cestovatele</b> – okénko, výhled, cesta, ruce s mapou. Nikdy letadlo zvenku ani letiště.</li>
+          <li>Světlo ráno nebo podvečer, teplé, vzdušné, hodně nebe (místo pro text).</li>
+          <li>Skuteční lidé bez pózování, Evropa (Lisabon, Tatry, Chorvatsko), ne exotické fototapety.</li>
+          <li>Ořez do kruhu nebo do tvaru okénka (zaoblený obdélník rx = polovina šířky).</li>
+          <li>Ilustrace: ploché, 3–4 barvy palety, tah 2 px jako ikony, žádné 3D a gradienty kromě nebe.</li>
+        </ul>
+      </div>
+    </div>
+    <div class="card">
+      <div class="lab">Pohyb – spouštěcí obrazovka</div>
+      <div class="grid" style="grid-template-columns:1fr 1fr;gap:10px">
+        <div class="splash" style="height:220px">
+          <svg viewBox="0 0 100 100" width="96" height="96" aria-hidden="true">
+            <path class="sp-ring" d="M81.51 44.44A32 32 0 1 1 55.56 18.49" fill="none" stroke="#12B886" stroke-width="13" stroke-linecap="round"/>
+            <circle class="sp-pupil" cx="53" cy="47" r="10" fill="#0E2A21"/>
+            <circle class="sp-sun" cx="76.87" cy="23.13" r="9" fill="#FFC145"/>
+          </svg>
+          <svg class="sp-wm" viewBox="2 10 244 96" width="86" height="34"><use href="#wm"/></svg>
+        </div>
+        <div class="splash dk" style="height:220px">
+          <svg viewBox="0 0 100 100" width="96" height="96" aria-hidden="true">
+            <path class="sp-ring" d="M81.51 44.44A32 32 0 1 1 55.56 18.49" fill="none" stroke="#3DDBA6" stroke-width="13" stroke-linecap="round"/>
+            <circle class="sp-pupil" cx="53" cy="47" r="10" fill="#E8F5EF"/>
+            <circle class="sp-sun" cx="76.87" cy="23.13" r="9" fill="#FFC94D"/>
+          </svg>
+          <svg class="sp-wm" viewBox="2 10 244 96" width="86" height="34"><use href="#wm" style="--ink:#E8F5EF;--sun:#FFC94D"/></svg>
+        </div>
+      </div>
+      <p class="note" style="margin-top:8px">1) kruh se nakreslí (0–0,9 s, ease-out), 2) „otevře se oko“ – zornice naskočí, 3) slunce vyletí ze středu mezerou ven s lehkým přestřelením, 4) slovní značka. Celkem do 1,6 s, smyčka jen v náhledu. Při <code>prefers-reduced-motion</code> bez pohybu. V aplikaci: tlačítka 160 ms <code>cubic-bezier(.22,.61,.36,1)</code> (dnešní <code>--ease</code>), načítání = kruh, který se kreslí dokola.</p>
+    </div>
+  </div>
+</div></section>
+
+<!-- ============ 6. MOCKUPY ============ -->
+<section id="mockupy"><div class="wrap">
+  <h2><span class="num">6</span>Mockupy</h2>
+
+  <h3>Úvodní obrazovka – světlá a tmavá</h3>
+  <div class="phones">
+    <!-- světlá -->
+    <div class="phone"><div class="scr">
+      <div class="st"><span>9:41</span><span>●●● 5G ▮</span></div>
+      <div class="hd"><svg viewBox="8 4 334 96" width="86" height="25" role="img" aria-label="Letsi"><use href="#lh" style="--ink:var(--wm)"/></svg><span class="av">JN</span></div>
+      <div class="body">
+        <h4>Kam letíš?</h4>
+        <p class="sub">Ze všech letišť kolem tebe najednou.</p>
+        <div class="srch">
+          <div class="fld"><svg viewBox="0 0 24 24"><use href="#i-pin"/></svg><div><small>Odkud</small><b>Praha + 4 letiště v okolí</b></div></div>
+          <div class="fld"><svg viewBox="0 0 24 24"><use href="#i-plane"/></svg><div><small>Kam</small><b>Kamkoliv · celý březen</b></div></div>
+          <button class="cta" type="button">Hledat lety</button>
+        </div>
+        <div class="sec">Nejlevněji teď <a href="#">Vše →</a></div>
+        <div class="res">
+          <svg class="th" viewBox="0 0 40 40"><rect width="40" height="40" fill="#BFE6F2"/><circle cx="27" cy="16" r="6" fill="#FFC145"/><path d="M0 28q10-6 20-2t20-2v16H0z" fill="#12B886" opacity=".7"/></svg>
+          <div class="tx"><b>Lisabon</b><small>PRG → LIS · čt 12. 3. · přímý</small></div>
+          <div class="pr"><span class="price">1 890 Kč</span><span class="drop">▼ 18 %</span></div>
+        </div>
+        <div class="res">
+          <svg class="th" viewBox="0 0 40 40"><rect width="40" height="40" fill="#FFE3A3"/><circle cx="14" cy="14" r="6" fill="#FFC145"/><path d="M0 30q12-8 22-3t18-1v14H0z" fill="#0A7A58" opacity=".55"/></svg>
+          <div class="tx"><b>Barcelona</b><small>KTW → BCN · + bus 310 Kč</small></div>
+          <div class="pr"><span class="price">1 240 Kč</span></div>
+        </div>
+        <div class="plan">
+          <svg viewBox="0 0 100 100" aria-hidden="true"><use href="#mk" style="--ring:var(--plan-t);--pupil:var(--plan-t);--sun:var(--plan-t)"/></svg>
+          <b>Naplánuj celou dovolenou</b><small>Let, ubytování a program krok za krokem</small><span class="go">→</span>
+        </div>
+      </div>
+      <div class="nav">
+        <span class="on"><svg viewBox="0 0 24 24"><use href="#i-home"/></svg>Přehled</span>
+        <span><svg viewBox="0 0 24 24"><use href="#i-plane"/></svg>Letenky</span>
+        <span><svg viewBox="0 0 24 24"><use href="#i-case"/></svg>Cesta</span>
+        <span><svg viewBox="0 0 24 24"><use href="#i-lens"/></svg>Objevuj</span>
+        <span><svg viewBox="0 0 24 24"><use href="#i-globe"/></svg>Svět</span>
+      </div>
+    </div></div>
+    <!-- tmavá -->
+    <div class="phone"><div class="scr dk">
+      <div class="st"><span>21:14</span><span>●●● 5G ▮</span></div>
+      <div class="hd"><svg viewBox="8 4 334 96" width="86" height="25" role="img" aria-label="Letsi"><use href="#lh" style="--ink:var(--wm)"/></svg><span class="av">JN</span></div>
+      <div class="body">
+        <h4>Kam letíš?</h4>
+        <p class="sub">Ze všech letišť kolem tebe najednou.</p>
+        <div class="srch">
+          <div class="fld"><svg viewBox="0 0 24 24"><use href="#i-pin"/></svg><div><small>Odkud</small><b>Praha + 4 letiště v okolí</b></div></div>
+          <div class="fld"><svg viewBox="0 0 24 24"><use href="#i-plane"/></svg><div><small>Kam</small><b>Kamkoliv · celý březen</b></div></div>
+          <button class="cta" type="button">Hledat lety</button>
+        </div>
+        <div class="sec">Nejlevněji teď <a href="#">Vše →</a></div>
+        <div class="res">
+          <svg class="th" viewBox="0 0 40 40"><rect width="40" height="40" fill="#1E3B4A"/><circle cx="27" cy="16" r="6" fill="#FFC94D"/><path d="M0 28q10-6 20-2t20-2v16H0z" fill="#3DDBA6" opacity=".55"/></svg>
+          <div class="tx"><b>Lisabon</b><small>PRG → LIS · čt 12. 3. · přímý</small></div>
+          <div class="pr"><span class="price">1 890 Kč</span><span class="drop">▼ 18 %</span></div>
+        </div>
+        <div class="res">
+          <svg class="th" viewBox="0 0 40 40"><rect width="40" height="40" fill="#3A3420"/><circle cx="14" cy="14" r="6" fill="#FFC94D"/><path d="M0 30q12-8 22-3t18-1v14H0z" fill="#3DDBA6" opacity=".45"/></svg>
+          <div class="tx"><b>Barcelona</b><small>KTW → BCN · + bus 310 Kč</small></div>
+          <div class="pr"><span class="price">1 240 Kč</span></div>
+        </div>
+        <div class="plan">
+          <svg viewBox="0 0 100 100" aria-hidden="true"><use href="#mk" style="--ring:var(--plan-t);--pupil:var(--plan-t);--sun:var(--plan-t)"/></svg>
+          <b>Naplánuj celou dovolenou</b><small>Let, ubytování a program krok za krokem</small><span class="go">→</span>
+        </div>
+      </div>
+      <div class="nav">
+        <span class="on"><svg viewBox="0 0 24 24"><use href="#i-home"/></svg>Přehled</span>
+        <span><svg viewBox="0 0 24 24"><use href="#i-plane"/></svg>Letenky</span>
+        <span><svg viewBox="0 0 24 24"><use href="#i-case"/></svg>Cesta</span>
+        <span><svg viewBox="0 0 24 24"><use href="#i-lens"/></svg>Objevuj</span>
+        <span><svg viewBox="0 0 24 24"><use href="#i-globe"/></svg>Svět</span>
+      </div>
+    </div></div>
+    <!-- plocha telefonu -->
+    <div class="phone"><div class="scr home" style="position:relative">
+      <div class="apps">
+        <span class="app"><i style="background:#2b6de8"><svg viewBox="0 0 24 24"><use href="#i-plane"/></svg></i>Aerolinky</span>
+        <span class="app"><i style="background:#1c3f8f"><svg viewBox="0 0 24 24"><use href="#i-case"/></svg></i>Cestovka</span>
+        <span class="app"><i style="background:#3b8ef0"><svg viewBox="0 0 24 24"><use href="#i-cal"/></svg></i>Kalendář</span>
+        <span class="app"><i style="background:#8e8e93"><svg viewBox="0 0 24 24"><use href="#i-pin"/></svg></i>Nastavení</span>
+        <span class="app"><i style="background:#34aadc"><svg viewBox="0 0 24 24"><use href="#i-globe"/></svg></i>Počasí</span>
+        <span class="app"><i style="background:#0f2a5c"><svg viewBox="0 0 24 24"><use href="#i-home"/></svg></i>Ubytování</span>
+        <span class="app" style="font-weight:700"><svg viewBox="0 0 512 512" width="54" height="54" style="filter:drop-shadow(0 4px 6px rgba(0,0,0,.25))"><use href="#ic"/></svg>Letsi</span>
+        <span class="app"><i style="background:#ff3b30"><svg viewBox="0 0 24 24"><use href="#i-bell"/></svg></i>Zprávy</span>
+        <span class="app"><i style="background:#5856d6"><svg viewBox="0 0 24 24"><use href="#i-lens"/></svg></i>Hledat</span>
+        <span class="app"><i style="background:#ff9500"><svg viewBox="0 0 24 24"><use href="#i-train"/></svg></i>Jízdenky</span>
+        <span class="app"><i style="background:#1b1b1f"><svg viewBox="0 0 24 24"><use href="#i-down"/></svg></i>Banka</span>
+        <span class="app"><i style="background:#4cd964"><svg viewBox="0 0 24 24"><use href="#i-pin"/></svg></i>Mapy</span>
+      </div>
+      <div class="dock">
+        <i style="width:50px;height:50px;border-radius:14px;background:#4cd964"></i><i style="width:50px;height:50px;border-radius:14px;background:#2b6de8"></i><i style="width:50px;height:50px;border-radius:14px;background:#fff"></i><i style="width:50px;height:50px;border-radius:14px;background:#ff9500"></i>
+      </div>
+    </div></div>
+  </div>
+  <p class="mcap" style="text-align:center">Vpravo: ikona mezi typickými modrými ikonami cestovních aplikací – máta se slunečním bodem je na ploše jediná teplá zelená.</p>
+
+  <h3>Náhled sdíleného odkazu 1200 × 630</h3>
+  <div class="msg">
+    <svg viewBox="0 0 1200 630" width="100%" role="img" aria-label="Náhled odkazu Letsi">
+      <rect width="1200" height="630" fill="#F3FBF7"/>
+      <g transform="translate(960 330)" fill="none" stroke="#12B886" stroke-width="4"><circle r="250" opacity=".18"/><circle r="330" opacity=".1"/></g>
+      <use href="#mk" x="740" y="110" width="440" height="440"/>
+      <use href="#lh" x="72" y="70" width="230" height="66"/>
+      <text x="72" y="280" font-family="Manrope,ui-rounded,'Segoe UI',system-ui,sans-serif" font-weight="800" font-size="64" fill="#0E2A21" letter-spacing="-1.5">Všechna letiště</text>
+      <text x="72" y="352" font-family="Manrope,ui-rounded,'Segoe UI',system-ui,sans-serif" font-weight="800" font-size="64" fill="#0E2A21" letter-spacing="-1.5">kolem tebe.</text>
+      <text x="72" y="420" font-family="Inter,system-ui,sans-serif" font-weight="500" font-size="30" fill="#4D655C">Celá cesta před tebou. Zdarma.</text>
+      <rect x="72" y="470" width="330" height="70" rx="35" fill="#FFC145"/>
+      <text x="237" y="516" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-weight="800" font-size="30" fill="#0E2A21">Praha → Řím 990 Kč</text>
+    </svg>
+    <div class="meta"><span>letsi.cz</span><b>Letsi – levné letenky odkudkoliv kamkoliv</b><span>Všechna letiště kolem tebe najednou a z nejlevnějšího letu celá dovolená.</span></div>
+  </div>
+
+  <h3>Instagram – příspěvek 1080 × 1080 a story 1080 × 1920</h3>
+  <div class="grid g2" style="align-items:start">
+    <div>
+      <div class="media"><svg viewBox="0 0 1080 1080" role="img" aria-label="Příspěvek na Instagram">
+        <rect width="1080" height="1080" fill="#FFC145"/>
+        <use href="#mk" x="430" y="300" width="760" height="760" style="--ring:#0E2A21;--pupil:#0E2A21;--sun:#fff"/>
+        <text x="80" y="230" font-family="Manrope,ui-rounded,'Segoe UI',system-ui,sans-serif" font-weight="800" font-size="190" fill="#0E2A21" letter-spacing="-6">Leť si.</text>
+        <text x="84" y="320" font-family="Inter,system-ui,sans-serif" font-weight="600" font-size="40" fill="#0E2A21">Víkend v Římě z Vídně i s vlakem:</text>
+        <rect x="80" y="370" width="380" height="96" rx="48" fill="#0E2A21"/>
+        <text x="270" y="434" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-weight="800" font-size="46" fill="#FFC145">1 640 Kč</text>
+        <use href="#lh" x="80" y="960" width="220" height="63" style="--ring:#0E2A21;--pupil:#0E2A21;--sun:#0E2A21;--ink:#0E2A21"/>
+      </svg></div>
+      <p class="mcap">Na slunci je logo jednobarevné inkoustem a cenovka obrácená (inkoust + slunce). Ceny ilustrační.</p>
+    </div>
+    <div style="max-width:320px">
+      <div class="media"><svg viewBox="0 0 1080 1920" role="img" aria-label="Story na Instagram">
+        <rect width="1080" height="1920" fill="url(#g-story)"/>
+        <g fill="none" stroke="#fff" stroke-width="4" opacity=".14"><circle cx="540" cy="1000" r="560"/><circle cx="540" cy="1000" r="700"/></g>
+        <text x="90" y="260" font-family="Manrope,ui-rounded,'Segoe UI',system-ui,sans-serif" font-weight="800" font-size="120" fill="#fff" letter-spacing="-4">Let's see,</text>
+        <text x="90" y="380" font-family="Manrope,ui-rounded,'Segoe UI',system-ui,sans-serif" font-weight="800" font-size="72" fill="#0E2A21" letter-spacing="-2">kam to vyjde v březnu.</text>
+        <rect x="220" y="500" width="640" height="900" rx="320" fill="#E2F0E9"/>
+        <rect x="262" y="542" width="556" height="816" rx="278" fill="url(#g-sky)"/>
+        <circle cx="660" cy="1010" r="130" fill="url(#g-glow)"/>
+        <circle cx="660" cy="1010" r="62" fill="#FFC145"/>
+        <path d="M262 1060 Q 420 1010 540 1050 T 818 1040 V1358 H262z" fill="#12B886" opacity=".5"/>
+        <rect x="262" y="542" width="556" height="816" rx="278" fill="none" stroke="#fff" stroke-width="10"/>
+        <rect x="300" y="1440" width="480" height="110" rx="55" fill="#FFC145"/>
+        <text x="540" y="1513" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-weight="800" font-size="50" fill="#0E2A21">Lisabon 1 890 Kč</text>
+        <use href="#lh" x="370" y="1700" width="340" height="98" style="--ring:#fff;--pupil:#0E2A21;--sun:#FFC145;--ink:#fff"/>
+      </svg></div>
+      <p class="mcap">Okénko letadla = kruh značky protažený do tvaru okna, slunce nad obzorem.</p>
+    </div>
+  </div>
+
+  <h3>Billboard 504 × 238 cm a citylight 118,5 × 175 cm</h3>
+  <div class="grid g2" style="align-items:start">
+    <div>
+      <div class="media"><svg viewBox="0 0 2125 1000" role="img" aria-label="Billboard">
+        <rect width="2125" height="1000" fill="#F3FBF7"/>
+        <g transform="translate(1640 520)">
+          <g fill="none" stroke="#12B886" stroke-width="5"><circle r="300" opacity=".25"/><circle r="420" opacity=".14"/></g>
+          <use href="#mk" x="-330" y="-330" width="660" height="660"/>
+          <g font-family="Inter,system-ui,sans-serif" font-weight="700" font-size="34" fill="#0E2A21">
+            <circle cx="-300" cy="-20" r="12" fill="#0E2A21"/><text x="-480" y="-30">Praha</text>
+            <circle cx="-150" cy="262" r="12" fill="#0E2A21"/><text x="-300" y="320">Brno</text>
+            <circle cx="300" cy="120" r="12" fill="#0E2A21"/><text x="330" y="130">Vídeň</text>
+            <circle cx="120" cy="-276" r="12" fill="#0E2A21"/><text x="-90" y="-310">Drážďany</text>
+            <circle cx="232" cy="-190" r="12" fill="#0E2A21"/><text x="270" y="-200">Katovice</text>
+          </g>
+        </g>
+        <text x="110" y="330" font-family="Manrope,ui-rounded,'Segoe UI',system-ui,sans-serif" font-weight="800" font-size="130" fill="#0E2A21" letter-spacing="-4">Všechna letiště</text>
+        <text x="110" y="470" font-family="Manrope,ui-rounded,'Segoe UI',system-ui,sans-serif" font-weight="800" font-size="130" fill="#0E2A21" letter-spacing="-4">kolem tebe.</text>
+        <text x="110" y="580" font-family="Inter,system-ui,sans-serif" font-weight="600" font-size="58" fill="#4D655C">A z nejlevnějšího celá dovolená.</text>
+        <use href="#lh" x="110" y="760" width="420" height="121"/>
+        <rect x="600" y="782" width="380" height="80" rx="40" fill="#FFC145"/>
+        <text x="790" y="836" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-weight="800" font-size="42" fill="#0E2A21">letsi.cz</text>
+      </svg></div>
+      <p class="mcap">Kruh značky = kruh letišť kolem tebe. Čitelné z 50 m: dvě řádky, jedna adresa.</p>
+    </div>
+    <div style="max-width:340px">
+      <div class="media"><svg viewBox="0 0 1185 1750" role="img" aria-label="Citylight">
+        <rect width="1185" height="1750" fill="#0E2A21"/>
+        <rect width="1185" height="1750" fill="url(#pt)" opacity=".35"/>
+        <use href="#mk" x="300" y="150" width="600" height="600" style="--ring:#12B886;--pupil:#fff;--sun:#FFC145"/>
+        <text x="100" y="960" font-family="Manrope,ui-rounded,'Segoe UI',system-ui,sans-serif" font-weight="800" font-size="92" fill="#fff" letter-spacing="-2.5">Z Vídně to vyjde</text>
+        <text x="100" y="1068" font-family="Manrope,ui-rounded,'Segoe UI',system-ui,sans-serif" font-weight="800" font-size="92" fill="#FFC145" letter-spacing="-2.5">o 1 200 Kč levněji.</text>
+        <text x="100" y="1176" font-family="Manrope,ui-rounded,'Segoe UI',system-ui,sans-serif" font-weight="800" font-size="92" fill="#fff" letter-spacing="-2.5">I s vlakem.</text>
+        <text x="100" y="1290" font-family="Inter,system-ui,sans-serif" font-weight="500" font-size="44" fill="#A3BDB3">Let's see, co dalšího uvidíš.</text>
+        <use href="#lh" x="100" y="1500" width="400" height="115" style="--ring:#12B886;--pupil:#fff;--sun:#FFC145;--ink:#fff"/>
+        <text x="1085" y="1580" text-anchor="end" font-family="Inter,system-ui,sans-serif" font-weight="800" font-size="46" fill="#FFC145">letsi.cz</text>
+      </svg></div>
+      <p class="mcap">Konkrétní číslo místo superlativu (tón ze strategie). Ilustrační.</p>
+    </div>
+  </div>
+
+  <h3>Nálepka a vizitka</h3>
+  <div class="grid g3" style="align-items:center">
+    <div style="max-width:260px;margin:0 auto">
+      <svg viewBox="0 0 600 600" width="100%" role="img" aria-label="Nálepka">
+        <defs><path id="sticker-path" d="M300 300 m-215 0 a215 215 0 1 1 430 0 a215 215 0 1 1 -430 0"/></defs>
+        <circle cx="300" cy="300" r="292" fill="#fff" style="filter:drop-shadow(0 8px 14px rgba(14,42,33,.25))"/>
+        <circle cx="300" cy="300" r="270" fill="#12B886"/>
+        <circle cx="300" cy="300" r="185" fill="#0E2A21"/>
+        <use href="#mk" x="160" y="160" width="280" height="280" style="--ring:#12B886;--pupil:#fff;--sun:#FFC145"/>
+        <text font-family="Manrope,ui-rounded,'Segoe UI',system-ui,sans-serif" font-weight="800" font-size="38" fill="#0E2A21" letter-spacing="4"><textPath href="#sticker-path" startOffset="0">LEŤ SI! · LET'S SEE · LEŤ SI! · LET'S SEE · </textPath></text>
+      </svg>
+      <p class="mcap" style="text-align:center">Výseková nálepka ⌀ 60 mm, bílý okraj 2 mm.</p>
+    </div>
+    <div>
+      <div class="media" style="border-radius:10px"><svg viewBox="0 0 850 550" role="img" aria-label="Vizitka – přední strana">
+        <rect width="850" height="550" fill="#0E2A21"/>
+        <g transform="translate(850 550)" fill="none" stroke="#12B886" stroke-width="3"><circle r="160" opacity=".5"/><circle r="240" opacity=".3"/><circle r="320" opacity=".15"/></g>
+        <use href="#lh" x="70" y="200" width="420" height="121" style="--ring:#12B886;--pupil:#fff;--sun:#FFC145;--ink:#fff"/>
+      </svg></div>
+      <p class="mcap">Přední strana 85 × 55 mm, inkoust, máta jako přímá barva.</p>
+    </div>
+    <div>
+      <div class="media" style="border-radius:10px"><svg viewBox="0 0 850 550" role="img" aria-label="Vizitka – zadní strana">
+        <rect width="850" height="550" fill="#fff"/>
+        <use href="#mk" x="680" y="50" width="120" height="120"/>
+        <text x="70" y="220" font-family="Manrope,ui-rounded,'Segoe UI',system-ui,sans-serif" font-weight="800" font-size="50" fill="#0E2A21">Jméno Příjmení</text>
+        <text x="70" y="270" font-family="Inter,system-ui,sans-serif" font-weight="500" font-size="28" fill="#4D655C">zakladatel · cesty a čísla</text>
+        <g font-family="Inter,system-ui,sans-serif" font-weight="600" font-size="28" fill="#0E2A21"><text x="70" y="400">ahoj@letsi.cz</text><text x="70" y="445">letsi.cz</text></g>
+        <rect x="600" y="400" width="190" height="64" rx="32" fill="#FFC145"/>
+        <text x="695" y="443" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-weight="800" font-size="30" fill="#0E2A21">Leť si!</text>
+      </svg></div>
+      <p class="mcap">Zadní strana, bílý papír 350 g, bez laminace.</p>
+    </div>
+  </div>
+</div></section>
+
+<!-- ============ 7. TÓN HLASU ============ -->
+<section id="ton"><div class="wrap">
+  <h2><span class="num">7</span>Tón hlasu</h2>
+  <p class="lead">Zkušený kamarád, který hodně cestuje a umí počítat: tyká, mluví konkrétními čísly, přizná odhad, nikdy nekřičí. V angličtině lehce hraje se jménem („let's see“), v češtině s „leť si“.</p>
+  <div class="tbl voice"><table>
+    <tr><th>Místo</th><th>Česky</th><th>English</th></tr>
+    <tr><td>Slogan</td><td>Leť si. Všechna letiště kolem tebe, celá cesta před tebou.</td><td class="en">Let's see where you can go. Every airport around you, the whole trip ahead.</td></tr>
+    <tr><td>Tlačítko</td><td>Ukaž, kam to vyjde</td><td class="en">Let's see</td></tr>
+    <tr><td>Prázdný stav</td><td>Zatím tu nic není. Napiš město, „kamkoliv“, nebo celou větu – třeba „k moři v květnu do 3 000 Kč“.</td><td class="en">Nothing here yet. Type a city, “anywhere”, or a whole sentence – like “seaside in May under €120”.</td></tr>
+    <tr><td>Chyba</td><td>Tohle se nepovedlo načíst. Nevadí – zkus to za chvíli znovu.</td><td class="en">We couldn't load this. No worries – try again in a moment.</td></tr>
+    <tr><td>Cena (v aplikaci)</td><td>Praha → Řím zlevnila na <span class="price" style="font-size:12px;padding:2px 7px">1 490 Kč</span> – o 18 % méně než minulý týden.</td><td class="en">Prague → Rome dropped to <span class="price" style="font-size:12px;padding:2px 7px">€59</span> – 18% less than last week.</td></tr>
+  </table></div>
+  <p class="note" style="margin-top:10px">Ne: „Super nabídka!!!“, „PRICE DROP 🔥“, „Zadejte destinaci“, „Error 500“. Upozornění na cenu se ukazuje jen v aplikaci (Hlídání), žádné notifikace na telefon.</p>
+</div></section>
+
+<footer><div class="wrap">
+  <svg viewBox="0 0 100 100" width="28" height="28" style="margin-bottom:8px"><use href="#mk"/></svg>
+  Letsi – koncept 2 „Let's see“. Návrh, nic v aplikaci se nemění. Název, doména <code>letsi.cz</code> a ochranná známka nejsou ověřené. Shrnutí a rizika v <code>letsi-2.md</code>.
+</div></footer>
+</body>
+</html>
