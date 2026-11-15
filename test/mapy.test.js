@@ -222,7 +222,7 @@ test('Mapy.com 403 / 429 / došlé kredity: pojistka, chyba BRouteru jako bez kl
   }
 });
 
-test('turistická mapa přes server: dlaždice s klíčem v hlavičce, týdenní cache, mezipaměť, @2x, neplatné → 400, chyba → 503', async () => {
+test('turistická mapa přes server: dlaždice s klíčem v hlavičce, nic se neukládá (no-store), @2x, neplatné → 400, chyba → 503', async () => {
   config.mapyKey = KEY;
   const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3]);
   let tileStatus = 200;
@@ -234,16 +234,16 @@ test('turistická mapa přes server: dlaždice s klíčem v hlavičce, týdenní
     const r = await get('/api/tiles/mapy/outdoor/14/8956/5513');
     assert.equal(r.status, 200);
     assert.equal(r.headers.get('content-type'), 'image/png');
-    assert.equal(r.headers.get('cache-control'), 'public, max-age=604800');
+    assert.equal(r.headers.get('cache-control'), 'no-store', 'podmínky Mapy.com 4.6.2: dlaždice neukládat ani v prohlížeči');
     assert.deepEqual(Buffer.from(await r.arrayBuffer()), png);
     const up = stub.calls.filter((c) => c.url.includes('/v1/maptiles/'));
     assert.equal(up.length, 1);
     assert.equal(up[0].url, 'https://api.mapy.com/v1/maptiles/outdoor/256/14/8956/5513?lang=cs');
     assert.equal(up[0].init.headers['X-Mapy-Api-Key'], KEY);
-    // stejná dlaždice podruhé: z mezipaměti serveru, bez kreditu
+    // stejná dlaždice podruhé: znovu z Mapy.com (server ji neukládá), další kredit
     assert.equal((await get('/api/tiles/mapy/outdoor/14/8956/5513')).status, 200);
-    assert.equal(stub.calls.filter((c) => c.url.includes('/v1/maptiles/')).length, 1);
-    assert.equal(mapy.mapyStatus().credits.usedThisHour, 1);
+    assert.equal(stub.calls.filter((c) => c.url.includes('/v1/maptiles/')).length, 2);
+    assert.equal(mapy.mapyStatus().credits.usedThisHour, 2);
     // retina
     assert.equal((await get('/api/tiles/mapy/outdoor/14/8956/5513@2x')).status, 200);
     assert.equal(stub.calls.at(-1).url, 'https://api.mapy.com/v1/maptiles/outdoor/256@2x/14/8956/5513?lang=cs');
@@ -254,7 +254,7 @@ test('turistická mapa přes server: dlaždice s klíčem v hlavičce, týdenní
     }
     assert.equal(stub.calls.length, n);
     // strop kreditů: nad ním 503 bez dotazu na Mapy.com (mapa pak vrstvu sundá a zůstane OpenFreeMap)
-    config.mapyMaxPerHour = 3;
+    config.mapyMaxPerHour = 4;
     assert.equal((await get('/api/tiles/mapy/outdoor/14/8957/5513')).status, 200);
     const over = await get('/api/tiles/mapy/outdoor/14/8958/5513');
     assert.equal(over.status, 503);
@@ -275,28 +275,29 @@ test('turistická mapa přes server: dlaždice s klíčem v hlavičce, týdenní
   }
 });
 
-test('dlaždice: limit z jedné IP jen na dotazy mimo mezipaměť serveru', async () => {
+test('dlaždice: limit z jedné IP na každou dlaždici (nic se neukládá), souběžné požadavky na tutéž jedním dotazem', async () => {
   config.mapyKey = KEY;
   const prev = config.tilesPer10Min;
   config.tilesPer10Min = 2;
-  const stub = stubFetch(() => ({ body: new Uint8Array([1, 2, 3]), headers: { 'content-type': 'image/png' } }));
+  let release;
+  const gate = new Promise((r) => { release = r; });
+  const stub = stubFetch(async (url) => {
+    if (url.includes('/5/9/9')) await gate; // pomalá dlaždice – souběžné požadavky na ni počkají na tentýž dotaz
+    return { body: new Uint8Array([1, 2, 3]), headers: { 'content-type': 'image/png' } };
+  });
   const h = { 'x-forwarded-for': '10.1.1.1' };
   try {
     assert.equal((await get('/api/tiles/mapy/outdoor/5/1/1', h)).status, 200);
-    assert.equal((await get('/api/tiles/mapy/outdoor/5/1/2', h)).status, 200);
-    assert.equal((await get('/api/tiles/mapy/outdoor/5/1/3', h)).status, 429);
-    assert.equal((await get('/api/tiles/mapy/outdoor/5/1/1', h)).status, 200, 'z mezipaměti i nad limitem');
+    assert.equal((await get('/api/tiles/mapy/outdoor/5/1/1', h)).status, 200, 'táž dlaždice podruhé se počítá do limitu');
+    assert.equal((await get('/api/tiles/mapy/outdoor/5/1/1', h)).status, 429, 'žádná mezipaměť, která by ji pustila');
     assert.equal((await get('/api/tiles/mapy/outdoor/5/1/3', { 'x-forwarded-for': '10.1.1.2' })).status, 200, 'jiná IP');
-    // dlaždice starší než den se stáhne znovu (kredit) – do limitu z jedné IP se počítá
-    const t = mapy.parseTile('/api/tiles/mapy/outdoor/5/1/1');
-    assert.equal(mapy.tileCached(t), true);
-    const now = Date.now;
-    Date.now = () => now() + 864e5 + 1000;
-    try {
-      assert.equal(mapy.tileCached(t), false, 'prošlá dlaždice není v mezipaměti');
-    } finally {
-      Date.now = now;
-    }
+    const n = stub.calls.length;
+    const both = Promise.all([get('/api/tiles/mapy/outdoor/5/9/9', { 'x-forwarded-for': '10.1.1.3' }), get('/api/tiles/mapy/outdoor/5/9/9', { 'x-forwarded-for': '10.1.1.4' })]);
+    await new Promise((r) => setTimeout(r, 50));
+    release();
+    assert.deepEqual((await both).map((r) => r.status), [200, 200]);
+    assert.equal(stub.calls.length, n + 1, 'dvě souběžné žádosti o tutéž dlaždici = jeden dotaz na Mapy.com');
+    assert.equal(typeof mapy.tileCached, 'undefined', 'mezipaměť dlaždic v serveru není');
   } finally {
     config.tilesPer10Min = prev;
     stub.restore();
@@ -338,13 +339,14 @@ test('hledání v Objevuj: Mapy.com doplní vesnice a místa, stejné místo jen
     assert.deepEqual(u.searchParams.getAll('type'), ['regional.municipality', 'regional.municipality_part', 'regional.address', 'poi']);
     assert.equal(sc.init.headers['X-Mapy-Api-Key'], KEY);
 
-    // přes server: mapy=1 (hledání v Objevuj) s Mapy.com, jinak (průvodce cestou, plánovač) beze změny; podruhé z mezipaměti
+    // přes server: mapy=1 (hledání v Objevuj) s Mapy.com, jinak (průvodce cestou, plánovač) beze změny; stejný text
+    // podruhé znovu na Mapy.com – podmínky Mapy.com (4.6.2) zakazují výsledky ukládat
     const n = stub.calls.filter((c) => isMapy(c.url)).length;
     const a = await (await get('/api/geocode?mapy=1&q=Kar')).json();
     assert.ok(a.items.some((x) => x.src === 'mapy'));
     const b = await (await get('/api/geocode?q=Kar')).json();
     assert.ok(!b.items.some((x) => x.src === 'mapy'));
-    assert.equal(stub.calls.filter((c) => isMapy(c.url)).length, n, 'stejný text podruhé z mezipaměti');
+    assert.equal(stub.calls.filter((c) => isMapy(c.url)).length, n + 1, 'stejný text podruhé znovu na Mapy.com (bez mezipaměti), bez mapy=1 vůbec');
     // Mapy.com nejde (pojistka) → jen geokódování, bez chyby
     cache.map.clear();
     const s403 = stubFetch((url) => (isMapy(url) ? { status: 403, body: {} } : url.startsWith('https://geocoding-api.open-meteo.com/') ? { body: om } : { status: 404, body: {} }));

@@ -418,10 +418,6 @@ export async function geocodePlaces(query, { allow = null } = {}) {
   return items;
 }
 
-const mapySugKey = (q) => `mapy-sug:${normalize(q)}`;
-/** Má návrhy Mapy.com k textu už mezipaměť (pak se do limitu dotazů z jedné IP nepočítají)? */
-export const mapySugCached = (q) => cache.get(mapySugKey(String(q || '').trim())) !== undefined;
-
 /**
  * Hledání místa v Objevuj: geokódování (Open-Meteo) a s klíčem Mapy.com i jejich našeptávač – vesnice a části obcí,
  * adresy, hrady, rozhledny, chaty a další místa, která GeoNames nezná. Pořadí: větší místa z Open-Meteo (od 1000
@@ -434,8 +430,8 @@ export async function geocodeExplore(query, { mapy = true, regions = false, allo
   // regions (hledání v Objevuj) i hory a příroda z vlastního seznamu (Sněžka, Šumava, „Krkon…“)
   const nat = regions ? natureMatches(q) : [];
   const natExact = nat.some((x) => x.exact);
-  const fromMapy = mapy && mapyOn() && q.length >= 2
-    ? cache.wrap(mapySugKey(q), 7 * 864e5, () => mapySuggest(q, { limit: 6 })) : Promise.resolve([]);
+  // návrhy Mapy.com bez mezipaměti – podmínky Mapy.com (bod 4.6.2) zakazují výsledky API ukládat
+  const fromMapy = mapy && mapyOn() && q.length >= 2 ? mapySuggest(q, { limit: 6 }) : Promise.resolve([]);
   // oblast stejného jména jako hory (Dolomity): napřed hory – město největšího letiště oblasti (Verona) do hor nevede
   const [om, my, rg] = await Promise.allSettled([geocodePlaces(q, { allow }), fromMapy, regions && !natExact ? regionPlace(q) : null]);
   const extra = my.status === 'fulfilled' ? my.value : [];
