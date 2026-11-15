@@ -60,7 +60,8 @@ export const config = {
   // fotku nenajde. Fotky se vkládají přímo z Unsplash a u fotky je autor s odkazem (podmínky Unsplash API).
   unsplashKey: env.UNSPLASH_ACCESS_KEY || '',
   // Mapy.com (developer.mapy.com – zdarma 250 000 kreditů měsíčně): turistická mapa u tras pěšky a na kole, hledání míst
-  // v Objevuj a záloha plánovače tras (server/lib/mapy.js). Bez klíče vše jako dřív (OpenFreeMap, Open-Meteo, BRouter).
+  // v Objevuj a záloha plánovače tras (server/lib/mapy.js). Bez klíče vše jako dřív (OpenFreeMap, vlastní seznam míst,
+  // BRouter).
   mapyKey: (env.MAPY_API_KEY || '').trim(),
   // Strop kreditů Mapy.com za hodinu (dlaždice 1, hledání / trasa / výškový profil 4): 340 × 720 h ≈ 245 000 < 250 000
   // zdarma – volné kredity nedojdou ani při zneužití; nad stropem se Mapy.com do konce hodiny vynechá.
@@ -116,11 +117,10 @@ export const config = {
   // Dlaždice Mapy.com přes server (/api/tiles/mapy/…): z jedné IP za 10 minut nejvýš tolik dlaždic (každá jde na
   // Mapy.com – podmínky zakazují dlaždice ukládat).
   tilesPer10Min: num(env.TILES_RATE_LIMIT, 300),
-  // Fotky měst (/api/photos) a geokódování (našeptávač, hledání míst – Open-Meteo): z jedné IP za 10 minut nejvýš tolik
-  // dotazů, které nejdou celé z mezipaměti serveru. Pexels (200/h), Unsplash (50/h) i Open-Meteo mají strop pro celý
-  // server – náhodné názvy by ho jinak vyčerpaly všem. Běžný uživatel se k limitu nepřiblíží (dávka fotek = až 30 karet).
+  // Fotky měst (/api/photos): z jedné IP za 10 minut nejvýš tolik dotazů, které nejdou celé z mezipaměti serveru. Pexels
+  // (200/h) i Unsplash (50/h) mají strop pro celý server – náhodné názvy by ho jinak vyčerpaly všem. Běžný uživatel se
+  // k limitu nepřiblíží (dávka fotek = až 30 karet).
   photosPer10Min: num(env.PHOTOS_RATE_LIMIT, 60),
-  geocodePer10Min: num(env.GEOCODE_RATE_LIMIT, 200),
   // Předpověď počasí (/api/weather – MET Norway): z jedné IP za 10 minut nejvýš tolik míst mimo mezipaměť serveru.
   // MET dovolí celé aplikaci do 20 dotazů za sekundu; výsledky hledání a radar chtějí až 40 míst najednou.
   weatherPer10Min: num(env.WEATHER_RATE_LIMIT, 300),

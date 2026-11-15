@@ -6,7 +6,9 @@
 //   cc:CZ             země
 //   rg:kanary         turistický region / souostroví
 //   ct:asia           světadíl / oblast (Asie, Afrika, Blízký východ…) – cíl jako seznam zemí
-//   geo:LAT,LON|Název libovolné místo (geokódováno přes Open-Meteo)
+//   geo:LAT,LON|Název libovolné místo (geokódované z vlastního seznamu míst GeoNames, data/places.json)
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import {
   AIRPORTS, COUNTRIES, COUNTRY_BY_ISO, METRO_BY_CODE, airportsInCountry, airportsNear, getAirport, sizePenaltyKm,
 } from './airports.js';
@@ -15,7 +17,6 @@ import { CONTINENTS, CONTINENT_BY_KEY, continentCountries } from './longhaul.js'
 import { haversineKm, normalize } from './geo.js';
 import { airportAccess } from './access.js';
 import { cache } from './cache.js';
-import { request } from './http.js';
 import { config } from '../config.js';
 import { mapyOn, mapySuggest } from './mapy.js';
 
@@ -323,88 +324,130 @@ export function localSuggestions(query, limit = 10, { home = CZ_CENTER, role = '
   return rank(localScored(query, home), { role, limit });
 }
 
-const geoKey = (q) => `geo:${normalize(q)}`;
-/** Odpoví geokódování textu bez dotazu na Open-Meteo (krátký text, DEMO, mezipaměť)? Pak se do limitu nepočítá. */
-export const geocodeCached = (query) => {
-  const q = String(query || '').trim();
-  return q.length < 2 || config.mock || cache.get(geoKey(q)) !== undefined;
-};
-const geoLimited = () => Object.assign(new Error('Příliš mnoho hledání míst – zkus to za pár minut.'), { code: 'LIMIT' });
-
-/**
- * Geokódování (Open-Meteo, v mezipaměti 7 dní). allow: smí jít dotaz mimo mezipaměť na Open-Meteo (limit z jedné adresy
- * – index.js)? Zdarma má Open-Meteo strop dotazů pro celý server; náhodné texty by ho jinak vyčerpaly všem a vytlačily
- * z mezipaměti hledání letů. Nesmí → chyba code 'LIMIT' (našeptávač pak nabídne jen místa z vlastních dat).
- */
-export async function geocode(query, { allow = null } = {}) {
-  const q = String(query || '').trim();
-  if (q.length < 2) return [];
-  if (config.mock) return localCityCenters(q);
-  if (allow && !geocodeCached(q) && !allow()) throw geoLimited();
-  return cache.wrap(geoKey(q), 7 * 864e5, async () => {
-    const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=6&language=cs&format=json`;
-    // občasná 502 Open-Meteo (živě 10/2026: Objevuj „Krakov“ nic nenašel, o chvíli později v pořádku) – jednou znovu;
-    // timeout ne (hledání by trvalo dvakrát tak dlouho)
-    const get = () => request(url, { timeoutMs: 6000, retries: 0 });
-    const j = await get().catch((e) => (e.status >= 500 ? new Promise((r) => setTimeout(r, 400)).then(get) : Promise.reject(e)));
-    return (j.results || []).map((r) => ({
-      id: `geo:${r.latitude.toFixed(4)},${r.longitude.toFixed(4)}|${r.name}`,
-      type: 'place', label: r.name, flag: flag(r.country_code),
-      sub: [r.admin1, r.country].filter(Boolean).join(', '), cc: r.country_code,
-      lat: r.latitude, lon: r.longitude, gid: r.id, // gid = ID GeoNames (anglický název místa pro partnery ubytování)
-      pop: r.population || 0,
-      fc: r.feature_code || '', // druh místa GeoNames (PPLC hlavní město, AIRP letiště, MT hora…)
-    }));
-  });
+// ---- Vlastní seznam míst (data/places.json z výpisu GeoNames, scripts/build-places.mjs) ----
+// Načte se při prvním hledání – testy, které místa nehledají, nezaplatí ~0,2 s a ~25 MB haldy; server ho předehřeje
+// po startu (index.js warmUp). Index: přihrádky podle prvních 3 znaků klíče (kratší klíč celý) – při načtení se nemusí
+// řadit 200 tisíc klíčů a hledání projde jen jednu přihrádku (největší „san“ ~3 200 klíčů, ~0,02 ms).
+let PLACES = null;
+let PLACES_ERR = null;
+export function loadPlaces() {
+  if (PLACES) return PLACES;
+  // chybějící nebo poškozený soubor: chyba jednou do logu a pak hned – ne číst a parsovat 8 MB při každém dotazu
+  if (PLACES_ERR) throw PLACES_ERR;
+  let d;
+  try {
+    d = JSON.parse(readFileSync(path.join(config.root, 'data', 'places.json'), 'utf8'));
+  } catch (e) {
+    console.error(`Hledání míst: data/places.json se nepodařilo načíst (${e.message}) – návrhy jen z vlastních dat`);
+    throw (PLACES_ERR = e);
+  }
+  const rows = d.places;
+  const gid = new Int32Array(rows.length), imp = new Int32Array(rows.length), buckets = new Map();
+  for (let i = 0, id = 0; i < rows.length; i++) {
+    const f = rows[i].split('|'); // gid (rozdíl od předchozího), name, lat, lon, admin1, pop, fc, n, en, keys
+    gid[i] = id += Number(f[0]);
+    // významnost: počet obyvatel, u neobydlených objektů počet jazyků se jménem × 1000 (Triglav, Mljet nad vesnicemi),
+    // u nich nejvýš jako milionové město – velký ostrov nepřebije město, které se tak jmenuje nebo píše (Pula, ne Jáva
+    // přes indonéské „Pulau Jawa“; Santo Domingo, ne ostrov Hispaniola se stejným španělským jménem)
+    const v = Math.max(Number(f[5]) || 0, (Number(f[7]) || 0) * 1000);
+    imp[i] = d.fc[f[6] || 0].startsWith('PPL') ? v : Math.min(v, 1e6);
+    for (const k of f[9] ? f[9].split(',') : [f[1].toLowerCase()]) {
+      const p = k[0] === '=' ? k.slice(1, 4) : k.slice(0, 3); // „=“ = historické nebo hovorové jméno, jen celé (placeMatches)
+      const b = buckets.get(p) || buckets.set(p, { k: [], r: [] }).get(p);
+      b.k.push(k);
+      b.r.push(i);
+    }
+  }
+  return (PLACES = { rows, gid, imp, buckets, admin1: d.admin1, fc: d.fc, countries: d.countries });
 }
 
 /**
- * Anglický název místa (Open-Meteo, language=en) pro partnery ubytování, kteří český exonym („Benátky“) nepoznají:
- * podle ID GeoNames (gid – místo vybrané v hledání), jinak výsledek hledání názvu do 25 km od polohy a ve stejné
- * zemi; nic → null. V mezipaměti 30 dní; nepovedený dotaz (timeout 5 s) 10 min → null hned, ať každé doptání průvodce
- * na ceny hotelů nečeká znovu.
+ * Místa, jejichž klíč (český, místní, anglický… název) je napsaný text (2), nebo jím od 3 znaků začíná (1); historické
+ * a hovorové jméno („=bombaj“) jen celé.
+ */
+function placeMatches(query) {
+  const q = normalize(query);
+  const old = `=${q}`;
+  const b = q.length >= 2 && loadPlaces().buckets.get(q.slice(0, 3));
+  const best = new Map(); // řádek → nejlepší shoda
+  for (let j = 0; b && j < b.k.length; j++) {
+    const m = b.k[j] === q || b.k[j] === old ? 2 : q.length >= 3 && b.k[j].startsWith(q) ? 1 : 0;
+    if (m > (best.get(b.r[j]) || 0)) best.set(b.r[j], m);
+  }
+  return best;
+}
+
+const placeRow = (i) => {
+  const [, label, lat, lon, a1, pop, fc, , en] = PLACES.rows[i].split('|');
+  return { label, en: en || label, lat: lat / 1e4, lon: lon / 1e4, cc: PLACES.admin1[a1][0], region: PLACES.admin1[a1][1], pop: Number(pop) || 0, fc: PLACES.fc[fc || 0] };
+};
+
+/**
+ * Geokódování z vlastního seznamu míst: významnost (počet obyvatel – velká města první), přesná shoda klíče jako 100×
+ * větší místo (o 1000 obyvatel víc, ať i osada bez obyvatel) než začátek názvu – přesný název vyhraje (Most před
+ * Móstoles, Kolín před Kolínem nad Rýnem, osada Zadov před obcí Žádovice), ale vesnice přesně toho jména nevytlačí město
+ * nad ~100 tisíc obyvatel, které se teprve píše (Pař → Paříž před Par v Cornwallu, Dub → Dubaj a Dublin před vesnicemi
+ * Dub); nejvýš 6. Data jsou z GeoNames jako dřív u Open-Meteo (stejná česká jména a ID),
+ * jen bez sítě, mezipaměti a limitů – i v DEMO. Async kvůli odběratelům (stayplan, stays, regionPlace – geocode(…).catch).
+ */
+export async function geocode(query) {
+  const { imp } = loadPlaces();
+  const w = ([i, m]) => (m === 2 ? (imp[i] + 1000) * 100 : imp[i] + 1);
+  // shortcut: šest osad Hradec vytlačí Hradec Králové, který se teprve píše (Objevuj bez Mapy.com, „Přidat místo“;
+  // Odkud a Kam ho mají z vlastních dat) – stačí další písmeno. Limit stejnojmenných osad tady vytlačoval vesnici
+  // u domova (Odkud řadí podle vzdálenosti až potom) a pouštěl cizí města (Pavlov → Pavlovo); lépe až s víc kandidáty
+  // pro suggest a limitem po seřazení podle vzdálenosti.
+  const top = [...placeMatches(query)].sort((x, y) => w(y) - w(x) || y[1] - x[1]).slice(0, 6).map(([i, m]) => ({ i, m, p: placeRow(i) }));
+  // ostrov, hrad nebo jezero za obcí přesně toho jména do 25 km (Ibiza, Korfu, Hvar, Karlštejn) jako dřív u Open-Meteo –
+  // první výsledek bere jako střed města program cesty, ubytování i plánovač pobytu, ne střed ostrova
+  for (let a = 0; a < top.length; a++) {
+    const o = top[a];
+    const b = o.m === 2 && !o.p.fc.startsWith('PPL')
+      ? top.findIndex((t, j) => j > a && t.m === 2 && t.p.fc.startsWith('PPL') && haversineKm(t.p.lat, t.p.lon, o.p.lat, o.p.lon) <= 25) : -1;
+    if (b > a) top.splice(a, 0, ...top.splice(b, 1));
+  }
+  return top.map(({ i, p }) => ({
+    id: `geo:${p.lat.toFixed(4)},${p.lon.toFixed(4)}|${p.label}`,
+    type: 'place', label: p.label, flag: flag(p.cc),
+    sub: [p.region, COUNTRY_BY_ISO.get(p.cc)?.cs || PLACES.countries[p.cc]].filter(Boolean).join(', '), cc: p.cc,
+    lat: p.lat, lon: p.lon, gid: PLACES.gid[i], // gid = ID GeoNames (anglický název místa pro partnery ubytování)
+    pop: p.pop,
+    fc: p.fc, // druh místa GeoNames (PPLC hlavní město, MT hora, ISL ostrov…)
+  }));
+}
+
+/**
+ * Anglický název místa z vlastního seznamu pro partnery ubytování, kteří český exonym („Benátky“) nepoznají: podle ID
+ * GeoNames (gid – místo vybrané v hledání), jinak místo přesně toho jména (i českého nebo slovenského – „Boloňa“)
+ * do 25 km od polohy a ve stejné zemi, obec před hradem nebo ostrovem stejného jména, pak nejbližší; nic → null.
+ * Jen přesný název: začátek názvu by ve středu Berlína našel zámek Berliner Stadtschloss, v Dublinu Dublin Castle.
  */
 export async function englishName(name, lat, lon, cc = '', gid = null) {
-  if (/^\d{1,10}$/.test(String(gid ?? ''))) {
-    const byId = await enLookup(`geo-en-id:${gid}`, async () => {
-      const r = await request(`https://geocoding-api.open-meteo.com/v1/get?id=${gid}&language=en`, { timeoutMs: 5000, retries: 0 });
-      // jen když ID sedí k místu (cizí ID ze sdíleného odkazu nesmí přejmenovat jiné město)
-      return r?.name && Number.isFinite(r.latitude) ? { name: r.name, lat: r.latitude, lon: r.longitude } : null;
-    });
-    if (byId && haversineKm(lat, lon, byId.lat, byId.lon) <= 25) return byId.name;
-  }
-  const q = String(name || '').trim();
-  if (q.length < 2 || !Number.isFinite(lat) || !Number.isFinite(lon)) return null;
-  return enLookup(`geo-en:${normalize(q)}:${lat.toFixed(2)}:${lon.toFixed(2)}`, async () => {
-    const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=10&language=en&format=json`;
-    const j = await request(url, { timeoutMs: 5000, retries: 0 });
-    const hit = (j.results || []).filter((r) => (!cc || String(r.country_code || '').toUpperCase() === cc) && haversineKm(lat, lon, r.latitude, r.longitude) <= 25)
-      .sort((a, b) => haversineKm(lat, lon, a.latitude, a.longitude) - haversineKm(lat, lon, b.latitude, b.longitude))[0];
-    return hit?.name || null;
-  });
-}
-const EN_FAIL_TTL = 10 * 60e3;
-/** Dotaz englishName v mezipaměti (30 dní); chyba → null, 10 min bez dalšího dotazu. */
-async function enLookup(key, fn) {
-  if (cache.get(`${key}:fail`)) return null;
-  return cache.wrap(key, 30 * 864e5, fn).catch(() => {
-    cache.set(`${key}:fail`, 1, EN_FAIL_TTL);
-    return null;
-  });
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+  // jen když ID sedí k místu (cizí ID ze sdíleného odkazu nesmí přejmenovat jiné město); indexOf: jeden dotaz na hledání
+  const byId = /^\d{1,10}$/.test(String(gid ?? '')) ? loadPlaces().gid.indexOf(Number(gid)) : -1;
+  const p = byId >= 0 && placeRow(byId);
+  if (p && haversineKm(lat, lon, p.lat, p.lon) <= 25) return p.en;
+  const dist = (r) => haversineKm(lat, lon, r.lat, r.lon);
+  const obj = (r) => (r.fc.startsWith('PPL') ? 0 : 1);
+  const near = [...placeMatches(name)].filter(([, m]) => m === 2).map(([i]) => placeRow(i)).filter((r) => (!cc || r.cc === cc) && dist(r) <= 25);
+  return near.sort((a, b) => obj(a) - obj(b) || dist(a) - dist(b))[0]?.en || null;
 }
 
 /**
- * Města a místa pro Objevuj a program (/api/geocode): geokódování; při jeho výpadku aspoň města z vlastních dat.
+ * Města a místa pro Objevuj a program (/api/geocode): geokódování z vlastního seznamu míst.
  * Překlep („Krakv“ → geokodér najde Krokvåg v Norsku): když žádný název nezačíná napsaným textem, nahoře oprava
  * z vlastních dat (fuzzy: true – nabídka ukáže „Překlep? Asi myslíš:“).
  */
-export async function geocodePlaces(query, { allow = null } = {}) {
+export async function geocodePlaces(query) {
   let items;
   try {
-    items = await geocode(query, { allow });
+    items = await geocode(query);
   } catch (e) {
+    // jiná chyba než nenačtený seznam (chyba v kódu nebo datech) dál – ne potichu prázdná nabídka
+    if (!PLACES_ERR) throw e;
+    // bez seznamu míst (chybějící nebo poškozený soubor – chyba je v logu jednou) aspoň města z vlastních dat, jinak nic
     items = localCityCenters(query);
-    if (!items.length) throw e;
   }
   // (vesnice začínající stejně – Krakvitz u „Krakv“ – opravě nebrání)
   const q = normalize(query);
@@ -419,13 +462,13 @@ export async function geocodePlaces(query, { allow = null } = {}) {
 }
 
 /**
- * Hledání místa v Objevuj: geokódování (Open-Meteo) a s klíčem Mapy.com i jejich našeptávač – vesnice a části obcí,
- * adresy, hrady, rozhledny, chaty a další místa, která GeoNames nezná. Pořadí: větší místa z Open-Meteo (od 1000
+ * Hledání místa v Objevuj: geokódování (vlastní seznam míst) a s klíčem Mapy.com i jejich našeptávač – vesnice a části
+ * obcí, adresy, hrady, rozhledny, chaty a další místa, která seznam nemá. Pořadí: větší místa ze seznamu (od 1000
  * obyvatel, oprava překlepu), pak Mapy.com, pak zbytek; stejné místo (stejný název do 10 km) jen jednou, nejvýš 10.
  * mapy: false (nebo bez klíče, výpadek, strop kreditů) = jen geocodePlaces. Návrhy Mapy.com mají src: 'mapy'
  * (u výsledků se pak ukáže logo Mapy.com – podmínka jejich API).
  */
-export async function geocodeExplore(query, { mapy = true, regions = false, allow = null } = {}) {
+export async function geocodeExplore(query, { mapy = true, regions = false } = {}) {
   const q = String(query || '').trim();
   // regions (hledání v Objevuj) i hory a příroda z vlastního seznamu (Sněžka, Šumava, „Krkon…“)
   const nat = regions ? natureMatches(q) : [];
@@ -433,7 +476,7 @@ export async function geocodeExplore(query, { mapy = true, regions = false, allo
   // návrhy Mapy.com bez mezipaměti – podmínky Mapy.com (bod 4.6.2) zakazují výsledky API ukládat
   const fromMapy = mapy && mapyOn() && q.length >= 2 ? mapySuggest(q, { limit: 6 }) : Promise.resolve([]);
   // oblast stejného jména jako hory (Dolomity): napřed hory – město největšího letiště oblasti (Verona) do hor nevede
-  const [om, my, rg] = await Promise.allSettled([geocodePlaces(q, { allow }), fromMapy, regions && !natExact ? regionPlace(q) : null]);
+  const [om, my, rg] = await Promise.allSettled([geocodePlaces(q), fromMapy, regions && !natExact ? regionPlace(q) : null]);
   const extra = my.status === 'fulfilled' ? my.value : [];
   if (om.status === 'rejected' && !extra.length && !rg.value && !nat.length) throw om.reason;
   let base = om.status === 'fulfilled' ? om.value : [];
@@ -485,7 +528,7 @@ async function regionPlace(query) {
   return { ...p, region: r.key, sub: [r.cs, p.sub].filter(Boolean).join(' · ') };
 }
 
-/** Střed města z vlastních dat (města domova, metropole; jinak poloha letiště) – záloha bez sítě. */
+/** Střed města z vlastních dat (města domova, metropole; jinak poloha letiště) – když ho seznam míst nezná. */
 export function localCityCenters(query) {
   const list = localSuggestions(query, 6, { role: 'from' }); // město před svým letištěm
   const cities = list.filter((s) => s.type === 'city');
@@ -500,33 +543,25 @@ export function localCityCenters(query) {
 const SKIP_FC = /^(AIRP|AIRF|AIRH|AIRB|MT|MTS|HLL|HLLS|PK|PPLX|ADM\d*H?)$/;
 
 /**
- * Našeptávač: vlastní data + geokódování (Open-Meteo) jako doplněk.
+ * Našeptávač: vlastní data (země, oblasti, metropole, letiště…) + geokódování ze seznamu míst GeoNames jako doplněk.
  * near = ID domova (ap:BRQ, geo:49.2,16.6|…, cc:CZ) pro pořadí podle vzdálenosti; role 'from' = pole Odkud.
  */
-// meta.geoErr = true: geokódování selhalo (výpadek, timeout) – návrhy jsou jen z vlastních dat
 // nature = true (jen Objevuj, místo z věty): navrch i hory a příroda přesným názvem nebo tvarem („Krkonoš“) – pole letů ne
-// allow: smí geokódování mimo mezipaměť na Open-Meteo (limit z jedné adresy – geocode)? Nesmí → jako výpadek (geoErr).
-export async function suggest(query, { limit = 8, remote = true, near = '', role = 'to', meta = {}, nature = false, allow = null } = {}) {
+export async function suggest(query, { limit = 8, remote = true, near = '', role = 'to', nature = false } = {}) {
   const home = homePoint(near);
   const q = normalize(query);
   const cands = localScored(query, home);
   const exact = cands.some((c) => c.m === 100 && c.s.type !== 'country');
   if (remote && q.length >= 3 && cands.filter((c) => c.m >= 80).length < 5) {
-    let geo = [];
-    try {
-      geo = await geocode(query, { allow });
-    } catch {
-      // Geokódování je jen doplněk – při výpadku vrať lokální výsledky.
-      meta.geoErr = true;
-    }
+    const geo = await geocode(query).catch(() => []); // jen doplněk – bez seznamu míst aspoň vlastní data
     const kept = cands.map((c) => c.s);
     // Silná shoda (vlastní místo nebo město z geokódování): pak vzdálené vesnice nepatří do návrhů. Bez ní ano –
     // Portofino, Plitvice nebo Sveti Stefan mají v GeoNames pod 1000 obyvatel a jsou jediná správná odpověď.
     // Cizí název (Munchen, Koln, Beograd, Geneve): geokodér vrátí český („Mnichov“) – jeho první velké město je správně;
-    // stejně tak název lišící se jedním písmenem (Agia / Ayia Napa).
+    // stejně tak název lišící se jedním písmenem (Agia / Ayia Napa). PPLG = sídlo vlády (Den Haag → Haag).
     const mOf = (g, gi) => {
       const m = matchScore(q, g.label);
-      return m < 60 && gi === 0 && q.length >= 4 && ((g.pop >= 100000 && /^PPL(C|A\d?)?$/.test(g.fc || '')) || (g.pop >= 1000 && lev1(q, normalize(g.label)))) ? 80 : m;
+      return m < 60 && gi === 0 && q.length >= 4 && ((g.pop >= 100000 && /^PPL(C|G|A\d?)?$/.test(g.fc || '')) || (g.pop >= 1000 && lev1(q, normalize(g.label)))) ? 80 : m;
     };
     const strong = cands.some((c) => c.m >= 80) || geo.some((g, gi) => g.pop >= 1000 && !SKIP_FC.test(g.fc || '') && mOf(g, gi) >= 80);
     for (const [gi, g] of geo.entries()) {
@@ -538,8 +573,10 @@ export async function suggest(query, { limit = 8, remote = true, near = '', role
       // Toledo v USA a Brazílii) – ne jmenovci a vesnice (Brno v Plzeňském kraji, Vídeň na Vysočině).
       if (exact && !(m === 100 && g.pop >= 50000)) continue;
       // Duplikát nebo čtvrť nalezeného místa: do 25 km a název začíná jeho názvem (Brno-střed, Bratislava - Rača).
-      // (i podle anglického názvu: Salzburg = Salcburk)
-      if (kept.some((l) => l.lat != null && haversineKm(l.lat, l.lon, g.lat, g.lon) < 25 && [l.label, l.en].some((n) => n && normalize(g.label).startsWith(normalize(n))))) continue;
+      // (i podle anglického názvu: Salzburg = Salcburk) Město ale není čtvrtí desetkrát menší osady stejného začátku
+      // (Jablonec nad Nisou vedle osady Jablonec, Benátky nad Jizerou vedle osady Benátky); letiště a metropole pop nemají.
+      if (kept.some((l) => l.lat != null && haversineKm(l.lat, l.lon, g.lat, g.lon) < 25 && !(g.pop > 10 * (l.pop ?? Infinity))
+        && [l.label, l.en].some((n) => n && normalize(g.label).startsWith(normalize(n))))) continue;
       const city = g.pop >= 15000;
       const s = city ? { ...citySuggestion({ cs: g.label, cc: g.cc, lat: g.lat, lon: g.lon, pop: g.pop }, g.sub), gid: g.gid } : g;
       // malá místa (vesnice, pop neznámý) až za městy a letišti se stejným začátkem

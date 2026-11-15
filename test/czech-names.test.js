@@ -1,12 +1,11 @@
 // Místa tak, jak je Češi píšou: české exonymy (Benátky, Solnohrad, Cařihrad), oblasti a ostrovy, bez diakritiky, malými,
 // s překlepem a ve tvaru z věty („do Benátek“, „v Aténách“, „z Lince“). Pole Kam/Odkud (server/lib/places.js + výběr místa
 // z věty jako ve flights.js resolvePlace) a hledání v Objevuj (geocodeExplore, smartPlace v public/js/places.js).
-// Bez sítě: DEMO (geokódování jen z vlastních dat), Open-Meteo jen jako náhrada fetch.
+// Bez sítě: geokódování je z vlastního seznamu míst (data/places.json z GeoNames) – v DEMO stejně jako v provozu.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import { readFileSync } from 'node:fs';
-import { stubFetch } from './helpers.js';
 import { config } from '../server/config.js';
 
 const { suggest, localSuggestions, geocodeExplore } = await import('../server/lib/places.js');
@@ -14,12 +13,16 @@ const src = (f) => readFileSync(new URL(`../public/js/${f}`, import.meta.url), '
 const plain = (x) => JSON.parse(JSON.stringify(x));
 const short = (s) => (s ? `${s.id.split('|')[0]}${s.id.includes('|') ? `|${s.id.split('|')[1]}` : ''}${s.fuzzy ? ' (překlep)' : ''}` : '—');
 
-// /api/places a /api/geocode přímo nad serverovým kódem (fetch v prohlížeči → funkce serveru)
+// /api/places a /api/geocode přímo nad serverovým kódem (fetch v prohlížeči → funkce serveru); geoAsked = texty pro geokodér
+const geoAsked = [];
 async function api(url) {
   const u = new URL(url, 'http://atlas/');
   const q = (u.searchParams.get('q') || '').slice(0, 80);
   if (u.pathname === '/api/places') return { items: await suggest(q, { remote: u.searchParams.get('remote') !== '0', role: u.searchParams.get('role') === 'from' ? 'from' : 'to' }) };
-  if (u.pathname === '/api/geocode') return { items: await geocodeExplore(q, { mapy: false, regions: u.searchParams.get('mapy') === '1' }) };
+  if (u.pathname === '/api/geocode') {
+    geoAsked.push(q);
+    return { items: await geocodeExplore(q, { mapy: false, regions: u.searchParams.get('mapy') === '1' }) };
+  }
   throw new Error(`neznámý dotaz ${url}`);
 }
 const ctx = { console, URLSearchParams, fetch: async (url) => { const body = plain(await api(url)); return { ok: true, status: 200, json: async () => body }; } };
@@ -61,7 +64,7 @@ const KAM = [
   ['carihrad', /^metro:IST$/], ['novy york', /^metro:NYC$/], ['ŘÍM', ROM], ['Bénatky', VCE], ['Lisabn', /^ap:LIS$/, true], ['Florecie', /^ap:FLR$/, true],
 ];
 
-test('pole Kam: české názvy, oblasti, bez diakritiky a malými → první návrh (DEMO, bez geokódování)', async () => {
+test('pole Kam: české názvy, oblasti, bez diakritiky a malými → první návrh (DEMO, i s geokódováním)', async () => {
   const mock = config.mock;
   config.mock = true;
   try {
@@ -155,9 +158,11 @@ test('Objevuj, věta: místo ve tvaru z věty (smartPlace) – exonymum, množn�
   const mock = config.mock;
   config.mock = true;
   try {
+    // Solnohrad → Salcburk (vlastní data) → geokodér: GeoNames má „Salcburk“ jen jako nepreferované české jméno, název je
+    // „Salzburg“ jako dřív u Open-Meteo v provozu (DEMO dřív bralo název z vlastních dat)
     for (const [text, want] of [['do Benátek', 'Benátky'], ['v Benátkách', 'Benátky'], ['ve Vídni', 'Vídeň'], ['v Mnichově', 'Mnichov'],
       ['do Drážďan', 'Drážďany'], ['do Říma', 'Řím'], ['na Maltu', 'Malta'], ['v Toskánsku', 'Florencie'], ['na Krétu', 'Heraklion'],
-      ['z Brna', 'Brno'], ['do Solnohradu', 'Salcburk'], ['v Katovicích', 'Katovice']]) {
+      ['z Brna', 'Brno'], ['do Solnohradu', 'Salzburg'], ['v Katovicích', 'Katovice']]) {
       const px = Smart.parseExplore(`co vidět ${text}`, { today });
       const s = await T.smartPlace(px.place);
       assert.equal(s && s.label.replace(/\s*\(.*\)$/, ''), want, text);
@@ -168,24 +173,11 @@ test('Objevuj, věta: místo ve tvaru z věty (smartPlace) – exonymum, množn�
 });
 
 test('Objevuj, věta: „do Českého Krumlova“, „do Kutné Hory“ – geokodér dostane 1. pád (Český Krumlov), ne „Českého Krumlov“', async () => {
-  const mock = config.mock;
-  config.mock = false;
-  // geokodér (Open-Meteo, language=cs) zná jen základní tvar
-  const KNOWN = {
-    'Český Krumlov': { name: 'Český Krumlov', latitude: 48.8128, longitude: 14.3153, country_code: 'CZ', admin1: 'Jihočeský kraj', population: 13000, feature_code: 'PPLA2', id: 101 },
-    'Kutná Hora': { name: 'Kutná Hora', latitude: 49.9483, longitude: 15.2683, country_code: 'CZ', admin1: 'Středočeský kraj', population: 21000, feature_code: 'PPLA2', id: 102 },
-  };
-  const stub = stubFetch((url) => ({ body: { results: KNOWN[new URL(url).searchParams.get('name')] ? [KNOWN[new URL(url).searchParams.get('name')]] : [] } }));
-  try {
-    for (const [phrase, want] of [['Českého Krumlova', 'Český Krumlov'], ['Kutné Hory', 'Kutná Hora']]) {
-      stub.calls.length = 0;
-      const s = await T.smartPlace(phrase);
-      assert.equal(s?.label, want, phrase);
-      const asked = stub.calls.map((c) => new URL(c.url).searchParams.get('name'));
-      assert.equal(asked[0], want, `první dotaz na geokodér je 1. pád: ${asked.join(' | ')}`);
-    }
-  } finally {
-    stub.restore();
-    config.mock = mock;
+  // geokodér zná jen základní tvar
+  for (const [phrase, want] of [['Českého Krumlova', 'Český Krumlov'], ['Kutné Hory', 'Kutná Hora']]) {
+    geoAsked.length = 0;
+    const s = await T.smartPlace(phrase);
+    assert.deepEqual([s?.label, s?.cc], [want, 'CZ'], phrase);
+    assert.equal(geoAsked[0], want, `první dotaz na geokodér je 1. pád: ${geoAsked.join(' | ')}`);
   }
 });

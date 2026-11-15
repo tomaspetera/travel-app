@@ -17,8 +17,8 @@
     ['✈️', 'Letenky', 'Ryanair a Wizz Air (přímo z jejich webů), Kiwi.com, Travelpayouts / Aviasales (ceny z vyhledávání za posledních ~48 h)'],
     ['🏨', 'Ubytování', 'TripAdvisor přes Xotelo (orientační ceny), LiteAPI, když je na serveru zapnuté, penziony z OpenStreetMap (bez ceny); odkazy na Booking.com, Airbnb, Trip.com, Agodu a Hostelworld'],
     ['🚆', 'Vlak a bus', 'RegioJet (spoje a ceny na vyžádání); FlixBus a IDOS jen jako odkazy'],
-    ['🌤️', 'Počasí a podnebí', 'MET Norway (předpověď, CC BY 4.0), dlouhodobé průměry NOAA a NASA POWER; hledání míst Open-Meteo'],
-    ['🗺️', 'Mapy a trasy', 'OpenFreeMap a OpenStreetMap, Mapy.com, BRouter (trasy na kole, pěšky a autem), chaty u túr z OpenStreetMap (Overpass)'],
+    ['🌤️', 'Počasí a podnebí', 'MET Norway (předpověď, CC BY 4.0), dlouhodobé průměry NOAA a NASA POWER'],
+    ['🗺️', 'Mapy a trasy', 'OpenFreeMap a OpenStreetMap, Mapy.com, BRouter (trasy na kole, pěšky a autem), chaty u túr z OpenStreetMap (Overpass); hledání míst GeoNames (CC BY 4.0)'],
     ['🏛️', 'Místa a program', 'Wikidata, Wikipedie a Wikivoyage'],
     ['📷', 'Fotky', 'Unsplash, Pexels a Wikimedia Commons'],
     ['⛽', 'Palivo a kurzy', 'ČSÚ a Weekly Oil Bulletin EU; kurzy ECB a open.er-api.com'],
@@ -44,6 +44,7 @@
       <p style="font-size:14px">ATLAS najde levné letenky ze všech letišť ve tvém okolí a poskládá z nich celou cestu – ubytování, dopravu na letiště i na místě, program a shrnutí s odkazy k rezervaci. Je zdarma, bez účtu a bez registrace. Letenky ani hotely sám neprodává: rezervuješ vždy přímo u aerolinky nebo partnera.</p>
       <h4 class="ab-h">Odkud jsou data</h4>
       <ul class="ab-list">${SOURCES.map(([i, t, d]) => `<li><span aria-hidden="true">${i}</span> <b>${h(t)}</b> – ${h(d)}</li>`).join('')}</ul>
+      <p class="faint" style="font-size:12px">Předpověď <a href="https://www.met.no/en" target="_blank" rel="noopener">MET Norway</a> a seznam míst <a href="https://www.geonames.org/" target="_blank" rel="noopener">GeoNames</a> jsou pod licencí <a href="https://creativecommons.org/licenses/by/4.0/deed.cs" target="_blank" rel="noopener">CC BY 4.0</a>, v aplikaci upravené (denní souhrny, výběr míst).</p>
       <h4 class="ab-h">Co se ukládá a kam</h4>
       <ul class="ab-list">
         <li><b>Jen v tomhle prohlížeči na tomhle zařízení</b> (localStorage): cesty, hlídané ceny, odložené nabídky, domov, navštívené země, oblíbená a skrytá místa, poslední i rozepsané hledání a nastavení. Na jiné zařízení je přeneseš odkazem s QR kódem (📲 Přenést do jiného zařízení) nebo zálohou.</li>

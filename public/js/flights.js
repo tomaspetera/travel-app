@@ -274,7 +274,6 @@
     // přetížený nebo probouzející se server (502–504): „našeptávač teď neodpovídá“, ne „Nic nenalezeno“ / „neznám“
     if (!r.ok) throw await httpErr(r);
     const j = await r.json(), items = j.items || [];
-    if (j.partial) items.partial = true; // geokódování na serveru teď nešlo – jen vlastní data
     return items;
   }
   // chytré hledání: termíny podle svátků a délky pobytu jako ve formuláři
@@ -416,9 +415,9 @@
       // (jen v plné nabídce – víceslovné místo jen z geokódování, „Nové Město“, by rychlý náhled rozdělil)
       const split = remote && !items.length && this.smart && !this.origin && /\s/.test(sq) ? await smartSplit(sq, this.near(), signal) : null;
       if (remote && !items.length && !split && /\s/.test(q)) { const p = await countryPlace(q, this.origin, this.near(), signal); if (p) items = [p]; }
-      return { hit: split, items, partial: Boolean(list.partial) };
+      return { hit: split, items };
     }
-    async fetch(retry = false) {
+    async fetch() {
       const q = this.input.value.trim();
       if (this.ctl) this.ctl.abort();
       this.ctl = new AbortController();
@@ -429,8 +428,8 @@
         this.hit = hit;
         this.sugs = items; this.active = this.hit || this.sugs.length ? 0 : -1; this.open();
       };
-      // hned nabídka z vlastních dat; geokódování (Open-Meteo – občas i několik sekund) ji pak doplní. Náhled jen bez
-      // míst „neznám“ a bez opravy překlepu na prvním místě (to může geokódování najít skutečné místo)
+      // hned nabídka z vlastních dat; plné hledání (geokódování, tvary slov z věty – i víc dotazů po sobě) ji pak doplní.
+      // Náhled jen bez míst „neznám“ a bez opravy překlepu na prvním místě (to může geokódování najít skutečné místo)
       let done = false;
       this.lookup(q, signal, false).then(r => {
         if (!done && (r.hit ? !r.hit.miss.length : r.items.length && !r.items[0].fuzzy)) show(r);
@@ -438,12 +437,6 @@
       try {
         const r = await this.lookup(q, signal);
         done = true;
-        // nic a geokódování na serveru teď nešlo (pomalé Open-Meteo): ne „Nic nenalezeno“ – za chvíli jednou znovu
-        if (r.partial && !r.hit && !r.items.length && !retry) {
-          if (q === this.input.value.trim()) { this.hit = null; this.sugs = []; this.open('slow'); }
-          setTimeout(() => { if (q === this.input.value.trim() && document.activeElement === this.input) this.fetch(true); }, 1500);
-          return;
-        }
         show(r);
       } catch (e) { if (e.name !== 'AbortError') { this.hit = null; this.sugs = []; this.open(true); } }
     }
@@ -472,7 +465,7 @@
       };
       this.dd.innerHTML = (this.tips.length ? '<div class="pi-head">✨ Pro tebe – nebo napiš celou větu, třeba „k moři v květnu do 5000“</div>' : '')
         + (rows[0] && rows[0].sug && rows[0].sug.fuzzy ? '<div class="pi-head">🔤 Překlep? Asi myslíš:</div>' : '')
-        + (rows.length ? rows.map(row).join('') : `<div class="pi-empty">${err === 'slow' ? '<span class="spin dark"></span> Hledání míst je teď pomalé – zkouším znovu…' : err ? 'Našeptávač teď neodpovídá – zkus to za chvíli znovu' : `Nic nenalezeno – zkus jiný název nebo kód letiště${this.smart ? ', nebo napiš větu, třeba „k moři v květnu“' : ''}`}</div>`);
+        + (rows.length ? rows.map(row).join('') : `<div class="pi-empty">${err ? 'Našeptávač teď neodpovídá – zkus to za chvíli znovu' : `Nic nenalezeno – zkus jiný název nebo kód letiště${this.smart ? ', nebo napiš větu, třeba „k moři v květnu“' : ''}`}</div>`);
       this.dd.hidden = false;
       this.input.setAttribute('aria-expanded', 'true');
       if (this.active >= 0 && this.active < rows.length) this.input.setAttribute('aria-activedescendant', `${this.id}-${this.active}`); else this.input.removeAttribute('aria-activedescendant');
@@ -491,14 +484,13 @@
       if (!q) return 'none';
       if (this.ctl) this.ctl.abort();
       this.close();
-      let down = false, slow = false;
+      let down = false;
       try {
-        const { hit, items, partial } = await this.lookup(q);
+        const { hit, items } = await this.lookup(q);
         if (hit) { this.input.value = ''; this.smart.run(hit); return 'run'; }
         if (items[0]) { this.pick(items[0]); return 'pick'; }
-        slow = partial; // geokódování na serveru teď nešlo – místo možná existuje
       } catch (e) { down = e.busy ? 'busy' : true; } // našeptávač nedostupný (výpadek sítě / serveru) – nejde o neznámé místo
-      toast(down === 'busy' ? 'Server je teď přetížený a místa nejde dohledat – zkus to za chvíli znovu' : down ? 'Místa teď nejde dohledat – zkontroluj připojení a zkus to znovu' : slow ? 'Hledání míst je teď pomalé – zkus to za chvilku znovu' : `„${q}“ neznám – vyber místo z nabídky`, 'err');
+      toast(down === 'busy' ? 'Server je teď přetížený a místa nejde dohledat – zkus to za chvíli znovu' : down ? 'Místa teď nejde dohledat – zkontroluj připojení a zkus to znovu' : `„${q}“ neznám – vyber místo z nabídky`, 'err');
       this.input.focus();
       return false;
     }

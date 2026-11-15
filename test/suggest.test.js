@@ -1,41 +1,29 @@
-// Našeptávač míst: přesná shoda, velikost místa, vzdálenost od domova, město „a letiště v okolí“, geokódování (Open-Meteo)
-// jen jako doplněk bez vzdálených jmenovců a vesnic.
+// Našeptávač míst: přesná shoda, velikost místa, vzdálenost od domova, město „a letiště v okolí“, geokódování (vlastní
+// seznam míst z GeoNames, data/places.json) jen jako doplněk bez vzdálených jmenovců a vesnic.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { stubFetch } from './helpers.js';
-import { config } from '../server/config.js';
 
 const { suggest, localSuggestions, resolveOrigins, resolveDestinations, homePoint, geocodePlaces } = await import('../server/lib/places.js');
-const place = (name, latitude, longitude, country_code, population, admin1 = '', feature_code = 'PPL') => ({ id: Math.round(latitude * 1000), name, latitude, longitude, country_code, country: country_code, admin1, population, feature_code });
 const ids = (list) => list.map((s) => s.id.split('|')[0]);
 const BRNO = 'geo:49.1952,16.6080';
 
 test('suggest: „Toledo“ najde i Toledo ve Španělsku (bližší než Ohio), „Brno“ = město a letiště, bez vesnic a jmenovců', async () => {
-  const mock = config.mock;
-  config.mock = false;
-  const stub = stubFetch((url) => {
-    const q = new URL(url).searchParams.get('name');
-    if (q === 'Toledo') return { body: { results: [place('Toledo', 39.8628, -4.0273, 'ES', 85000, 'Kastilie-La Mancha', 'PPLA'), place('Toledo', 41.6639, -83.5552, 'US', 270000, 'Ohio'), place('Toledo', 10.37, 123.64, 'PH', 1200)] } };
-    // skutečné pořadí Open-Meteo pro „Brno“ (10. 10. 2026)
-    if (q === 'Brno') return { body: { results: [place('Brno', 49.1952, 16.608, 'CZ', 379466, 'Jihomoravský', 'PPLA'), place('Bruno', 41.2839, -96.9586, 'US', 96, 'Nebraska'), place('Brno', 49.8233, 13.6654, 'CZ', 0, 'Plzeňský kraj', 'MT'), place('Brňov', 49.4373, 17.9871, 'CZ', 0, 'Zlínský'), place('Brno-střed', 49.1934, 16.6071, 'CZ', 86685, 'Jihomoravský'), place('Brno-jih', 49.1745, 16.6228, 'CZ', 7594, 'Jihomoravský')] } };
-    if (q === 'Zli') return { body: { results: [place('Winterthur', 47.5056, 8.7241, 'CH', 111840), place('Zli', 19.5431, -12.7767, 'MR', 0), place('Zlitán', 32.4674, 14.5687, 'LY', 203790), place('Zlín', 49.2264, 17.6706, 'CZ', 72973, 'Zlínský', 'PPLA')] } };
-    return { body: { results: [] } };
-  });
-  try {
-    const t = await suggest('Toledo');
-    assert.equal(t[0].cc, 'ES', 'Toledo ve Španělsku první (nejblíž domovu)');
-    assert.equal(t[0].type, 'city');
-    assert.equal(t.filter((s) => s.cc === 'PH').length, 0, 'malé Toledo na Filipínách ne');
-    assert.ok(t.some((s) => s.id === 'ap:TOL'), 'letiště Toledo (USA) zůstává');
-    assert.deepEqual(ids(await suggest('Brno')), ['ap:BRQ', BRNO], 'Kam: letiště, pak město; Bruno, hora, Brňov a čtvrti pryč');
-    assert.deepEqual(ids(await suggest('Brno', { role: 'from' })), [BRNO, 'ap:BRQ'], 'Odkud: město (okruh letišť) první');
-    const z = await suggest('Zli', { role: 'from', near: 'ap:BRQ' });
-    assert.equal(z[0].label, 'Zlín');
-    assert.ok(!z.some((s) => /Winterthur|^Zli$/.test(s.label)), 'fuzzy shoda a vesnice v Mauritánii pryč');
-  } finally {
-    stub.restore();
-    config.mock = mock;
-  }
+  const t = await suggest('Toledo');
+  assert.equal(t[0].cc, 'ES', 'Toledo ve Španělsku první (nejblíž domovu), i když v GeoNames je Toledo v Ohiu větší');
+  assert.equal(t[0].type, 'city');
+  assert.ok(t.some((s) => s.id === 'ap:TOL'), 'letiště Toledo (USA) zůstává');
+  // (Toledo na Filipínách má 200 tisíc obyvatel – je v návrzích jako dřív u Open-Meteo, až za Španělskem)
+  // čtvrti (Brno-střed), hora Brno v Plzeňském kraji a vesnice pryč
+  assert.deepEqual(ids(await suggest('Brno')), ['ap:BRQ', BRNO], 'Kam: letiště, pak město');
+  assert.deepEqual(ids(await suggest('Brno', { role: 'from' })), [BRNO, 'ap:BRQ'], 'Odkud: město (okruh letišť) první');
+  const z = await suggest('Zli', { role: 'from', near: 'ap:BRQ' });
+  assert.equal(z[0].label, 'Zlín', 'Zlín před větším Zlitánem v Libyi');
+  // z geokódování ne jmenovci místa z vlastních dat (vesnice Mnichov v Česku) ani malá místa daleko od domova
+  // (Bleddfa Castle ve Walesu u „Bled“)
+  assert.ok(!(await suggest('Mnichov')).some((s) => s.cc === 'CZ'), 'jmenovci – vesnice Mnichov v Česku – ne');
+  const bled = await suggest('Bled');
+  assert.equal(bled[0].label, 'Bled');
+  assert.ok(!bled.some((s) => s.cc === 'GB'), 'malá vzdálená místa ne');
 });
 
 test('localSuggestions: začátek názvu před kódem letiště, velké a blízké první, vzdálené drobnosti pryč', () => {
@@ -86,51 +74,20 @@ test('suggest: kódy letišť malými, cizí názvy měst, malá turistická mí
   assert.deepEqual(og('geo:48.1374,11.5755|Mnichov', 25), ['MUC']);
   assert.equal(og('geo:49.2265,17.6707|Zlín', 0).length, 2, 'město bez letiště: dvě nejbližší');
 
-  const mock = config.mock;
-  config.mock = false;
-  // skutečné odpovědi Open-Meteo (language=cs, 10. 10. 2026)
-  const R = {
-    Munchen: [place('Mnichov', 48.1374, 11.5755, 'DE', 1260391, 'Bavorsko', 'PPLA'), place('München', 51.607, 13.3124, 'DE', 0, 'Braniborsko'), place('München', 48.6967, 13.4631, 'DE', 0, 'Bavorsko'), place('Münchendorf', 48.0333, 16.3833, 'AT', 2992, 'Dolní Rakousy', 'PPLA3')],
-    Koln: [place('Kolín nad Rýnem', 50.9333, 6.95, 'DE', 963395, 'Severní Porýní-Vestfálsko', 'PPLA2'), place('Kolno', 53.4115, 21.9291, 'PL', 10659, 'Podleské vojvodství'), place('Kolno', 53.9969, 20.9947, 'PL', 590)],
-    Beograd: [place('Bělehrad', 44.804, 20.4651, 'RS', 1273651, 'Central Serbia', 'PPLC')],
-    Salzburg: [place('Salzburg', 47.7994, 13.044, 'AT', 157245, 'Salcbursko', 'PPLA'), place('Salzburg', 50.6667, 8.05, 'DE', 238, 'Porýní-Falc', 'PPLA4')],
-    Portofino: [place('Portofino', 44.3035, 9.2094, 'IT', 406, 'Ligurie', 'PPLA3'), place('Portofino Vetta', 44.3343, 9.1715, 'IT', 0, 'Ligurie')],
-    Plitvice: [place('Plitvica', 46.672, 15.9237, 'SI', 106, 'Občina Apače'), place('Plitvica Selo', 44.8994, 15.5979, 'HR', 48), place('Plitvice Lakes National Park', 44.85, 15.6167, 'HR', 0, 'Lika-Senj County', 'PRK')],
-    'Agia Napa': [place('Ayia Napa', 34.9821, 34.0018, 'CY', 4717, 'Famagusta'), place('Agia Napa', 34.6757, 33.046, 'CY', 0, 'Distrikt Lemesos')],
-  };
-  const stub = stubFetch((url) => ({ body: { results: R[new URL(url).searchParams.get('name')] || [] } }));
-  try {
-    const first = async (q) => (await suggest(q))[0]?.label;
-    assert.equal(await first('Munchen'), 'Mnichov', 'cizí název → české jméno velkého města');
-    assert.equal(await first('Koln'), 'Kolín nad Rýnem');
-    assert.equal(await first('Beograd'), 'Bělehrad');
-    assert.equal(await first('Agia Napa'), 'Ayia Napa', 'liší se jedním písmenem');
-    const sz = await suggest('Salzburg');
-    assert.equal(sz.filter((s) => s.type === 'city').length, 1, 'Salcburk jen jednou (anglický název = duplikát)');
-    assert.ok((await suggest('Portofino')).some((s) => s.label === 'Portofino'), 'malé turistické místo, když nic jiného nesedí');
-    const pl = (await suggest('Plitvice')).map((s) => s.label);
-    assert.ok(pl.includes('Plitvice Lakes National Park') && !pl.includes('Plitvica'), pl.join(', '));
-  } finally {
-    stub.restore();
-    config.mock = mock;
-  }
-});
-
-test('geocode: občasná chyba 5xx Open-Meteo → jednou znovu; 4xx ne', async () => {
-  const { geocode } = await import('../server/lib/places.js');
-  let n = 0;
-  let status = 502;
-  const stub = stubFetch(() => (++n === 1 ? { status, body: 'x' } : { body: { results: [{ name: 'Krakov', latitude: 50.06, longitude: 19.94, country_code: 'PL', id: 3094802 }] } }));
-  try {
-    assert.equal((await geocode('Krakov-test-5xx'))[0].label, 'Krakov');
-    assert.equal(n, 2);
-    n = 0;
-    status = 400;
-    await assert.rejects(geocode('Krakov-test-4xx'));
-    assert.equal(n, 1);
-  } finally {
-    stub.restore();
-  }
+  const first = async (q) => (await suggest(q))[0]?.label;
+  assert.equal(await first('Munchen'), 'Mnichov', 'cizí název → české jméno velkého města');
+  assert.equal(await first('Koln'), 'Kolín nad Rýnem');
+  assert.equal(await first('Beograd'), 'Bělehrad');
+  assert.equal(await first('Den Haag'), 'Haag', 'sídlo vlády (GeoNames PPLG) jako velké město');
+  assert.equal(await first('Agia Napa'), 'Ayia Napa', 'liší se jedním písmenem (shoda podle jiného jména v GeoNames)');
+  const sz = await suggest('Salzburg');
+  assert.equal(sz.filter((s) => s.type === 'city').length, 1, 'Salcburk jen jednou (anglický název = duplikát)');
+  // město není čtvrtí osady stejného začátku do 25 km (osada Jablonec u Jablonce nad Nisou); čtvrti Brna dál pryč
+  assert.ok((await suggest('Jablonec', { role: 'from' })).some((s) => s.label === 'Jablonec nad Nisou'), 'Jablonec nad Nisou');
+  assert.ok(!(await suggest('Brn')).some((s) => /^Brno-/.test(s.label)), 'bez čtvrtí Brna');
+  assert.ok((await suggest('Portofino')).some((s) => s.label === 'Portofino'), 'malé turistické místo, když nic jiného nesedí');
+  const pl = (await suggest('Plitvice')).map((s) => s.label);
+  assert.ok(pl.includes('Plitvice Lakes National Park'), pl.join(', '));
 });
 
 test('suggest: místní názvy velkých cílů (Roma, Wien, Lisboa…) vedou na metropoli nebo letiště, ne na jmenovce jinde', () => {
@@ -172,42 +129,20 @@ test('suggest: překlepy („Barcleona“, „Lodnýn“, „Egpyt“, „Mallro
   assert.ok(!localSuggestions('Makarska', 5).some((s) => s.id === 'cc:HU'));
 });
 
-test('suggest: skutečné místo z geokódování (vesnice Lodnyn) před opravou překlepu', async () => {
-  const mock = config.mock;
-  config.mock = false;
-  const stub = stubFetch((url) => {
-    const q = new URL(url).searchParams.get('name');
-    if (q === 'Lodnyn') return { body: { results: [place('Lodnyn', 50.1, 14.2, 'CZ', 300)] } };
-    return { body: {} };
-  });
-  try {
-    const list = await suggest('Lodnyn', { near: 'ap:PRG' });
-    assert.equal(list[0].id.split('|')[1], 'Lodnyn');
-    assert.ok(list.some((s) => s.id === 'metro:LON' && s.fuzzy));
-  } finally { stub.restore(); config.mock = mock; }
+test('suggest: skutečné místo z geokódování (vesnice Venecia na Slovensku) před opravou překlepu', async () => {
+  const list = await suggest('Venecia', { near: 'ap:PRG' });
+  assert.deepEqual([list[0].id.split('|')[1], list[0].cc], ['Venecia', 'SK']);
+  assert.ok(list.some((s) => s.id === 'metro:VCE' && s.fuzzy), 'Benátky jako oprava překlepu hned za ní');
 });
 
-test('geocodePlaces (Objevuj): překlep „Krakv“ = Krakov nahoře (geokodér by našel Krokvåg); výpadek = města z vlastních dat', async () => {
-  const mock = config.mock;
-  config.mock = false;
-  let down = false;
-  const stub = stubFetch((url) => {
-    if (down) return { status: 500, body: {} };
-    const q = new URL(url).searchParams.get('name');
-    if (q === 'Krakv') return { body: { results: [place('Krokvåg', 58.62, 9.03, 'NO', 0)] } };
-    if (q === 'Lisabon') return { body: { results: [place('Lisabon', 38.72, -9.14, 'PT', 500000, '', 'PPLC')] } };
-    return { body: {} };
-  });
-  try {
-    const k = await geocodePlaces('Krakv');
-    assert.deepEqual([k[0].label, k[0].fuzzy, k[0].type, k[1].label], ['Krakov', true, 'place', 'Krokvåg']);
-    // správně napsané: bez opravy
-    assert.ok(!(await geocodePlaces('Lisabon')).some((x) => x.fuzzy));
-    down = true;
-    const l = await geocodePlaces('Porto');
-    assert.equal(l[0].label, 'Porto');
-    assert.match(l[0].id, /^geo:/);
-  } finally { stub.restore(); config.mock = mock; }
+test('geocodePlaces (Objevuj): překlep „Krakv“ = Krakov nahoře (geokodér by našel ostrov Kråkvåg)', async () => {
+  const k = await geocodePlaces('Krakv');
+  assert.deepEqual([k[0].label, k[0].fuzzy, k[0].type, k[0].cc, k[1].label], ['Krakov', true, 'place', 'PL', 'Kråkvåg']);
+  // správně napsané: bez opravy
+  assert.ok(!(await geocodePlaces('Lisabon')).some((x) => x.fuzzy));
+  const l = await geocodePlaces('Porto');
+  assert.deepEqual([l[0].label, l[0].cc], ['Porto', 'PT']);
+  assert.match(l[0].id, /^geo:/);
 });
 
 test('suggest: víceslovný název ve 2. pádě („Velké Británie“, „Nového Zélandu“, „Spojených států“) – shoda podle kmenů, ne překlep', () => {
@@ -219,19 +154,4 @@ test('suggest: víceslovný název ve 2. pádě („Velké Británie“, „Nov�
   }
   // jiný kmen = jiné místo (Jižní Afriky ≠ Jižní Amerika)
   assert.ok(!localSuggestions('Jižní Afriky', 5).some((s) => /Amerika/.test(s.label)));
-});
-
-test('suggest: výpadek geokódování → meta.geoErr (API pak vrátí partial), návrhy z vlastních dat zůstanou', async () => {
-  const mock = config.mock;
-  config.mock = false;
-  const stub = stubFetch(() => ({ status: 500, body: {} }));
-  try {
-    const meta = {};
-    const list = await suggest('Hronovice', { meta });
-    assert.equal(meta.geoErr, true);
-    assert.ok(Array.isArray(list));
-    const ok = {};
-    await suggest('Praha', { remote: false, meta: ok });
-    assert.equal(ok.geoErr, undefined);
-  } finally { stub.restore(); config.mock = mock; }
 });

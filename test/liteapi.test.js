@@ -174,45 +174,36 @@ test('testovací klíč LiteAPI (sand_…): smyšlené hotely se v ostrém provo
 
 test('englishName: podle ID GeoNames (místo z hledání) – „Benátky“ → „Venice“, jen když ID sedí k poloze', async () => {
   const { englishName } = await import('../server/lib/places.js');
-  const stub = stubFetch((url) => {
-    if (url.includes('/v1/get?id=3164603&language=en')) return { body: { id: 3164603, name: 'Venice', latitude: 45.43713, longitude: 12.33265, country_code: 'IT' } };
-    return { body: { results: [] } };
-  });
+  const stub = stubFetch(() => ({ status: 500, body: {} }));
   try {
     assert.equal(await englishName('Benátky', 45.4408, 12.3155, 'IT', 3164603), 'Venice');
-    assert.equal(await englishName('Praha', 50.08, 14.42, 'CZ', 3164603), null, 'ID jiného místa (sdílený odkaz) se nepoužije');
-    assert.equal(stub.calls.filter((c) => c.url.includes('/v1/get')).length, 1, 'ID z mezipaměti');
+    // ID jiného místa (sdílený odkaz) se nepoužije – anglický název podle jména v okolí, ne Venice
+    assert.equal(await englishName('Praha', 50.08, 14.42, 'CZ', 3164603), 'Prague');
+    assert.equal(stub.calls.length, 0, 'z vlastního seznamu míst, bez sítě');
   } finally {
     stub.restore();
   }
 });
 
-test('englishName: anglický název z geokódování jen v okolí místa a ve stejné zemi', async () => {
+test('englishName: anglický název podle jména (i slovenského – „Boloňa“) jen v okolí místa a ve stejné zemi', async () => {
   const { englishName } = await import('../server/lib/places.js');
-  const stub = stubFetch((url) => {
-    assert.match(url, /^https:\/\/geocoding-api\.open-meteo\.com\/v1\/search\?name=Bolo%C5%88a&count=10&language=en/);
-    return { body: { results: [{ name: 'Bologna', latitude: 44.4938, longitude: 11.3387, country_code: 'IT' }, { name: 'Bologna', latitude: -33.1, longitude: 26.3, country_code: 'ZA' }] } };
-  });
-  try {
-    assert.equal(await englishName('Boloňa', 44.4949, 11.3426, 'IT'), 'Bologna');
-    assert.equal(await englishName('Boloňa', 45.4642, 9.19, 'IT'), null, 'Milán je od Boloni moc daleko');
-    assert.equal(await englishName('Boloňa', 44.4949, 11.3426, 'IT'), 'Bologna');
-    assert.equal(stub.calls.length, 2, 'podruhé z mezipaměti');
-  } finally {
-    stub.restore();
-  }
+  assert.equal(await englishName('Boloňa', 44.4949, 11.3426, 'IT'), 'Bologna');
+  assert.equal(await englishName('Mnichov', 48.1374, 11.5755, 'DE'), 'Munich');
+  assert.equal(await englishName('Boloňa', 45.4642, 9.19, 'IT'), null, 'Milán je od Boloni moc daleko');
+  assert.equal(await englishName('Boloňa', 44.4949, 11.3426, 'FR'), null, 'jiná země');
+  assert.equal(await englishName('Civita di Bagnoregio-x', 42.6273, 12.1135, 'IT'), null, 'místo mimo seznam → null (odkazy pak s českým názvem)');
+  assert.equal(await englishName('Benátky', NaN, 12.3, 'IT', 3164603), null, 'bez polohy nic');
 });
 
-test('englishName: nepovedený dotaz (timeout) → null a 10 min bez dalšího dotazu – doptání průvodce na ceny nečeká znovu', async () => {
-  const { englishName } = await import('../server/lib/places.js');
-  const stub = stubFetch(() => { throw new Error('This operation was aborted'); });
+test('ubytování v DEMO: anglický název místa z vlastního seznamu míst (Boloňa → Bologna), bez sítě', async () => {
+  const prev = config.mock;
+  config.mock = true;
+  const stub = stubFetch(() => ({ status: 404, body: '{}' }));
   try {
-    assert.equal(await englishName('Civita di Bagnoregio', 42.6273, 12.1135, 'IT'), null);
-    assert.equal(await englishName('Civita di Bagnoregio', 42.6273, 12.1135, 'IT'), null);
-    assert.equal(await englishName('Civita', 42.6273, 12.1135, 'IT', 6542103), null, 'ID GeoNames stejně');
-    assert.equal(await englishName('Civita', 42.6273, 12.1135, 'IT', 6542103), null);
-    assert.equal(stub.calls.length, 3, 'podruhé bez dotazu (název i ID)');
+    const r = await searchStays({ city: 'Boloňa', lat: 44.4938, lon: 11.3387, cc: 'IT', checkin: ymdPlus(20), checkout: ymdPlus(23), adults: 2 });
+    assert.equal(r.query.cityEn, 'Bologna', 'DEMO doplní anglický název stejně jako provoz (seznam míst je místní)');
   } finally {
     stub.restore();
+    config.mock = prev;
   }
 });

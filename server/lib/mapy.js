@@ -1,5 +1,5 @@
 // Volitelné napojení na REST API Mapy.com (developer.mapy.com, Seznam.cz) – jen s klíčem MAPY_API_KEY. Bez klíče se
-// nic nevolá a vše jede jako dřív (BRouter, OpenFreeMap, Open-Meteo). S klíčem:
+// nic nevolá a vše jede jako dřív (BRouter, OpenFreeMap, vlastní seznam míst). S klíčem:
 // - turistická mapa (outdoor) pod trasou pěšky a na kole – dlaždice přes server (/api/tiles/mapy/…),
 // - hledání míst v Objevuj doplní Mapy.com (vesnice, části obcí, adresy, hrady, rozhledny…),
 // - když BRouter neodpovídá, trasu pěšky / na kole naplánuje Mapy.com (výšky z jejich výškového profilu).
