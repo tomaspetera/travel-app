@@ -3,7 +3,9 @@
 // a rozpočtu (~8 MB).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, statSync } from 'node:fs';
+import { readFileSync, statSync, mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const { zipLines, pickName, selectPlace, LINK, CS, EN } = await import('../scripts/build-places.mjs');
@@ -11,9 +13,9 @@ const { zipLines, pickName, selectPlace, LINK, CS, EN } = await import('../scrip
 const FIX = fileURLToPath(new URL('./fixtures/geonames-mini.zip', import.meta.url));
 
 test('build-places: řádky souboru v ZIPu (deflate i bez komprese, CRLF, UTF-8), chybějící soubor = chyba', async () => {
-  const lines = async (name) => {
+  const lines = async (name, file = FIX) => {
     const out = [];
-    for await (const l of zipLines(FIX, name)) out.push(l);
+    for await (const l of zipLines(file, name)) out.push(l);
     return out;
   };
   assert.deepEqual(await lines('stored.txt'), ['a', 'b']);
@@ -22,6 +24,17 @@ test('build-places: řádky souboru v ZIPu (deflate i bez komprese, CRLF, UTF-8)
   assert.deepEqual(alt[1].split('\t').slice(1, 5), ['3164603', 'en', 'Venice', '1']);
   assert.deepEqual(alt.map((l) => l.split('\t')[3]), ['Benátky', 'Venice', 'Řezno', 'Kodaň']);
   assert.throws(() => zipLines(FIX, 'nic.txt'), /chybí nic\.txt/);
+  // poškozená data (deflate je často „rozbalí“ bez chyby, bez komprese nepozná nic) → chyba podle CRC, ne tiché nesmysly
+  const tmp = mkdtempSync(path.join(tmpdir(), 'atlas-zip-'));
+  try {
+    const bad = readFileSync(FIX);
+    bad[bad.indexOf('a\r\nb\r\n')] = 0x63; // stored.txt: „a“ → „c“
+    writeFileSync(path.join(tmp, 'bad.zip'), bad);
+    await assert.rejects(lines('stored.txt', path.join(tmp, 'bad.zip')), /CRC nesedí/);
+    assert.equal((await lines('alternateNames.txt', path.join(tmp, 'bad.zip'))).length, 4, 'nepoškozený soubor vedle projde');
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
 });
 
 test('build-places: výběr – celé Česko, cities500 a slavná malá místa v Evropě, ve světě města a známé objekty', () => {
@@ -52,6 +65,13 @@ test('build-places: výběr – celé Česko, cities500 a slavná malá místa v
   assert.equal(world({ fcl: 'T', fc: 'MT' }, { f: LINK, n: 1 }), null);
   assert.equal(world({ fcl: 'T', fc: 'MT' }, { f: LINK, n: 5 }), 'svět objekty');
   assert.equal(world({ fcl: 'T', fc: 'MT' }, { f: CS, n: 5 }), null, 'bez článku na Wikipedii ne');
+  // země, kam se jezdí na dovolenou: i menší letoviska s článkem, jménem a od 1000 obyvatel (Side 10 505, Ölüdeniz 2 748)
+  const tr = (r, o = {}) => sel({ cc: 'TR', ...r }, { eu: false, ...o });
+  assert.equal(tr({ pop: 10505 }, { f: LINK, n: 17 }), 'svět letoviska');
+  assert.equal(tr({ pop: 999 }, { f: LINK, n: 17 }), null);
+  assert.equal(tr({ pop: 10505 }, { n: 17 }), null, 'bez článku ne');
+  assert.equal(tr({ pop: 10505 }, { f: LINK }), null, 'bez jména v žádném jazyce ne');
+  assert.equal(sel({ cc: 'US', pop: 10505 }, { eu: false, f: LINK, n: 17 }), null, 'jinde ve světě dál od 15 000');
 });
 
 test('build-places: český název – preferovaný > jediný > shodný s hlavním > první, bez historických a hovorových', () => {

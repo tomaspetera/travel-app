@@ -1209,22 +1209,26 @@ nekomerční weby (plán 1.2, kap. 14).
 
 Našeptávač v polích Odkud a Kam, hledání v Objevuj, „Přidat místo do trasy“, střed města pro program a plánovač pobytu
 a anglický název místa pro partnery ubytování (Benátky → Venice) hledají ve vlastním seznamu míst `data/places.json`
-(~159 tisíc míst, 8 MB) – bez dotazu ven, bez limitu a stejně i v DEMO. Seznam je z výpisu
+(~161 tisíc míst, 8 MB) – bez dotazu ven, bez limitu a stejně i v DEMO. Seznam je z výpisu
 [GeoNames](https://www.geonames.org/) (CC BY 4.0, komerční užití povolené – na stejných datech stálo dřív
 geokódování Open-Meteo, které je zdarma jen pro nekomerční weby): celé Česko a Slovensko včetně osad (Pustevny, Kvilda)
 a hor a hradů, v Evropě města a obce od 500 obyvatel, slavná malá místa (Manarola, Sveti Stefan), ostrovy, hory,
-jezera a parky (Mljet, Zugspitze, Plitvice), ve světě města od 15 000 obyvatel, hlavní města a známé ostrovy, hory
-a parky (Bali, Kilimandžáro). Název je české jméno z GeoNames (Benátky, Mnichov, Řezno), jinak hlavní název; hledá se
-i podle místního, anglického, německého, polského a slovenského jména (München, Boloňa) bez diakritiky. Pořadí:
-velikost (počet obyvatel, u hor a ostrovů známost), přesný název platí jako stokrát větší místo než začátek jiného
-názvu – Most je tak před Móstoles, ale „Pař“ najde Paříž před vesnicí Par; obec na ostrově stejného jména je před
-ostrovem (Ibiza, Hvar). Dva znaky jen přesný název, nejvýš 6 výsledků. ID míst
+jezera a parky (Mljet, Zugspitze, Plitvice), ve světě města od 15 000 obyvatel, hlavní města, v zemích, kam se jezdí
+k moři a na dovolenou (Turecko, Egypt, Thajsko…), i menší letoviska (Side, Göreme, Dahab) a známé ostrovy, hory a parky
+(Bali, Kilimandžáro). Název je české jméno z GeoNames (Benátky, Mnichov, Řezno), jinak hlavní název; hledá se
+i podle místního, anglického, německého, polského a slovenského jména (München, Boloňa) bez diakritiky, podle
+historického jen celého (Bombaj → Mumbai, „madr“ ale Madrid, ne Čennaí). Pořadí: velikost (počet obyvatel, u hor
+a ostrovů známost, nejvýš jako milionové město), přesný název platí jako stokrát větší místo (o 1000 obyvatel víc) než
+začátek jiného názvu – Most je tak před Móstoles a osada Zadov před Žádovicemi, ale „Pař“ najde Paříž před vesnicí Par;
+obec na ostrově stejného jména je před ostrovem (Ibiza, Hvar). Dva znaky jen přesný název, nejvýš 6 výsledků. ID míst
 (`geo:lat,lon|Název`) jsou stejná jako dřív z Open-Meteo, takže uložené cesty a hlídání cen platí dál. Server seznam
-načte hned po startu (~0,2 s, ~25 MB paměti). Co v seznamu chybí (vesnice v cizině, adresy, rozhledny), najde
-v Objevuj s klíčem Mapy.com jejich našeptávač.
+načte hned po startu (~0,2 s, ~25 MB paměti); když soubor chybí nebo je poškozený, návrhy jedou z vlastních dat a chyba
+je v logu jednou. Co v seznamu chybí (vesnice v cizině, adresy, rozhledny), najde v Objevuj s klíčem Mapy.com jejich
+našeptávač.
 
 **Aktualizace:** `node scripts/build-places.mjs --cache <adresář>` stáhne ~630 MB z GeoNames do mezipaměti (podruhé
-z ní, přerušené stahování naváže), za ~1 min sestaví `data/places.json` a vypíše počty a kontrolu povinných míst
+z ní, přerušené stahování naváže, poškozený soubor pozná podle CRC), za ~1 min sestaví `data/places.json` a vypíše
+počty a kontrolu povinných míst
 (Benátky, Hallstatt, Pustevny, Toledo… – stejný seznam hlídá `test/places-search.test.js`).
 
 ### Mapy.com (volitelně, zdarma)

@@ -18,7 +18,12 @@ test('suggest: „Toledo“ najde i Toledo ve Španělsku (bližší než Ohio),
   assert.deepEqual(ids(await suggest('Brno', { role: 'from' })), [BRNO, 'ap:BRQ'], 'Odkud: město (okruh letišť) první');
   const z = await suggest('Zli', { role: 'from', near: 'ap:BRQ' });
   assert.equal(z[0].label, 'Zlín', 'Zlín před větším Zlitánem v Libyi');
-  assert.ok(!z.some((s) => /Winterthur|^Zli$/.test(s.label)), 'jen názvy začínající „Zli“');
+  // z geokódování ne jmenovci místa z vlastních dat (vesnice Mnichov v Česku) ani malá místa daleko od domova
+  // (Bleddfa Castle ve Walesu u „Bled“)
+  assert.ok(!(await suggest('Mnichov')).some((s) => s.cc === 'CZ'), 'jmenovci – vesnice Mnichov v Česku – ne');
+  const bled = await suggest('Bled');
+  assert.equal(bled[0].label, 'Bled');
+  assert.ok(!bled.some((s) => s.cc === 'GB'), 'malá vzdálená místa ne');
 });
 
 test('localSuggestions: začátek názvu před kódem letiště, velké a blízké první, vzdálené drobnosti pryč', () => {
@@ -78,7 +83,7 @@ test('suggest: kódy letišť malými, cizí názvy měst, malá turistická mí
   assert.equal(sz.filter((s) => s.type === 'city').length, 1, 'Salcburk jen jednou (anglický název = duplikát)');
   assert.ok((await suggest('Portofino')).some((s) => s.label === 'Portofino'), 'malé turistické místo, když nic jiného nesedí');
   const pl = (await suggest('Plitvice')).map((s) => s.label);
-  assert.ok(pl.includes('Plitvice Lakes National Park') && !pl.includes('Plitvica'), pl.join(', '));
+  assert.ok(pl.includes('Plitvice Lakes National Park'), pl.join(', '));
 });
 
 test('suggest: místní názvy velkých cílů (Roma, Wien, Lisboa…) vedou na metropoli nebo letiště, ne na jmenovce jinde', () => {

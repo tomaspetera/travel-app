@@ -1171,7 +1171,9 @@ async function warmUp() {
   await loadRates();
   console.log(`Kurzy: ${fxInfo().source}, 1 EUR = ${fxInfo().eurCzk} Kč`);
   // seznam míst pro našeptávač a Objevuj (~0,2 s) hned po startu, ne až při prvním hledání
-  console.log(`Hledání míst: ${loadPlaces().rows.length} míst (GeoNames)`);
+  try {
+    console.log(`Hledání míst: ${loadPlaces().rows.length} míst (GeoNames)`);
+  } catch { /* chybu vypsal loadPlaces; hledání pak jede z vlastních dat a zbytek předehřátí musí proběhnout */ }
   if (config.mock) return;
   refreshFuel().then(() => console.log(`Ceny PHM: ${fuelText('CZ', 'diesel')}`)).catch(() => {});
   for (const p of activeProviders()) {

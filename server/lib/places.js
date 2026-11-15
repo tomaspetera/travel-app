@@ -329,18 +329,31 @@ export function localSuggestions(query, limit = 10, { home = CZ_CENTER, role = '
 // po startu (index.js warmUp). Index: přihrádky podle prvních 3 znaků klíče (kratší klíč celý) – při načtení se nemusí
 // řadit 200 tisíc klíčů a hledání projde jen jednu přihrádku (největší „san“ ~3 200 klíčů, ~0,02 ms).
 let PLACES = null;
+let PLACES_ERR = null;
 export function loadPlaces() {
   if (PLACES) return PLACES;
-  const d = JSON.parse(readFileSync(path.join(config.root, 'data', 'places.json'), 'utf8'));
+  // chybějící nebo poškozený soubor: chyba jednou do logu a pak hned – ne číst a parsovat 8 MB při každém dotazu
+  if (PLACES_ERR) throw PLACES_ERR;
+  let d;
+  try {
+    d = JSON.parse(readFileSync(path.join(config.root, 'data', 'places.json'), 'utf8'));
+  } catch (e) {
+    console.error(`Hledání míst: data/places.json se nepodařilo načíst (${e.message}) – návrhy jen z vlastních dat`);
+    throw (PLACES_ERR = e);
+  }
   const rows = d.places;
   const gid = new Int32Array(rows.length), imp = new Int32Array(rows.length), buckets = new Map();
   for (let i = 0, id = 0; i < rows.length; i++) {
     const f = rows[i].split('|'); // gid (rozdíl od předchozího), name, lat, lon, admin1, pop, fc, n, en, keys
     gid[i] = id += Number(f[0]);
-    // významnost: počet obyvatel, u neobydlených objektů počet jazyků se jménem × 1000 (Triglav, Mljet nad vesnicemi)
-    imp[i] = Math.max(Number(f[5]) || 0, (Number(f[7]) || 0) * 1000);
+    // významnost: počet obyvatel, u neobydlených objektů počet jazyků se jménem × 1000 (Triglav, Mljet nad vesnicemi),
+    // u nich nejvýš jako milionové město – velký ostrov nepřebije město, které se tak jmenuje nebo píše (Pula, ne Jáva
+    // přes indonéské „Pulau Jawa“; Santo Domingo, ne ostrov Hispaniola se stejným španělským jménem)
+    const v = Math.max(Number(f[5]) || 0, (Number(f[7]) || 0) * 1000);
+    imp[i] = d.fc[f[6] || 0].startsWith('PPL') ? v : Math.min(v, 1e6);
     for (const k of f[9] ? f[9].split(',') : [f[1].toLowerCase()]) {
-      const b = buckets.get(k.slice(0, 3)) || buckets.set(k.slice(0, 3), { k: [], r: [] }).get(k.slice(0, 3));
+      const p = k[0] === '=' ? k.slice(1, 4) : k.slice(0, 3); // „=“ = historické nebo hovorové jméno, jen celé (placeMatches)
+      const b = buckets.get(p) || buckets.set(p, { k: [], r: [] }).get(p);
       b.k.push(k);
       b.r.push(i);
     }
@@ -348,13 +361,17 @@ export function loadPlaces() {
   return (PLACES = { rows, gid, imp, buckets, admin1: d.admin1, fc: d.fc, countries: d.countries });
 }
 
-/** Místa, jejichž klíč (český, místní, anglický… název) je napsaný text (2), nebo jím od 3 znaků začíná (1). */
+/**
+ * Místa, jejichž klíč (český, místní, anglický… název) je napsaný text (2), nebo jím od 3 znaků začíná (1); historické
+ * a hovorové jméno („=bombaj“) jen celé.
+ */
 function placeMatches(query) {
   const q = normalize(query);
+  const old = `=${q}`;
   const b = q.length >= 2 && loadPlaces().buckets.get(q.slice(0, 3));
   const best = new Map(); // řádek → nejlepší shoda
   for (let j = 0; b && j < b.k.length; j++) {
-    const m = b.k[j] === q ? 2 : q.length >= 3 && b.k[j].startsWith(q) ? 1 : 0;
+    const m = b.k[j] === q || b.k[j] === old ? 2 : q.length >= 3 && b.k[j].startsWith(q) ? 1 : 0;
     if (m > (best.get(b.r[j]) || 0)) best.set(b.r[j], m);
   }
   return best;
@@ -367,14 +384,15 @@ const placeRow = (i) => {
 
 /**
  * Geokódování z vlastního seznamu míst: významnost (počet obyvatel – velká města první), přesná shoda klíče jako 100×
- * větší místo než začátek názvu – přesný název vyhraje (Most před Móstoles, Kolín před Kolínem nad Rýnem), ale vesnice
- * přesně toho jména nevytlačí velké město, které se teprve píše (Pař → Paříž před Par v Cornwallu, Dub → Dubaj
- * a Dublin před vesnicemi Dub); nejvýš 6. Data jsou z GeoNames jako dřív u Open-Meteo (stejná česká jména a ID),
+ * větší místo (o 1000 obyvatel víc, ať i osada bez obyvatel) než začátek názvu – přesný název vyhraje (Most před
+ * Móstoles, Kolín před Kolínem nad Rýnem, osada Zadov před obcí Žádovice), ale vesnice přesně toho jména nevytlačí město
+ * nad ~100 tisíc obyvatel, které se teprve píše (Pař → Paříž před Par v Cornwallu, Dub → Dubaj a Dublin před vesnicemi
+ * Dub); nejvýš 6. Data jsou z GeoNames jako dřív u Open-Meteo (stejná česká jména a ID),
  * jen bez sítě, mezipaměti a limitů – i v DEMO. Async kvůli odběratelům (stayplan, stays, regionPlace – geocode(…).catch).
  */
 export async function geocode(query) {
   const { imp } = loadPlaces();
-  const w = ([i, m]) => (imp[i] + 1) * (m === 2 ? 100 : 1);
+  const w = ([i, m]) => (m === 2 ? (imp[i] + 1000) * 100 : imp[i] + 1);
   const top = [...placeMatches(query)].sort((x, y) => w(y) - w(x) || y[1] - x[1]).slice(0, 6).map(([i, m]) => ({ i, m, p: placeRow(i) }));
   // ostrov, hrad nebo jezero za obcí přesně toho jména do 25 km (Ibiza, Korfu, Hvar, Karlštejn) jako dřív u Open-Meteo –
   // první výsledek bere jako střed města program cesty, ubytování i plánovač pobytu, ne střed ostrova
@@ -396,8 +414,9 @@ export async function geocode(query) {
 
 /**
  * Anglický název místa z vlastního seznamu pro partnery ubytování, kteří český exonym („Benátky“) nepoznají: podle ID
- * GeoNames (gid – místo vybrané v hledání), jinak nejbližší místo toho jména (i českého nebo slovenského – „Boloňa“)
- * do 25 km od polohy a ve stejné zemi; nic → null.
+ * GeoNames (gid – místo vybrané v hledání), jinak místo přesně toho jména (i českého nebo slovenského – „Boloňa“)
+ * do 25 km od polohy a ve stejné zemi, obec před hradem nebo ostrovem stejného jména, pak nejbližší; nic → null.
+ * Jen přesný název: začátek názvu by ve středu Berlína našel zámek Berliner Stadtschloss, v Dublinu Dublin Castle.
  */
 export async function englishName(name, lat, lon, cc = '', gid = null) {
   if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
@@ -405,9 +424,10 @@ export async function englishName(name, lat, lon, cc = '', gid = null) {
   const byId = /^\d{1,10}$/.test(String(gid ?? '')) ? loadPlaces().gid.indexOf(Number(gid)) : -1;
   const p = byId >= 0 && placeRow(byId);
   if (p && haversineKm(lat, lon, p.lat, p.lon) <= 25) return p.en;
-  const dist = (i) => { const r = placeRow(i); return !cc || r.cc === cc ? haversineKm(lat, lon, r.lat, r.lon) : Infinity; };
-  const hit = [...placeMatches(name).keys()].map((i) => [i, dist(i)]).filter(([, d]) => d <= 25).sort((a, b) => a[1] - b[1])[0];
-  return hit ? placeRow(hit[0]).en : null;
+  const dist = (r) => haversineKm(lat, lon, r.lat, r.lon);
+  const obj = (r) => (r.fc.startsWith('PPL') ? 0 : 1);
+  const near = [...placeMatches(name)].filter(([, m]) => m === 2).map(([i]) => placeRow(i)).filter((r) => (!cc || r.cc === cc) && dist(r) <= 25);
+  return near.sort((a, b) => obj(a) - obj(b) || dist(a) - dist(b))[0]?.en || null;
 }
 
 /**
@@ -416,7 +436,13 @@ export async function englishName(name, lat, lon, cc = '', gid = null) {
  * z vlastních dat (fuzzy: true – nabídka ukáže „Překlep? Asi myslíš:“).
  */
 export async function geocodePlaces(query) {
-  let items = await geocode(query);
+  let items;
+  try {
+    items = await geocode(query);
+  } catch (e) {
+    items = localCityCenters(query); // bez seznamu míst (chybějící nebo poškozený soubor) aspoň města a letiště z vlastních dat
+    if (!items.length) throw e;
+  }
   // (vesnice začínající stejně – Krakvitz u „Krakv“ – opravě nebrání)
   const q = normalize(query);
   if (q.length >= 5 && !items.some((x) => normalize(x.label).startsWith(q) && x.pop >= 1000)) {
@@ -521,7 +547,7 @@ export async function suggest(query, { limit = 8, remote = true, near = '', role
   const cands = localScored(query, home);
   const exact = cands.some((c) => c.m === 100 && c.s.type !== 'country');
   if (remote && q.length >= 3 && cands.filter((c) => c.m >= 80).length < 5) {
-    const geo = await geocode(query);
+    const geo = await geocode(query).catch(() => []); // jen doplněk – bez seznamu míst aspoň vlastní data
     const kept = cands.map((c) => c.s);
     // Silná shoda (vlastní místo nebo město z geokódování): pak vzdálené vesnice nepatří do návrhů. Bez ní ano –
     // Portofino, Plitvice nebo Sveti Stefan mají v GeoNames pod 1000 obyvatel a jsou jediná správná odpověď.

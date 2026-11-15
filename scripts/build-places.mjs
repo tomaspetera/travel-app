@@ -18,9 +18,10 @@
 //    menší místa s článkem na Wikipedii, jménem aspoň ve 2 jazycích a známým počtem obyvatel (Manarola, Sveti Stefan)
 //    a ostrovy, hory, parky, jezera, sopky, ledovce, pláže, letoviska a hrady s článkem na Wikipedii nebo českým či
 //    anglickým jménem, pokud mají jméno aspoň v jednom dalším jazyce nebo obyvatele (Lofoty),
-//  - svět: od 15 000 obyvatel, hlavní města a sídla krajů; ostrovy, parky, hory, sopky a letoviska s článkem na
-//    Wikipedii, jen když mají české jméno, aspoň 1000 obyvatel (Bali, Tenerife) nebo jméno aspoň v 5 jazycích –
-//    ostatních je ~25 tisíc a soubor by přerostl rozpočet (~8 MB).
+//  - svět: od 15 000 obyvatel, hlavní města a sídla krajů; v zemích, kam se jezdí k moři a na dovolenou (HOLIDAY),
+//    i menší letoviska s článkem na Wikipedii, jménem aspoň v 1 jazyce a od 1000 obyvatel (Side, Göreme, Dahab);
+//    ostrovy, parky, hory, sopky a letoviska s článkem na Wikipedii, jen když mají české jméno, aspoň 1000 obyvatel
+//    (Bali, Tenerife) nebo jméno aspoň v 5 jazycích – ostatních je ~25 tisíc a soubor by přerostl rozpočet (~8 MB).
 // Nikdy části měst a zaniklá či historická místa (PPLX, PPLH, PPLQ, PPLW).
 //
 // Formát viz NOTE níže. Jedno místo na řádek, ať jsou rozdíly při přegenerování malé. Řádek je řetězec s poli
@@ -28,7 +29,8 @@
 import { createReadStream, createWriteStream, existsSync, statSync, renameSync, unlinkSync, openSync, readSync, closeSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { createInterface } from 'node:readline';
 import { pipeline } from 'node:stream/promises';
-import { createInflateRaw } from 'node:zlib';
+import { createInflateRaw, crc32 } from 'node:zlib';
+import { pipeline as pipe, Transform } from 'node:stream';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
@@ -47,11 +49,13 @@ const NOTE = 'Řádek = pole oddělená „|“ v pořadí cols, prázdná pole 
   + 'v desetitisícinách stupně. admin1 = index do admin1 ([země, kraj]). fc = index do fc (prázdné = PPL). n = počet '
   + 'jazyků se jménem – jak je známý neobydlený objekt (u obydlených míst prázdné, stačí počet obyvatel). en = anglický '
   + 'název (prázdné = jako name). keys = normalizované názvy pro hledání oddělené „,“ (prázdné = jen name malými '
-  + 'písmeny). countries = české názvy území, která data/countries.json nemá.';
+  + 'písmeny), „=“ na začátku = historické nebo hovorové jméno, hledá se jen celé. countries = české názvy území, '
+  + 'která data/countries.json nemá.';
 
 /**
  * Stáhne soubor do mezipaměti (jednou). Přerušené stahování naváže dotazem Range (proxy občas spojení utne),
- * nejvýš 8 pokusů s rostoucí prodlevou; 60 s bez dat = nový pokus.
+ * nejvýš 8 pokusů s rostoucí prodlevou; 60 s bez dat = nový pokus. Kousek z výpisu, který GeoNames mezitím přegeneroval,
+ * by se slepil s novým – to pozná kontrola CRC v zipLines.
  */
 export async function download(url, file) {
   if (existsSync(file)) return file;
@@ -97,7 +101,8 @@ export async function download(url, file) {
 
 /**
  * Řádky souboru uvnitř ZIPu (async iterátor) podle centrálního adresáře: najde záznam, přeskočí lokální hlavičku
- * a data pošle přes inflateRaw. Jen deflate nebo bez komprese a bez ZIP64 (výpisy GeoNames ho nemají).
+ * a data pošle přes inflateRaw. Jen deflate nebo bez komprese a bez ZIP64 (výpisy GeoNames ho nemají). Na konci ověří
+ * CRC-32 z centrálního adresáře: deflate poškozená data často „rozbalí“ bez chyby (tiché nesmysly v datech).
  */
 export function zipLines(file, name) {
   const fd = openSync(file, 'r');
@@ -120,7 +125,7 @@ export function zipLines(file, name) {
       if (cd.readUInt32LE(p) !== 0x02014b50) throw new Error(`${file}: poškozený centrální adresář`);
       const [n, x, c] = [cd.readUInt16LE(p + 28), cd.readUInt16LE(p + 30), cd.readUInt16LE(p + 32)];
       if (cd.toString('utf8', p + 46, p + 46 + n) === name) {
-        entry = { method: cd.readUInt16LE(p + 10), csize: cd.readUInt32LE(p + 20), local: cd.readUInt32LE(p + 42) };
+        entry = { method: cd.readUInt16LE(p + 10), crc: cd.readUInt32LE(p + 16), csize: cd.readUInt32LE(p + 20), local: cd.readUInt32LE(p + 42) };
         break;
       }
       p += 46 + n + x + c;
@@ -132,9 +137,17 @@ export function zipLines(file, name) {
   } finally {
     closeSync(fd);
   }
+  let crc = 0;
+  const check = new Transform({
+    transform(chunk, enc, cb) {
+      crc = crc32(chunk, crc);
+      cb(null, chunk);
+    },
+    flush: (cb) => cb(crc === entry.crc ? null : new Error(`${file}: ${name} je poškozený (CRC nesedí) – smaž soubor z mezipaměti (--cache) a spusť znovu`)),
+  });
   const raw = createReadStream(file, { start: entry.start, end: entry.start + entry.csize - 1 });
-  const input = entry.method === 8 ? raw.pipe(createInflateRaw()) : raw;
-  raw.on('error', (e) => input.destroy(e));
+  // chyba kteréhokoli kroku (čtení, inflate, CRC) skončí na posledním proudu, a tedy ve for await nad řádky
+  const input = pipe(raw, ...(entry.method === 8 ? [createInflateRaw()] : []), check, () => {});
   return createInterface({ input, crlfDelay: Infinity });
 }
 
@@ -156,6 +169,9 @@ const SEAT = /^PPL(A[2-4]?|C|G)$/;
 const OBJ_CZSK = new Set(['MT', 'MTS', 'HLL', 'PK', 'PKS', 'LK', 'LKS', 'PRK', 'CSTL', 'CAVE', 'FLLS', 'RSRT', 'SPA', 'RSV', 'RUIN', 'MNMT', 'ISL', 'VAL', 'GRGE']);
 const OBJ_EU = new Set(['ISL', 'ISLS', 'MT', 'MTS', 'PK', 'PKS', 'PRK', 'LK', 'LKS', 'VLC', 'GLCR', 'BCH', 'BCHS', 'RSRT', 'CSTL']);
 const OBJ_WORLD = new Set(['ISL', 'ISLS', 'PRK', 'MT', 'PK', 'VLC', 'RSRT']);
+// Země mimo Evropu (podle GeoNames – Turecko je Asie, Egypt Afrika), kam se jezdí k moři a na dovolenou: letoviska tam
+// mívají pod 15 000 obyvatel (Side, Ölüdeniz, Göreme, Dahab, Marsa Alam) a bez nich by je hledání nenašlo vůbec.
+const HOLIDAY = new Set(['TR', 'EG', 'TN', 'MA', 'AE', 'OM', 'JO', 'IL', 'GE', 'CV', 'DO', 'MX', 'CU', 'JM', 'TH', 'ID', 'LK', 'MV', 'VN', 'MY', 'PH', 'KE', 'TZ', 'MU', 'SC']);
 export const LINK = 1, CS = 2, EN = 4;
 
 /**
@@ -174,7 +190,7 @@ export function selectPlace(r, eu, f, n) {
     // samotný odkaz bez jména v jiném jazyce mají tisíce bezejmenných jezer a vrcholů; obydlené ostrovy (Lofoty) ano
     return OBJ_EU.has(r.fc) && f & (LINK | CS | EN) && (n >= 1 || r.pop >= 1000) ? 'evropa objekty' : null;
   }
-  if (populated) return r.pop >= 15000 || r.fc === 'PPLC' || r.fc === 'PPLA' ? 'svět města' : null;
+  if (populated) return r.pop >= 15000 || r.fc === 'PPLC' || r.fc === 'PPLA' ? 'svět města' : HOLIDAY.has(r.cc) && f & LINK && n >= 1 && r.pop >= 1000 ? 'svět letoviska' : null;
   return OBJ_WORLD.has(r.fc) && f & LINK && (f & CS || r.pop >= 1000 || n >= 5) ? 'svět objekty' : null;
 }
 
@@ -193,6 +209,8 @@ export const MUST = [
   ['Bologna', 'Bologna', 'IT'], ['Boloňa', 'Bologna', 'IT', 'Bologna'], ['Dubrovník', 'Dubrovnik', 'HR'], ['Dubrovnik', 'Dubrovnik', 'HR'],
   ['Salcburk', 'Salzburg', 'AT'], ['Salzburg', 'Salzburg', 'AT'], ['Kodaň', 'Kodaň', 'DK', 'Copenhagen'], ['Brno', 'Brno', 'CZ'],
   ['Ostrava', 'Ostrava', 'CZ'], ['Olomouc', 'Olomouc', 'CZ'], ['Zlín', 'Zlín', 'CZ'], ['Praha', 'Praha', 'CZ'],
+  // letoviska mimo Evropu pod 15 000 obyvatel (kontrola po první verzi, která je vynechala)
+  ['Side', 'Side', 'TR'], ['Göreme', 'Göreme', 'TR'], ['Dahab', 'Dahab', 'EG'],
 ];
 
 /**
@@ -325,7 +343,12 @@ async function main() {
     const of = (lang) => p.names.filter((n) => n.lang === lang);
     const label = pickName(of('cs'), p.name).replace(/\|/g, '/');
     const en = pickName(of('en').filter((n) => n.pref), p.name).replace(/\|/g, '/');
-    const keys = [...new Set([label, p.name, p.ascii, en, ...p.names.map((n) => n.name)].map(normalize).filter(Boolean))];
+    // historická a hovorová jména jen celá („=“): Bombaj najde Mumbai, ale „madr“ Madrid, ne Čennaí (Madras), „bena“
+    // Benátky, ne Váránasí (Benares), „New York“ ne Jakartu („New York Van Java“)
+    const now = p.names.filter((n) => !n.hist && !n.colloq);
+    const keys = [...new Set([label, p.name, p.ascii, en, ...now.map((n) => n.name)].map(normalize).filter(Boolean))];
+    const old = new Set(p.names.filter((n) => !now.includes(n)).map((n) => normalize(n.name)));
+    keys.push(...[...old].filter((k) => k && !keys.includes(k)).map((k) => `=${k}`));
     const n = nLangs[p.gid];
     const f = [p.gid - prev, label, e4(p.lat), e4(p.lon), a1Index.get(`${p.cc}.${p.a1}`), p.pop, fcIndex.get(p.fc) || '', p.fcl === 'P' ? '' : n || '',
       en === label ? '' : en, keys.length === 1 && keys[0] === label.toLowerCase() ? '' : keys.join(',')];
