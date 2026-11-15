@@ -576,8 +576,10 @@ export async function suggest(query, { limit = 8, remote = true, near = '', role
       // Toledo v USA a Brazílii) – ne jmenovci a vesnice (Brno v Plzeňském kraji, Vídeň na Vysočině).
       if (exact && !(m === 100 && g.pop >= 50000)) continue;
       // Duplikát nebo čtvrť nalezeného místa: do 25 km a název začíná jeho názvem (Brno-střed, Bratislava - Rača).
-      // (i podle anglického názvu: Salzburg = Salcburk)
-      if (kept.some((l) => l.lat != null && haversineKm(l.lat, l.lon, g.lat, g.lon) < 25 && [l.label, l.en].some((n) => n && normalize(g.label).startsWith(normalize(n))))) continue;
+      // (i podle anglického názvu: Salzburg = Salcburk) Město ale není čtvrtí desetkrát menší osady stejného začátku
+      // (Jablonec nad Nisou vedle osady Jablonec, Benátky nad Jizerou vedle osady Benátky); letiště a metropole pop nemají.
+      if (kept.some((l) => l.lat != null && haversineKm(l.lat, l.lon, g.lat, g.lon) < 25 && !(g.pop > 10 * (l.pop ?? Infinity))
+        && [l.label, l.en].some((n) => n && normalize(g.label).startsWith(normalize(n))))) continue;
       const city = g.pop >= 15000;
       const s = city ? { ...citySuggestion({ cs: g.label, cc: g.cc, lat: g.lat, lon: g.lon, pop: g.pop }, g.sub), gid: g.gid } : g;
       // malá místa (vesnice, pop neznámý) až za městy a letišti se stejným začátkem
