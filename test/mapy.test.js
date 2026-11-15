@@ -59,15 +59,15 @@ const brouterOk = (km) => ({ type: 'FeatureCollection', features: [{ type: 'Feat
 test('bez klíče: Mapy.com se nevolá – trasa, hledání i dlaždice jako dřív, zdravotní stav „vypnuto“ s návodem', async () => {
   const stub = stubFetch((url) => {
     if (isBrouter(url)) return { status: 503, body: 'down' };
-    if (url.startsWith('https://geocoding-api.open-meteo.com/')) return { body: { results: [{ id: 1, name: 'Karlštejn', latitude: 49.934, longitude: 14.18, country_code: 'CZ', country: 'Česko', admin1: 'Středočeský kraj', population: 840, feature_code: 'PPL' }] } };
     return { status: 404, body: {} };
   });
   try {
     await assert.rejects(hikeLoop({ lat: 50.08, lon: 14.42, km: 10 }), (e) => e.status === 503, 'chyba BRouteru jako dřív');
     const om = await geocodePlaces('Karlštejn');
     assert.deepEqual(await geocodeExplore('Karlštejn'), om, 'hledání v Objevuj = geokódování beze změny');
+    // vlastní seznam míst: obec Karlštejn první, pak hrad a obec stejného jména v Pardubickém kraji
     const g = await (await get('/api/geocode?mapy=1&q=Karl%C5%A1tejn')).json();
-    assert.deepEqual(g.items.map((x) => x.label), ['Karlštejn']);
+    assert.deepEqual(g.items.map((x) => [x.label, x.fc]), [['Karlštejn', 'PPL'], ['Karlštejn', 'CSTL'], ['Karlštejn', 'PPL']]);
     const t = await get('/api/tiles/mapy/outdoor/10/553/346');
     assert.equal(t.status, 404);
     assert.match((await t.json()).error, /MAPY_API_KEY/);
@@ -306,10 +306,6 @@ test('dlaždice: limit z jedné IP na každou dlaždici (nic se neukládá), sou
 
 test('hledání v Objevuj: Mapy.com doplní vesnice a místa, stejné místo jen jednou, logo u výsledků; bez mapy=1 jen geokódování', async () => {
   config.mapyKey = KEY;
-  const om = { results: [
-    { id: 3067696, name: 'Praha', latitude: 50.088, longitude: 14.4208, country_code: 'CZ', country: 'Česko', admin1: 'Praha', population: 1165581, feature_code: 'PPLC' },
-    { id: 2, name: 'Karlštejn', latitude: 49.934, longitude: 14.18, country_code: 'CZ', country: 'Česko', admin1: 'Středočeský kraj', population: 840, feature_code: 'PPL' },
-  ] };
   const cz = [{ name: 'Česko', type: 'regional.country', isoCode: 'CZ' }];
   const sug = { items: [
     { name: 'Praha', label: 'Hlavní město', position: { lon: 14.43, lat: 50.08 }, type: 'regional.municipality', location: 'Česko', regionalStructure: cz },
@@ -318,14 +314,21 @@ test('hledání v Objevuj: Mapy.com doplní vesnice a místa, stejné místo jen
     { name: 'Rozhledna Bobová', label: 'Rozhledna', position: [14.2, 49.95], type: 'poi', location: 'Česko', regionalStructure: cz },
   ] };
   const stub = stubFetch((url) => {
-    if (url.startsWith('https://geocoding-api.open-meteo.com/')) return { body: om };
     if (url.startsWith('https://api.mapy.com/v1/suggest')) return { body: sug };
     return { status: 404, body: {} };
   });
   try {
-    const items = await geocodeExplore('Kar');
-    assert.deepEqual(items.map((x) => [x.label, x.src || 'om']), [['Praha', 'om'], ['Karlštejn', 'mapy'], ['Karlštejn', 'mapy'], ['Rozhledna Bobová', 'mapy']],
-      'velké město z Open-Meteo první, Praha z Mapy.com a obec Karlštejn z Open-Meteo jen jednou, hrad i obec zvlášť');
+    // (náhradní Mapy.com odpoví na každý text stejně)
+    const items = await geocodeExplore('Praha');
+    assert.deepEqual(items.slice(0, 4).map((x) => [x.label, x.src || 'geo']), [['Praha', 'geo'], ['Karlštejn', 'mapy'], ['Karlštejn', 'mapy'], ['Rozhledna Bobová', 'mapy']],
+      'velké město z vlastního seznamu první, Praha z Mapy.com jen jednou, hrad i obec zvlášť');
+    assert.equal(items.filter((x) => x.label === 'Praha' && x.cc === 'CZ').length, 1);
+    // menší místa ze seznamu, která má i Mapy.com (obec a hrad Karlštejn), jen jednou – s logem Mapy.com; Karlštejn
+    // v Pardubickém kraji zůstane
+    const k = await geocodeExplore('Karlštejn');
+    assert.deepEqual(k.filter((x) => x.label === 'Karlštejn').map((x) => x.src || x.fc), ['mapy', 'mapy', 'PPL']);
+    // větší místa ze seznamu (od 1000 obyvatel) před návrhy Mapy.com, nejvýš 10
+    assert.deepEqual((await geocodeExplore('Kar')).map((x) => x.src || 'geo'), [...Array(6).fill('geo'), ...Array(4).fill('mapy')]);
     const hrad = items[1];
     assert.equal(hrad.sub, 'Hrad · Karlštejn, Středočeský kraj');
     assert.equal(hrad.cc, 'CZ');
@@ -334,7 +337,7 @@ test('hledání v Objevuj: Mapy.com doplní vesnice a místa, stejné místo jen
     assert.equal(items[3].lon, 14.2, 'poloha i jako pole [lon, lat]');
     const sc = stub.calls.find((c) => c.url.startsWith('https://api.mapy.com/v1/suggest'));
     const u = new URL(sc.url);
-    assert.equal(u.searchParams.get('query'), 'Kar');
+    assert.equal(u.searchParams.get('query'), 'Praha');
     assert.equal(u.searchParams.get('lang'), 'cs');
     assert.deepEqual(u.searchParams.getAll('type'), ['regional.municipality', 'regional.municipality_part', 'regional.address', 'poi']);
     assert.equal(sc.init.headers['X-Mapy-Api-Key'], KEY);
@@ -349,10 +352,10 @@ test('hledání v Objevuj: Mapy.com doplní vesnice a místa, stejné místo jen
     assert.equal(stub.calls.filter((c) => isMapy(c.url)).length, n + 1, 'stejný text podruhé znovu na Mapy.com (bez mezipaměti), bez mapy=1 vůbec');
     // Mapy.com nejde (pojistka) → jen geokódování, bez chyby
     cache.map.clear();
-    const s403 = stubFetch((url) => (isMapy(url) ? { status: 403, body: {} } : url.startsWith('https://geocoding-api.open-meteo.com/') ? { body: om } : { status: 404, body: {} }));
+    const s403 = stubFetch((url) => (isMapy(url) ? { status: 403, body: {} } : { status: 404, body: {} }));
     try {
       const c = await (await get('/api/geocode?mapy=1&q=Kar')).json();
-      assert.deepEqual(c.items.map((x) => x.label), ['Praha', 'Karlštejn']);
+      assert.ok(c.items.length && !c.items.some((x) => x.src === 'mapy'), c.items.map((x) => x.label).join(', '));
     } finally {
       s403.restore();
     }

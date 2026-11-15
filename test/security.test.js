@@ -1,5 +1,5 @@
 // Bezpečnost veřejného serveru (DEMO): hlavičky a CSP stránky, adresa klienta pro limity (podvržená X-Forwarded-For),
-// API z cizích webů, limity fotek a geokódování, tělo požadavku, texty chyb bez detailů, skryté soubory.
+// API z cizích webů, limity fotek, hledání míst bez sítě, tělo požadavku, texty chyb bez detailů, skryté soubory.
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
@@ -152,37 +152,27 @@ test('fotky měst: dotazy mimo mezipaměť jen do limitu z adresy, odpověď z m
   }
 });
 
-test('geokódování (Open-Meteo) mimo mezipaměť jen do limitu: našeptávač pak z vlastních dat, hledání míst 429', async () => {
-  const mock = config.mock, max = config.geocodePer10Min;
-  config.mock = false;
-  config.geocodePer10Min = 2;
+test('hledání míst z vlastního seznamu (GeoNames): bez dotazů ven, bez limitu z IP a bez „partial“ (dřív strop Open-Meteo)', async () => {
   let calls = 0;
   globalThis.fetch = async (url, init) => {
     if (String(url).startsWith(base)) return realFetch(url, init);
     calls++;
-    const name = new URL(url).searchParams.get('name');
-    return new Response(JSON.stringify({ results: [{ id: 1, name, latitude: 45.1, longitude: 9.2, country_code: 'IT', country: 'Itálie', population: 20000, feature_code: 'PPL' }] }), { headers: { 'content-type': 'application/json' } });
+    return new Response('x', { status: 500 });
   };
   try {
     const h = { 'cf-connecting-ip': '198.51.100.50' };
-    const a = await (await get('/api/geocode?q=Qzvbtown', h)).json();
-    assert.equal(a.items[0].label, 'Qzvbtown');
-    assert.equal((await get('/api/places?q=Qzvbvilla', h)).status, 200);
-    assert.equal(calls, 2);
-    const lim = await get('/api/geocode?q=Qzvbcity', h);
-    assert.equal(lim.status, 429, 'nad limitem a nic z vlastních dat');
-    const sug = await (await get('/api/places?q=Qzvbplace', h)).json();
-    assert.equal(sug.partial, true, 'našeptávač: jen vlastní data, jako při výpadku');
-    assert.equal(calls, 2, 'nad limitem žádný dotaz na Open-Meteo');
-    assert.equal((await (await get('/api/geocode?q=Qzvbtown', h)).json()).items[0].label, 'Qzvbtown', 'z mezipaměti i nad limitem');
-    assert.equal((await get('/api/geocode?q=Qzvbcity', { 'cf-connecting-ip': '198.51.100.51' })).status, 200, 'jiná adresa');
-    // výpadek Open-Meteo: česky a bez adresy API
-    globalThis.fetch = async (url, init) => (String(url).startsWith(base) ? realFetch(url, init) : new Response('x', { status: 500 }));
-    const down = await get('/api/geocode?q=Qzvbdown', { 'cf-connecting-ip': '198.51.100.52' });
-    assert.equal(down.status, 502);
-    assert.doesNotMatch(await down.text(), /https?:|open-meteo/i);
+    for (const q of ['Benátky', 'Mnichov', 'Hallstatt', 'Pustevny', 'Qzvbtown']) {
+      for (let i = 0; i < 5; i++) {
+        const g = await get(`/api/geocode?q=${encodeURIComponent(q)}`, h);
+        assert.equal(g.status, 200, q);
+        const p = await (await get(`/api/places?q=${encodeURIComponent(q)}`, h)).json();
+        assert.equal(p.partial, undefined, q);
+      }
+    }
+    const [ven] = (await (await get('/api/geocode?q=Ben%C3%A1tky', h)).json()).items;
+    assert.deepEqual([ven.label, ven.cc, ven.sub], ['Benátky', 'IT', 'Benátsko, Itálie']);
+    assert.equal(calls, 0, 'žádný dotaz ven');
   } finally {
-    Object.assign(config, { mock, geocodePer10Min: max });
     globalThis.fetch = realFetch;
   }
 });

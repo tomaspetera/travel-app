@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Sestaví data/places.json – vlastní seznam míst pro hledání (našeptávač, Objevuj, anglické názvy pro ubytování)
-// z výpisu GeoNames (CC BY 4.0, komerční užití povolené). Nahradí geokódování Open-Meteo: to stojí na týchž
+// z výpisu GeoNames (CC BY 4.0, komerční užití povolené). Nahrazuje geokódování Open-Meteo: to stojí na týchž
 // datech, ale zdarma jen pro nekomerční užití.
 //
 //   node scripts/build-places.mjs [--cache <adresář>]
@@ -178,8 +178,9 @@ export function selectPlace(r, eu, f, n) {
   return OBJ_WORLD.has(r.fc) && f & LINK && (f & CS || r.pop >= 1000 || n >= 5) ? 'svět objekty' : null;
 }
 
-// Povinná místa (zadání): dotaz → očekávaný název (a země), nejvýš na 3. místě; en = anglický název.
-const MUST = [
+// Povinná místa (zadání): dotaz → očekávaný název (a země), nejvýš na 3. místě; en = anglický název. Hlídá je i test
+// (test/places-search.test.js).
+export const MUST = [
   ['Benátky', 'Benátky', 'IT', 'Venice'], ['Mnichov', 'Mnichov', 'DE', 'Munich'], ['Řezno', 'Řezno', 'DE'], ['Drážďany', 'Drážďany', 'DE'],
   ['Kolín nad Rýnem', 'Kolín nad Rýnem', 'DE'], ['Vratislav', 'Vratislav', 'PL'], ['Soluň', 'Soluň', 'GR'], ['Lublaň', 'Lublaň', 'SI'],
   ['Vídeň', 'Vídeň', 'AT'], ['Krakov', 'Krakov', 'PL'], ['Hallstatt', 'Hallstatt', 'AT'], ['Portofino', 'Portofino', 'IT'],
@@ -195,27 +196,22 @@ const MUST = [
 ];
 
 /**
- * Kontrola povinných míst nad vybranými místy: přesná shoda klíče před začátkem názvu, pak významnost (počet obyvatel,
- * u neobydlených objektů počet jazyků × 1000) – stejné řazení, jaké má mít hledání v aplikaci. Vrací řádky výpisu
- * a počet chyb.
+ * Kontrola povinných míst skutečným hledáním aplikace (server/lib/places.js geocode a englishName) nad právě zapsaným
+ * data/places.json. Vrací řádky výpisu a počet chyb.
  */
-export function mustFind(places) {
+export async function mustFind() {
+  const { geocode, englishName } = await import('../server/lib/places.js');
   const out = [];
   let bad = 0;
   for (const [q, label, cc, en, top = 3] of MUST) {
-    const nq = normalize(q);
-    const hits = [];
-    for (const p of places) {
-      const m = p.keys.includes(nq) ? 2 : p.keys.some((k) => k.startsWith(nq)) ? 1 : 0;
-      if (m) hits.push({ p, m, imp: Math.max(p.pop, p.n * 1000) });
-    }
-    hits.sort((a, b) => b.m - a.m || b.imp - a.imp);
-    const rank = hits.slice(0, 6).findIndex((h) => h.p.label === label && h.p.cc === cc) + 1;
-    const p = rank ? hits[rank - 1].p : null;
-    const ok = rank && rank <= top && (!en || p.en === en);
+    const hits = await geocode(q);
+    const rank = hits.findIndex((p) => p.label === label && p.cc === cc) + 1;
+    const p = hits[rank - 1];
+    const pen = p && (await englishName(p.label, p.lat, p.lon, p.cc, p.gid));
+    const ok = rank && rank <= top && (!en || pen === en);
     if (!ok) bad++;
-    out.push(`${ok ? 'OK ' : 'CHYBA'} ${q} → ${rank ? `${rank}. ${label} (${cc})${en ? ` / ${p.en}` : ''}` : 'nenalezeno'}`
-      + `   [${hits.slice(0, 3).map((h) => `${h.p.label} ${h.p.cc}`).join('; ')}]`);
+    out.push(`${ok ? 'OK ' : 'CHYBA'} ${q} → ${rank ? `${rank}. ${label} (${cc})${en ? ` / ${pen}` : ''}` : 'nenalezeno'}`
+      + `   [${hits.slice(0, 3).map((h) => `${h.label} ${h.cc}`).join('; ')}]`);
   }
   return { out, bad };
 }
@@ -321,21 +317,22 @@ async function main() {
 
   const rows = [];
   const bytes = {};
-  const check = [];
   let prev = 0;
+  // poloha jako toFixed(4) z čísla GeoNames (ne Math.round(x × 1e4) – u x,xxxx5 zaokrouhlí jinak): ID míst
+  // geo:lat,lon|název jsou pak stejná jako dřív z Open-Meteo (uložené cesty, hlídání cen, sdílené odkazy)
+  const e4 = (x) => Math.round(x.toFixed(4) * 1e4);
   for (const p of sorted) {
     const of = (lang) => p.names.filter((n) => n.lang === lang);
     const label = pickName(of('cs'), p.name).replace(/\|/g, '/');
     const en = pickName(of('en').filter((n) => n.pref), p.name).replace(/\|/g, '/');
     const keys = [...new Set([label, p.name, p.ascii, en, ...p.names.map((n) => n.name)].map(normalize).filter(Boolean))];
     const n = nLangs[p.gid];
-    const f = [p.gid - prev, label, Math.round(p.lat * 1e4), Math.round(p.lon * 1e4), a1Index.get(`${p.cc}.${p.a1}`), p.pop, fcIndex.get(p.fc) || '', p.fcl === 'P' ? '' : n || '',
+    const f = [p.gid - prev, label, e4(p.lat), e4(p.lon), a1Index.get(`${p.cc}.${p.a1}`), p.pop, fcIndex.get(p.fc) || '', p.fcl === 'P' ? '' : n || '',
       en === label ? '' : en, keys.length === 1 && keys[0] === label.toLowerCase() ? '' : keys.join(',')];
     while (f[f.length - 1] === '') f.pop();
     const row = f.join('|');
     rows.push(row);
     bytes[p.group] = (bytes[p.group] || 0) + Buffer.byteLength(row) + 4;
-    check.push({ label, cc: p.cc, en, keys, pop: p.pop, n: p.fcl === 'P' ? 0 : n });
     prev = p.gid;
   }
 
@@ -344,7 +341,7 @@ async function main() {
   writeFileSync(OUT, json);
   lap(`hotovo: ${rows.length} míst, ${(Buffer.byteLength(json) / 1e6).toFixed(2)} MB`);
   for (const [g, c] of Object.entries(groups).sort()) console.log(`  ${g.padEnd(18)} ${String(c).padStart(7)} míst ${(bytes[g] / 1e6).toFixed(2).padStart(6)} MB`);
-  const { out, bad } = mustFind(check);
+  const { out, bad } = await mustFind();
   console.log(`Povinná místa (${MUST.length - bad}/${MUST.length}):\n  ${out.join('\n  ')}`);
   if (bad) process.exitCode = 1;
 }

@@ -152,8 +152,8 @@ export async function searchStays(raw, { english = englishName, partners = null,
   const retry = String(raw.retry ?? '') === '1';
   const fresh = String(raw.fresh ?? '') === '1';
   // Místo bez anglického názvu (přidané ručně, z Wikidat bez článku): partneři i LiteAPI hledají anglicky
-  // („Boloňa“ → „Bologna“) – název z geokódování v okolí místa (v mezipaměti).
-  if (!raw.cityEn && !q.iata && q.city && q.lat != null && !config.mock) {
+  // („Boloňa“ → „Bologna“) – název z vlastního seznamu míst (GeoNames) v okolí místa.
+  if (!raw.cityEn && !q.iata && q.city && q.lat != null) {
     q.cityEn = (await english(q.city, q.lat, q.lon, q.cc, q.gid).catch(() => null)) || q.cityEn;
   }
   // ID místa u partnerů (Trip.com, Agoda, Hostelworld) se dohledá souběžně s hledáním hotelů – každý dotaz nejvýš

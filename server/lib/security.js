@@ -124,7 +124,7 @@ export function clientIp(req) {
 /**
  * Požadavek z cizího webu: skript, obrázek nebo formulář na jiné stránce (Sec-Fetch-Site: cross-site – posílají ho
  * všechny dnešní prohlížeče; curl a jiné programy ne). Cizí stránka by jinak mohla své návštěvníky nechat hledat lety,
- * místa a fotky za jejich adresy – limit na adresu by neplatil a vyčerpané zdroje (Wikidata, Pexels, Open-Meteo) by
+ * místa a fotky za jejich adresy – limit na adresu by neplatil a vyčerpané zdroje (Wikidata, Pexels, MET Norway) by
  * chyběly všem. Otevření adresy API odkazem (navigace, např. /api/health z jiného webu) projde.
  */
 export const crossSite = (req) => req.headers['sec-fetch-site'] === 'cross-site' && req.headers['sec-fetch-mode'] !== 'navigate';

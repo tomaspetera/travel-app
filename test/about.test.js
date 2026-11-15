@@ -47,9 +47,10 @@ test('FEEDBACK_EMAIL: jen jedna obyčejná adresa (nic, co by v mailto přidalo 
 
 test('okno: zdroje dat, ukládání jen v prohlížeči, řazení, orientační ceny, záloha a verze', () => {
   const html = A.html({ version: '2026-10-22', screen: 'Lety' });
-  for (const s of ['Ryanair', 'Wizz Air', 'Kiwi.com', 'Travelpayouts / Aviasales', 'Xotelo', 'Open-Meteo', 'MET Norway', 'OpenFreeMap', 'OpenStreetMap', 'Mapy.com', 'Wikidata', 'Wikipedie', 'Wikivoyage', 'Unsplash', 'Pexels', 'Wikimedia', 'BRouter', 'RegioJet']) {
+  for (const s of ['Ryanair', 'Wizz Air', 'Kiwi.com', 'Travelpayouts / Aviasales', 'Xotelo', 'GeoNames (CC BY 4.0)', 'MET Norway', 'OpenFreeMap', 'OpenStreetMap', 'Mapy.com', 'Wikidata', 'Wikipedie', 'Wikivoyage', 'Unsplash', 'Pexels', 'Wikimedia', 'BRouter', 'RegioJet']) {
     assert.ok(html.includes(s), `zdroj ${s}`);
   }
+  assert.doesNotMatch(html, /Open-Meteo/, 'hledání míst z vlastního seznamu (GeoNames), ne Open-Meteo');
   assert.match(html, /localStorage/);
   assert.match(html, /žádné cookies, analytika ani měření návštěvnosti/);
   assert.match(html, /žádná aerolinka ani partner si za lepší pozici neplatí/);

@@ -1,11 +1,11 @@
 // Hory, národní parky, jeskyně a jezera v Objevuj (server/lib/names.js NATURE): hledání (api/geocode?mapy=1 →
 // geocodeExplore s regions), věta („výlet na Sněžku“, „v Krkonoších“ – smartPlace v public/js/places.js) a co Objevuj
-// s takovým místem udělá (pěšky, okruh celé oblasti). Pole letů je dál nenabízejí. Bez sítě: DEMO, geokodér jako náhrada fetch.
+// s takovým místem udělá (pěšky, okruh celé oblasti). Pole letů je dál nenabízejí. Bez sítě: geokodér je vlastní seznam
+// míst (GeoNames).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import { readFileSync } from 'node:fs';
-import { stubFetch } from './helpers.js';
 import { config } from '../server/config.js';
 
 const { suggest, localSuggestions, geocodeExplore, natureMatches } = await import('../server/lib/places.js');
@@ -76,7 +76,7 @@ const SEARCH = [
   ['Lake Bled', 'Bledské jezero', 'lake', 46.36391, 14.09381],
 ];
 
-test('Objevuj, hledání: hory, národní parky, jeskyně, skály a jezera → první návrh s druhem a polohou (DEMO, bez geokódování)', () => demo(async () => {
+test('Objevuj, hledání: hory, národní parky, jeskyně, skály a jezera → první návrh s druhem a polohou (DEMO, i s geokódováním)', () => demo(async () => {
   const bad = [];
   for (const [q, label, kind, lat, lon] of SEARCH) {
     const s = (await geocodeExplore(q, { mapy: false, regions: true }))[0];
@@ -113,32 +113,20 @@ test('seznam míst v přírodě: druh, okruh, země a poloha v pořádku, názvy
 });
 
 test('hledání při psaní: rozepsaný název („Krkon“) za většími místy, přesný název před stejnojmennými městy jinde', async () => {
-  const mock = config.mock;
-  config.mock = false;
-  // geokodér (Open-Meteo): Lipno v Polsku, Königsee v Durynsku, město Jeseník a vrchol Sněžka (totéž místo jednou)
-  const GEO = {
-    Lipno: [{ name: 'Lipno', latitude: 52.84436, longitude: 19.17852, country_code: 'PL', country: 'Polsko', population: 14821, feature_code: 'PPLA3', id: 1 }],
-    Königssee: [{ name: 'Königsee', latitude: 50.66143, longitude: 11.09748, country_code: 'DE', country: 'Německo', population: 6979, feature_code: 'PPL', id: 2 }],
-    Jese: [{ name: 'Jeseník', latitude: 50.2294, longitude: 17.2046, country_code: 'CZ', country: 'Česko', population: 11000, feature_code: 'PPLA3', id: 3 }],
-    Sněžka: [{ name: 'Sněžka', latitude: 50.73609, longitude: 15.73979, country_code: 'CZ', country: 'Česko', population: 0, feature_code: 'MT', id: 4 },
-      { name: 'Sněžka', latitude: 49.79215, longitude: 16.39515, country_code: 'CZ', country: 'Česko', population: 0, feature_code: 'MT', id: 5 }],
-  };
-  const stub = stubFetch((url) => ({ body: { results: GEO[new URL(url).searchParams.get('name')] || [] } }));
-  try {
-    const labels = async (q) => (await geocodeExplore(q, { mapy: false, regions: true })).map((x) => x.label);
-    assert.deepEqual((await labels('Lipno')).slice(0, 2), ['Lipno', 'Lipno']);
-    assert.equal((await geocodeExplore('Lipno', { mapy: false, regions: true }))[0].cc, 'CZ', 'Lipno na Šumavě, ne v Polsku');
-    assert.deepEqual(await labels('Königssee'), ['Königssee', 'Königsee']);
-    assert.deepEqual((await labels('Jese')).slice(0, 2), ['Jeseník', 'Jeseníky'], 'město Jeseník napřed, pohoří hned za ním');
-    // vrchol Sněžky z geokodéru je tentýž (jednou), jiná Sněžka 100 km daleko zůstane
-    assert.deepEqual(await labels('Sněžka'), ['Sněžka', 'Sněžka']);
-    assert.equal((await geocodeExplore('Sněžka', { mapy: false, regions: true }))[1].lat, 49.79215);
-    // bez regions (průvodce cestou, střed cíle u letů) jen geokodér – příroda ne
-    assert.ok(!(await geocodeExplore('Lipno', { mapy: false })).some((x) => x.nature));
-  } finally {
-    stub.restore();
-    config.mock = mock;
-  }
+  // geokodér (vlastní seznam míst GeoNames): Lipno v Polsku, jezero Königssee, města Jesenice a Jeseník, vrchol Sněžka
+  const labels = async (q) => (await geocodeExplore(q, { mapy: false, regions: true })).map((x) => x.label);
+  assert.deepEqual((await labels('Lipno')).slice(0, 2), ['Lipno', 'Lipno']);
+  assert.equal((await geocodeExplore('Lipno', { mapy: false, regions: true }))[0].cc, 'CZ', 'Lipno na Šumavě, ne v Polsku');
+  // jezero z geokodéru je totéž místo (jednou); Königsee v Durynsku (jiné jméno) seznam nenabídne – hledá přesný název
+  // nebo jeho začátek, ne podobná jména jako dřív Open-Meteo
+  assert.deepEqual(await labels('Königssee'), ['Königssee']);
+  const jese = await labels('Jese');
+  assert.ok(jese.indexOf('Jeseník') >= 0 && jese.indexOf('Jeseník') < jese.indexOf('Jeseníky'), `město Jeseník napřed, pohoří za většími místy: ${jese}`);
+  // vrchol Sněžky z geokodéru je tentýž (jednou), jiná Sněžka 100 km daleko zůstane
+  assert.deepEqual(await labels('Sněžka'), ['Sněžka', 'Sněžka']);
+  assert.equal((await geocodeExplore('Sněžka', { mapy: false, regions: true }))[1].lat, 49.7921);
+  // bez regions (průvodce cestou, střed cíle u letů) jen geokodér – příroda ne
+  assert.ok(!(await geocodeExplore('Lipno', { mapy: false })).some((x) => x.nature));
   assert.deepEqual(natureMatches('Krkon').map((x) => [x.s.label, x.exact]), [['Krkonoše', false]]);
   assert.deepEqual(natureMatches('Krk'), [], 'od 4 znaků');
   assert.deepEqual(natureMatches('Česk').map((x) => x.s.label), ['České Švýcarsko', 'Český ráj']);

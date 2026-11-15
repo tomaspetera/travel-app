@@ -7,7 +7,7 @@ import { createHash } from 'node:crypto';
 import path from 'node:path';
 import zlib from 'node:zlib';
 import { config } from './config.js';
-import { suggest, describe, resolveOrigins, geocodeExplore } from './lib/places.js';
+import { suggest, describe, resolveOrigins, geocodeExplore, loadPlaces } from './lib/places.js';
 import { NATURE_KINDS } from './lib/names.js';
 import { search, UserError, legBagCzk } from './lib/search.js';
 import { stayProviders } from './providers/stays/index.js';
@@ -201,7 +201,6 @@ const shareGetLimited = (req, id) => !shareStore.has('s:' + id) && rateLimited(r
 const PREVIEW_BUILD = { 'X-Atlas-Build': 'preview' };
 // fotka cíle do náhledu odkazu: z mezipaměti fotek, nová nejvýš 3 s (odkaz bez fotky má obecný náhled ATLASu)
 const previewPhoto = async (place) => ogPhoto(String(((await Promise.race([cityPhotos([place]), new Promise((r) => setTimeout(() => r(null), 3000))])) || {}).photos?.[place] || ''));
-const geoHits = new RateLimiter(); // geokódování mimo mezipaměť serveru (Open-Meteo) – našeptávač a hledání míst
 const wxHits = new RateLimiter(); // předpověď mimo mezipaměť serveru (MET Norway)
 // clientIp (server/lib/security.js): na Renderu adresa od Cloudflare, ne podvrhnutelná první z X-Forwarded-For
 /** Nad limitem → true a req.retryAfter = za kolik sekund to půjde znovu (hlavička Retry-After u 429). */
@@ -629,29 +628,18 @@ async function route(req, res) {
     // near = ID domova (pořadí podle vzdálenosti), role=from = pole Odkud (město před svým letištěm)
     const near = (url.searchParams.get('near') || '').slice(0, 120);
     const role = url.searchParams.get('role') === 'from' ? 'from' : 'to';
-    // partial: geokódování teď nejde (návrhy jen z vlastních dat) – našeptávač to zkusí znovu
-    const meta = {};
     // nature=1: i hory a příroda přesným názvem (jen Objevuj – místo z věty), pole letů je nechtějí
-    // geokódování mimo mezipaměť jen do limitu z adresy (geoHits) – nad ním návrhy z vlastních dat (partial)
-    const allow = () => !rateLimited(req, config.geocodePer10Min, geoHits);
-    const items = await suggest(q, { remote, near, role, meta, nature: url.searchParams.get('nature') === '1', allow });
-    return sendJson(req, res, 200, { items, ...(meta.geoErr ? { partial: true } : {}) });
+    const items = await suggest(q, { remote, near, role, nature: url.searchParams.get('nature') === '1' });
+    return sendJson(req, res, 200, { items });
   }
   if (p === '/api/geocode') {
     // Města a místa (střed města, ne letiště) – pro objevování a program. mapy=1 (hledání v Objevuj): s klíčem Mapy.com
     // i jejich návrhy (vesnice, adresy, hrady, rozhledny…); mají vlastní limit na IP – nad ním bez nich.
     const q = (url.searchParams.get('q') || '').slice(0, 80);
     const mapy = url.searchParams.get('mapy') === '1' && mapyOn() && !rateLimited(req, config.explorePer10Min, mapySugs);
-    let items = [];
-    try {
-      // regions: oblast přesným názvem (Toskánsko, Kanáry) jako její hlavní město a hory a příroda z vlastního seznamu
-      // (Sněžka, Šumava) – jen hledání v Objevuj (mapy=1)
-      items = await geocodeExplore(q, { mapy, regions: url.searchParams.get('mapy') === '1', allow: () => !rateLimited(req, config.geocodePer10Min, geoHits) });
-    } catch (e) {
-      if (e.code === 'LIMIT') return sendJson(req, res, 429, { error: e.message });
-      console.warn(`geocode: ${e.message}`);
-      return sendJson(req, res, 502, { error: 'Hledání míst teď nefunguje (geokódování neodpovídá) – zkus to prosím za chvíli.' });
-    }
+    // regions: oblast přesným názvem (Toskánsko, Kanáry) jako její hlavní město a hory a příroda z vlastního seznamu
+    // (Sněžka, Šumava) – jen hledání v Objevuj (mapy=1)
+    let items = await geocodeExplore(q, { mapy, regions: url.searchParams.get('mapy') === '1' });
     const cc = (url.searchParams.get('cc') || '').toUpperCase();
     if (cc) items = [...items.filter((x) => x.cc === cc), ...items.filter((x) => x.cc !== cc)];
     return sendJson(req, res, 200, { items });
@@ -1182,6 +1170,8 @@ export function createServer() {
 async function warmUp() {
   await loadRates();
   console.log(`Kurzy: ${fxInfo().source}, 1 EUR = ${fxInfo().eurCzk} Kč`);
+  // seznam míst pro našeptávač a Objevuj (~0,2 s) hned po startu, ne až při prvním hledání
+  console.log(`Hledání míst: ${loadPlaces().rows.length} míst (GeoNames)`);
   if (config.mock) return;
   refreshFuel().then(() => console.log(`Ceny PHM: ${fuelText('CZ', 'diesel')}`)).catch(() => {});
   for (const p of activeProviders()) {
