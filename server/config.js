@@ -120,6 +120,9 @@ export const config = {
   // server – náhodné názvy by ho jinak vyčerpaly všem. Běžný uživatel se k limitu nepřiblíží (dávka fotek = až 30 karet).
   photosPer10Min: num(env.PHOTOS_RATE_LIMIT, 60),
   geocodePer10Min: num(env.GEOCODE_RATE_LIMIT, 200),
+  // Předpověď počasí (/api/weather – MET Norway): z jedné IP za 10 minut nejvýš tolik míst mimo mezipaměť serveru.
+  // MET dovolí celé aplikaci do 20 dotazů za sekundu; výsledky hledání a radar chtějí až 40 míst najednou.
+  weatherPer10Min: num(env.WEATHER_RATE_LIMIT, 300),
   // 💬 Napsat nám v ℹ️ O aplikaci: kam vede mailto. Bez adresy (nebo s neplatnou) se tlačítko neukáže – adresa
   // jen v proměnné prostředí, v kódu žádná.
   feedbackEmail: cleanEmail(env.FEEDBACK_EMAIL),

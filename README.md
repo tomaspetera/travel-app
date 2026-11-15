@@ -37,7 +37,7 @@ pobytu leží v oblasti hor) na každý den jiný cíl tam a zpět – hlavní v
 z ubytování nebo ze startu u cíle (parkoviště, nádraží, obec z Wikidat), s délkou, převýšením, časem chůze, obtížností,
 chatami po cestě (OpenStreetMap), kratší variantou do deště, s dětmi lehčími cíli a kratší túrou v den příjezdu a odjezdu.
 Bez trasy z BRouteru zůstane odhad vzdušnou čarou a odkaz do Mapy.com. U každého dne výletu i u trasy
-je **předpověď počasí** (Open-Meteo) a když má pršet, ATLAS navrhne lepší den; na termíny za víc než 15 dní ukáže
+je **předpověď počasí** (MET Norway) a když má pršet, ATLAS navrhne lepší den; na termíny za víc než 9 dní ukáže
 dlouhodobý průměr. Mapa je zdarma a bez klíče (MapLibre + OpenFreeMap, záloha OpenStreetMap) a odkazy do Google Map
 hledají místo podle názvu. S volitelným bezplatným klíčem [Mapy.com](#mapycom-volitelně-zdarma) je pod trasou pěšky a na
 kole turistická mapa se značenými trasami a hledání v Objevuj najde i malé vesnice, hrady a rozhledny. Plán jde **exportovat do kalendáře** (.ics, Google Kalendář) a **sdílet odkazem**.
@@ -117,7 +117,7 @@ i Zpět (tlačítko nebo gesto) a nové výsledky hledání, které mezitím dor
 
 Od 2 dnů před odjezdem do konce uložené cesty začíná **Přehled** kartou s tím, co tě dnes čeká – bez listování celým
 plánem a hledání v e-mailu, i bez signálu (vše je v telefonu, žádný dotaz na server ani partnery – jen předpověď
-počasí z Open-Meteo, a ta se uloží):
+počasí z MET Norway přes server, a ta se uloží):
 
 - **Před odjezdem** „🧳 Za 2 dny odlet · Lisabon“ a řádky po dnech až do dne odjezdu (online check-in, kdy nejpozději
   vyrazit z domu, cesta na letiště, let s časem, dopravcem a číslem, z letiště do města, ubytování) a kolik položek
@@ -157,7 +157,7 @@ ztlumí). Čas, nástupiště a místo jdou i do odkazu na plán a do kalendář
 (jako 🔖 rezervace). Znovu uložená cesta z průvodce je nechá u vlaků, které trasa pořád má.
 
 **🌤️ Počasí na kartě**: místo, kde dnes jsi (v den přejezdu obě), a zítřejší další místo trasy; večer před odjezdem
-cíl na den odjezdu – ikona, max / min °C a pravděpodobnost srážek (Open-Meteo přes `Weather.forecast`, jeden dotaz
+cíl na den odjezdu – ikona, max / min °C a pravděpodobnost srážek (MET Norway přes `Weather.forecast`, jeden dotaz
 na všechna místa, nejvýš jednou za 2 h). Předpověď se uloží v telefonu (`atlas_nowwx`), takže je vidět i bez signálu –
 pak, nebo když je starší než 2 h, s „předpověď z 9:22“. Mimo cestu (a u cesty jen z plánovače bez poloh míst) žádný dotaz.
 
@@ -372,7 +372,7 @@ krém…).
 | **Bez připojení** | Když server nebo síť nejsou dostupné, hledání míst (Lety, Objevuj, ✨ věty) řekne, že jde o připojení – ne že místo nezná. |
 | **↺ Začít znovu** | Co si aplikace pamatuje, jde jedním klepnutím vyprázdnit: v Letech pod tlačítkem hledání (formulář na výchozí – odkud a okruh z domova, doprava na letiště jako minule – a uložené výsledky pryč; nedávná hledání a hlídání zůstanou), v Objevuj u místa nebo ✕ v poli hledání (místo, plány a vybraná místa pryč, okruh, zájmy a *Naposledy* zůstanou) a v Cestě nahoře vedle vlajky (rozpracovaná cesta pryč po otázce, kopie v plánovači zůstane). |
 | **Kam za teplem** | Volba 🌡️ Za teplem (≥ 20 / 25 / 30 °C) pustí jen cíle, kde je v měsíci odletu dlouhodobě aspoň tolik stupňů (meteostanice u letiště, průměr 1991–2020; kde stanice není, NASA POWER 2001–2020). U každé nabídky je štítek s teplotou a řazení „Nejtepleji“. |
-| **Počasí v cíli** | U cest s odletem do 15 dní je místo dlouhodobého průměru 🌡️ předpověď Open-Meteo na dny cesty – u nabídky „☀️ 22° · 💧 10 %“ (ikona nejdeštivějšího dne, průměr denních maxim, nejvyšší pravděpodobnost srážek), při aspoň dvou deštivých dnech „🌧️ prší 2 dny ze 3“; v řádcích Přehledu a na kartách radaru krátce „☀️ 22°“, po najetí myší den po dni. Pozdější cesty mají dál průměr 🌡️ (předpověď dál nesahá). Prohlížeč se ptá Open-Meteo přímo (zdarma, bez klíče, server to nezatěžuje): jeden dotaz na výsledek hledání (nejvýš 40 cílů, v paměti hodinu – řazení ani filtry nic znovu nenačítají) a jeden na radar. Dokud předpověď nedorazí (nebo když se nenačte), zůstane vidět průměr. |
+| **Počasí v cíli** | U cest s odletem do 9 dní je místo dlouhodobého průměru 🌡️ předpověď MET Norway na dny cesty – u nabídky „☀️ 22° · 💧 10 %“ (ikona nejdeštivějšího dne, průměr denních maxim, nejvyšší pravděpodobnost srážek), při aspoň dvou deštivých dnech „🌧️ prší 2 dny ze 3“; v řádcích Přehledu a na kartách radaru krátce „☀️ 22°“, po najetí myší den po dni. Pozdější cesty mají dál průměr 🌡️ (předpověď dál nesahá). Prohlížeč se ptá našeho serveru (`/api/weather`, ten MET Norway – viz [Počasí](#počasí-met-norway)): jeden dotaz na výsledek hledání (nejvýš 40 cílů, v paměti hodinu – řazení ani filtry nic znovu nenačítají) a jeden na radar. Dokud předpověď nedorazí (nebo když se nenačte), zůstane vidět průměr. |
 | **Cena i se zavazadly** | 🧳 Zavazadla (kabinový kufr / kufr k odbavení) přičte odhad poplatku podle dopravce (~95 aerolinek, ověřeno na jejich webech 10/2026) – nízkonákladovky se tak férově porovnají s klasickými aerolinkami. |
 | **Hlídání cen + živý radar** | Ulož hledání ♡ a nastav cílovou cenu. Dokud máš ATLAS otevřený v prohlížeči, kontroluje ho sám zhruba jednou za 6 h (po otevření hned všechna, která to potřebují, pak nejvýš 4 za půl hodiny), kreslí vývoj ceny a při zlevnění o 3 % nebo pod cílovou částku se ozve (i upozorněním prohlížeče). Stejné hledání (stejný dotaz – nezáleží na pořadí míst) se hlídá jen jednou: uložíš-li ho znovu (♡ pod formulářem i v *Je to dobrá cena?*), jen se mu aktualizuje cena a panel ukáže *✓ Tohle hledání už hlídáš*. Když stejné hledání spustíš podruhé a ještě ho nehlídáš, nabídne ho výsledek sám: *🔁 Tohle hledáš už po 2. – ♡ Hlídat cenu*. Radar ukazuje nejlevnější zpáteční lety z tvého okolí na příštích 6 týdnů. Přepínač *🗓️ Kdykoliv / 🏙️ Víkendy / 🎉 Svátky*: Kdykoliv = 2–7 nocí, Víkendy = odlet v pátek nebo v sobotu a návrat v neděli nebo v pondělí (1–3 noci, u karet i den v týdnu), Svátky = nejbližší prodloužený víkend kolem českého svátku (aspoň 3 volné dny; svátek v úterý nebo ve čtvrtek se přemostí jedním dnem volna, středa se přeskočí – tu najde *🗓️ Kdy si vzít dovolenou*; Velikonoce podle data Velikonoc) – odlet večer předem (od 16:00 – ranní lety v pracovní den server vyřadí už při hledání) nebo první volný den, návrat poslední volný den; pod přepínačem jsou na výběr tři nejbližší takové víkendy (volba se pamatuje). Kdo hledá hlavně víkendy (aspoň 3 z posledních 5 hledání na víkend, prodloužený víkend nebo svátek), tomu radar v režimu Kdykoliv nabídne *💡 Hledáš hlavně víkendy → ukázat Víkendy* – jednou, vlastní volba režimu nabídku ukončí. Volbu si ATLAS pamatuje, výsledky všech režimů drží půl hodiny (přepnutí tam a zpět nic znovu nehledá) a klik na kartu otevře vyhledávač se stejnými podmínkami – ceny radaru jsou za osobu pro počet cestujících z nastavení radaru (*změnit* u domova, výchozí 2) a klik na kartu hledá pro stejný počet, aby karta i proklik ukázaly stejnou cenu (u Svátků i s pravidlem „v předvečer jen odlety od 16:00“ – zaškrtávátko v *Další možnosti*, jde vypnout). Pod termínem každé karty radaru je, kolik dní dovolené cesta stojí. Karty s odletem do 15 dní mají štítek předpovědi počasí v cíli, ostatní dlouhodobý průměr denních maxim v měsíci odletu (*🌡️ ~8°*) (viz *Počasí v cíli*). |
 | **🕘 Od minula** | Když ATLAS otevřeš jiný den (aspoň 8 h od minula), nahoře na Přehledu je krátká karta s tím, co se od poslední návštěvy změnilo pro tebe – nejvýš 3 řádky, nejdůležitější první: 🎯 hlídaná cena od minula pod cílovou částkou, 📉 hlídání zlevněné od minula („o 210 Kč levněji než v pondělí“ – cena z poslední kontroly před návštěvou, nová z kontroly, kterou aplikace po otevření dělá stejně), ✈️ uložená cesta za 3–7 dní s časem otevření online check-inu (Ryanair, Wizz Air), 📡 nové cíle v radaru po jeho obnovení a 📌 odložené nabídky, které mezitím propadly (s hledáním nových termínů). Klepnutí vede na místo, ✕ řádky skryje, dokud se nezmění. Nic se neozve v telefonu a karta nestojí žádný dotaz na server navíc – jen uložená data v prohlížeči (`public/js/since.js`). Když se nic nezměnilo, karta se neukáže. |
@@ -1190,9 +1190,21 @@ Zkopíruj `.env.example` na `.env`:
 | `TILES_RATE_LIMIT` | `300` | max. dlaždic Mapy.com z jedné IP za 10 minut (jen ty mimo mezipaměť serveru) |
 | `PHOTOS_RATE_LIMIT` | `60` | max. dotazů na fotky měst (`/api/photos`, dávka až 30 karet) z jedné IP za 10 minut – jen ty, které nejdou celé z mezipaměti serveru (Wikimedia, Pexels, Unsplash mají strop pro celý server) |
 | `GEOCODE_RATE_LIMIT` | `200` | max. geokódování přes Open-Meteo (našeptávač, hledání míst) z jedné IP za 10 minut, jen mimo mezipaměť; nad limitem našeptávač nabídne místa z vlastních dat |
+| `WEATHER_RATE_LIMIT` | `300` | max. míst s předpovědí z MET Norway (`/api/weather`) z jedné IP za 10 minut, jen mimo mezipaměť serveru; nad limitem je místo bez předpovědi (aplikace ukáže dlouhodobý průměr) |
 | `FEEDBACK_EMAIL` | – | volitelné: adresa pro **💬 Napsat nám** v *⋯ Další → ℹ️ O aplikaci a soukromí* (mailto s předmětem „ATLAS – zpětná vazba (verze …, obrazovka: …)“). `/api/health` ji pošle jako `feedback: { email }` jen když je nastavená a platná (jedna adresa); bez ní tlačítko chybí. Adresa jen tady, v kódu žádná |
 | `PUBLIC_URL` | `https://atlas-letenky.onrender.com` | veřejná adresa webu (bez `/` na konci) pro kanonickou adresu, náhledy sdílených odkazů a `sitemap.xml` – až bude vlastní doména, stačí ji nastavit tady (viz [Přejmenování a doména](#přejmenování-a-doména)); výchozí je `url` v `server/brand.js` |
 | `ATLAS_MOCK` | `0` | `1` = demo data (totéž co `npm run demo`) |
+
+### Počasí (MET Norway)
+
+Předpověď na 9 dní dává MET Norway (norský meteorologický ústav, Locationforecast 2.0, data CC BY 4.0) – zdarma
+i pro komerční provoz, bez klíče. Prohlížeč se ptá jen našeho serveru (`/api/weather`, `server/lib/weather.js`), server
+se ptá MET podle jejich podmínek: User-Agent s názvem aplikace a adresou webu (`PUBLIC_URL`), stejné místo nejdřív
+za 3 h a pak s `If-Modified-Since`, nejvýš ~16 dotazů za sekundu, souřadnice na 2 desetinná místa. IP adresa uživatele
+se k MET nedostane. Z hodinové a šestihodinové řady server spočítá denní souhrny po místních dnech (nejhorší počasí dne,
+max / min, úhrn srážek) a symboly MET převede na kódy WMO, se kterými počítají ikony. Při výpadku MET vrátí předpověď
+do 12 h starou; DEMO se na MET neptá. Dřív šla předpověď z Open-Meteo přímo z prohlížeče – to je zdarma jen pro
+nekomerční weby (plán 1.2, kap. 14).
 
 ### Mapy.com (volitelně, zdarma)
 
@@ -1667,6 +1679,7 @@ prohlížeč (public/)                         server (server/, Node bez závisl
 | `POST /api/hike` | pěší okruh: `lat`, `lon`, `km` (2–40), `scenery`, `hills`, `variant` → jako `/api/bike` + `trailPct` (značené trasy), `roadPct`, `descent`; čas chůze podle DIN 33466 |
 | | `/api/bike` i `/api/hike` s klíčem Mapy.com: `tiles: "mapy"` = pod trasu turistickou mapu; `source: "mapy"` = trasa ze zálohy Mapy.com (`…Pct` pak `null`, `ascent` `null`, když nevyšel výškový profil) |
 | `GET /api/climate?iata=BKK` / `?lat=&lon=` / `?cc=TH` | dlouhodobé podnebí: `hi[12]`, `lo[12]` (průměrná denní maxima a minima °C), `p[12]` (srážky mm/měsíc), `src` (`wmo` / `ghcn` = meteostanice, `nasa` = model) a `source` (popis zdroje); země bez údajů (`?cc=AD`) vrací `{ none: true }` |
+| `GET /api/weather?pts=50.09,14.42;41.90,12.50` | předpověď MET Norway pro nejvýš 40 míst: `places` ve stejném pořadí – `{ tz, now: { t, code, wind, rh }, days: [{ date, code, hi, lo, pop, rain }] }` (kód počasí WMO, místní dny, nejvýš 9 dní), místo bez předpovědi `null`; `&tz=1` jen časová pásma míst (bez dotazu na MET) |
 | `POST /api/hikeplan` | túra na každý den: `lat`, `lon`, `label`, `start`, `end`, `arrivalTime`, `departureTime`, `kids`, `fromBase` (`false` = střed oblasti, start každý den u cíle), `radius`, `exclude` (id cílů) → `days[]` s `hike` (cíl, start, `km`, `ascent`, `minutes` podle DIN 33466, `difficulty`, `food` z OpenStreetMap nebo `null` = neznám, `rain`, `kids`, `geometry`, `mapyUrl`) a `items` pro plánovač; `area`, `spare`, `warnings`. Nejvýš 6 tras z BRouteru na plán (bez zálohy Mapy.com), jeden dotaz Overpass |
 | `GET /api/nature` | oblast hor a přírody, ve které místo leží (`lat`, `lon` → `area: { cs, kind, sub }` nebo `null`) – krok Program pak nabídne túry |
 | `POST /api/itinerary` | rozplánování míst do dnů (`lat`, `lon`, `start`, `end`, `arrivalTime`, `departureTime`, `pace`, `interests`, `exclude`, `include`, `radius` – okruh míst jako u `/api/poi`, 1–25 km, výchozí 10) |
@@ -1968,13 +1981,14 @@ přes víc míst jedou úseky v ty dny autem a ostatní vlakem / busem. Srovnáv
 - „Za teplem“ a podnebí berou dlouhodobé průměry z meteostanice u letiště. Kde stanice není (do 10 km, ve stejné
   zemi do 25 km – třeba Rhodos, Kos, Santorini, Pula, Istanbul), zůstává buňka NASA POWER 0,5°, která u pobřežních
   letovisek dává maxima o 1–5 °C nižší (buňka zahrnuje i moře). Stanice je na letišti, ne na pláži: na Mallorce či
-  Kypru jsou noci u letiště chladnější než v letovisku u moře. Předpověď počasí jde nejvýš 15 dní dopředu.
-- Štítek předpovědi u nabídek a na kartách radaru je jen u cest s odletem do 15 dní; pozdější cesty mají dál jen
+  Kypru jsou noci u letiště chladnější než v letovisku u moře. Předpověď počasí jde nejvýš 9 dní dopředu.
+- Štítek předpovědi u nabídek a na kartách radaru je jen u cest s odletem do 9 dní; pozdější cesty mají dál jen
   dlouhodobý průměr 🌡️ (není to předpověď). Cesta, která za dosah předpovědi pokračuje, ji má jen na první dny (napíše
-  to po najetí myší), u cesty jen tam se počítají tři dny od odletu. Jeden dotaz na Open-Meteo pokryje nejvýš 40 cílů
-  výsledku – při víc cílech v dosahu předpovědi zbylé ukážou jen průměr 🌡️. Poslední den dosahu (15. den) Open-Meteo
-  často ještě nemá počasí ani teploty – cesta s odletem ten den pak ukáže průměr 🌡️; dosah se počítá podle data v UTC
-  (krátce po půlnoci je o den kratší).
+  to po najetí myší), u cesty jen tam se počítají tři dny od odletu. Jeden dotaz na `/api/weather` pokryje nejvýš 40 cílů
+  výsledku – při víc cílech v dosahu předpovědi zbylé ukážou jen průměr 🌡️. Den, který předpověď MET pokryje jen
+  zčásti (konec dosahu), server vynechá – cesta s odletem ten den pak ukáže průměr 🌡️. Pravděpodobnost srážek dává
+  MET jen ve Skandinávii; jinde je ve štítku jen ikona, teploty a úhrn srážek (déšť podle kódu počasí a úhrnu).
+  Časové pásmo místa (hranice dne, západ slunce) je podle nejbližšího letiště – u hranice pásem může vyjít o hodinu vedle.
 - Bezpečnostní hodnocení zemí odpovídá doporučením MZV ČR k 5. 10. 2026 – před cestou si je vždy ověř na webu MZV.
 - Vstupní podmínky jsou stav k 10/2026 pro turistickou cestu s běžným pasem; ceny registrací a víz jsou orientační
   (přepočet z místní měny) a datum platnosti pasu se počítá pro jistotu od návratu.
@@ -1988,7 +2002,8 @@ přes víc míst jedou úseky v ty dny autem a ostatní vlakem / busem. Srovnáv
 - Počty cestujících na letištích (výběr letišť z okolí – odkud se opravdu létá, ne podle typu z OurAirports):
   [Wikidata](https://www.wikidata.org/) vlastnost P3872 (CC0), `data/airport-pax.json`. Aktualizace:
   `node scripts/build-airport-pax.mjs`.
-- Geokódování a počasí: [Open-Meteo](https://open-meteo.com/) (předpověď CC BY 4.0). Kurzy: open.er-api.com, ECB.
+- Počasí: [MET Norway](https://www.met.no/en) (Locationforecast 2.0, CC BY 4.0 – upraveno na denní souhrny). Geokódování:
+  [Open-Meteo](https://open-meteo.com/). Kurzy: open.er-api.com, ECB.
 - Hranice oblastí pro okruh v Objevuj (Toskánsko, Apulie, Kalábrie, Istrie i se slovinským pobřežím, Algarve, Skotsko,
   Laponsko – zastávky okruhu „po Toskánsku“ zůstanou v Toskánsku): [OpenStreetMap](https://www.openstreetmap.org/copyright) přes Nominatim
   (© přispěvatelé OpenStreetMap, ODbL), zjednodušené na ~2 km, `data/regions.json`. Aktualizace:

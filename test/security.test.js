@@ -96,7 +96,9 @@ test('hlavičky: nosniff, rám, Referrer-Policy, HSTS a Permissions-Policy všud
   assert.deepEqual(dir['object-src'], ["'none'"]);
   assert.deepEqual(dir['base-uri'], ["'self'"]);
   assert.ok(dir['worker-src'].includes('blob:'), 'MapLibre worker z blob:');
-  for (const host of ['https://tiles.openfreemap.org', 'https://api.open-meteo.com', 'https://geocoding-api.open-meteo.com', 'https://open.er-api.com']) assert.ok(dir['connect-src'].includes(host), host);
+  for (const host of ['https://tiles.openfreemap.org', 'https://open.er-api.com']) assert.ok(dir['connect-src'].includes(host), host);
+  // počasí a hledání míst jdou přes server (MET Norway, server/lib/weather.js) – prohlížeč na Open-Meteo nesahá
+  assert.ok(!dir['connect-src'].some((h) => h.includes('open-meteo')), dir['connect-src'].join(' '));
   assert.ok(dir['style-src'].includes('https://fonts.googleapis.com') && dir['font-src'].includes('https://fonts.gstatic.com'));
   assert.match((await get('/api/health')).headers.get('content-security-policy'), /^default-src 'none'; frame-ancestors 'none'$/);
   assert.equal(pageCsp('<script src="a.js"></script><script>x()</script>'), pageCsp('<script>x()</script>'), 'skript se src se nehashuje');

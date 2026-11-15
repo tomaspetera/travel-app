@@ -17,6 +17,7 @@ import { cache } from './lib/cache.js';
 import { airportsNear, getAirport, countryAt, COUNTRY_BY_ISO } from './lib/airports.js';
 import { accessOpts, airportAccess, carTrip, fuelCountry, normalizeAccess } from './lib/access.js';
 import { addDays, todayYmd } from './lib/dates.js';
+import { weatherAt, parsePts, tzAt } from './lib/weather.js';
 import { searchStays, checkStay } from './lib/stays.js';
 import { partnerLookups } from './lib/partnerids.js';
 import { searchCars } from './lib/cars.js';
@@ -201,6 +202,7 @@ const PREVIEW_BUILD = { 'X-Atlas-Build': 'preview' };
 // fotka cíle do náhledu odkazu: z mezipaměti fotek, nová nejvýš 3 s (odkaz bez fotky má obecný náhled ATLASu)
 const previewPhoto = async (place) => ogPhoto(String(((await Promise.race([cityPhotos([place]), new Promise((r) => setTimeout(() => r(null), 3000))])) || {}).photos?.[place] || ''));
 const geoHits = new RateLimiter(); // geokódování mimo mezipaměť serveru (Open-Meteo) – našeptávač a hledání míst
+const wxHits = new RateLimiter(); // předpověď mimo mezipaměť serveru (MET Norway)
 // clientIp (server/lib/security.js): na Renderu adresa od Cloudflare, ne podvrhnutelná první z X-Forwarded-For
 /** Nad limitem → true a req.retryAfter = za kolik sekund to půjde znovu (hlavička Retry-After u 429). */
 function rateLimited(req, max = config.searchesPer10Min, bucket = hits) {
@@ -783,6 +785,17 @@ async function route(req, res) {
     if (!c && cc) return sendJson(req, res, 200, { none: true });
     if (!c) return sendJson(req, res, 404, { error: 'Pro toto místo nemám údaje o podnebí.' });
     return sendJson(req, res, 200, { ...c, source: sourceText(c.src) }, { 'Cache-Control': 'public, max-age=604800' });
+  }
+  if (p === '/api/weather') {
+    // Předpověď MET Norway přes server (server/lib/weather.js): pts=lat,lon;lat,lon… (nejvýš 40 míst) → places
+    // [{ tz, days, now }] ve stejném pořadí, místo bez předpovědi null. tz=1: jen časová pásma míst (západ slunce
+    // za dosahem předpovědi) – bez dotazu na MET.
+    const pts = parsePts(url.searchParams.get('pts'));
+    if (!pts) return sendJson(req, res, 400, { error: 'Zadej místa jako pts=lat,lon;lat,lon (nejvýš 40).' });
+    if (url.searchParams.get('tz') === '1') return sendJson(req, res, 200, { places: pts.map(([lat, lon]) => ({ tz: tzAt(lat, lon) })) }, { 'Cache-Control': 'public, max-age=604800' });
+    // na MET jen do limitu z adresy (wxHits) – náhodné polohy by jinak vyčerpaly strop dotazů celé aplikace
+    const places = await weatherAt(pts, { allow: () => !rateLimited(req, config.weatherPer10Min, wxHits) });
+    return sendJson(req, res, 200, { places, source: 'MET Norway (CC BY 4.0)' }, { 'Cache-Control': 'private, max-age=900' });
   }
   if (p === '/api/ground') {
     // Vlak nebo bus místo letadla: odhad, srovnání s letadlem, odkazy; s datem i živé spoje RegioJetu (na vyžádání).

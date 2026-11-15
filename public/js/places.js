@@ -582,14 +582,15 @@
     paintMap(state.map, center, pts, [{ color: col, coords: r.geometry.map(c => [c[0], c[1]]), solid: true, fit: true }], null, null, r.tiles === 'mapy');
   }
 
-  /* ---------- počasí (weather.js: předpověď Open-Meteo, dál než 15 dní dlouhodobý průměr) ---------- */
+  /* ---------- počasí (weather.js: předpověď MET Norway, dál než 9 dní dlouhodobý průměr) ---------- */
   // Plán na počasí nečeká: vykreslí se s prázdným místem [data-wx="lat,lon,datum"] a fillWx ho doplní,
   // až předpověď dorazí. Stejné dotazy (plán se překresluje často) drží hodinu v paměti weather.js.
   const wxKey = (pt, date) => `${pt.lat},${pt.lon},${date || ''}`;
   // route = řádek u trasy na kole / pěšky (se dnem a tipem na lepší den), jinak štítek v nadpisu dne
   const wxSlot = (pt, date, route) => (window.Weather && pt && pt.lat != null && pt.lon != null
     ? (route ? `<div class="wx-day" data-wx="${esc(wxKey(pt, date))}"></div>` : `<span data-wx="${esc(wxKey(pt, date))}"></span>`) : '');
-  const WX_SRC = 'Počasí: <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo.com</a> (CC BY 4.0)';
+  // CC BY 4.0 chce autora, odkaz na licenci a zmínku o úpravě (denní souhrny z hodinové předpovědi)
+  const WX_SRC = 'Počasí: <a href="https://www.met.no/en" target="_blank" rel="noopener">MET Norway</a> (<a href="https://creativecommons.org/licenses/by/4.0/deed.cs" target="_blank" rel="noopener">CC BY 4.0</a>, upraveno na denní souhrny)';
   const WX_IN = ['V neděli', 'V pondělí', 'V úterý', 'Ve středu', 'Ve čtvrtek', 'V pátek', 'V sobotu'];
   const WX_BYL = ['byla', 'bylo', 'bylo', 'byla', 'byl', 'byl', 'byla'];
   const dow = ymd => new Date(ymd + 'T12:00:00').getDay();
@@ -623,7 +624,7 @@
           }
         } else if (W.daysAhead(s.date) > W.AHEAD) {
           const n = await W.normal(s.lat, s.lon, s.date);
-          const why = 'dlouhodobý průměr (meteostanice u blízkého letiště, jinak NASA POWER), ne předpověď – ta je nejvýš na 15 dní dopředu';
+          const why = 'dlouhodobý průměr (meteostanice u blízkého letiště, jinak NASA POWER), ne předpověď – ta je nejvýš na 9 dní dopředu';
           put(s, !n ? '' : s.route ? `📅 ${esc(n.text)} <span class="faint">– ${why}</span>`
             : `<span class="wx avg" title="${esc(`${n.text} – ${why}`)}">obvykle ${esc(n.hi)}°<small> / ${esc(n.lo)}°</small></span>`);
         } else put(s, '');

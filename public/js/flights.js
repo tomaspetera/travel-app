@@ -1623,7 +1623,7 @@
     // sbalit jen když formulář je to hledání (jinak – rozdělané pozdější hledání – zůstane formulář vidět)
     if (watchKey({ form: getForm() }) === watchKey({ form: lastForm })) collapseForm(lastForm);
     lastDraw = true; // výpis až na Letech (ageCheck → lastDrawNow)
-    // předpověď počasí cílů (Open-Meteo, štítky ve výpisu) až po startu – hotová dřív, než uživatel Lety otevře
+    // předpověď počasí cílů (MET Norway, štítky ve výpisu) až po startu – hotová dřív, než uživatel Lety otevře
     const res = lastResult;
     whenIdle(() => { if (lastDraw && lastResult === res) wxLoad(res); });
   }
@@ -2188,7 +2188,7 @@
     const thinVis = !res.partial && th.any > 0 && (isRoute ? flat.length : groups.length) < 3;
     if (thin || thinVis) body += smartHelp(res, false, { chips: chips.filter(c => c.time), any: th.any, onlyClear: !thin });
     // patička: co cena je, vidět hned; z čeho je odhad dopravy, kurz a teplota až po rozbalení (na telefonu 16–20 řádků)
-    host.innerHTML = summary + body + `<div class="res-foot faint">Ceny jsou za letenky na osobu ${bagFoot(res.query.bags)}. Doprava na letiště a z letiště do města je u nabídek zvlášť – do ceny se nepočítá.${footMore(`Doprava je jen pro představu (průměrná cena)${view.sort === 'trip' ? ' a počítá se jen do řazení „i s cestou na letiště“' : view.sort === 'best' ? ' a počítá se jen do doporučeného pořadí' : view.sort === 'fast' ? ' a počítá se jen do řazení „Cena + délka cesty“' : ' a nepočítá se ani do pořadí'}: ${esc(groundFoot(res))}; ${esc(arrivalFoot(res))}. Živé ceny (Ryanair, Wizz Air) se mohou do rezervace změnit; ceny „z cache“ ověř. Kurz: ${fxFoot(res)}. 🌡️ Teplota u cíle je dlouhodobý průměr denních maxim v měsíci odletu (meteostanice u letiště, průměr 1991–2020; kde stanice není, NASA POWER 2001–2020) – ne předpověď počasí; u cest do 15 dní je u nabídky předpověď Open-Meteo.`)}</div>`;
+    host.innerHTML = summary + body + `<div class="res-foot faint">Ceny jsou za letenky na osobu ${bagFoot(res.query.bags)}. Doprava na letiště a z letiště do města je u nabídek zvlášť – do ceny se nepočítá.${footMore(`Doprava je jen pro představu (průměrná cena)${view.sort === 'trip' ? ' a počítá se jen do řazení „i s cestou na letiště“' : view.sort === 'best' ? ' a počítá se jen do doporučeného pořadí' : view.sort === 'fast' ? ' a počítá se jen do řazení „Cena + délka cesty“' : ' a nepočítá se ani do pořadí'}: ${esc(groundFoot(res))}; ${esc(arrivalFoot(res))}. Živé ceny (Ryanair, Wizz Air) se mohou do rezervace změnit; ceny „z cache“ ověř. Kurz: ${fxFoot(res)}. 🌡️ Teplota u cíle je dlouhodobý průměr denních maxim v měsíci odletu (meteostanice u letiště, průměr 1991–2020; kde stanice není, NASA POWER 2001–2020) – ne předpověď počasí; u cest do 9 dní je u nabídky předpověď MET Norway.`)}</div>`;
     wireResults();
     if (window.Photos) Photos.paint(host); // fotky měst v řádcích výsledků (jen viditelné)
     wxFill();
@@ -2259,17 +2259,17 @@
     return deps.length ? `<span class="${cls}">další lety tento den: ${deps.map(esc).join(', ')} <i>(cena v rezervaci u aerolinky)</i></span>` : '';
   }
 
-  /* ---------- předpověď počasí v cíli (weather.js: Open-Meteo přímo z prohlížeče) ---------- */
-  // Cesty s odletem do 15 dní: jeden dotaz na výsledek hledání (pevná místa i dny – řazení a filtry nic znovu nenačítají),
+  /* ---------- předpověď počasí v cíli (weather.js: MET Norway přes server) ---------- */
+  // Cesty s odletem do 9 dní: jeden dotaz na výsledek hledání (pevná místa i dny – řazení a filtry nic znovu nenačítají),
   // štítek předpovědi nahradí štítek dlouhodobého průměru 🌡️. Než předpověď dorazí, drží jí místo prázdný .wx-slot.
   let wx = { res: null, p: null, map: null };
-  const wxWin = d => Weather.inForecast(d); // dnes … poslední den, na který Open-Meteo předpověď vydá
+  const wxWin = d => Weather.inForecast(d); // dnes … poslední den, na který MET předpověď vydá (dnes + 9)
   const wxGeo = x => Boolean(x && Number.isFinite(x.lat) && Number.isFinite(x.lon));
   function wxLoad(res) {
     if (wx.res === res) return;
     wx = { res, p: null, map: null };
     if (!window.Weather) return;
-    // nejvýš 40 míst: napřed cíle, jejichž nejlevnější nabídka do 15 dní odlétá (ty řádek ukazuje), pak ostatní
+    // nejvýš 40 míst: napřed cíle, jejichž nejlevnější nabídka do 9 dní odlétá (ty řádek ukazuje), pak ostatní
     // konkrétní cíl: řádky jsou z res.top (stovky nabídek), ne z 6 nejlevnějších možností skupiny
     const tripsOf = g => (res.mode === 'route' ? (res.top || []).filter(t => res.groups.length === 1 || t.destKey === g.dest.key) : g.options);
     const gs = res.groups.filter(g => wxGeo(g.dest) && tripsOf(g).some(t => wxWin(t.out.date)));
@@ -2340,7 +2340,7 @@
     const bags = lastResult?.query.bags;
     if (BAG_LBL[bags] && !t.bagCzk) out.push(`<span class="b good" title="${t.bagEst ? 'Hrubý odhad – u dopravce se to nepodařilo ověřit, zkontroluj při rezervaci' : 'U dopravce bývá v ceně i nejlevnějšího tarifu'}">🧳 ${bags === 'cabin' ? 'kabinový kufr' : 'kufr'} ${t.bagEst ? 'nejspíš ' : ''}v ceně</span>`);
     if (t.back && t.back.provider !== t.out.provider) out.push('<span class="b info" title="Dvě samostatné letenky – při zpoždění prvního letu druhá aerolinka nečeká">🔀 2 aerolinky</span>');
-    // cesta do 15 dní: předpověď na dny cesty místo dlouhodobého průměru (dokud se načítá, průměr s místem pro ni);
+    // cesta do 9 dní: předpověď na dny cesty místo dlouhodobého průměru (dokud se načítá, průměr s místem pro ni);
     // „ideální sezóna“ je dlouhodobá – vedle předpovědi by jí mohla odporovat, s předpovědí zmizí
     const ws = wxOf(t, g), wait = !ws && wxWait(t, g);
     const s = g && !ws ? seasonOk(g.dest.cc, t.out.date) : null;
@@ -3222,12 +3222,12 @@
     }, from);
   }
   const dpFact = (ic, b, s, { cls = '', title = '' } = {}) => `<div class="dp-f${cls}"${title ? ` title="${esc(title)}"` : ''}><span class="dp-fi" aria-hidden="true">${ic}</span><div><b>${b}</b>${s ? `<small>${s}</small>` : ''}</div></div>`;
-  // Počasí: do 15 dní předpověď na dny cesty, jinak dlouhodobý průměr měsíce (u nabídky ze serveru hned, u karty radaru
+  // Počasí: do 9 dní předpověď na dny cesty, jinak dlouhodobý průměr měsíce (u nabídky ze serveru hned, u karty radaru
   // z api/climate). Řádek { ic, b (HTML), s, title }.
   const dpWxRow = w => `<div class="dp-f" id="dpWx"${w.title ? ` title="${esc(w.title)}"` : ''}><span class="dp-fi" aria-hidden="true">${w.ic}</span><div><b>${w.b}</b><small>${esc(w.s)}</small></div></div>`;
   // Weather.summary („☀️ 22° · 💧 10 %“, „🌧️ prší 2 dny ze 3“) → ikona zvlášť, „Přes den ~22 °C · 💧 10 %“ jako průměr
   // (°C s pevnou mezerou – na telefonu se jednotka neodtrhne od čísla)
-  const dpFc = (d, s) => { const [ic, ...w] = s.text.split(' '); return { ic, b: esc(cap(w.join(' ').replace(/^(-?\d+)°/, 'přes den ~$1\u00a0°C'))), s: `předpověď na ${d.d2 ? 'dny cesty' : 'první 3 dny'} (Open-Meteo)`, title: s.title }; };
+  const dpFc = (d, s) => { const [ic, ...w] = s.text.split(' '); return { ic, b: esc(cap(w.join(' ').replace(/^(-?\d+)°/, 'přes den ~$1\u00a0°C'))), s: `předpověď na ${d.d2 ? 'dny cesty' : 'první 3 dny'} (MET Norway)`, title: s.title }; };
   const dpClim = (d, wait) => (d.tempHi != null ? { ic: '🌡️', b: `Přes den ~${Math.round(d.tempHi)}\u00a0°C`, s: `dlouhodobý průměr v ${MNS_IN[+String(d.d1).slice(5, 7) - 1]} – ${wait ? 'předpověď se načítá' : 'není to předpověď'}` } : null);
   async function dpWx(d) {
     if (!window.Weather || !wxGeo(d)) return null;
@@ -4830,7 +4830,7 @@
         // čas odletu a přílet zpět kvůli dnům dovolené na kartě (SearchHelp.leaveDays)
         t1: t.out.hasTime ? String(t.out.dep).slice(11, 16) : '', a2: t.back && t.back.hasTime && t.back.arr ? String(t.back.arr).slice(0, 16) : '', deal: t.deal.level, score: t.deal.score, prov: t.out.provider,
         ...(wxGeo(g.dest) ? { lat: +g.dest.lat.toFixed(3), lon: +g.dest.lon.toFixed(3) } : {}), // předpověď na kartě
-        // dlouhodobý průměr teplot v měsíci odletu – štítek karet mimo dosah předpovědi (dál než ~15 dní)
+        // dlouhodobý průměr teplot v měsíci odletu – štítek karet mimo dosah předpovědi (dál než 9 dní)
         ...(t.tempHi != null ? { th: Math.round(t.tempHi) } : {}),
         // z letiště do města (s polohou města – střed pro „Co vidět“) pro 🔎 Co tam je
         ...(res.arrivals && res.arrivals[t.out.to] ? { ar: res.arrivals[t.out.to] } : {}),
@@ -4910,8 +4910,8 @@
     const pins = pinList(), pinned = x => Pins.has(pins, Pins.fromRadar(x, { at: r.at, adults: q.payload?.adults }));
     host.innerHTML = `${r.demo ? '<div class="faint" style="font-size:12px;margin-bottom:8px">⚠️ demo data</div>' : ''}<div class="faint radar-what">Za osobu${q.payload?.adults > 1 ? ` (cestujete ${q.payload.adults})` : ''}: cena zpáteční letenky (doprava na letiště je u nabídky zvlášť) · <span title="Pořadí počítá s cenou i s cestou na letiště a do města, časem na cestě, nočními odjezdy, časem na místě a cenou pod obvyklou; další cíl ze stejné země o kus níž. Proč je karta nad levnější letenkou, řekne štítek ✓ (celá věta v detailu karty).">pořadí i s cestou a časy letů</span></div>${stale}<div class="radar-grid${st ? ' stale' : ''}">${shown.map(({ x, i }) => {
       const cn = (byIso[x.cc] && byIso[x.cc].cs) || '';
-      // počasí: do ~15 dní předpověď (radarWx doplní), dál dlouhodobý průměr „🌡️ ~8°“ – ať má štítek každá karta
-      const clim = x.th != null && !wxWin(x.d1) ? `<span class="b wxb clim" title="Dlouhodobý průměr denních maxim v ${MNS_IN[+x.d1.slice(5, 7) - 1]} – předpověď počasí bude asi 15 dní před odletem">🌡️ ~${x.th}°</span>` : '';
+      // počasí: do 9 dní předpověď (radarWx doplní), dál dlouhodobý průměr „🌡️ ~8°“ – ať má štítek každá karta
+      const clim = x.th != null && !wxWin(x.d1) ? `<span class="b wxb clim" title="Dlouhodobý průměr denních maxim v ${MNS_IN[+x.d1.slice(5, 7) - 1]} – předpověď počasí bude asi 9 dní před odletem">🌡️ ~${x.th}°</span>` : '';
       const bd = `${prefBadge(SearchHelp.destKeyOf(x.id), pl)}${newBadge(x.cc)}${pinned(x) ? ' <span class="b pin-b" title="Odložená nabídka – 📌 Porovnat">📌</span>' : ''}${radarChange(x)}${hot.has(i) ? '<span class="b hot" title="Jedna z nejvýhodnějších cen vůči běžné ceně na tu vzdálenost">🔥 super cena</span>' : ''}${x.why ? `<span class="b why" title="${esc(x.whyT || '')}">✓ ${esc(x.why)}</span>` : ''}${clim}`.trim();
       return `<div class="card radar-card${hot.has(i) ? ' hot' : ''}" data-ri="${i}" data-photo="${esc(x.label)}" style="--h:${ccHue(x.cc)}">
       <div class="rc-badges">${bd}</div>
@@ -4951,7 +4951,7 @@
     setForm({ ...defaultForm(), ...prefsOf(S.form), from: S.home.from, to: [{ id: x.id, label: x.label, flag: flag(x.cc) }], ...q.form, ...radarPax(q.payload.adults), directOnly: false });
     startSearch({ card: x });
   }
-  // Předpověď na kartách radaru (odlet do 15 dní): jeden dotaz na všechny karty, weather.js ho hodinu drží v paměti.
+  // Předpověď na kartách radaru (odlet do 9 dní): jeden dotaz na všechny karty, weather.js ho hodinu drží v paměti.
   // Karty uložené dřív bez souřadnic štítek nedostanou; mezitím překreslený radar (jiné karty) se nepřepisuje.
   let radarWxP = null; // { r, p } – předpověď karet radaru i pro jejich 🔎 Co tam je (žádný dotaz navíc)
   function radarWx(r) {

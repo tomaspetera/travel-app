@@ -1,5 +1,5 @@
 // 🚆 Vlak / bus na cestě (čas odjezdu, nástupiště, místo a kód z plánovače – t.rides), 🌤️ předpověď na kartě „Dnes na
-// cestě“ (Open-Meteo, mezipaměť v localStorage) a okno cesty během cesty (dnešek a rezervace nahoře). Cesta Praha →
+// cestě“ (MET Norway přes api/weather, mezipaměť v localStorage) a okno cesty během cesty (dnešek a rezervace nahoře). Cesta Praha →
 // Lisabon (let) → Porto (vlak 10:42) → let domů, 2 dospělí + dítě, s pevnými hodinami – testy nezávisí na dnešním datu.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -208,29 +208,30 @@ test('🌤️ předpověď z mezipaměti: jeden řádek na místo (ikona, max / 
   assert.deepEqual(plain(C.nowWx(d.p.wx, { 'x': 'y', [C.Weather.key(38.7223, -9.1393)]: { '2026-10-26': ['a', 1] } }, d.n)), { rows: [], from: '' });
   // na kartě pod odpočtem vlaku, stáří u posledního místa
   const h = sp(C.nowCard(d.x, { ...d.p, wxNow: C.nowWx(d.p.wx, cache(3 * H), d.n, { tz: 'Europe/Lisbon' }) }));
-  assert.ok(h.includes('🚉 nádraží ↗</a></span><span class="nw-wx">Lisabon <span class="wx" title="Skoro jasno, pravděpodobnost srážek 10 % – předpověď Open-Meteo">🌤️ 22°<small> / 15°</small> · 💧 10 %</span></span>'
-    + '<span class="nw-wx">Porto <span class="wx wet" title="Déšť, pravděpodobnost srážek 70 % – předpověď Open-Meteo">🌧️ 19°<small> / 13°</small> · 💧 70 %</span> <span class="faint">předpověď z 6:22</span></span><span>🕐 Místní čas'), h);
+  assert.ok(h.includes('🚉 nádraží ↗</a></span><span class="nw-wx">Lisabon <span class="wx" title="Skoro jasno, pravděpodobnost srážek 10 % – předpověď MET Norway">🌤️ 22°<small> / 15°</small> · 💧 10 %</span></span>'
+    + '<span class="nw-wx">Porto <span class="wx wet" title="Déšť, pravděpodobnost srážek 70 % – předpověď MET Norway">🌧️ 19°<small> / 13°</small> · 💧 70 %</span> <span class="faint">předpověď z 6:22</span></span><span>🕐 Místní čas'), h);
   // zítřejší místo s „zítra“
   const e = at(C, t, '2026-10-25T07:30:00Z'), z = sp(C.nowCard(e.x, { ...e.p, wxNow: C.nowWx(e.p.wx, { [C.Weather.key(41.1579, -8.6291)]: { '2026-10-26': [61, 19, 13, 70, e.n] } }, e.n) }));
   assert.ok(z.includes('<span class="nw-wx">zítra Porto <span class="wx wet"'), z);
 });
 
-test('🌤️ stažení předpovědi: jeden dotaz na Open-Meteo pro všechna místa karty, do localStorage, další až za 2 h; bez signálu ani bez míst žádný', async () => {
+test('🌤️ stažení předpovědi: jeden dotaz na api/weather pro všechna místa karty, do localStorage, další až za 2 h; bez signálu ani bez míst žádný', async () => {
   const calls = [], storage = {};
   const fetch = async (url) => {
     calls.push(url);
-    const n = new URL(url).searchParams.get('latitude').split(',').length;
-    const day = (code, hi, lo, pop) => ({ time: ['2026-10-26'], weather_code: [code], temperature_2m_max: [hi], temperature_2m_min: [lo], precipitation_probability_max: [pop], precipitation_sum: [0], sunset: ['2026-10-26T18:30'] });
-    const body = [{ timezone: 'Europe/Lisbon', daily: day(1, 22.4, 14.6, 10) }, { timezone: 'Europe/Lisbon', daily: day(61, 18.6, 13.2, 70) }];
-    return { ok: true, json: async () => (n === 1 ? body[0] : body) };
+    // odpověď našeho serveru (server/lib/weather.js): místa ve stejném pořadí, dny už zaokrouhlené
+    const pts = new URL(url, 'http://atlas.test/').searchParams.get('pts').split(';');
+    const day = (code, hi, lo, pop) => ({ tz: 'Europe/Lisbon', days: [{ date: '2026-10-26', code, hi, lo, pop, rain: 0 }] });
+    const by = { '38.72,-9.14': day(1, 22, 15, 10), '41.16,-8.63': day(61, 19, 13, 70) };
+    return { ok: true, json: async () => ({ places: pts.map((p) => by[p] || null) }) };
   };
   const tick = () => new Promise((r) => setTimeout(r, 20));
   const c = load({ fetch, storage }), t = porto(c), d = at(c, t, '2026-10-26T09:22:00Z');
   c.nowWxFetch(d.p.wx, d.n);
   await tick();
   assert.equal(calls.length, 1);
-  const u = new URL(calls[0]);
-  assert.deepEqual([u.host, u.searchParams.get('latitude'), u.searchParams.get('longitude'), u.searchParams.get('start_date'), u.searchParams.get('end_date')], ['api.open-meteo.com', '38.72,41.16', '-9.14,-8.63', '2026-10-26', '2026-10-26']);
+  const u = new URL(calls[0], 'http://atlas.test/');
+  assert.deepEqual([u.pathname, u.searchParams.get('pts')], ['/api/weather', '38.72,-9.14;41.16,-8.63']);
   assert.deepEqual(JSON.parse(storage.atlas_nowwx), { '38.72,-9.14': { '2026-10-26': [1, 22, 15, 10, d.n] }, '41.16,-8.63': { '2026-10-26': [61, 19, 13, 70, d.n] } });
   assert.equal(c.__rn, 1, 'karta se překreslí');
   // do 2 h znovu nic
@@ -246,12 +247,12 @@ test('🌤️ stažení předpovědi: jeden dotaz na Open-Meteo pro všechna mí
   const y = load({ fetch, storage: {} });
   y.nowWxFetch([{ lat: 38.7223, lon: -9.1393, date: '2026-10-25', name: 'Lisabon', tag: 'dnes' }], Date.parse('2026-10-26T00:30:00Z'));
   await tick();
-  assert.equal(new URL(calls.at(-1)).searchParams.get('start_date'), '2026-10-25', calls.at(-1));
+  assert.equal(new URL(calls.at(-1), 'http://atlas.test/').searchParams.get('pts'), '38.72,-9.14', calls.at(-1));
   calls.pop();
   // bez míst (po návratu, cesta jen z plánovače) žádný dotaz
   c.nowWxFetch([], d.n + 3 * 36e5);
   assert.equal(calls.length, 1);
-  // po 2 h nová předpověď (Weather.forecast – v paměti hodinu, pak znovu z Open-Meteo)
+  // po 2 h nová předpověď (Weather.forecast – v paměti hodinu, pak znovu ze serveru)
   c.nowWxFetch(d.p.wx, d.n + 3 * 36e5);
   await tick();
   assert.deepEqual(JSON.parse(storage.atlas_nowwx)['41.16,-8.63']['2026-10-26'], [61, 19, 13, 70, d.n + 3 * 36e5]);
