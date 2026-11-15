@@ -113,7 +113,8 @@ export const config = {
   // Objevuj (místa, program, výlety, kolo, pěšky): vlastní limit, do hledání se nepočítá; odpověď celá z mezipaměti
   // serveru (stejné místo podruhé, návrat do Objevuj) se nepočítá vůbec
   explorePer10Min: num(env.EXPLORE_RATE_LIMIT, 3 * num(env.SEARCH_RATE_LIMIT, 40)),
-  // Dlaždice Mapy.com přes server (/api/tiles/mapy/…): z jedné IP za 10 minut nejvýš tolik dlaždic mimo mezipaměť serveru.
+  // Dlaždice Mapy.com přes server (/api/tiles/mapy/…): z jedné IP za 10 minut nejvýš tolik dlaždic (každá jde na
+  // Mapy.com – podmínky zakazují dlaždice ukládat).
   tilesPer10Min: num(env.TILES_RATE_LIMIT, 300),
   // Fotky měst (/api/photos) a geokódování (našeptávač, hledání míst – Open-Meteo): z jedné IP za 10 minut nejvýš tolik
   // dotazů, které nejdou celé z mezipaměti serveru. Pexels (200/h), Unsplash (50/h) i Open-Meteo mají strop pro celý

@@ -4,7 +4,9 @@
 // - hledání míst v Objevuj doplní Mapy.com (vesnice, části obcí, adresy, hrady, rozhledny…),
 // - když BRouter neodpovídá, trasu pěšky / na kole naplánuje Mapy.com (výšky z jejich výškového profilu).
 // Klíč zůstává na serveru (hlavička X-Mapy-Api-Key): klíč v prohlížeči by šel opsat a omezení na doménu (Referer)
-// obejde každý skript – cizí by pak vyčerpal volné kredity. Přes server navíc platí strop kreditů a mezipaměť dlaždic.
+// obejde každý skript – cizí by pak vyčerpal volné kredity. Přes server navíc platí strop kreditů. Nic se neukládá:
+// podmínky Mapy.com (od 1. 6. 2025, bod 4.6.2) zakazují mezipaměť dlaždic i výsledků API – ani na serveru, ani
+// v prohlížeči (Cache-Control: no-store).
 // Kredity (základní tarif 250 000 zdarma měsíčně, po vyčerpání služba do konce měsíce stojí – placená spotřeba se bez
 // souhlasu nezapne): dlaždice 1, hledání / trasa / výškový profil 4. Strop config.mapyMaxPerHour (MAPY_MAX_PER_HOUR).
 import { config } from '../config.js';
@@ -226,42 +228,13 @@ export function parseTile(path) {
   return { set, z, x, y, hd: Boolean(hd) };
 }
 
-// Malá LRU mezipaměť dlaždic v paměti serveru (nejvýš ~24 MB, den): stejná dlaždice podruhé = bez kreditu.
-const TILE_MAX_BYTES = 24e6;
-const TILE_TTL = 864e5;
-const tiles = new Map();
+// Souběžné požadavky na tutéž dlaždici (víc lidí na stejné mapě v tu chvíli) jedním dotazem – nic se ale neukládá.
 const tileWait = new Map();
-let tileBytes = 0;
 const tileKey = (t) => `${t.set}/${t.z}/${t.x}/${t.y}${t.hd ? '@2x' : ''}`;
-function tileGet(key) {
-  const e = tiles.get(key);
-  if (!e) return null;
-  tiles.delete(key);
-  if (Date.now() - e.at > TILE_TTL) { tileBytes -= e.body.length; return null; }
-  tiles.set(key, e); // naposledy použitá na konec
-  return e;
-}
-function tilePut(key, e) {
-  tiles.set(key, e);
-  tileBytes += e.body.length;
-  for (const [k, old] of tiles) {
-    if (tileBytes <= TILE_MAX_BYTES) break;
-    tiles.delete(k);
-    tileBytes -= old.body.length;
-  }
-}
-// prošlá dlaždice (starší než den) se stáhne znovu za kredit – pro limit z jedné IP v mezipaměti není
-export const tileCached = (t) => {
-  const e = tiles.get(tileKey(t));
-  return Boolean(e) && Date.now() - e.at <= TILE_TTL;
-};
-export const tileStats = () => ({ tiles: tiles.size, bytes: tileBytes });
 
-/** Dlaždice z mezipaměti, jinak z Mapy.com (1 kredit) → { body: Buffer, type }. Chybová dlaždice (obrázek s textem chyby) se nevrací. */
+/** Dlaždice z Mapy.com (1 kredit) → { body: Buffer, type }. Chybová dlaždice (obrázek s textem chyby) se nevrací. */
 export async function mapyTile(t) {
   const key = tileKey(t);
-  const hit = tileGet(key);
-  if (hit) return hit;
   if (tileWait.has(key)) return tileWait.get(key);
   const p = (async () => {
     gate(COST.tile);
@@ -279,10 +252,9 @@ export async function mapyTile(t) {
     }
     const type = res.headers.get('content-type') || '';
     if (!/^image\//.test(type)) throw new Error('Mapy.com: dlaždice není obrázek');
-    const e = { body: Buffer.from(await res.arrayBuffer()), type, at: Date.now() };
+    const body = Buffer.from(await res.arrayBuffer());
     breaker.fails = 0;
-    tilePut(key, e);
-    return e;
+    return { body, type };
   })();
   tileWait.set(key, p);
   try {
@@ -292,11 +264,9 @@ export async function mapyTile(t) {
   }
 }
 
-/** Jen pro testy: vynulovat strop, pojistku a mezipaměť dlaždic. */
+/** Jen pro testy: vynulovat strop a pojistku. */
 export function _resetMapy() {
   Object.assign(budget, { start: 0, used: 0 });
   Object.assign(breaker, { until: 0, why: '', fails: 0 });
-  tiles.clear();
   tileWait.clear();
-  tileBytes = 0;
 }

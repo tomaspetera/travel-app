@@ -1187,7 +1187,7 @@ Zkopíruj `.env.example` na `.env`:
 | `FUEL_TIMEOUT_MS` | `8000` | timeout stahování cen paliva z ČSÚ a Oil Bulletinu (ms) |
 | `MAPY_API_KEY` | – | volitelné, zdarma: [Mapy.com](#mapycom-volitelně-zdarma) – turistická mapa pod trasou pěšky a na kole, hledání vesnic, adres a míst (hrady, rozhledny) v Objevuj a záloha plánovače tras, když BRouter neodpovídá. Klíč: účet Seznam → [developer.mapy.com](https://developer.mapy.com/) → *Můj účet* → *Projekty* → *Nový projekt* (název ATLAS) → v projektu je hned první **API klíč** – ten zkopírovat do Renderu. Bez klíče vše jako dřív |
 | `MAPY_MAX_PER_HOUR` | `340` | strop kreditů Mapy.com za hodinu (dlaždice mapy 1, hledání / trasa / výškový profil 4). 340 × 720 h ≈ 245 000 < 250 000 kreditů zdarma měsíčně – volné kredity tak nedojdou ani při zneužití; nad stropem se Mapy.com do konce hodiny vynechá (mapa OpenFreeMap, trasy BRouter, hledání Open-Meteo) |
-| `TILES_RATE_LIMIT` | `300` | max. dlaždic Mapy.com z jedné IP za 10 minut (jen ty mimo mezipaměť serveru) |
+| `TILES_RATE_LIMIT` | `300` | max. dlaždic Mapy.com z jedné IP za 10 minut (každá – Mapy.com se neukládá) |
 | `PHOTOS_RATE_LIMIT` | `60` | max. dotazů na fotky měst (`/api/photos`, dávka až 30 karet) z jedné IP za 10 minut – jen ty, které nejdou celé z mezipaměti serveru (Wikimedia, Pexels, Unsplash mají strop pro celý server) |
 | `GEOCODE_RATE_LIMIT` | `200` | max. geokódování přes Open-Meteo (našeptávač, hledání míst) z jedné IP za 10 minut, jen mimo mezipaměť; nad limitem našeptávač nabídne místa z vlastních dat |
 | `WEATHER_RATE_LIMIT` | `300` | max. míst s předpovědí z MET Norway (`/api/weather`) z jedné IP za 10 minut, jen mimo mezipaměť serveru; nad limitem je místo bez předpovědi (aplikace ukáže dlouhodobý průměr) |
@@ -1226,8 +1226,9 @@ dojdou, služba do konce měsíce stojí, placená spotřeba se bez výslovného
 **Klíč zůstává na serveru:** dotazy jdou z ATLASu s hlavičkou `X-Mapy-Api-Key` a dlaždice mapy si prohlížeč bere přes
 server (`/api/tiles/mapy/…`). Mapy.com sice umí klíč pro prohlížeč omezit na doménu, jenže hlavičku Referer podvrhne
 každý skript – cizí by pak vyčerpal volné kredity. Přes server navíc platí hodinový strop kreditů (`MAPY_MAX_PER_HOUR`),
-limit na IP, mezipaměť (dlaždice ~24 MB v paměti serveru a týden v prohlížeči, návrhy a trasy 7 dní) a stačí jeden
-klíč v Renderu. Pojistka: odmítnutý klíč nebo došlé kredity (HTTP 401/403) → hodinu bez Mapy.com, 429 → podle
+limit na IP a stačí jeden klíč v Renderu. **Nic se neukládá:** podmínky Mapy.com (od 1. 6. 2025, bod 4.6.2) zakazují
+mezipaměť dlaždic i výsledků API, proto server dlaždice, návrhy ani trasy nedrží a dlaždice posílá prohlížeči
+s `Cache-Control: no-store`. Každá dlaždice tak stojí kredit – po vyčerpání hodinového stropu mapa přejde na OpenFreeMap. Pojistka: odmítnutý klíč nebo došlé kredity (HTTP 401/403) → hodinu bez Mapy.com, 429 → podle
 Retry-After, výpadek 3× po sobě → 5 minut; vše pak běží jako bez klíče. Stav je v `/api/health` (`maps`).
 
 ### Nasazení na internet (trvalý odkaz)

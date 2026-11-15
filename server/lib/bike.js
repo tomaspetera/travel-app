@@ -155,13 +155,11 @@ const isLimit = (e) => e?.code === 'LIMIT';
 let brouterDownUntil = 0;
 const outage = (e) => e?.code === 'BUSY' || !e?.status || e.status >= 500 || e.status === 429;
 /** alt = trasa pro Mapy.com: { routeType, pts: [[lon, lat]…] } nebo okruh { routeType, start, round: { radiusM, direction } }. */
+// Trasa z Mapy.com se neukládá (podmínky Mapy.com, bod 4.6.2) – každá se počítá do limitu jako nový dotaz.
 function viaMapy(alt, onMiss) {
   const pts = alt.round ? [alt.start, ...roundWaypoints(alt.start, alt.round.radiusM, alt.round.direction), alt.start] : alt.pts;
-  const key = `mapy-route:${alt.routeType}:${pts.map((p) => `${p[0]},${p[1]}`).join(';')}`;
-  missing(key, onMiss);
-  // bez výšek (výškový profil nevyšel) jen hodinu – pak znovu
-  return cache.wrap(key, (v) => (v.ascent == null ? 3600e3 : 7 * 864e5),
-    () => mapyRouteFull({ start: pts[0], end: pts.at(-1), waypoints: pts.slice(1, -1), routeType: alt.routeType }));
+  if (onMiss) onMiss();
+  return mapyRouteFull({ start: pts[0], end: pts.at(-1), waypoints: pts.slice(1, -1), routeType: alt.routeType });
 }
 
 async function route(args, pace, onMiss, alt) {
