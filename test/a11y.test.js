@@ -170,6 +170,20 @@ test('přepínače (.seg, dny v týdnu, ± dny): vybraná možnost i pro čtečk
   for (const id of ['minTemp', 'tripType', 'dateMode', 'xFlex', 'lenPreset', 'bags', 'cVisited', 'outDays', 'backDays']) assert.match(html, new RegExp(`id="${id}" role="group" aria-label="[^"]+"`), id);
 });
 
+test('kontrast: stavové barvy jako text (nejlevnější, varování, chyby) ve světlém režimu aspoň 4,5 : 1, v tmavém beze změny', () => {
+  const light = atlasCss.match(/\[data-theme="light"\]\{[^}]*\}/)[0], root = atlasCss.match(/:root\{[^}]*\}/)[0];
+  for (const k of ['good', 'warn', 'bad', 'info']) {
+    const base = root.match(new RegExp(`--${k}:(#[0-9a-f]{6})`))[1], ink = light.match(new RegExp(`--${k}-ink:(#[0-9a-f]{6})`))[1];
+    assert.equal(root.match(new RegExp(`--${k}-ink:(#[0-9a-f]{6})`))[1], base, `tmavý režim: --${k}-ink = --${k}`);
+    assert.ok(contrast(hex(base), hex('#eef2fb')) < 3, `dřívější --${k} na světlém pozadí jen ${contrast(hex(base), hex('#eef2fb')).toFixed(2)} : 1`);
+    for (const bg of ['#eef2fb', '#ffffff', '#eeeff1']) assert.ok(contrast(hex(ink), hex(bg)) >= 4.5, `--${k}-ink ${ink} na ${bg}: ${contrast(hex(ink), hex(bg)).toFixed(2)}`);
+  }
+  // text ve stavové barvě jen přes --…-ink (výplně, rámečky a ikony na barevném podkladu dál --good…)
+  for (const f of ['atlas', 'flights', 'trip', 'pretrip', 'pwa', 'desktop', 'desktop-trip', 'desktop-explore', 'desktop-flights']) {
+    assert.doesNotMatch(noComments(read(`css/${f}.css`)), /(?:^|[{;\s])color:var\(--(?:good|warn|bad|info)\)/, f);
+  }
+});
+
 test('kontrast: modrý text (odkazy „Obnovit →“, „změnit“, Podrobnosti…) ve světlém režimu aspoň 4,5 : 1, v tmavém beze změny', () => {
   const light = atlasCss.match(/\[data-theme="light"\]\{[^}]*\}/)[0], root = atlasCss.match(/:root\{[^}]*\}/)[0];
   const ink = light.match(/--accent-ink:(#[0-9a-f]{6})/)[1];

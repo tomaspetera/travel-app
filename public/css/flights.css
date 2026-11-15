@@ -1,5 +1,5 @@
 /* ============ ATLAS – vyhledávač letenek ============ */
-.good{color:var(--good)}.bad{color:var(--bad)}
+.good{color:var(--good-ink)}.bad{color:var(--bad-ink)}
 .demo-banner{background:linear-gradient(90deg,rgba(251,191,36,.18),rgba(251,113,133,.18));border-bottom:1px solid rgba(251,191,36,.35);color:var(--text);font-size:13px;padding:9px 26px;text-align:center}
 .demo-banner code{background:var(--surface-2);padding:1px 6px;border-radius:6px}
 .home-chip{border:1px solid var(--border);background:var(--btn-bg,var(--surface));box-shadow:var(--btn-sh,none);color:var(--text);font:600 13px Inter,sans-serif;padding:9px 14px;border-radius:12px;cursor:pointer;max-width:340px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -13,7 +13,7 @@
 .src{display:flex;align-items:center;gap:7px;padding:3px 0;color:var(--faint)}
 .src i{width:8px;height:8px;border-radius:50%;opacity:.4}
 .src span{margin-left:auto;font-size:11px}
-.src.on{color:var(--text)}.src.on i{opacity:1}.src.on span{color:var(--good)}
+.src.on{color:var(--text)}.src.on i{opacity:1}.src.on span{color:var(--good-ink)}
 
 /* hero */
 .hero-search2{margin-top:22px;display:grid;grid-template-columns:1fr 1fr auto;gap:10px;max-width:860px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.22);padding:8px;border-radius:16px;-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
@@ -30,7 +30,7 @@
 /* × u místa je 15 × 16 px – prstem se trefit (i třesoucí se rukou) chce větší plochu; vzhled stejný, plocha 26 × 36 px –
    doleva jen do mezery za názvem (klepnutí na název místo neodebere) */
 .pi-chip button::after{content:"";position:absolute;inset:-10px -8px -10px -3px}
-.pi-chip button:hover{color:var(--bad);background:var(--surface-2)}
+.pi-chip button:hover{color:var(--bad-ink);background:var(--surface-2)}
 .pi-input{flex:1;min-width:140px;border:none;background:transparent;color:var(--text);font:500 14.5px Inter,sans-serif;outline:none;padding:6px 4px}
 .pi-input::placeholder{color:var(--faint)}
 .pi-dd{position:absolute;left:0;right:0;top:calc(100% + 6px);z-index:60;background:var(--surface-solid);border:1px solid var(--border-2);border-radius:14px;box-shadow:var(--shadow-lg);padding:6px;max-height:360px;overflow-y:auto}
@@ -102,7 +102,7 @@
 .opill{border:1px solid var(--border);background:var(--surface);color:var(--text);border-radius:9px;padding:5px 9px;font:500 12.5px Inter,sans-serif;cursor:pointer;display:inline-flex;gap:5px;align-items:center;transition:.12s}
 .opill b{font-weight:800}
 .opill span{color:var(--muted);font-size:11.5px}
-.opill span.g{color:var(--warn)}
+.opill span.g{color:var(--warn-ink)}
 /* dlouhý štítek (autem vč. parkování) se na úzkém displeji zalomí celý na další řádek */
 .opill{flex-wrap:wrap;row-gap:1px;text-align:left}
 .opill span{white-space:nowrap}
@@ -240,9 +240,9 @@ details[open] .ps-more::after{content:" ▴"}
 .prow.error .pbar span{background:var(--bad)}
 .pnum{color:var(--faint);font-size:12px;text-align:right}
 .pst{color:var(--muted);font-size:12px}
-.prow.error .pst{color:var(--bad)}
+.prow.error .pst{color:var(--bad-ink)}
 .pnote{grid-column:2/-1;font-size:12px;color:var(--faint);margin-top:-2px}
-.pnote.err{color:var(--bad)}
+.pnote.err{color:var(--bad-ink)}
 .prow.off{opacity:.7}
 .prow.off .pst{grid-column:3/-1}
 
@@ -328,14 +328,14 @@ details[open] .ps-more::after{content:" ▴"}
 .tr-badges{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
 .b{font-size:11.5px;font-weight:700;padding:3px 8px;border-radius:7px;background:var(--surface-2);color:var(--muted);white-space:nowrap}
 .b.hot{background:rgba(251,113,133,.16);color:#fb7185}
-.b.good{background:rgba(52,211,153,.14);color:var(--good)}
-.b.warn{background:rgba(251,191,36,.14);color:var(--warn)}
-.b.info{background:rgba(56,189,248,.12);color:var(--info)}
+.b.good{background:rgba(52,211,153,.14);color:var(--good-ink)}
+.b.warn{background:rgba(251,191,36,.14);color:var(--warn-ink)}
+.b.info{background:rgba(56,189,248,.12);color:var(--info-ink)}
 .b.sun{background:rgba(251,146,60,.15);color:#fb923c}
 .b.dear{background:rgba(248,113,113,.13);color:#f87171}
 /* předpověď v cíli (cesty do 15 dní): neutrální, déšť modře; místo pro štítek, než předpověď dorazí, nezabírá mezeru */
 .b.wxb{cursor:help}
-.b.wxb.wet{background:rgba(56,189,248,.14);color:var(--info)}
+.b.wxb.wet{background:rgba(56,189,248,.14);color:var(--info-ink)}
 .wx-slot{display:none}
 /* cesta z letiště do města: delší štítek se smí zalomit (mobil), drahá nebo dlouhá cesta varovně i s rámečkem */
 .b.arrv{white-space:normal;line-height:1.35}
@@ -353,13 +353,13 @@ button.b:hover{filter:brightness(1.18);text-decoration:underline}
 .pc-sec h4 small{font-weight:500;font-size:12px}
 .pc-sec p{font-size:13.5px;color:var(--muted);margin-top:4px;line-height:1.5}
 .pc-sec p b{color:var(--text)}
-.pc-sec .pc-warn{color:var(--warn)}
+.pc-sec .pc-warn{color:var(--warn-ink)}
 .pc-bar{position:relative;height:10px;border-radius:6px;margin:12px 6px 4px;background:linear-gradient(90deg,rgba(52,211,153,.6),rgba(251,191,36,.6),rgba(248,113,113,.6))}
 .pc-bar i{position:absolute;top:-3px;bottom:-3px;width:2px;margin-left:-1px;background:var(--text);opacity:.35}
 .pc-bar i.med{opacity:.7}
 .pc-bar .pc-me{top:-5px;bottom:-5px;width:14px;margin-left:-7px;border-radius:50%;opacity:1;border:3px solid var(--surface-solid);box-shadow:0 0 0 1px var(--text)}
 .pc-scale{display:flex;justify-content:space-between;font-size:11.5px;color:var(--faint);margin:0 2px}
-.pc-trend.down b{color:var(--good)}
+.pc-trend.down b{color:var(--good-ink)}
 .pc-trend.up b{color:#f87171}
 .pc-advice{margin-top:10px}
 .pc-act{gap:8px;margin-top:14px}
@@ -399,7 +399,7 @@ button.b:hover{filter:brightness(1.18);text-decoration:underline}
 .fchip.af{color:var(--text);border-color:rgba(91,140,255,.42);background:rgba(91,140,255,.13)}
 .fchip.af small{color:var(--muted)}
 .fchip.af span{color:var(--muted);font-size:11px}
-.fchip.af:hover span{color:var(--bad)}
+.fchip.af:hover span{color:var(--bad-ink)}
 
 /* filtry času a přestupů */
 .fchip.tf-toggle{color:var(--muted)}
@@ -440,14 +440,14 @@ button.b:hover{filter:brightness(1.18);text-decoration:underline}
 .nb-card.hot{border-color:rgba(251,191,36,.55);box-shadow:0 0 0 1px rgba(251,191,36,.22),var(--shadow)}
 .nb-h{display:flex;flex-wrap:wrap;gap:2px 10px;align-items:baseline;font-size:14px;margin-bottom:6px}
 .nb-h .faint{font-size:12px}
-.nb-hint{font-size:13.5px;font-weight:700;color:var(--warn);margin:2px 0 6px}
+.nb-hint{font-size:13.5px;font-weight:700;color:var(--warn-ink);margin:2px 0 6px}
 .nb-row{display:flex;align-items:center;gap:10px;margin-top:6px}
 .nb-lab{font-size:12.5px;font-weight:700;color:var(--muted);min-width:64px}
 .nb-days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;flex:1;min-width:0}
 .nb-d{border:1px solid var(--border);background:var(--surface);color:var(--text);border-radius:9px;padding:5px 2px;display:flex;flex-direction:column;align-items:center;gap:1px;font:600 11px Inter,sans-serif;cursor:pointer;min-width:0}
 .nb-d span{color:var(--muted);font-size:10.5px;white-space:nowrap;line-height:1.25}
 .nb-d b{font-size:12.5px;font-weight:800;white-space:nowrap}
-.nb-d.best b{color:var(--good)}
+.nb-d.best b{color:var(--good-ink)}
 .nb-d.none b{color:var(--faint);font-weight:700}
 .nb-d:hover:not(:disabled){border-color:var(--accent)}
 .nb-d.on{border-color:var(--accent);background:rgba(91,140,255,.18);cursor:default}
@@ -474,7 +474,7 @@ button.b:hover{filter:brightness(1.18);text-decoration:underline}
 .lr-t b{font-weight:800}
 .lr-t .ld{min-width:0;margin-right:4px}
 .lr-main .cache-tag{align-self:flex-start;font-size:10.5px;padding:1px 6px;margin-top:2px}
-.tm.unk{color:var(--warn);font-weight:700;font-size:12px;cursor:help}
+.tm.unk{color:var(--warn-ink);font-weight:700;font-size:12px;cursor:help}
 [data-theme=light] .tm.unk{color:#8a5a00}
 .lr-ap{color:var(--muted);font-size:12.5px;font-weight:700;margin-left:6px}
 .lr-x{font-size:12px;color:var(--faint);overflow-wrap:anywhere}
@@ -634,7 +634,7 @@ button.b:hover{filter:brightness(1.18);text-decoration:underline}
 .watch-bar>span:first-child{flex:1 1 340px}
 .w-ntf{font-size:12px;color:var(--faint)}
 #watchStatSub.jump{cursor:pointer}
-.nav-badge.drop{background:rgba(52,211,153,.16);color:var(--good)}
+.nav-badge.drop{background:rgba(52,211,153,.16);color:var(--good-ink)}
 .mobile-nav .mi{position:relative}
 .mi-dot{position:absolute;top:6px;left:calc(50% + 5px);width:9px;height:9px;border-radius:50%;background:var(--good);box-shadow:0 0 0 2px var(--surface-solid)}
 .mi-dot[hidden]{display:none}
@@ -666,19 +666,19 @@ button.b:hover{filter:brightness(1.18);text-decoration:underline}
 .cmp-sub{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
 /* ✓ proč je cíl v doporučeném pořadí nad levnější letenkou (rank.js) – řádek, velká karta nahoře, karta radaru */
 /* v řádku pod názvem i cenou (na telefonu by vedle ceny zbylo jen pár písmen), fotka přes oba řádky */
-.cmp-why{grid-column:2/-1;margin-top:-7px;font-size:11.5px;font-weight:700;color:var(--good);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cmp-why{grid-column:2/-1;margin-top:-7px;font-size:11.5px;font-weight:700;color:var(--good-ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .cmp-hit:has(>.cmp-why)>.cmp-flag{grid-row:span 2}
 [data-theme=light] .cmp-why{color:#047857}
 .res-top-c .rt-why{display:block;margin-top:4px;font-size:11.5px;font-weight:700;color:#a7f3d0}
 .rc-why{font-size:12px;margin:-4px 0 8px}
 .cmp-price{text-align:right;white-space:nowrap}
-.cmp-price b{font:800 15.5px Sora,sans-serif;color:var(--good)}
+.cmp-price b{font:800 15.5px Sora,sans-serif;color:var(--good-ink)}
 .cmp-price small{font-size:11px;color:var(--muted)}
 /* živé ověření ceny z mezipaměti pod cenou řádku */
 .cmp-live{display:block;font-size:11px;font-weight:700;margin-top:1px}
 .cmp-price .cmp-tkt{display:block;margin-top:1px}
-.cmp-live.warn{color:var(--warn)}
-.cmp-live.good{color:var(--good)}
+.cmp-live.warn{color:var(--warn-ink)}
+.cmp-live.good{color:var(--good-ink)}
 .cmp-live.faint{color:var(--faint);font-weight:600}
 .cmp-live .spin{width:9px;height:9px;border-width:2px;vertical-align:-1px}
 .cmp-price b.stale{color:var(--muted)}
@@ -888,20 +888,20 @@ ol.guide code,.note code{background:var(--surface-2);padding:1px 6px;border-radi
 .ml-dt .input{width:150px;padding:11px 10px}
 .ml-flex{width:auto;flex:none;padding:11px 30px 11px 10px;border-radius:12px;border:1px solid var(--border);background-color:var(--surface);color:var(--text);font:600 13px Inter,sans-serif;background-position:right 9px center}
 .ml-del{width:30px;height:30px;border-radius:9px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;align-self:center;font-size:13px}
-.ml-del:hover:not(:disabled){color:var(--bad);border-color:var(--bad)}
+.ml-del:hover:not(:disabled){color:var(--bad-ink);border-color:var(--bad)}
 .ml-del:disabled{opacity:.3;cursor:default}
 .ml-tools{gap:8px;margin-top:10px}
 .ml-prog{display:flex;flex-wrap:wrap;gap:4px 16px;font-size:12.5px;margin:2px 0 10px;color:var(--muted)}
-.ml-prog .done{color:var(--good)}
+.ml-prog .done{color:var(--good-ink)}
 .ml-prog .running{color:var(--text);font-weight:700}
-.ml-prog .error{color:var(--bad)}
+.ml-prog .error{color:var(--bad-ink)}
 .ml-prog .spin{width:11px;height:11px;border-width:2px}
 .mc-note{margin-bottom:14px}
 .ml-hint p{font-size:13px;color:var(--muted);line-height:1.55;margin:0 0 6px}
 .ml-hint p b{color:var(--text)}
 .ml-hint p.faint{font-size:12px;color:var(--faint)}
 .mc-cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:14px;align-items:start}
-.mc-why{font-size:11.5px;color:var(--warn);font-weight:600;overflow-wrap:anywhere}
+.mc-why{font-size:11.5px;color:var(--warn-ink);font-weight:600;overflow-wrap:anywhere}
 .lrow.dim .mc-why{opacity:1}
 .mc-none{padding:10px 6px;font-size:13px;color:var(--muted);display:flex;flex-direction:column;gap:8px;align-items:flex-start}
 .mc-near{display:flex;flex-wrap:wrap;gap:6px}
@@ -950,7 +950,7 @@ ol.guide code,.note code{background:var(--surface-2);padding:1px 6px;border-radi
 .gnd-chip{display:inline-flex;align-items:center;gap:6px;margin:0 0 4px;padding:5px 10px;border-radius:9px;border:1px solid var(--border);background:var(--surface);color:var(--muted);font:700 12px Inter,sans-serif;cursor:pointer;text-align:left;max-width:100%}
 .gnd-chip small{font-weight:600;color:var(--faint);font-size:11px}
 .gnd-chip:hover{border-color:var(--accent);color:var(--text)}
-.gnd-chip.hot{background:rgba(52,211,153,.12);border-color:rgba(52,211,153,.4);color:var(--good)}
+.gnd-chip.hot{background:rgba(52,211,153,.12);border-color:rgba(52,211,153,.4);color:var(--good-ink)}
 .gnd-banner{padding:14px 16px;margin-bottom:14px;border-color:rgba(52,211,153,.45);box-shadow:0 0 0 1px rgba(52,211,153,.15),var(--shadow)}
 .gb-h{display:flex;gap:10px;align-items:flex-start}
 .gb-h b{font-size:15px}
@@ -963,7 +963,7 @@ ol.guide code,.note code{background:var(--surface-2);padding:1px 6px;border-radi
 .gb-col small,.gb-col span{font-size:12px;color:var(--muted)}
 .gb-l{font-weight:700;color:var(--text)!important;font-size:12.5px!important}
 .gb-col .gb-fast{margin-top:4px;color:var(--text);font-weight:600}
-.gb-l em{font-style:normal;font-weight:700;font-size:10.5px;color:var(--warn);background:rgba(251,191,36,.14);border-radius:6px;padding:1px 6px;margin-left:4px}
+.gb-l em{font-style:normal;font-weight:700;font-size:10.5px;color:var(--warn-ink);background:rgba(251,191,36,.14);border-radius:6px;padding:1px 6px;margin-left:4px}
 .gb-act{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;font-size:12px}
 .gnd-line{display:flex;gap:8px;align-items:flex-start;font-size:13px;color:var(--muted);margin:0 0 12px;padding:9px 12px;border-radius:12px;border:1px dashed var(--border-2)}
 .gnd-panel{margin-top:12px;display:flex;flex-direction:column;gap:10px}
@@ -983,9 +983,9 @@ ol.guide code,.note code{background:var(--surface-2);padding:1px 6px;border-radi
 .gc-row.sel input{accent-color:var(--accent);width:16px;height:16px}
 .gc-row.sel:has(input:checked){background:rgba(91,140,255,.12)}
 .gc-t b{font-weight:800}
-.gc-t small{color:var(--warn);font-weight:700;margin-left:3px}
+.gc-t small{color:var(--warn-ink);font-weight:700;margin-left:3px}
 .gc-x{color:var(--muted);font-size:12px;min-width:0}
-.gc-x .warn{color:var(--warn)}
+.gc-x .warn{color:var(--warn-ink)}
 .gc-p{text-align:right;white-space:nowrap}
 .gc-p small{display:block;color:var(--faint);font-size:11px}
 .gc-more,.gc-demo{font-size:11.5px;margin-top:4px}
@@ -1062,7 +1062,7 @@ ol.guide code,.note code{background:var(--surface-2);padding:1px 6px;border-radi
 .len-lw small,.radar-lw small{color:var(--muted);font-weight:500}
 .len-lw-hint{font-size:12px;margin-top:6px}
 .lw-p{font-weight:800;color:var(--text)}
-.lw-p.best{color:var(--good)}
+.lw-p.best{color:var(--good-ink)}
 /* Délka pobytu → 🗓️ Kdy si vzít dovolenou: okno se seznamem volna kolem svátků */
 .len-leave{display:block;margin-top:6px;font-size:12.5px;text-align:left}
 .lw-head{justify-content:space-between;margin-bottom:10px}
@@ -1095,7 +1095,7 @@ ol.guide code,.note code{background:var(--surface-2);padding:1px 6px;border-radi
 .dm-btn:hover,.dm-btn:focus-visible{color:var(--text);border-color:var(--accent)}
 .rc-head .dm-btn{margin-left:auto;align-self:flex-start}
 .cmp-card .rc-head .dm-btn{display:none} /* rozbalená karta v Přehledu cílů: ⋯ už je v řádku nad ní */
-.b.fav-b{background:rgba(251,191,36,.16);color:var(--warn)}
+.b.fav-b{background:rgba(251,191,36,.16);color:var(--warn-ink)}
 .b.mute-b{color:var(--faint)}
 [data-theme=light] .b.fav-b{color:#8a5a00}
 .modal:has(.dm-modal){width:min(440px,100%)}
@@ -1124,7 +1124,7 @@ ol.guide code,.note code{background:var(--surface-2);padding:1px 6px;border-radi
 .fav-i:hover,.fav-i:focus-visible{border-color:var(--accent)}
 .fav-n{max-width:100%;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .fav-p{font-size:12.5px;color:var(--muted)}
-.fav-p b{font:800 15px Sora,sans-serif;color:var(--good)}
+.fav-p b{font:800 15px Sora,sans-serif;color:var(--good-ink)}
 .fav-w{font-size:11.5px;color:var(--faint)}
 .fav-foot{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin-top:12px;font-size:12.5px}
 .fav-note,.fav-mute{font-size:11.5px;margin-top:8px}
@@ -1135,7 +1135,7 @@ ol.guide code,.note code{background:var(--surface-2);padding:1px 6px;border-radi
 .pin-open{font-size:inherit}
 .dm-acts #dmPin,.dm-acts #dmWatch{flex-basis:100%;white-space:normal}
 .pin-age{color:var(--muted)}
-.pin-age.old,.pin-warn{color:var(--warn)}
+.pin-age.old,.pin-warn{color:var(--warn-ink)}
 [data-theme=light] .pin-age.old,[data-theme=light] .pin-warn{color:#8a5a00}
 [data-theme=light] .pin-card .good{color:#047857}
 .modal:has(.pin-modal){width:min(1100px,100%)}
@@ -1163,7 +1163,7 @@ ol.guide code,.note code{background:var(--surface-2);padding:1px 6px;border-radi
 .pin-dt b{font-size:14.5px;color:var(--text)}
 .pin-dd{color:var(--muted)}
 .pin-dn{font-size:11px;color:var(--faint)}
-.pin-unk{color:var(--warn)}
+.pin-unk{color:var(--warn-ink)}
 [data-theme=light] .pin-unk{color:#8a5a00}
 .pin-ln,.pin-age{font-size:12.5px;line-height:1.45}
 /* dny dovolené za nocemi v porovnání (radarLeave): oddělovač jako na kartě radaru, jinak „5 nocí🏖️ 4 dny“ */

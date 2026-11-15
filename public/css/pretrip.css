@@ -2,7 +2,7 @@
 .pt-card .pt-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px 16px;flex-wrap:wrap;margin-bottom:12px}
 .pt-card .pt-sub{font-size:13px;margin-top:2px}
 .pt-tools{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.pt-prog{font:700 12.5px Inter,sans-serif;padding:5px 10px;border-radius:9px;background:rgba(52,211,153,.12);color:var(--good);white-space:nowrap}
+.pt-prog{font:700 12.5px Inter,sans-serif;padding:5px 10px;border-radius:9px;background:rgba(52,211,153,.12);color:var(--good-ink);white-space:nowrap}
 .pt-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px 22px;align-items:start}
 .pt-sec h4{font:800 15px Sora,sans-serif;margin:2px 0 10px}
 .pt-card ul{list-style:none;margin:0;padding:0}
@@ -16,17 +16,17 @@
 .pt-item.lv-info{border-left-color:var(--good)}
 .pt-item .pt-t{font-size:14px;line-height:1.45}
 .pt-dot{width:17px;flex:none;text-align:center;font-size:13px;line-height:1.5}
-.pt-lv{display:inline-block;margin-left:4px;padding:1px 7px;border-radius:7px;font-size:11px;font-weight:700;vertical-align:1px;background:rgba(251,191,36,.14);color:var(--warn)}
-.lv-rec .pt-lv{background:rgba(56,189,248,.12);color:var(--info)}
+.pt-lv{display:inline-block;margin-left:4px;padding:1px 7px;border-radius:7px;font-size:11px;font-weight:700;vertical-align:1px;background:rgba(251,191,36,.14);color:var(--warn-ink)}
+.lv-rec .pt-lv{background:rgba(56,189,248,.12);color:var(--info-ink)}
 .pt-body{margin:6px 0 0 26px;font-size:13px;color:var(--muted)}
 .pt-body p{margin:4px 0}
 .pt-body b{color:var(--text)}
 .pt-links{font-size:12.5px}
-.pt-card a{color:var(--info);text-decoration:underline;overflow-wrap:anywhere}
+.pt-card a{color:var(--info-ink);text-decoration:underline;overflow-wrap:anywhere}
 .pt-v{display:inline-block;padding:0 7px;border-radius:7px;font-size:11.5px;font-weight:700;margin:0 2px;background:var(--surface-2);color:var(--muted)}
-.pt-v-ok{background:rgba(52,211,153,.12);color:var(--good)}
-.pt-v-rec{background:rgba(251,191,36,.14);color:var(--warn)}
-.pt-v-must{background:rgba(251,113,133,.14);color:var(--bad)}
+.pt-v-ok{background:rgba(52,211,153,.12);color:var(--good-ink)}
+.pt-v-rec{background:rgba(251,191,36,.14);color:var(--warn-ink)}
+.pt-v-must{background:rgba(251,113,133,.14);color:var(--bad-ink)}
 .pt-item.done .pt-t,.pt-pack li.done span{opacity:.55;text-decoration:line-through}
 /* co sbalit */
 .pt-acts{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-bottom:10px;font-size:12.5px}
@@ -43,7 +43,7 @@
 .pt-own .pt-row{flex:1}
 /* ✕ aspoň 26 × 24 px pro prst, záporný okraj – řádek kvůli němu nezvýší */
 .pt-del{flex:none;min-width:26px;min-height:24px;margin:-2px 0;padding:0 6px;background:none;border:none;border-radius:7px;color:var(--faint);font:inherit;font-size:12px;line-height:1;cursor:pointer}
-.pt-del:hover,.pt-del:focus-visible{color:var(--bad);background:var(--surface-2)}
+.pt-del:hover,.pt-del:focus-visible{color:var(--bad-ink);background:var(--surface-2)}
 .pt-add{display:flex;gap:8px;margin-top:10px}
 .pt-add .input{flex:1;min-width:0;padding:8px 11px}
 .pt-src{font-size:11.5px;margin-top:12px;line-height:1.5}

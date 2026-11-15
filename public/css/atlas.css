@@ -7,6 +7,10 @@
   --grad:linear-gradient(135deg,#22d3ee 0%,#5b8cff 45%,#a855f7 100%);
   --grad-warm:linear-gradient(135deg,#fb7185 0%,#f59e0b 100%);
   --good:#34d399; --warn:#fbbf24; --bad:#fb7185; --info:#38bdf8;
+  /* --good-ink…--info-ink: stavové barvy jako text (nejlevnější, varování, chyby, informace) – ve světlém režimu tmavší,
+     jasné odstíny měly na světlém pozadí jen 1,5–2,7 : 1 (na slunci nečitelné). Výplně, rámečky a ikony na barevném
+     podkladu zůstávají u --good…--info; tmavý režim beze změny. */
+  --good-ink:#34d399; --warn-ink:#fbbf24; --bad-ink:#fb7185; --info-ink:#38bdf8;
   --radius:22px; --radius-sm:14px;
   --shadow:0 10px 40px -12px rgba(0,0,0,.55);
   --shadow-lg:0 24px 70px -20px rgba(0,0,0,.65);
@@ -33,6 +37,8 @@
   /* --faint: popisky a poznámky (trasa a termín u výsledku, „cena z …“, nápovědy) – na pozadí, kartě i v okně aspoň
      4,5 : 1 (ve dne na slunci); dřívější #8a96b8 měl jen 2,6–2,9 : 1. Pořád slabší než --muted. */
   --text:#0f1830; --muted:#56638a; --faint:#606d92; --accent-ink:#2f5fd0;
+  /* stavové barvy jako text aspoň 4,5 : 1 na pozadí, kartě i v okně (stejné odstíny jako dřívější ruční úpravy níž) */
+  --good-ink:#047857; --warn-ink:#8a5a00; --bad-ink:#be123c; --info-ink:#075985;
   /* spodní lišta bílá (tmavá kapsle na světlé stránce byla nejtěžší věc na obrazovce), aktivní sekce tmavá – obráceně
      než v tmavém režimu; ikony a popisky #5a6687 mají na bílé ~5,7 : 1 */
   --nav-bg:rgba(255,255,255,.9); --nav-line:rgba(13,22,48,.09); --nav-ico:#5a6687;
@@ -280,7 +286,7 @@ html:not(.booted) #view-dashboard>.hero~*{visibility:hidden;animation:boot-show 
 .section-head[hidden],.stat-grid[hidden]{display:none}
 .trip-grid.past .trip{opacity:.88} /* ztlumené, ale odkazy čitelné (při .78 jen 3,6–4 : 1) */
 /* Smazat cestu v detailu cesty: ve světlém režimu tmavší červená (světlá růžová měla na bílé ~2,7 : 1) */
-.trip-del{color:var(--bad);border-color:rgba(251,113,133,.3)}[data-theme="light"] .trip-del{color:#be123c}
+.trip-del{color:var(--bad-ink);border-color:rgba(251,113,133,.3)}[data-theme="light"] .trip-del{color:#be123c}
 .nt-name{font-size:.62em;line-height:1.2;display:inline-block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom}
 .nt-open{font-size:12.5px;margin-top:6px}
 /* 📍 Dnes na cestě – karta nahoře na Přehledu (app.js nowCard); na telefonu kompaktní, dlouhé texty se zalomí */
@@ -551,11 +557,11 @@ html:has(#modalBg.show) body{overflow:hidden} /* na body, ne na html: přejde na
 .fc .t small{color:var(--muted);font-weight:600}
 .months{display:grid;grid-template-columns:repeat(12,1fr);gap:5px;margin-top:8px}
 .months .m{text-align:center;font-size:10.5px;font-weight:700;padding:8px 2px;border-radius:8px;background:var(--surface);color:var(--faint);border:1px solid var(--border)}
-.months .m.best{background:rgba(52,211,153,.16);color:var(--good);border-color:rgba(52,211,153,.3)}
+.months .m.best{background:rgba(52,211,153,.16);color:var(--good-ink);border-color:rgba(52,211,153,.3)}
 /* detail země ve světlém režimu: nejlepší měsíce a bezpečnost tmavšími barvami – mátová, žlutá a růžová na bílé mají
    kontrast kolem 2 : 1 */
 [data-theme="light"] .months .m.best,[data-theme="light"] .kv .safe-ok{color:#047857}
-.kv .safe-ok{color:var(--good)}.kv .safe-mid{color:var(--warn)}.kv .safe-bad{color:var(--bad)}
+.kv .safe-ok{color:var(--good-ink)}.kv .safe-mid{color:var(--warn-ink)}.kv .safe-bad{color:var(--bad-ink)}
 [data-theme="light"] .kv .safe-mid{color:#8a5a00}[data-theme="light"] .kv .safe-bad{color:#be123c}
 .months .m.now{outline:2px solid var(--accent);outline-offset:1px}
 .clim-k{font-size:11px;color:var(--muted);text-transform:uppercase;font-weight:700;letter-spacing:.04em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -636,7 +642,7 @@ html:has(#modalBg.show) body{overflow:hidden} /* na body, ne na html: přejde na
 /* toast */
 .toast{position:fixed;bottom:26px;left:50%;transform:translateX(-50%) translateY(20px);z-index:300;background:var(--surface-solid);border:1px solid var(--border-2);padding:13px 20px;border-radius:14px;font-weight:700;font-size:14px;box-shadow:var(--shadow-lg);opacity:0;transition:.3s var(--ease);display:flex;gap:10px;align-items:center}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
-.toast svg{width:18px;height:18px;color:var(--good)}
+.toast svg{width:18px;height:18px;color:var(--good-ink)}
 
 .mobile-nav{display:none}
 /* telefon: Mapa a Země jako jedna sekce Svět s přepínačem nahoře, zbytek sekcí v menu ☰ */
@@ -721,14 +727,14 @@ html:has(#modalBg.show) body{overflow:hidden} /* na body, ne na html: přejde na
 /* ============ VSTUPNÍ PODMÍNKY (entry.js) ============ */
 .ec{display:inline-block;max-width:100%;margin-top:9px;padding:2px 8px;border-radius:7px;font-size:11px;font-weight:700;line-height:1.6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:var(--surface-2);color:var(--muted)}
 .dest .ec+.meta{margin-top:8px}
-.ec-ok,.b.ec-ok{background:rgba(52,211,153,.12);color:var(--good)}
-.ec-reg,.b.ec-reg{background:rgba(56,189,248,.12);color:var(--info)}
+.ec-ok,.b.ec-ok{background:rgba(52,211,153,.12);color:var(--good-ink)}
+.ec-reg,.b.ec-reg{background:rgba(56,189,248,.12);color:var(--info-ink)}
 /* povinný online formulář k příletu (TDAC…): čip u letu a zvýrazněný řádek v „Před cestou“ a detailu země */
-.ec-form,.b.ec-form{background:rgba(56,189,248,.12);color:var(--info)}
+.ec-form,.b.ec-form{background:rgba(56,189,248,.12);color:var(--info-ink)}
 .ed-form{margin-top:8px;padding:7px 10px;border-radius:9px;font-size:13px;background:rgba(56,189,248,.1);border-left:3px solid var(--info)}
 .entry-card .pc-list li.ed-form{list-style:none;margin:6px 0 6px -18px}
-.ec-visa,.b.ec-visa{background:rgba(251,191,36,.13);color:var(--warn)}
-.ec-hard,.b.ec-hard{background:rgba(251,113,133,.13);color:var(--bad)}
+.ec-visa,.b.ec-visa{background:rgba(251,191,36,.13);color:var(--warn-ink)}
+.ec-hard,.b.ec-hard{background:rgba(251,113,133,.13);color:var(--bad-ink)}
 .b.ec-warn{white-space:normal}
 [data-ec]{cursor:pointer}
 .ec-id{white-space:nowrap}
@@ -737,8 +743,8 @@ html:has(#modalBg.show) body{overflow:hidden} /* na body, ne na html: přejde na
 .entry-detail h3{font-size:15px;margin-bottom:8px}
 .ed-regime{display:block;margin:0;padding:8px 11px;border-radius:10px;font-size:13.5px;font-weight:700;white-space:normal}
 .ed-reg{margin-top:8px;font-size:13px}
-.ed-transit{margin-top:4px;color:var(--bad);font-weight:600}
-.ed-unv{margin-top:8px;font-size:12.5px;font-weight:600;color:var(--warn)}
+.ed-transit{margin-top:4px;color:var(--bad-ink);font-weight:600}
+.ed-unv{margin-top:8px;font-size:12.5px;font-weight:600;color:var(--warn-ink)}
 [data-theme="light"] .ed-unv{color:#8a5a00}
 .ed-kv{margin-top:12px}
 .ed-kv .v{font-size:14px}
@@ -748,7 +754,7 @@ html:has(#modalBg.show) body{overflow:hidden} /* na body, ne na html: přejde na
 .ed-notes{font-size:13px;margin-top:8px;color:var(--muted)}
 .ed-src{font-size:12px;margin-top:8px}
 .ed-note{margin-top:10px;font-size:12.5px}
-.entry-detail a,.entry-card a{color:var(--info);text-decoration:underline;overflow-wrap:anywhere}
+.entry-detail a,.entry-card a{color:var(--info-ink);text-decoration:underline;overflow-wrap:anywhere}
 /* detail země na mobilu: delší text (platnost pasu) přes celou šířku, ne čtyři řádky v polovině */
 @media(max-width:560px){.ed-kv .ed-wide{grid-column:1/-1}}
 .ed-regime.ec-free{background:var(--surface-2)}

@@ -4019,7 +4019,7 @@
     g0.append('g').selectAll('circle').data(pts).join('circle')
       .attr('cx', d => proj([d.lon, d.lat])[0]).attr('cy', d => proj([d.lon, d.lat])[1])
       .attr('r', d => d.t.deal.level === 'super' ? 7 : 5.5).attr('class', d => `rm-dot ${tier(d.t.perPersonCzk)}`)
-      .on('mousemove', (e, d) => { tip.innerHTML = `${flag(d.g.dest.cc)} ${esc(d.g.dest.label)} · <span style="color:var(--good)">${czk(d.t.perPersonCzk)}</span>${d.t.tempHi != null ? ` · 🌡️ ~${d.t.tempHi} °C` : ''}`; tip.style.left = e.clientX + 'px'; tip.style.top = e.clientY + 'px'; tip.style.opacity = 1; })
+      .on('mousemove', (e, d) => { tip.innerHTML = `${flag(d.g.dest.cc)} ${esc(d.g.dest.label)} · <span style="color:var(--good-ink)">${czk(d.t.perPersonCzk)}</span>${d.t.tempHi != null ? ` · 🌡️ ~${d.t.tempHi} °C` : ''}`; tip.style.left = e.clientX + 'px'; tip.style.top = e.clientY + 'px'; tip.style.opacity = 1; })
       .on('mouseleave', () => tip.style.opacity = 0)
       .on('click', (e, d) => { tip.style.opacity = 0; showMapDetail(d.g); });
     // Popisky nejlevnějších bez překrývání: od nejlevnějšího vpravo od bodu, jinak vlevo, nad nebo pod ním; co se
