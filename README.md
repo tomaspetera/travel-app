@@ -1220,7 +1220,8 @@ i podle místního, anglického, německého, polského a slovenského jména (M
 historického jen celého (Bombaj → Mumbai, „madr“ ale Madrid, ne Čennaí). Pořadí: velikost (počet obyvatel, u hor
 a ostrovů známost, nejvýš jako milionové město), přesný název platí jako stokrát větší místo (o 1000 obyvatel víc) než
 začátek jiného názvu – Most je tak před Móstoles a osada Zadov před Žádovicemi, ale „Pař“ najde Paříž před vesnicí Par;
-obec na ostrově stejného jména je před ostrovem (Ibiza, Hvar). Dva znaky jen přesný název, nejvýš 6 výsledků. ID míst
+obec na ostrově stejného jména je před ostrovem (Ibiza, Hvar). Stejnojmenné osady nejvýš tři, ať zbude místo pro město,
+které se teprve píše (Hradec → i Hradec Králové). Dva znaky jen přesný název, nejvýš 6 výsledků. ID míst
 (`geo:lat,lon|Název`) jsou stejná jako dřív z Open-Meteo, takže uložené cesty a hlídání cen platí dál. Server seznam
 načte hned po startu (~0,2 s, ~25 MB paměti); když soubor chybí nebo je poškozený, návrhy jedou z vlastních dat a chyba
 je v logu jednou. Co v seznamu chybí (vesnice v cizině, adresy, rozhledny), najde v Objevuj s klíčem Mapy.com jejich

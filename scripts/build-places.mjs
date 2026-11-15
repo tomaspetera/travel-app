@@ -154,11 +154,14 @@ export function zipLines(file, name) {
 /**
  * Zobrazovaný název z alternativních jmen jednoho jazyka ([{ name, pref, short, colloq, hist }]): preferované (celé
  * před zkráceným – „Ústecký kraj“, ne „Ústecký“) > jediné > shodné s hlavním názvem > první; historická a hovorová ne.
- * Žádné → hlavní název GeoNames.
+ * Žádné → hlavní název GeoNames. GeoNames má pár jmen celých malými (české „valtice“, „rabat“, slovenské obce
+ * „ľubeľa“) – v nabídce by vypadala jako chyba, tak s velkým prvním písmenem; členy a předpony (la Massana, 't Veld,
+ * eMbalenhle, ad-Dáchilíja) zůstanou, jsou kratší než 4 písmena nebo mají velké písmeno dál.
  */
 export function pickName(names, main) {
   const ok = names.filter((n) => !n.hist && !n.colloq);
-  return (ok.find((n) => n.pref && !n.short) || ok.find((n) => n.pref) || (ok.length === 1 ? ok[0] : null) || ok.find((n) => n.name === main) || ok[0])?.name || main;
+  const name = (ok.find((n) => n.pref && !n.short) || ok.find((n) => n.pref) || (ok.length === 1 ? ok[0] : null) || ok.find((n) => n.name === main) || ok[0])?.name || main;
+  return /^\p{Ll}{4,}(\s|$)/u.test(name) ? name.charAt(0).toUpperCase() + name.slice(1) : name;
 }
 
 // Části měst a zaniklá či historická místa – do hledání nepatří.

@@ -20,6 +20,8 @@ test('bez seznamu míst: návrhy a středy měst z vlastních dat, chyba v logu 
   try {
     assert.deepEqual((await suggest('Brno')).map((s) => s.id.split('|')[0]), ['ap:BRQ', 'geo:49.1952,16.6080']);
     assert.equal((await geocodePlaces('Praha'))[0].label, 'Praha');
+    // místo mimo vlastní data: prázdná nabídka, ne chyba 500 a výpis chyby do logu při každém dotazu
+    assert.deepEqual(await geocodePlaces('Kvilda'), []);
     await assert.rejects(geocode('Benátky'), /ENOENT/);
     assert.equal(errs.length, 1, errs.join('\n'));
     assert.match(errs[0], /data\/places\.json/);

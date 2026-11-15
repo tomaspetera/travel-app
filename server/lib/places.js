@@ -393,7 +393,16 @@ const placeRow = (i) => {
 export async function geocode(query) {
   const { imp } = loadPlaces();
   const w = ([i, m]) => (m === 2 ? (imp[i] + 1000) * 100 : imp[i] + 1);
-  const top = [...placeMatches(query)].sort((x, y) => w(y) - w(x) || y[1] - x[1]).slice(0, 6).map(([i, m]) => ({ i, m, p: placeRow(i) }));
+  // nejvýš 3 přesné shody téhož názvu, dokud jsou jiné: šest osad Hradec by jinak vytlačilo Hradec Králové, který se
+  // teprve píše (Ústí → Ústí nad Labem, Veselí → Veselí nad Moravou); první výsledek se tím nikdy nemění
+  const seen = new Map(), pick = [], spare = [];
+  for (const x of [...placeMatches(query)].sort((x, y) => w(y) - w(x) || y[1] - x[1])) {
+    const l = PLACES.rows[x[0]].split('|', 2)[1];
+    seen.set(l, (seen.get(l) || 0) + 1);
+    (x[1] === 2 && seen.get(l) > 3 ? spare : pick).push(x);
+    if (pick.length >= 6) break;
+  }
+  const top = [...pick, ...spare].slice(0, 6).map(([i, m]) => ({ i, m, p: placeRow(i) }));
   // ostrov, hrad nebo jezero za obcí přesně toho jména do 25 km (Ibiza, Korfu, Hvar, Karlštejn) jako dřív u Open-Meteo –
   // první výsledek bere jako střed města program cesty, ubytování i plánovač pobytu, ne střed ostrova
   for (let a = 0; a < top.length; a++) {
@@ -439,9 +448,9 @@ export async function geocodePlaces(query) {
   let items;
   try {
     items = await geocode(query);
-  } catch (e) {
-    items = localCityCenters(query); // bez seznamu míst (chybějící nebo poškozený soubor) aspoň města a letiště z vlastních dat
-    if (!items.length) throw e;
+  } catch {
+    // bez seznamu míst (chybějící nebo poškozený soubor – chyba je v logu jednou) aspoň města z vlastních dat, jinak nic
+    items = localCityCenters(query);
   }
   // (vesnice začínající stejně – Krakvitz u „Krakv“ – opravě nebrání)
   const q = normalize(query);

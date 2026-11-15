@@ -86,6 +86,10 @@ test('build-places: český název – preferovaný > jediný > shodný s hlavn�
   assert.equal(pickName([n('Salcburk'), n('Salcpurk')], 'Salzburg'), 'Salcburk');
   // u krajů celý název před zkráceným
   assert.equal(pickName([n('Ústecký', { pref: true, short: true }), n('Ústecký kraj', { pref: true })], 'Usti Region'), 'Ústecký kraj');
+  // jméno celé malými (chyba v GeoNames) s velkým písmenem, členy a předpony ne
+  assert.equal(pickName([n('valtice')], 'Valtice'), 'Valtice');
+  assert.equal(pickName([], 'ľubeľa'), 'Ľubeľa');
+  for (const name of ['la Massana', "'t Veld", 'eMbalenhle', 'ad-Dáchilíja']) assert.equal(pickName([], name), name);
 });
 
 test('data/places.json: hlavička, formát řádků, rozpočet a Benátky', () => {
