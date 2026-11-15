@@ -491,8 +491,8 @@ function nextTripStat() {
 /* ---------- 📍 Dnes na cestě ----------
    Karta nahoře na Přehledu od 2 dnů před odjezdem do konce uložené cesty (i zkratka aplikace „Na cestě“ → #now): řádky
    průběhu cesty na dnešek (Trip.timeline – stejné jako ve shrnutí průvodce), ubytování, posun času, 🔖 rezervace.
-   Vše z localStorage – funguje i bez signálu, žádné dotazy na server ani partnery (jen předpověď počasí z Open-Meteo,
-   uložená taky v localStorage – nowWx). */
+   Vše z localStorage – funguje i bez signálu, žádné dotazy na server ani partnery (jen předpověď počasí MET Norway přes
+   api/weather, uložená taky v localStorage – nowWx). */
 const okYmd = s => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s) && !isNaN(Date.parse(s + 'T00:00:00Z'));
 const ymdPlus = (ymd, n) => new Date(Date.parse(ymd + 'T12:00:00Z') + n * 864e5).toISOString().slice(0, 10);
 /** Místní čas 'YYYY-MM-DDTHH:MM' v zóně tz v okamžiku now (ms); bez známé zóny čas zařízení. */
@@ -779,7 +779,7 @@ function nowUnsaved(today) {
   const d = daysTo(today, u.start);
   return `<div class="card now-card none" id="nowCard" tabindex="-1" role="region" aria-label="Na cestě"><div class="nw-h">📍 ${u.shared ? 'Sdílená cesta' : 'Cesta'} ${u.cc ? flag(u.cc) + ' ' : ''}${esc(u.label)} ${d > 0 ? 'začíná ' + inDays(d) : 'právě probíhá'}</div><div class="nw-meta"><span>${u.shared ? 'Od kamaráda – jedeš taky? Ulož si ji' : 'Ještě není v Mých cestách – ulož ji'} a tady uvidíš na každý den program, ubytování a spoje, i bez signálu. <button type="button" class="linkbtn" data-nw-save>💾 Uložit do Mých cest</button></span></div></div>`;
 }
-/* 🌤️ Počasí na kartě: předpověď Open-Meteo (Weather.forecast – jeden dotaz na všechna místa karty) uložená
+/* 🌤️ Počasí na kartě: předpověď MET Norway (Weather.forecast – jeden dotaz na všechna místa karty) uložená
    v localStorage, ať je vidět i bez signálu. Jen když karta místa chce (na cestě, den před odjezdem) – jinak žádný dotaz.
    { 'lat,lon': { den: [kód, max, min, srážky %, kdy staženo (ms)] } } */
 const NWX_LS = 'atlas_nowwx', NWX_TTL = 2 * 36e5; // dnešní předpověď se přes den moc nemění – nejvýš jednou za 2 h
@@ -1818,40 +1818,35 @@ window.stayLinks = iso => {
 };
 window.addToPlan = iso => { newTrip(byIso[iso]); };
 
-/* weather + fx (LIVE z Open-Meteo / ER-API přímo z prohlížeče) */
-// Počasí a kurz v okně země: bez odpovědi do 8 s chyba (jinak „Načítám počasí…“ visí, když open-meteo neodpovídá)
+/* weather + fx (počasí MET Norway přes server – api/weather, kurzy ER-API přímo z prohlížeče) */
+// Počasí a kurz v okně země: bez odpovědi do 8 s chyba (jinak „Načítám počasí…“ visí, když zdroj neodpovídá)
 const wxSignal = () => (typeof AbortSignal !== 'undefined' && AbortSignal.timeout ? AbortSignal.timeout(8000) : undefined);
-async function geocode(c) {
-  // poloha hlavního města z dat zemí (scripts/build-capitals.mjs): počasí jedním dotazem místo dvou – a přednost i před
-  // uloženým S.geo, kde geokódování jen podle názvu nechalo San José v Kalifornii místo Kostariky
-  if (Array.isArray(c.capLL) && c.capLL.length === 2) return { lat: c.capLL[0], lon: c.capLL[1] };
-  if (S.geo[c.iso2]) return S.geo[c.iso2];
-  try {
-    // záloha pro starší data zemí bez capLL (z mezipaměti) – s filtrem země
-    const r = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${enc(c.cap || c.en)}&count=1&language=cs&format=json&countryCode=${enc(c.iso2)}`, { signal: wxSignal() }); const j = await r.json();
-    if (j.results && j.results[0]) { const g = { lat: j.results[0].latitude, lon: j.results[0].longitude }; S.geo[c.iso2] = g; save(); return g; }
-  } catch (e) { }
-  return null;
-}
+// Poloha hlavního města z dat zemí (scripts/build-capitals.mjs, mají ji všechny země); S.geo jen ze starších verzí
+// aplikace, které ji geokódovaly podle názvu.
+const capitalOf = c => (Array.isArray(c.capLL) && c.capLL.length === 2 ? { lat: c.capLL[0], lon: c.capLL[1] } : S.geo[c.iso2] || null);
 async function loadWeather(c) {
   const cache = S.weather[c.iso2];
-  if (cache && Date.now() - cache.ts < 3600000) { return paintWeather(cache.data); }
+  // uložené počasí ve starém tvaru (Open-Meteo: current/daily) se nekreslí – stáhne se nové
+  if (cache && cache.data && cache.data.now && Date.now() - cache.ts < 3600000) { return paintWeather(cache.data); }
   // odpověď kreslit jen do okna téže země – mezitím mohla být otevřená jiná (nebo okno zavřené)
   const box = () => (curIso === c.iso2 ? $('#wxBox') : null);
-  const g = await geocode(c); if (!g) { if (box()) box().innerHTML = '<div class="wico">🌐</div><div class="muted" style="font-size:13px">Počasí se teď nepodařilo načíst.<br>Zkontroluj připojení a dej Aktualizovat.</div>'; return; }
+  const g = capitalOf(c); if (!g) { if (box()) box().innerHTML = '<div class="wico">🌐</div><div class="muted" style="font-size:13px">Počasí se teď nepodařilo načíst.</div>'; return; }
   try {
-    const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${g.lat}&longitude=${g.lon}&current=temperature_2m,weather_code,wind_speed_10m,relative_humidity_2m&daily=weather_code,temperature_2m_max,temperature_2m_min&forecast_days=7&timezone=auto`, { signal: wxSignal() });
-    const j = await r.json(); if (!j || !j.current || !j.daily) throw new Error('bez počasí');
+    const r = await fetch(`api/weather?pts=${(+g.lat).toFixed(2)},${(+g.lon).toFixed(2)}`, { signal: wxSignal() });
+    const j = r.ok ? ((await r.json()).places || [])[0] : null; if (!j || !j.now || !Array.isArray(j.days) || !j.days.length) throw new Error('bez počasí');
     S.weather[c.iso2] = { ts: Date.now(), data: j }; save(); if (box()) paintWeather(j);
-  } catch (e) { if (box()) box().innerHTML = '<div class="wico">🌐</div><div class="muted" style="font-size:13px">Počasí se teď nepodařilo načíst.</div>'; }
+  } catch (e) { if (box()) box().innerHTML = '<div class="wico">🌐</div><div class="muted" style="font-size:13px">Počasí se teď nepodařilo načíst.<br>Zkontroluj připojení a dej Aktualizovat.</div>'; }
 }
+// Dnešní datum v hlavním městě (zóna z odpovědi), bez zóny podle telefonu – „Dnes“ jen u dnešního dne: pozdě večer
+// předpověď dnešek už nemá a začíná zítřkem.
+const todayIn = tz => { try { if (tz) return new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(new Date()); } catch (e) { } return fmtYMD(new Date()); };
 function paintWeather(j) {
-  if (!$('#wxBox') || !j || !j.current) return;
-  const cur = j.current, [ci, ct] = wIco(cur.weather_code);
-  $('#wxBox').innerHTML = `<div class="wico">${ci}</div><div style="flex:1"><div class="muted" style="font-size:12px">Teď v hlavním městě · ${ct}</div><div class="temp">${Math.round(cur.temperature_2m)}°</div><div class="faint" style="font-size:12px">💨 ${Math.round(cur.wind_speed_10m)} km/h · 💧 ${cur.relative_humidity_2m ?? '–'} %</div></div>`;
-  const d = j.daily; const days = ['Ne', 'Po', 'Út', 'St', 'Čt', 'Pá', 'So'];
+  if (!$('#wxBox') || !j || !j.now) return;
+  const cur = j.now, [ci, ct] = wIco(cur.code);
+  $('#wxBox').innerHTML = `<div class="wico">${ci}</div><div style="flex:1"><div class="muted" style="font-size:12px">Teď v hlavním městě · ${ct}</div><div class="temp">${Math.round(cur.t)}°</div><div class="faint" style="font-size:12px">💨 ${cur.wind ?? '–'} km/h · 💧 ${cur.rh ?? '–'} %</div></div>`;
+  const days = ['Ne', 'Po', 'Út', 'St', 'Čt', 'Pá', 'So'], today = todayIn(j.tz);
   // den v týdnu z data samotného: new Date('2026-10-25') je půlnoc UTC – v telefonu s časem New Yorku ještě sobota
-  $('#fcBox').innerHTML = d.time.map((t, i) => { const dt = new Date(t + 'T12:00:00Z'); const [ic] = wIco(d.weather_code[i]); return `<div class="fc"><div class="d">${i === 0 ? 'Dnes' : days[dt.getUTCDay()]}</div><div class="i">${ic}</div><div class="t">${Math.round(d.temperature_2m_max[i])}°<small> ${Math.round(d.temperature_2m_min[i])}°</small></div></div>`; }).join('');
+  $('#fcBox').innerHTML = (j.days || []).slice(0, 7).map(w => { const dt = new Date(w.date + 'T12:00:00Z'); const [ic] = wIco(w.code); return `<div class="fc"><div class="d">${w.date === today ? 'Dnes' : days[dt.getUTCDay()]}</div><div class="i">${ic}</div><div class="t">${Math.round(w.hi)}°<small> ${Math.round(w.lo)}°</small></div></div>`; }).join('');
 }
 async function loadFx(c) {
   if (!c.cur || c.cur === 'CZK') { const el = $('#fxLine'); if (el) el.textContent = c.cur === 'CZK' ? 'domácí měna' : ''; return; }

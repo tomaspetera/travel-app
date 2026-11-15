@@ -63,7 +63,7 @@ test('karta dne túry: cíl a start, délka, převýšení, čas a obtížnost, 
   // poznámka pod túrami: vidět rada a zdroje dat, výpočet času a obtížnosti pod „Jak počítám“ (dřív 12 řádků)
   const foot = h.match(/<div class="faint" style="font-size:11\.5px;margin-top:8px">(.*?) <details class="foot-more"><summary>Jak počítám<\/summary>(.*?)<\/details><\/div>/);
   assert.ok(foot, 'poznámka s „Jak počítám“');
-  assert.match(foot[1], /^Provoz chat a lanovek ověř; v horách sleduj předpověď a značení\. Data: Wikidata, BRouter a © OpenStreetMap\. Počasí: <a href="https:\/\/open-meteo\.com\/"/);
+  assert.match(foot[1], /^Provoz chat a lanovek ověř; v horách sleduj předpověď a značení\. Data: Wikidata, BRouter a © OpenStreetMap\. Počasí: <a href="https:\/\/www\.met\.no\/en"/);
   assert.doesNotMatch(foot[1], /DIN|Obtížnost|Overpass/);
   assert.match(foot[2], /Čas chůze podle turistického vzorce DIN 33466 \(4 km\/h, 300 m stoupání a 500 m klesání za hodinu/);
   assert.match(foot[2], /Obtížnost: lehká do 3 h chůze a 400 m stoupání, náročná nad 6 h/);

@@ -88,11 +88,11 @@ for (const f of ['searchhelp.js', 'smart.js', 'pricecheck.js', 'ics.js']) vm.run
 const W = {}; vm.runInNewContext(src('weather.js'), { window: W, URLSearchParams, Date, Map, Math, Number, String, Array, Promise });
 const { SearchHelp: H, Smart, PriceCheck: P, Ics } = ctx.window;
 const J = (v) => JSON.parse(JSON.stringify(v));
-// 7denní předpověď v okně země (app.js paintWeather) – dny Open-Meteo 'YYYY-MM-DD'
+// 7denní předpověď v okně země (app.js paintWeather) – dny z api/weather 'YYYY-MM-DD'
 const app = readFileSync(new URL('../public/js/app.js', ${JSON.stringify(import.meta.url)}), 'utf8');
-const els = {}, wctx = { $: (s) => (els[s] ||= { innerHTML: '' }), wIco: () => ['☀️', 'Jasno'] };
-vm.runInNewContext(app.match(/^function paintWeather\\(j\\) \\{[\\s\\S]*?^\\}/m)[0] + '\\npaintWeather(j);', { ...wctx, j: { current: { weather_code: 0, temperature_2m: 10, wind_speed_10m: 5, relative_humidity_2m: 70 },
-  daily: { time: ['2026-10-24', '2026-10-25', '2026-10-26', '2027-03-27', '2027-03-28', '2027-03-29'], weather_code: [0, 0, 0, 0, 0, 0], temperature_2m_max: [1, 1, 1, 1, 1, 1], temperature_2m_min: [0, 0, 0, 0, 0, 0] } } });
+const els = {}, wctx = { $: (s) => (els[s] ||= { innerHTML: '' }), wIco: () => ['☀️', 'Jasno'], todayIn: () => '2026-10-24' };
+vm.runInNewContext(app.match(/^function paintWeather\\(j\\) \\{[\\s\\S]*?^\\}/m)[0] + '\\npaintWeather(j);', { ...wctx, j: { now: { code: 0, t: 10, wind: 5, rh: 70 },
+  days: ['2026-10-24', '2026-10-25', '2026-10-26', '2027-03-27', '2027-03-28', '2027-03-29'].map((date) => ({ date, code: 0, hi: 1, lo: 0 })) } });
 const sc = H.spanCal({ date: '2026-10-21', hasTime: true, dep: '2026-10-21T18:30:00', arr: '2026-10-21T20:00:00' }, { date: '2026-10-28', hasTime: true, dep: '2026-10-28T21:00:00', arr: '2026-10-29T00:45:00' }, { today: '2026-10-22' });
 const sp = H.spanCal({ date: '2027-03-26', hasTime: false }, { date: '2027-03-29', hasTime: false });
 const cell = (c, d) => c.months.flatMap((m) => m.cells).find((x) => x.date === d);
