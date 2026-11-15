@@ -84,7 +84,7 @@ test('suggest: kódy letišť malými, cizí názvy měst, malá turistická mí
   assert.equal(sz.filter((s) => s.type === 'city').length, 1, 'Salcburk jen jednou (anglický název = duplikát)');
   // město není čtvrtí osady stejného začátku do 25 km (osada Jablonec u Jablonce nad Nisou); čtvrti Brna dál pryč
   assert.ok((await suggest('Jablonec', { role: 'from' })).some((s) => s.label === 'Jablonec nad Nisou'), 'Jablonec nad Nisou');
-  assert.ok(!(await suggest('Brno')).some((s) => /^Brno-/.test(s.label)), 'bez čtvrtí Brna');
+  assert.ok(!(await suggest('Brn')).some((s) => /^Brno-/.test(s.label)), 'bez čtvrtí Brna');
   assert.ok((await suggest('Portofino')).some((s) => s.label === 'Portofino'), 'malé turistické místo, když nic jiného nesedí');
   const pl = (await suggest('Plitvice')).map((s) => s.label);
   assert.ok(pl.includes('Plitvice Lakes National Park'), pl.join(', '));

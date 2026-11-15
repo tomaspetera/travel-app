@@ -393,16 +393,11 @@ const placeRow = (i) => {
 export async function geocode(query) {
   const { imp } = loadPlaces();
   const w = ([i, m]) => (m === 2 ? (imp[i] + 1000) * 100 : imp[i] + 1);
-  // nejvýš 3 přesné shody téhož názvu, dokud jsou jiné: šest osad Hradec by jinak vytlačilo Hradec Králové, který se
-  // teprve píše (Ústí → Ústí nad Labem, Veselí → Veselí nad Moravou); první výsledek se tím nikdy nemění
-  const seen = new Map(), pick = [], spare = [];
-  for (const x of [...placeMatches(query)].sort((x, y) => w(y) - w(x) || y[1] - x[1])) {
-    const l = PLACES.rows[x[0]].split('|', 2)[1];
-    seen.set(l, (seen.get(l) || 0) + 1);
-    (x[1] === 2 && seen.get(l) > 3 ? spare : pick).push(x);
-    if (pick.length >= 6) break;
-  }
-  const top = [...pick, ...spare].slice(0, 6).map(([i, m]) => ({ i, m, p: placeRow(i) }));
+  // shortcut: šest osad Hradec vytlačí Hradec Králové, který se teprve píše (Objevuj bez Mapy.com, „Přidat místo“;
+  // Odkud a Kam ho mají z vlastních dat) – stačí další písmeno. Limit stejnojmenných osad tady vytlačoval vesnici
+  // u domova (Odkud řadí podle vzdálenosti až potom) a pouštěl cizí města (Pavlov → Pavlovo); lépe až s víc kandidáty
+  // pro suggest a limitem po seřazení podle vzdálenosti.
+  const top = [...placeMatches(query)].sort((x, y) => w(y) - w(x) || y[1] - x[1]).slice(0, 6).map(([i, m]) => ({ i, m, p: placeRow(i) }));
   // ostrov, hrad nebo jezero za obcí přesně toho jména do 25 km (Ibiza, Korfu, Hvar, Karlštejn) jako dřív u Open-Meteo –
   // první výsledek bere jako střed města program cesty, ubytování i plánovač pobytu, ne střed ostrova
   for (let a = 0; a < top.length; a++) {
@@ -448,7 +443,9 @@ export async function geocodePlaces(query) {
   let items;
   try {
     items = await geocode(query);
-  } catch {
+  } catch (e) {
+    // jiná chyba než nenačtený seznam (chyba v kódu nebo datech) dál – ne potichu prázdná nabídka
+    if (!PLACES_ERR) throw e;
     // bez seznamu míst (chybějící nebo poškozený soubor – chyba je v logu jednou) aspoň města z vlastních dat, jinak nic
     items = localCityCenters(query);
   }

@@ -81,12 +81,6 @@ test('pořadí: přesný název před začátkem jiného (i většího), ale vel
   assert.equal(await first('Santo Domingo'), 'Santo Domingo DO');
   // stejnojmenné obce podle velikosti (Lhota s 782 obyvateli před osadami Lhota bez obyvatel)
   assert.equal((await geocode('Lhota'))[0].pop, 782);
-  // nejvýš 3 osady téhož jména, dokud jsou jiné – město, které se teprve píše, v nabídce zůstane
-  for (const [q, town] of [['Hradec', 'Hradec Králové CZ'], ['Ústí', 'Ústí nad Labem CZ'], ['Veselí', 'Veselí nad Moravou CZ']]) {
-    const hits = names(await geocode(q));
-    assert.ok(hits.includes(town), `${q}: ${hits.join('; ')}`);
-    assert.equal(hits.filter((h) => h.startsWith(`${q} `) && h.split(' ').length === 2).length, 3, `${q}: tři osady`);
-  }
   assert.equal(await first('Valtice'), 'Valtice CZ', 'ne „valtice“ malým písmenem z GeoNames');
 });
 
