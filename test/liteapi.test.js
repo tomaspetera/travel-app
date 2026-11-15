@@ -194,3 +194,16 @@ test('englishName: anglický název podle jména (i slovenského – „Boloňa�
   assert.equal(await englishName('Civita di Bagnoregio-x', 42.6273, 12.1135, 'IT'), null, 'místo mimo seznam → null (odkazy pak s českým názvem)');
   assert.equal(await englishName('Benátky', NaN, 12.3, 'IT', 3164603), null, 'bez polohy nic');
 });
+
+test('ubytování v DEMO: anglický název místa z vlastního seznamu míst (Boloňa → Bologna), bez sítě', async () => {
+  const prev = config.mock;
+  config.mock = true;
+  const stub = stubFetch(() => ({ status: 404, body: '{}' }));
+  try {
+    const r = await searchStays({ city: 'Boloňa', lat: 44.4938, lon: 11.3387, cc: 'IT', checkin: ymdPlus(20), checkout: ymdPlus(23), adults: 2 });
+    assert.equal(r.query.cityEn, 'Bologna', 'DEMO doplní anglický název stejně jako provoz (seznam míst je místní)');
+  } finally {
+    stub.restore();
+    config.mock = prev;
+  }
+});

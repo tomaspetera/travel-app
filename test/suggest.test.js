@@ -78,6 +78,7 @@ test('suggest: kódy letišť malými, cizí názvy měst, malá turistická mí
   assert.equal(await first('Munchen'), 'Mnichov', 'cizí název → české jméno velkého města');
   assert.equal(await first('Koln'), 'Kolín nad Rýnem');
   assert.equal(await first('Beograd'), 'Bělehrad');
+  assert.equal(await first('Den Haag'), 'Haag', 'sídlo vlády (GeoNames PPLG) jako velké město');
   assert.equal(await first('Agia Napa'), 'Ayia Napa', 'liší se jedním písmenem (shoda podle jiného jména v GeoNames)');
   const sz = await suggest('Salzburg');
   assert.equal(sz.filter((s) => s.type === 'city').length, 1, 'Salcburk jen jednou (anglický název = duplikát)');

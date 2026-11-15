@@ -116,7 +116,8 @@ export const EXONYMS = {
   // starší a hovorové české názvy (Solnohrad, Inšpruk, Cařihrad, Minorka) a celé české názvy („Frankfurt nad Mohanem“)
   solnohrad: 'ap:SZG', inspruk: 'ap:INN', carihrad: 'metro:IST', 'novy york': 'metro:NYC', 'frankfurt nad mohanem': 'metro:FRA',
   'san francisko': 'ap:SFO', sajgon: 'ap:SGN', minorka: 'ap:MAH', menorka: 'ap:MAH',
-  // pohoří → letiště pod ním (geokodér zná jen osadu Tatry u Lipna – bez toho by „Tatry“ v poli Kam byla jen ona)
+  // pohoří → letiště pod ním (geokodér vrátí pohoří Vysoké Tatry, které pole letů vynechá, a osadu Tatry u Lipna –
+  // bez toho by „Tatry“ v poli Kam byla jen osada)
   tatry: 'ap:TAT',
 };
 

@@ -2030,7 +2030,7 @@ přes víc míst jedou úseky v ty dny autem a ostatní vlakem / busem. Srovnáv
   `node scripts/build-airport-pax.mjs`.
 - Počasí: [MET Norway](https://www.met.no/en) (Locationforecast 2.0, CC BY 4.0 – upraveno na denní souhrny). Kurzy:
   open.er-api.com, ECB.
-- Hledání míst: [GeoNames](https://www.geonames.org/) (CC BY 4.0 – vybraná místa, česká a další jména), `data/places.json`.
+- Hledání míst: [GeoNames](https://www.geonames.org/) ([CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) – vybraná místa, česká a další jména, upravený výběr), `data/places.json`.
   Aktualizace: `node scripts/build-places.mjs --cache <adresář>` (viz [Hledání míst](#hledání-míst-geonames)).
 - Hranice oblastí pro okruh v Objevuj (Toskánsko, Apulie, Kalábrie, Istrie i se slovinským pobřežím, Algarve, Skotsko,
   Laponsko – zastávky okruhu „po Toskánsku“ zůstanou v Toskánsku): [OpenStreetMap](https://www.openstreetmap.org/copyright) přes Nominatim

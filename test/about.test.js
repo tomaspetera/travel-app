@@ -51,6 +51,8 @@ test('okno: zdroje dat, ukládání jen v prohlížeči, řazení, orientační 
     assert.ok(html.includes(s), `zdroj ${s}`);
   }
   assert.doesNotMatch(html, /Open-Meteo/, 'hledání míst z vlastního seznamu (GeoNames), ne Open-Meteo');
+  // licence CC BY 4.0 chce u dat odkaz na licenci a na zdroj
+  for (const u of ['https://creativecommons.org/licenses/by/4.0/', 'https://www.geonames.org/', 'https://www.met.no/']) assert.ok(html.includes(u), u);
   assert.match(html, /localStorage/);
   assert.match(html, /žádné cookies, analytika ani měření návštěvnosti/);
   assert.match(html, /žádná aerolinka ani partner si za lepší pozici neplatí/);

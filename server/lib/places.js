@@ -552,10 +552,10 @@ export async function suggest(query, { limit = 8, remote = true, near = '', role
     // Silná shoda (vlastní místo nebo město z geokódování): pak vzdálené vesnice nepatří do návrhů. Bez ní ano –
     // Portofino, Plitvice nebo Sveti Stefan mají v GeoNames pod 1000 obyvatel a jsou jediná správná odpověď.
     // Cizí název (Munchen, Koln, Beograd, Geneve): geokodér vrátí český („Mnichov“) – jeho první velké město je správně;
-    // stejně tak název lišící se jedním písmenem (Agia / Ayia Napa).
+    // stejně tak název lišící se jedním písmenem (Agia / Ayia Napa). PPLG = sídlo vlády (Den Haag → Haag).
     const mOf = (g, gi) => {
       const m = matchScore(q, g.label);
-      return m < 60 && gi === 0 && q.length >= 4 && ((g.pop >= 100000 && /^PPL(C|A\d?)?$/.test(g.fc || '')) || (g.pop >= 1000 && lev1(q, normalize(g.label)))) ? 80 : m;
+      return m < 60 && gi === 0 && q.length >= 4 && ((g.pop >= 100000 && /^PPL(C|G|A\d?)?$/.test(g.fc || '')) || (g.pop >= 1000 && lev1(q, normalize(g.label)))) ? 80 : m;
     };
     const strong = cands.some((c) => c.m >= 80) || geo.some((g, gi) => g.pop >= 1000 && !SKIP_FC.test(g.fc || '') && mOf(g, gi) >= 80);
     for (const [gi, g] of geo.entries()) {

@@ -359,7 +359,7 @@ async function main() {
     prev = p.gid;
   }
 
-  const head = { built: new Date().toISOString().slice(0, 10), source: 'GeoNames (CC BY 4.0) – https://www.geonames.org, výpis allCountries a alternateNamesV2', cols: COLS, note: NOTE };
+  const head = { built: new Date().toISOString().slice(0, 10), source: 'GeoNames (CC BY 4.0) – https://www.geonames.org, licence https://creativecommons.org/licenses/by/4.0/, upravený výběr z výpisu allCountries a alternateNamesV2', cols: COLS, note: NOTE };
   const json = `${JSON.stringify(head).slice(0, -1)},"admin1":${JSON.stringify(a1Table)},"fc":${JSON.stringify(fcTable)},"countries":${JSON.stringify(terr)},"places":[\n${rows.map((r) => JSON.stringify(r)).join(',\n')}\n]}\n`;
   writeFileSync(OUT, json);
   lap(`hotovo: ${rows.length} míst, ${(Buffer.byteLength(json) / 1e6).toFixed(2)} MB`);
