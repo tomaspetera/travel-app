@@ -47,7 +47,7 @@
 .st-img img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
 .st-name{font-weight:800;font-size:15px}
 .st-meta{font-size:12.5px}
-.st-stars{color:var(--warn);font-size:12px;letter-spacing:1px}
+.st-stars{color:var(--warn-ink);font-size:12px;letter-spacing:1px}
 .st-badges{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
 .st-main{min-width:0}
 .stay .b{white-space:normal}
@@ -120,7 +120,7 @@ table.bud-t tr.bud-sum td{font-weight:800;border-bottom:none}
 .bud-bar.over i{background:var(--bad)}
 .bud-txt{font-size:13px;margin-top:6px}
 /* v součtu chybí položka bez ceny (budgetMissing) – „Zbývá …“ by jinak klamalo */
-.bud-miss{font-size:12.5px;margin-top:4px;color:var(--warn)}
+.bud-miss{font-size:12.5px;margin-top:4px;color:var(--warn-ink)}
 [data-theme="light"] .bud-miss{color:#8a5a00}
 .timeline{display:flex;flex-direction:column;gap:2px;margin-top:8px}
 /* minmax(0,1fr) a zalomení kdekoli: vlastní aktivita („Přidej aktivitu…“, třeba vložený odkaz) nebo dlouhý název hotelu
@@ -219,15 +219,15 @@ details.more.ex-places>summary::before{content:none}
 .ex-cc-all .ex-cc-tile{padding:7px 10px;border-radius:10px;font-weight:500}
 .ex-recent{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:10px;font-size:12.5px}
 .ex-recent[hidden]{display:none}
-.ex-mustn{font-size:12.5px;font-weight:700;color:var(--warn);align-self:center}
+.ex-mustn{font-size:12.5px;font-weight:700;color:var(--warn-ink);align-self:center}
 .ex-mustn:empty{display:none}
 .ex-mustn .linkbtn{font-size:12px;margin-left:4px}
-.poi-in{font-weight:700;color:var(--good)}
+.poi-in{font-weight:700;color:var(--good-ink)}
 /* značky UNESCO a Wikivoyage u míst: ve světlém režimu tmavší odstín (žlutá a mátová na bílé karta ~1,7 : 1) */
-.poi-unesco{color:var(--warn)}.poi-wv{color:var(--good);white-space:nowrap}
+.poi-unesco{color:var(--warn-ink)}.poi-wv{color:var(--good-ink);white-space:nowrap}
 .poi-inc{font-size:12px;color:var(--muted);margin-top:3px}
 .poi-lang{display:inline-block;padding:0 5px;margin-right:2px;border-radius:5px;border:1px solid var(--border-2);font-size:10.5px;font-weight:700;color:var(--muted);vertical-align:1px}
-.poi-acts .linkbtn.on{color:var(--warn)}
+.poi-acts .linkbtn.on{color:var(--warn-ink)}
 .poi-acts a.go{background:var(--accent);color:#fff;border-radius:8px;padding:1px 8px;margin:-1px 0}
 /* odkazy na trasu dne (Google Maps · Mapy.com): na úzkém displeji pod nadpis dne */
 .day-plan h4{flex-wrap:wrap}
@@ -325,7 +325,7 @@ details.more.ex-places>summary::before{content:none}
 .alt-flights{display:flex;flex-direction:column;gap:8px}
 .alt-f{display:grid;grid-template-columns:1fr auto auto;gap:12px;align-items:center;padding:10px 12px;border:1px solid var(--border);border-radius:12px;background:var(--surface);font-size:13.5px}
 .alt-p{font:800 17px Sora,sans-serif}
-.alt-p.good{color:var(--good)}
+.alt-p.good{color:var(--good-ink)}
 @media(max-width:560px){.alt-f{grid-template-columns:1fr auto}.alt-f>.row{grid-column:1/-1}}
 
 /* označení partnerských (affiliate) odkazů a průhlednost řazení */
@@ -362,9 +362,9 @@ details.more.ex-places>summary::before{content:none}
 .hk-goal{font-size:14.5px;margin:4px 0 2px;line-height:1.45}
 .hk-goal .hk-drop{font-size:12px;margin-left:4px;white-space:nowrap}
 .hk-diff{display:inline-block;padding:0 8px;border-radius:20px;font:700 11.5px/1.7 Inter,sans-serif}
-.hk-d1{background:rgba(52,211,153,.12);color:var(--good)}
-.hk-d2{background:rgba(251,191,36,.13);color:var(--warn)}
-.hk-d3{background:rgba(251,113,133,.13);color:var(--bad)}
+.hk-d1{background:rgba(52,211,153,.12);color:var(--good-ink)}
+.hk-d2{background:rgba(251,191,36,.13);color:var(--warn-ink)}
+.hk-d3{background:rgba(251,113,133,.13);color:var(--bad-ink)}
 [data-theme="light"] .hk-d1{color:#047857}[data-theme="light"] .hk-d2{color:#8a5a00}[data-theme="light"] .hk-d3{color:#be123c}
 .hk-day .dp-walk{font-size:12.5px;color:var(--muted);margin-top:4px;line-height:1.45}
 .hk-acts{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:6px;font-size:12.5px}
@@ -434,11 +434,11 @@ details.more.ex-places>summary::before{content:none}
 .rt-tr.long{border-left-color:var(--warn)}
 .rt-ic{font-size:15px}
 .rt-tr a,.rt-leg a,.rt-trains a{color:var(--accent-ink);font-weight:700}
-.rt-warn{color:var(--warn);font-size:12px;margin-top:2px}
+.rt-warn{color:var(--warn-ink);font-size:12px;margin-top:2px}
 [data-theme="light"] .rt-warn{color:#8a5a00}
 .rt-trains{display:flex;flex-direction:column;gap:3px;margin:6px 0}
 .route-sum{margin:12px 0 4px;padding:10px 13px;border-radius:12px;font-size:13.5px;font-weight:700}
-.route-sum.ok{background:rgba(52,211,153,.1);border:1px solid rgba(52,211,153,.3);color:var(--good)}
+.route-sum.ok{background:rgba(52,211,153,.1);border:1px solid rgba(52,211,153,.3);color:var(--good-ink)}
 .route-sum.warn{background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.28);color:#f5d488}
 [data-theme="light"] .route-sum.ok{color:#047857}
 [data-theme="light"] .route-sum.warn{color:#8a5a00}
