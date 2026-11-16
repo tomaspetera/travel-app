@@ -68,6 +68,9 @@
 .hero.ph .hero-plan{background:rgba(10,14,30,.5)}
 .pi-dark{background:transparent;border:none;min-height:38px;padding:2px 0}
 .pi-dark:focus-within{background:transparent}
+/* bez rámečku pole na Přehledu nebylo z klávesnice vidět, kde je fokus – obrys kolem celého pole (i s čipy míst) */
+.pi-dark:has(.pi-input:focus-visible){outline:2px solid rgba(255,255,255,.9);outline-offset:3px}
+[data-theme="light"] .hero-search2 .pi-dark:has(.pi-input:focus-visible){outline-color:var(--accent-ink)}
 .pi-dark .pi-input{color:#fff;font-size:15.5px}
 .pi-dark .pi-input::placeholder{color:rgba(255,255,255,.62)}
 .pi-dark .pi-chip{background:rgba(255,255,255,.18);border-color:rgba(255,255,255,.3);color:#fff}

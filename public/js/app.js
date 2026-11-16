@@ -165,7 +165,7 @@ function openMore() {
   // motiv: přepínač v postranním panelu je na telefonu skrytý
   list.insertAdjacentHTML('beforeend', `<button type="button" class="btn ghost" id="moreTheme">🌗 ${themeNow() === 'dark' ? 'Světlý' : 'Tmavý'} režim <span class="faint">vzhled</span></button>`);
   $('#moreTheme').onclick = () => { modalClose(); $('#themeToggle').click(); };
-  if (window.Pwa) Pwa.addToMenu(list); // 📲 Přidat ATLAS na plochu (pwa.js)
+  if (window.Pwa) Pwa.addToMenu(list); // ➕ Přidat ATLAS na plochu (pwa.js)
 }
 const WORLD_VIEWS = ['map', 'countries'];
 // sekce z adresy (#…); planner = dřívější Plánovač, teď Moje cesty v Cestě (go)
@@ -410,7 +410,9 @@ pageHeading();
 const themeOf = (t, sysLight) => (t === 'light' || t === 'dark' ? t : sysLight ? 'light' : 'dark');
 const sysLightMq = window.matchMedia ? window.matchMedia('(prefers-color-scheme: light)') : null;
 const themeNow = () => themeOf(S.theme, Boolean(sysLightMq && sysLightMq.matches));
-function applyTheme() { const t = themeNow(); document.documentElement.dataset.theme = t; $('#themeLabel').textContent = t === 'dark' ? 'Tmavý režim' : 'Světlý režim'; }
+// přepínač v panelu: stálý název „Tmavý režim“ a stav v aria-pressed (dřív text ukazoval stav – „Světlý režim“ ve
+// světlém, klepnutí ale zapnulo tmavý); ve světlém motivu tedy říká totéž co akce v ⋯ Další
+function applyTheme() { const t = themeNow(); document.documentElement.dataset.theme = t; $('#themeToggle').setAttribute('aria-pressed', String(t === 'dark')); }
 function themeRepaint() { applyTheme(); if (window.Flights) Flights.repaintMap(); if (window.Places) Places.retheme(); }
 $('#themeToggle').onclick = () => { S.theme = themeNow() === 'dark' ? 'light' : 'dark'; save(); themeRepaint(); };
 // přepínač v postranním panelu i z klávesnice (Tab + Enter / mezerník)
@@ -1584,12 +1586,14 @@ function renderRecs() {
 // překreslení se stejnými filtry (✓ Navštíveno v detailu) nechá, kolik už bylo vidět
 let cLimit = 0, cKey = '';
 const cPage = () => (typeof matchMedia === 'function' && matchMedia('(max-width:760px)').matches ? 24 : 60);
+// štítek země odpovídá hledání jen od začátku slova: „Itál“ uprostřed „digitál“ (Estonsko) ne, „plá“ v „pláže“ ano
+const tagHit = (tag, q, w = q.replace(/[^a-z0-9]+/g, ' ').trim()) => Boolean(w) && ` ${norm(tag).replace(/[^a-z0-9]+/g, ' ')}`.includes(` ${w}`);
 function renderCountries() {
   const q = norm($('#cSearch').value), cont = $('#cCont').value, cost = $('#cCost').value, sort = $('#cSort').value, vis = $('#cVisited .on').dataset.v, ent = $('#cEntry').value;
   const key = [q, cont, cost, sort, vis, ent].join('|');
   if (key !== cKey || !cLimit) { cKey = key; cLimit = cPage(); }
   let list = COUNTRIES.slice();
-  if (q) list = list.filter(c => norm(c.cs).includes(q) || norm(c.en).includes(q) || (c.tags || []).some(t => norm(t).includes(q)));
+  if (q) list = list.filter(c => norm(c.cs).includes(q) || norm(c.en).includes(q) || (c.tags || []).some(t => tagHit(t, q)));
   if (cont) list = list.filter(c => c.cont === cont);
   // skupiny jako popisky v detailu: 1–2 levné, 3 střední, 4–5 dražší/drahé
   if (cost) list = list.filter(c => c.cost && (cost === '1' ? c.cost <= 2 : cost === '2' ? c.cost === 3 : c.cost >= 4));
@@ -1621,6 +1625,9 @@ function modalOpen(html, o = {}) {
   // tlačítko, které okno otevřelo – po zavření na něj vrátit fokus; okno z okna přes modalClose() a hned modalOpen()
   // (Info o zemi z okna cesty) má fokus ještě na tlačítku zavřeného okna, které zmizí – vrátit na původní tlačítko
   if (!was && !$('#modal').contains(document.activeElement)) { modalKb.ret = document.activeElement; modalKb.sel = kbSel(modalKb.ret); }
+  // nové okno hned po zavření jiného (Další → ✨ Novinky, 💾 Záloha…): MutationObserver uvidí obě změny třídy najednou
+  // („pořád otevřené“) a fokus by nepřesunul – čtečka by nové okno neohlásila
+  if (!was) modalKb.fresh = true;
   $('#modal').innerHTML = html; modalShow(true);
   modalName();
   if (!was) { $('#toast').classList.remove('show'); $('#modal').scrollTop = 0; } // nové okno nahoře, ne s posunem z minulého
@@ -1661,7 +1668,7 @@ function modalName() {
    okno teď fokus dostane (čtečka přečte jeho jméno, šipky a PageDown posouvají okno), Tab v něm koluje dokola a po
    zavření (✕, Escape, Zpět, klik vedle) se fokus vrátí na tlačítko, které okno otevřelo. Na počítači i na telefonu
    (dřív jen počítač s myší). Okno, které fokus dá samo dovnitř (náhled cíle → ✕), si ho nechá. */
-const modalKb = { ret: null, sel: '', touch: window.matchMedia ? matchMedia('(pointer:coarse)') : null };
+const modalKb = { ret: null, sel: '', fresh: false, touch: window.matchMedia ? matchMedia('(pointer:coarse)') : null };
 /**
  * Jak tlačítko, které okno otevřelo, najít i po překreslení stránky (karta cesty v Plánovači po úpravě v okně, karta
  * země): podle id, jinak podle prvního data-* atributu ('' = nejde).
@@ -1674,8 +1681,8 @@ function kbSel(el) {
 }
 new MutationObserver(() => {
   const m = $('#modal'), on = $('#modalBg').classList.contains('show');
-  if (on === modalKb.on) return;
-  modalKb.on = on;
+  if (on === modalKb.on && !(on && modalKb.fresh)) return;
+  modalKb.on = on; modalKb.fresh = false;
   const a = document.activeElement;
   if (on) { if (!m.contains(a)) { m.tabIndex = -1; m.focus({ preventScroll: true }); } return; }
   const r0 = modalKb.ret, sel = modalKb.sel; modalKb.ret = null; modalKb.sel = '';

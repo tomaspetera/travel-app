@@ -137,6 +137,14 @@ const decl = (src, sel) => {
   return s.slice(at + sel.length + 1, s.indexOf('}', at));
 };
 
+test('sloupec filtrů (od 1200 px): dlouhá volba Řazení končí „…“, ne useknutým písmenem pod šipkou; telefon beze změny', () => {
+  const d = decl(flightsCss, '.res-more .rf-sort select');
+  assert.match(d, /text-overflow:ellipsis/);
+  assert.match(d, /padding-left:10px;padding-right:26px;background-position:right 8px center/);
+  const s = flightsCss.replace(/\/\*[\s\S]*?\*\//g, '');
+  assert.ok(s.lastIndexOf('@media (min-width:1200px){', s.indexOf('.res-more .rf-sort select{')) > s.lastIndexOf('}\n}', s.indexOf('.res-more .rf-sort select{')), 'uvnitř @media (min-width:1200px)');
+});
+
 test('průvodce: přilepený přehled cesty a pravý sloupec Shrnutí se posouvají samy, tlačítka zůstanou vidět', () => {
   // Shrnutí: sloupec ~1100 px přilepený na 160 px – 💾 Uložit do plánovače byl i na 1912 × 904 pod okrajem okna
   for (const sel of ['#tripRoot .trip-aside', '#tripRoot[data-step=summary] #tripStep>.sum-side']) {

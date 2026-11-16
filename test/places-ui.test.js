@@ -136,6 +136,8 @@ test('Enter v hledání: staré návrhy ani čekání nevyberou cizí místo', (
 
 test('nabídka hledání: výpadek ≠ „Nic nenalezeno“, návrhy escapované', () => {
   assert.match(T.sugHtml([], 0, true), /Hledání míst teď nefunguje – zkus to za chvíli/);
+  // zařízení offline (pwa.js netError): ne „nefunguje“
+  assert.match(T.sugHtml([], 0, 'offline'), /^<div class="pi-empty">Jsi offline – návrhy míst se načtou po připojení k internetu<\/div>$/);
   assert.match(T.sugHtml([], 0, false), /Nic nenalezeno/);
   const h = T.sugHtml([{ label: XSS, sub: 'Itálie', flag: '🇮🇹' }, { label: 'Bario' }], 1, false);
   assert.ok(!h.includes('<img src=x'));

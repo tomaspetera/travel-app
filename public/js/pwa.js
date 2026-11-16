@@ -1,4 +1,4 @@
-/* ATLAS – aplikace na ploše (PWA): service worker pro offline (public/sw.js), „📲 Přidat ATLAS na plochu“, upozornění
+/* ATLAS – aplikace na ploše (PWA): service worker pro offline (public/sw.js), „➕ Přidat ATLAS na plochu“, upozornění
    na novou verzi a na výpadek připojení, barva lišty prohlížeče podle motivu a srozumitelná hláška místo „Failed to
    fetch“. Bez service workeru (http mimo localhost, starý prohlížeč) funguje vše jako dřív, jen bez offline režimu. */
 (function () {
@@ -181,9 +181,10 @@
   if (window.MutationObserver) new MutationObserver(syncTheme).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
   syncTheme();
 
-  /* 4) 📲 Přidat ATLAS na plochu – v postranním panelu (počítač, tablet) a v nabídce „Více“ (mobil). Chrome, Edge
-        a Android: dialog prohlížeče (beforeinstallprompt); iPhone a iPad: krátký návod. Z plochy se nenabízí. */
-  const LABEL = '📲 Přidat ATLAS na plochu';
+  /* 4) ➕ Přidat ATLAS na plochu – v postranním panelu (počítač, tablet) a v nabídce „Více“ (mobil). Chrome, Edge
+        a Android: dialog prohlížeče (beforeinstallprompt); iPhone a iPad: krátký návod. Z plochy se nenabízí.
+        Ikona ➕, ne 📲 – ta patří k 📲 Přenést do jiného zařízení hned vedle v nabídce. */
+  const LABEL = '➕ Přidat ATLAS na plochu';
   let promptEvent = null;
   const standaloneMq = window.matchMedia ? window.matchMedia('(display-mode: standalone)') : null;
   const mode = () => installMode({
@@ -231,7 +232,7 @@
     if (typeof modalOpen !== 'function') return;
     const close = typeof ico === 'function' ? ico('M18 6L6 18M6 6l12 12') : '×';
     modalOpen(`<div class="modal-hero"><div class="mh-bg"></div><button class="modal-close" data-close aria-label="Zavřít">${close}</button>
-      <div class="modal-hero-inner"><h2 class="pwa-h">📲 ATLAS na plochu</h2><div class="pwa-sub">iPhone a iPad · pár vteřin</div></div></div>
+      <div class="modal-hero-inner"><h2 class="pwa-h">➕ ATLAS na plochu</h2><div class="pwa-sub">iPhone a iPad · pár vteřin</div></div></div>
       <div class="modal-body"><ol class="pwa-steps">
         <li>Klepni na <b>Sdílet</b> ${SHARE_ICO} – v Safari dole uprostřed, na iPadu nahoře vedle adresy.</li>
         <li>Sjeď níž a vyber <b>Přidat na plochu</b>.</li>

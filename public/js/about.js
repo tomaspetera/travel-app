@@ -37,7 +37,7 @@
   /** Obsah okna (čistá funkce – test/about.test.js). email = feedback.email z /api/health (jinak bez tlačítka),
       support = support.url (💛 Podpořit ATLAS), operator = provozovatel – obojí z /api/health, jinak se neukáže;
       backup = je k dispozici 💾 Přenos a záloha. */
-  function html({ version = '', email = null, screen = '', backup = true, support = null, operator = '' } = {}) {
+  function html({ version = '', build = '', email = null, screen = '', backup = true, support = null, operator = '' } = {}) {
     const mail = mailto(email, version, screen), pay = okPay(support) ? support : null;
     const op = typeof operator === 'string' ? operator.trim().slice(0, 200) : '';
     return `<div class="modal-body about-modal">
@@ -46,7 +46,7 @@
       <h4 class="ab-h">Odkud jsou data</h4>
       <ul class="ab-list">${SOURCES.map(([i, t, d]) => `<li><span aria-hidden="true">${i}</span> <b>${h(t)}</b> – ${h(d)}</li>`).join('')}</ul>
       <p class="faint" style="font-size:12px">Předpověď <a href="https://www.met.no/en" target="_blank" rel="noopener">MET Norway</a> a seznam míst <a href="https://www.geonames.org/" target="_blank" rel="noopener">GeoNames</a> jsou pod licencí <a href="https://creativecommons.org/licenses/by/4.0/deed.cs" target="_blank" rel="noopener">CC BY 4.0</a>, v aplikaci upravené (denní souhrny, výběr míst). Stejně ceny paliva z <a href="https://data.csu.gov.cz/datastat/info/SADA/CENPHMT" target="_blank" rel="noopener">ČSÚ</a> a <a href="https://energy.ec.europa.eu/data-and-analysis/weekly-oil-bulletin_en" target="_blank" rel="noopener">Weekly Oil Bulletin</a> (© Evropská unie; upraveno – přepočet na Kč/l) a vlajky <a href="https://twitter.github.io/twemoji" target="_blank" rel="noopener">Twemoji</a>. Letiště obsahují data © <a href="https://openflights.org/data" target="_blank" rel="noopener">OpenFlights</a> pod licencí <a href="https://opendatacommons.org/licenses/odbl/1-0/" target="_blank" rel="noopener">ODbL</a>. Fotky měst dodávají <a href="https://www.pexels.com" target="_blank" rel="noopener">Pexels</a>, Unsplash a Wikimedia Commons – autor je u každé fotky pod ⓘ. Kurzy: <a href="https://www.exchangerate-api.com" target="_blank" rel="noopener">Rates By Exchange Rate API</a>.</p>
-      <p style="font-size:14px">ATLAS není spojen s žádnou leteckou společností ani prodejcem; ceny a odkazy jsou z veřejných a partnerských zdrojů.</p>
+      <p style="font-size:14px;margin-top:10px">ATLAS není spojen s žádnou leteckou společností ani prodejcem; ceny a odkazy jsou z veřejných a partnerských zdrojů.</p>
       <h4 class="ab-h">Co se ukládá a kam</h4>
       <ul class="ab-list">
         <li><b>Jen v tomhle prohlížeči na tomhle zařízení</b> (localStorage): cesty, hlídané ceny, odložené nabídky, domov, navštívené země, oblíbená a skrytá místa, poslední i rozepsané hledání a nastavení. Na jiné zařízení je přeneseš odkazem s QR kódem (📲 Přenést do jiného zařízení) nebo zálohou.</li>
@@ -66,7 +66,7 @@
       <a class="btn" id="abSupport" href="${h(pay)}" target="_blank" rel="noopener">💛 Podpořit ATLAS ↗</a>` : ''}
       ${mail ? `<a class="btn primary" id="abMail" href="${h(mail)}">💬 Napsat nám</a>` : ''}
       ${op ? `<h4 class="ab-h">Provozovatel</h4><p style="font-size:14px" id="abOp">${h(op)}</p>` : ''}
-      <p class="faint" style="font-size:12.5px;margin-top:12px">Verze ${h(version || '?')}</p>
+      <p class="faint" style="font-size:12.5px;margin-top:12px">Verze ${h(version || '?')}${build ? ` · sestavení ${h(build)}` : ''}</p>
     </div>`;
   }
 
@@ -76,11 +76,14 @@
     return (t && t.textContent.trim()) || (typeof activeView !== 'undefined' ? activeView : '');
   };
   const versionNow = () => (typeof WN_ID !== 'undefined' ? WN_ID : '');
+  // sestavení (otisk souborů aplikace) z <meta name="atlas-build"> – server ho dosadí (server/lib/pwa.js serveIndex);
+  // WN_ID se mění jen s novinkami, podle sestavení je jasné, která verze kódu běží
+  const buildNow = () => { const m = document.querySelector('meta[name="atlas-build"]'); return (m && m.getAttribute('content')) || ''; };
 
   function open() {
-    const version = versionNow(), screen = screenNow();
+    const version = versionNow(), build = buildNow(), screen = screenNow();
     const paint = (o = {}) => {
-      modalOpen(html({ version, screen, backup: Boolean(window.Backup), ...o }));
+      modalOpen(html({ version, build, screen, backup: Boolean(window.Backup), ...o }));
       const bk = document.querySelector('#abBk');
       if (bk) bk.onclick = () => { modalClose(); Backup.open(); };
     };

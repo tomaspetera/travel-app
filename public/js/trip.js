@@ -1656,7 +1656,7 @@
     $('#routeBody').innerHTML = `<div class="route-tools" id="rtTools"></div>
       <div class="ex-layout route-layout"><div><div id="rtList"></div>
         <div class="route-add"><label for="rtQ">➕ Přidat místo do trasy</label>
-          <div style="position:relative"><input class="input" id="rtQ" placeholder="Město nebo místo – napiš název…" autocomplete="off"><div class="pi-dd" id="rtDd" hidden></div></div>
+          <div style="position:relative"><input class="input" id="rtQ" placeholder="Město nebo místo – napiš název…" autocomplete="off"><div class="pi-dd" id="rtDd" tabindex="-1" hidden></div></div>
           <div class="rt-cands" id="rtCands"></div></div></div>
         <div class="ex-map route-map" id="rtMap"></div></div>
       <div class="row wrap" style="gap:8px;margin-top:14px"><button class="btn primary" id="rtNext" disabled>Pokračovat k ubytování →</button><button class="btn ghost" id="rtSingle">Přeskočit – zůstanu na jednom místě</button></div>`;

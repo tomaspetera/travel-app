@@ -128,7 +128,9 @@
   // Poznámka pod trasou a túrami: zdroje a výpočet času sbalené pod „Jak počítám ▾“ (na telefonu to bylo 8–12 řádků);
   // vidět zůstane, co je potřeba hned (čas bez přestávek, ověř chaty a počasí) a atribuce dat
   const footMore = html => ` <details class="foot-more"><summary>Jak počítám</summary>${html}</details>`;
-  const sugHtml = (sugs, act, err) => (err ? '<div class="pi-empty">Hledání míst teď nefunguje – zkus to za chvíli</div>'
+  // err 'offline' (pwa.js netError – zařízení bez připojení): ne „nefunguje“ – čekat na server nemá smysl
+  const sugHtml = (sugs, act, err) => (err === 'offline' ? '<div class="pi-empty">Jsi offline – návrhy míst se načtou po připojení k internetu</div>'
+    : err ? '<div class="pi-empty">Hledání míst teď nefunguje – zkus to za chvíli</div>'
     : sugs.length ? (sugs[0].fuzzy ? '<div class="pi-head">🔤 Překlep? Asi myslíš:</div>' : '') + sugs.map((s, i) => `<div class="pi-opt ${i === act ? 'on' : ''}" data-i="${i}"><span class="pi-flag">${s.flag || '📍'}</span><span class="pi-t"><b>${esc(s.label)}</b><small>${esc(s.sub || '')}</small></span></div>`).join('')
       + (sugs.some(s => s.src === 'mapy') ? `<div class="pi-by">${mapyBy('Hledají i')}</div>` : '')
       : '<div class="pi-empty">Nic nenalezeno</div>');
@@ -1183,7 +1185,7 @@
     root.innerHTML = `${ex.place ? '' : `<div class="fl-hero ex-hero" data-photo="${esc(window.heroPlace ? heroPlace(9) : 'Porto')}"><div class="fl-hero-in"><h1>Objev, co stojí za vidění</h1><p>Památky, muzea, vyhlídky a výlety kdekoliv na světě – a z nich program na pár dní</p></div></div>`}<div class="card search-card${ex.place ? '' : ' on-hero'}">
       <div class="ex-search">
         <div class="field" style="margin:0"><label for="exQ">Kam se chceš podívat? <span class="lab-hint">město, obec, ostrov, místo…</span></label>
-          <div style="position:relative"><input class="input${ex.place ? ' has-clear' : ''}" id="exQ" placeholder="Lisabon, Francie, „Řím na 3 dny“" autocomplete="off" value="${esc(qLabel())}">${ex.place ? '<button type="button" class="in-clear" id="exClear" title="Začít znovu – zrušit místo i plány" aria-label="Začít znovu">✕</button>' : ''}<div class="pi-dd" id="exDd" hidden></div></div></div>
+          <div style="position:relative"><input class="input${ex.place ? ' has-clear' : ''}" id="exQ" placeholder="Lisabon, Francie, „Řím na 3 dny“" autocomplete="off" value="${esc(qLabel())}">${ex.place ? '<button type="button" class="in-clear" id="exClear" title="Začít znovu – zrušit místo i plány" aria-label="Začít znovu">✕</button>' : ''}<div class="pi-dd" id="exDd" tabindex="-1" hidden></div></div></div>
         <button class="btn ghost" id="exGeo" title="Moje poloha" style="align-self:end">📍 Tady</button>
         <div class="field" style="margin:0"><label for="exRad">Okruh</label><select id="exRad">${RADII.map(r => `<option value="${r}" ${ex.radius === r ? 'selected' : ''}>${r} km</option>`).join('')}<option value="${COUNTRY}" ${ex.radius === COUNTRY ? 'selected' : ''}>🌍 Celá země</option></select></div>
       </div><div class="ex-recent" id="exRecent" hidden></div>${ex.place || !window.Smart ? '' : `<div class="ex-try"><span class="faint">✨ Zkus:</span>${EX_TRY.map((x, i) => `<button type="button" class="fchip" data-extry="${i}">${esc(x)}</button>`).join('')}</div>`}</div>
@@ -1253,12 +1255,12 @@
   }
   async function smartPlace(phrase) {
     const cands = placeCands(phrase), same = (a, b) => Smart.fold(String(a || '').replace(/\s*\(.*\)$/, '')) === Smart.fold(b);
-    let failed = 0;
+    let failed = 0, offline = false;
     // remote=0: níž se berou jen místa z vlastních dat (ne geo:) – geokódování každého tvaru by jen zdrželo a stálo dotazy;
     // nature=1: i hory a příroda přesným názvem nebo tvarem („Krkonoš“)
-    const fl = await Promise.all(cands.map(c => getJson('api/places?remote=0&nature=1&q=' + enc(c)).then(j => j.items || [], () => { failed++; return []; })));
+    const fl = await Promise.all(cands.map(c => getJson('api/places?remote=0&nature=1&q=' + enc(c)).then(j => j.items || [], e => { failed++; offline = offline || Boolean(e && e.offline); return []; })));
     // server nedostupný (žádný dotaz neprošel) – ne „místo neznám“
-    if (cands.length && failed === cands.length) throw Object.assign(new Error('Server teď neodpovídá'), { down: true });
+    if (cands.length && failed === cands.length) throw Object.assign(new Error('Server teď neodpovídá'), { down: true, offline });
     // hory a příroda (Sněžka, „v Krkonoších“, „do Dolomit“) rovnou s polohou: geokodér je zná špatně (Šumava = zastávka) a
     // před oblastí stejného jména (Dolomity – město jejich letiště, Verona, do hor nevede)
     for (const items of fl) { const n = items.find(x => x.nature); if (n) return n; }
@@ -1592,9 +1594,9 @@
       if (wc) { dd.hidden = true; q.blur(); return openWholeCountry(wc); }
       dd.innerHTML = '<div class="pi-empty"><span class="spin dark"></span> Hledám místo…</div>'; dd.hidden = false;
       let down = false;
-      const s = px.place ? await smartPlace(px.place).catch(e => { down = Boolean(e && e.down); return null; }) : ex.place;
+      const s = px.place ? await smartPlace(px.place).catch(e => { down = Boolean(e && e.down) && (e.offline ? 'offline' : true); return null; }) : ex.place;
       if (my !== smartSeq) return;
-      if (!s) { dd.innerHTML = `<div class="pi-empty">${down ? 'Místa teď nejde dohledat – zkontroluj připojení a zkus to znovu' : `Místo „${esc(px.place)}“ jsem nenašel – zkus jen jeho název`}</div>`; return; }
+      if (!s) { dd.innerHTML = `<div class="pi-empty">${down === 'offline' ? 'Jsi offline – místo půjde dohledat po připojení k internetu' : down ? 'Místa teď nejde dohledat – zkontroluj připojení a zkus to znovu' : `Místo „${esc(px.place)}“ jsem nenašel – zkus jen jeho název`}</div>`; return; }
       dd.hidden = true; q.blur();
       exploreApply(px, s);
       if (px.place) openPlace(s, { start: !px.start, days: !px.days }); else paintExplore();
@@ -1613,7 +1615,7 @@
         sugs = [...cs, ...(j.items || []).filter(x => !names.has(foldName(String(x.label || '').replace(/\s*\(.*\)$/, ''))))]; err = false;
       } catch (e) {
         if (e.name === 'AbortError' || my !== ctl) return null;
-        sugs = countrySugs(text); err = !sugs.length; // výpadek ≠ „Nic nenalezeno“ (země jdou i bez serveru)
+        sugs = countrySugs(text); err = !sugs.length && (e.offline ? 'offline' : true); // výpadek ≠ „Nic nenalezeno“ (země jdou i bez serveru)
       }
       ctl = null; sugFor = text; act = 0;
       return sugs;
