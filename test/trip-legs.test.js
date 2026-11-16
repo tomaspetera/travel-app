@@ -228,7 +228,7 @@ test('Pisa → Florencie (vlakem) → Siena (autem) → letiště Pisa (autem): 
   const notes = sp(c.S.trips[0].notes);
   assert.match(notes, /Přejezd letiště PSA → Florencie: ~1 h 10 min vlakem \/ busem/);
   assert.match(notes, /Přejezd Florencie → Siena: 72 km · ~1 h 10 min autem/);
-  assert.match(notes, /Auto: Florencie \(město\) 2026-11-12T09:00 → PSA 2026-11-14T16:00 – 3 100 Kč/);
+  assert.match(notes, /Auto: Florencie \(město\) 12\. 11\. 9:00 → PSA 14\. 11\. 16:00 – 3 100 Kč/);
 });
 
 test('krok Auto na kombinované trase: kde auto vyzvednout a vrátit, 📅 dny auta mění dopravu úseků', async () => {

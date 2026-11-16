@@ -452,7 +452,9 @@
           const pf = S.form || {}, inh = !('adults' in (h.sm.patch || {})) && ((+pf.adults || 2) !== 2 || +pf.children > 0 || +pf.infants > 0);
           // cena v hledání je na osobu: s lidmi z minula (věta je neříká) i u „💰 do 15 000 Kč“ „/os.“ – jinak vypadá jako za rodinu
           const perOs = c => (inh && c.icon === '💰' && !/\/os\.$/.test(c.text) && (+pf.adults || 2) + (+pf.children || 0) > 1 ? '/os.' : '');
-          const what = [...places, ...h.sm.chips.map(c => `${c.icon} ${c.text}${perOs(c)}`), ...(inh ? [`👥 ${SearchHelp.paxShort(pf)} (jako minule)`] : [])].join(' · ');
+          // zavazadlo z minula (prefsOf ho převezme) stejně – jinak „Řím v květnu“ tiše hledá s kufrem k odbavení
+          const bagInh = !('bags' in (h.sm.patch || {})) && BAG_LBL[pf.bags];
+          const what = [...places, ...h.sm.chips.map(c => `${c.icon} ${c.text}${perOs(c)}`), ...(inh ? [`👥 ${SearchHelp.paxShort(pf)} (jako minule)`] : []), ...(bagInh ? [`🧳 ${bagInh} (jako minule)`] : [])].join(' · ');
           const sub = h.chain ? 'víc měst – nastavím lety, rozdělím termíny a hledám'
             : h.back && !h.miss.length ? 'tam a zpět z jiného města – nastavím 2 lety (přejezd mezi městy je na tobě) a hledám'
             : h.backTo && !h.miss.length ? 'zpět do jiného města – nastavím 2 lety a hledám'
@@ -852,7 +854,8 @@
     form.classList.toggle('refine', refineOpen);
     btn.setAttribute('aria-expanded', String(refineOpen));
     if (!btn.onclick) btn.onclick = () => { refineOpen = !refineOpen; refineUi(false); };
-    const word = el => (el ? el.textContent.replace(/^[^\p{L}≥]+/u, '').trim().toLowerCase() : '');
+    // pryč jen emoji na začátku („🎉 Svátky“) – číslice zůstane („2 týdny“, ne „týdny“)
+    const word = el => (el ? el.textContent.replace(/^[^\p{L}\p{N}≥]+/u, '').trim().toLowerCase() : '');
     const len = $('#lenField').style.display === 'none' ? '' : `${word($('#lenPreset .on'))} ${SearchHelp.nightsRange($('#nMin').value, $('#nMax').value)}`; // „víkend 1–3 noci“, ne „1–3 nocí“
     const t = +($('#minTemp .on')?.dataset.t || 0);
     $('#refineSum').textContent = [word($('#tripType .on')), len, t ? `≥ ${t} °C` : ''].filter(Boolean).join(' · ');
@@ -1366,7 +1369,18 @@
     // na širší obrazovce je vidět i „sbalený“ formulář – souhrn by popisoval jiné hledání než ♡
     if (!$('#searchSum').hidden) expandForm();
     updateWatchBtn(); renderRecent(); // jiné hledání → zase „♡ Hlídat cenu“
+    searchBtnPaint();
     draftSoon(); // výběr z našeptávače je mimo formulář – jeho události by koncept nezachytily
+  }
+  // Během hledání: opravený formulář jde hledat hned (startSearch běžící hledání zruší), stejný ne – další klepnutí
+  // by jen čekalo na běžící (startSearch ho podle klíče nespustí znovu), tlačítko zůstane „Hledám…“.
+  function searchBtnPaint() {
+    if (!running) return;
+    const btn = $('#doSearch'); if (!btn) return;
+    let other = false;
+    try { other = JSON.stringify(payloadOf(getForm())) !== running.key; } catch (e) { /* rozepsaný formulář */ }
+    btn.disabled = !other;
+    btn.innerHTML = other ? '🔎 Najít nejlevnější lety' : '<span class="spin"></span> Hledám…';
   }
   // Po hledání změněná cesta na letiště (🏠 vlastní cena, jízdné ×, autem/veřejnou): ceny dopravy ve výsledcích jsou
   // ještě podle předchozího nastavení → nad výsledky „↻ Přepočítat“ (hledání znovu). Zmizí s novým hledáním
@@ -1427,6 +1441,9 @@
       : note ? note.textContent.replace(/\s+/g, ' ').trim().slice(0, 200) : 'Hledání hotové.');
   }
   async function startSearch(opts = {}) {
+    // noci „9–3“: prohodit už ve formuláři – server by je prohodil potichu a uložené hledání i Nedávno by ukazovaly „9–3“
+    const nMin = $('#nMin'), nMax = $('#nMax');
+    if (nMin.value !== '' && nMax.value !== '' && +nMin.value > +nMax.value) [nMin.value, nMax.value] = [nMax.value, nMin.value];
     const f = getForm();
     nudge = null;
     kidsAsk = Boolean(opts.kids);
@@ -1435,6 +1452,9 @@
       const bad = mlProblem(f.legs);
       if (bad) { toast(bad.msg, 'err'); bad.el.focus(); return; }
     } else if (f.dateMode !== 'exact' && f.dTo < f.dFrom) { toast('Konec rozsahu je před začátkem', 'err'); return; }
+    // server hledá nejvýš 360 dní dopředu (dates.js clampRange) – delší rozsah by potichu zkrátil a hlavička by ukázala
+    // „26.11.–11.11.“ (359: server v UTC má po půlnoci našeho času ještě včerejšek)
+    else if (f.dateMode !== 'exact' && f.dTo > addDays(today(), 359)) { toast('Konec rozsahu je příliš daleko (nejvýš rok dopředu)', 'err'); $('#dTo').focus(); return; }
     else if (f.dateMode === 'exact') {
       if (!f.xOut || f.xOut < today()) { toast('Zadej datum odletu (dnes nebo později)', 'err'); $('#xOut').focus(); return; }
       if (f.trip === 'return' && (!f.xBack || f.xBack < f.xOut)) { toast('Návrat musí být stejný den nebo po odletu', 'err'); $('#xBack').focus(); return; }
@@ -2421,7 +2441,7 @@
   function priceBox(t, idx, res = lastResult, ex = true) {
     const q = res.query, note = SearchHelp.paxNote(q);
     return `<div class="pbox"><div class="pp">${czk(t.perPersonCzk)}</div><div class="pl">${t.back ? 'letenky tam i zpět' : 'letenka'} na osobu</div>${ex ? tripLine(t, 'pd pt') : ''}
-      ${t.bagCzk ? `<div class="pd">letenky ${czk(t.flightCzk)} + <span title="Odhad příplatku za ${BAG_LBL[res.query.bags] || 'zavazadlo'}${t.bagEst ? ' – hrubý, dopravce se nepodařilo ověřit' : ' – typická cena u dopravce'}">zavazadla ~${czk(t.bagCzk)}</span></div>` : ''}
+      ${t.bagCzk ? `<div class="pd">${t.back ? 'letenky' : 'letenka'} ${czk(t.flightCzk)} + <span title="Odhad příplatku za ${BAG_LBL[res.query.bags] || 'zavazadlo'}${t.bagEst ? ' – hrubý, dopravce se nepodařilo ověřit' : ' – typická cena u dopravce'}">zavazadla ~${czk(t.bagCzk)}</span></div>` : ''}
       ${SearchHelp.paxTotalOn(q) ? `<div class="pd">${SearchHelp.paxTotalLbl(q)}: <b>${czk(t.totalCzk)}</b></div>` : ''}
       ${note ? `<div class="pd pax-note">👶 ${esc(note)}</div>` : ''}
       ${ex ? extrasHtml(t, res) : ''}
