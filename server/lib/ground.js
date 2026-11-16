@@ -758,11 +758,16 @@ export function attachGround({ home, origins = [], groups = [], dests = [], flat
     if (x) g.ground = x;
   }
   // Konkrétní cíl (letiště, město, místo): srovnání pro celý výsledek – s nejlevnějším letem, je-li nějaký.
-  for (const d of dests) {
-    if (!d || !['airport', 'metro', 'place'].includes(d.type) || !Number.isFinite(d.lat)) continue;
+  // U víc cílů (Drážďany + Berlín) cíl s nejlevnějšími lety, ne první zadaný – ten může být bez letů a karta by
+  // psala „Letadlo – nic nenalezeno“, i když jsou pod ní lety do druhého cíle.
+  const near = (d) => groups.filter((g) => g.dest.lat != null && haversineKm(g.dest.lat, g.dest.lon, d.lat, d.lon) < 80);
+  const cands = dests.filter((d) => d && ['airport', 'metro', 'place'].includes(d.type) && Number.isFinite(d.lat))
+    .map((d) => ({ d, g: near(d).filter((g) => g.ground).sort((x, y) => doorCzk(x.best) - doorCzk(y.best))[0] || null }));
+  const withFlights = cands.filter((c) => c.g).sort((x, y) => doorCzk(x.g.best) - doorCzk(y.g.best));
+  // Lety do zadaného cíle jsou, jen bez odhadu po zemi (mimo dosah): srovnání „bez letů“ u jiného cíle by klamalo.
+  if (!withFlights.length && cands.some((c) => near(c.d).length)) return null;
+  for (const { d, g } of withFlights.length ? withFlights : cands) {
     const dest = { id: d.id, label: d.label, cc: d.cc || '', lat: d.lat, lon: d.lon };
-    const near = groups.filter((g) => g.ground && g.dest.lat != null && haversineKm(g.dest.lat, g.dest.lon, d.lat, d.lon) < 80);
-    const g = near.sort((x, y) => doorCzk(x.best) - doorCzk(y.best))[0];
     // Místo dál od města letiště (Hallstatt, letiště Salcburk): vlakem/busem až k němu, letadlem přes skupinu.
     const far = g && haversineKm(g.dest.lat, g.dest.lon, d.lat, d.lon) > 25;
     const x = g && !far ? { ...g.ground }
