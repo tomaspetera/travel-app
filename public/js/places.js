@@ -258,12 +258,26 @@
   const wholeCountryOf = px => (px && px.place && !px.days && !px.mode && !(px.interests && px.interests.length) && !px.km ? countryOfText(px.place) : '');
   // v poli hledání: u přehledu země název země („Francie“), jinak místo
   const qLabel = () => (ex.place ? (ex.radius === COUNTRY && countryCs(ex.place.cc)) || ex.place.label : '');
-  /** Návrhy zemí k psanému textu: celý název, nebo začátek názvu od 3 písmen (nejvýš 2) – „🇫🇷 Francie – celá země“. */
+  /**
+   * Návrhy zemí k psanému textu: celý název (full), nebo začátek názvu od 3 písmen (nejvýš 2) – „🇫🇷 Francie – celá země“.
+   * S diakritikou v textu musí začátek názvu souhlasit i s ní („Pař“ není Paraguay).
+   */
   function countrySugs(text) {
     const q = foldName(text), exact = countryOfText(text);
+    const low = t => String(t || '').normalize('NFC').toLowerCase().replace(/\s+/g, ' ').trim(), ql = low(text), dia = q !== ql;
+    const sameDia = cc => !dia || [byIso[cc]?.cs, byIso[cc]?.en].some(n => n && low(n).startsWith(ql));
     const ccs = exact ? [exact] : [];
-    if (q.length >= 3) for (const [n, cc] of ccByName()) if (n.startsWith(q) && !ccs.includes(cc)) ccs.push(cc);
-    return ccs.slice(0, 2).map(cc => ({ ccPick: cc, label: `${countryCs(cc)} – celá země`, sub: 'města, další cíle, památky UNESCO a národní parky', flag: flag(cc) }));
+    if (q.length >= 3) for (const [n, cc] of ccByName()) if (n.startsWith(q) && !ccs.includes(cc) && sameDia(cc)) ccs.push(cc);
+    return ccs.slice(0, 2).map(cc => ({ ccPick: cc, label: `${countryCs(cc)} – celá země`, sub: 'města, další cíle, památky UNESCO a národní parky', flag: flag(cc), ...(cc === exact ? { full: true } : {}) }));
+  }
+  /**
+   * Pořadí návrhů v hledání Objevuj: země celým názvem („Francie“) nahoře, jen začátkem názvu („Kos“ → Kosovo, „Bar“
+   * → Barbados) až pod místy z geokódování – Enter pak otevře ostrov Kos, ne Kosovo. Geokódovaný střed té země jednou.
+   */
+  function sugOrder(cs, items) {
+    const names = new Set(cs.map(x => foldName(countryCs(x.ccPick))));
+    const rest = (items || []).filter(x => !names.has(foldName(String(x.label || '').replace(/\s*\(.*\)$/, ''))));
+    return [...cs.filter(x => x.full), ...rest, ...cs.filter(x => !x.full)];
   }
   // Cíl výletu (Montserrat, Vic, La Granada) se zemí – svou (cc z Wikidat), jinak zemí výchozího místa;
   // jen s názvem by Google vybral stejnojmenné místo jinde (Montserrat v Karibiku).
@@ -1456,6 +1470,8 @@
   // o.start / o.days: termín z cesty jen tam, kde ho věta („Lisabon na 3 dny“) sama neurčila
   function openPlace(s, o = { start: true, days: true }) {
     const prev = ex.tripHint;
+    // vybrané město nebo místo = okruh v km (jako openAt a věta); přehled země jen z návrhu země nebo volby v Okruhu
+    if (ex.radius === COUNTRY) ex.radius = ex.lastKm || 10;
     setPlace(s);
     const td = !s.geo && tripDatesFor(ex.place);
     ex.tripHint = td ? { label: ex.place.label, ...td } : null;
@@ -1636,9 +1652,8 @@
         // mapy=1: s klíčem Mapy.com na serveru i jejich návrhy (vesnice, adresy, hrady, rozhledny…)
         const j = await getJson('api/geocode?mapy=1&q=' + enc(text), { signal: my.signal });
         if (my !== ctl) return null;
-        // 🌍 země („Francie – celá země“) před městy; geokódovaný střed té země (bod uprostřed Francie) ne
-        const cs = countrySugs(text), names = new Set(cs.map(x => foldName(countryCs(x.ccPick))));
-        sugs = [...cs, ...(j.items || []).filter(x => !names.has(foldName(String(x.label || '').replace(/\s*\(.*\)$/, ''))))]; err = false;
+        // 🌍 země („Francie – celá země“) celým názvem před městy, začátkem názvu za nimi; geokódovaný střed země ne
+        sugs = sugOrder(countrySugs(text), j.items); err = false;
       } catch (e) {
         if (e.name === 'AbortError' || my !== ctl) return null;
         sugs = countrySugs(text); err = !sugs.length && (e.offline ? 'offline' : true); // výpadek ≠ „Nic nenalezeno“ (země jdou i bez serveru)
@@ -1823,6 +1838,22 @@
     }
     if (ex.country === c && ex.radius === COUNTRY && ex.cCat === cat) paintCountry();
   }
+  /**
+   * Zpět z 🔎 Prozkoumat: znovu přehled země c (načtený pro místo p) se seznamem a mapou, bez nového dotazu. Jen dokud
+   * je v Objevuj otevřené místo z přehledu (opened) – jinak false.
+   */
+  function countryBack(opened, p, c) {
+    if (!opened || ex.place !== opened || !p || !c || !$('#exBody')) return false;
+    exSeq++; // místa prozkoumaného místa, která se ještě načítají, přehled nepřepíšou
+    forget();
+    ex.place = p; ex.country = c; ex.radius = COUNTRY;
+    remember();
+    const sel = $('#exRad'); if (sel) sel.value = COUNTRY;
+    const qi = $('#exQ'); if (qi) qi.value = qLabel();
+    paintRecent();
+    if (c.data) paintCountry(); else loadCountry();
+    return true;
+  }
   function paintCountry() {
     const body = $('#exBody'); if (!body) return;
     const p = ex.place, d = ex.country?.data || {};
@@ -1859,10 +1890,14 @@
       x => { const el = $(`#exCList [data-cpoi="${CSS.escape(x.id)}"]`); if (el) { if (!stacked()) el.scrollIntoView({ behavior: 'smooth', block: 'center' }); flash(el); } }, null);
     // 🔎 Prozkoumat: Objevuj toho místa jako po výběru v hledání (okruh 10 km)
     const go = x => {
+      const c = ex.country;
       ex.radius = 10;
       const sel = $('#exRad'); if (sel) sel.value = String(ex.radius);
       // poi: park, památka UNESCO, oblast z Wikivoyage… nejsou zastávka – bez 🚆 Spojení do IDOS (ten je nezná)
       openPlace({ lat: x.lat, lon: x.lon, label: x.name, cc: d.cc || p.cc || '', country: name, ...(x.group === 'city' ? {} : { poi: true }) });
+      // Zpět telefonu (krok historie v app.js) vrátí přehled země, ne Přehled aplikace
+      const opened = ex.place;
+      if (typeof histSub === 'function') histSub(() => countryBack(opened, p, c));
       window.scrollTo({ top: 0, behavior: 'smooth' });
     };
     $$('[data-cgo]', body).forEach(b => b.onclick = e => { e.stopPropagation(); const x = all.find(i => i.id === b.dataset.cgo); if (x) go(x); });
@@ -2988,7 +3023,7 @@
       afterDark, routeBack, sunSlot, sunHtml, fillSun, toHm, modeBtns, previewPick, previewCard, moreTxt, poiUrl, pvFor, PREVIEW_KM, ex, loadExplore,
       plannerEntry, findTripFor, mergeInto, busyDays, saveHtml, flyTarget, flyDates, idosUrl, idosOn, homeCity, prefsOf, makePlan, dropUndo, planTimes, tripTimes, roadSpan, carSkipFor,
       RADII, CITY_KM, COUNTRY, cityKm, farOn, withFar, driveMin, countryItems, countryCard, countryTarget, C_GROUPS, CC_CATS, countryPick, loadCountryCat, setRadius, paintCountry, loadFar,
-      countryOfText, countrySugs, wholeCountryOf, pickerHtml, openWholeCountry, CC_POP, smartPlace, smartName, setPlace, natureMode, exploreApply, hikeNature,
+      countryOfText, countrySugs, sugOrder, openPlace, countryBack, wholeCountryOf, pickerHtml, openWholeCountry, CC_POP, smartPlace, smartName, setPlace, natureMode, exploreApply, hikeNature,
       makeHikePlan, hikePlanHtml, hikeDayHtml, rainTxt, kidsTxt, foodTxt, startTxt, isRural, HIKE_KINDS, curKey, keyKind },
   };
 })();
