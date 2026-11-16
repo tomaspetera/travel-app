@@ -1741,8 +1741,9 @@
     // kde se mezi místy vlakem nejezdí (podle přejezdů ze serveru), nenabízet „vlakem“
     const allBus = (r.transfers || []).length > 0 && r.transfers.every(x => x && x.transitKind === 'bus');
     // doprava celé trasy; část autem a část vlakem (přepínače u úseků) = 🔀 kombinovaně
+    // „N místa“ svítí, jen dokud trasa tolik míst opravdu má (po přidání nebo odebrání místa nesvítí žádné)
     $('#rtTools').innerHTML = `<div class="seg">${[['car', '🚗 Autem'], ['transit', allBus ? '🚌 Autobusem' : '🚆 Vlakem a busem']].map(([v, l]) => `<button type="button" data-tr="${v}" class="${mix === v ? 'on' : ''}">${l}</button>`).join('')}${mix === 'mix' ? '<button type="button" class="on" aria-pressed="true" disabled title="Část přejezdů autem, část vlakem / busem – přepínače u úseků">🔀 Kombinovaně</button>' : ''}</div>
-      <div class="seg" title="Kolik míst navrhnout">${[2, 3, 4].filter(k => k <= total).map(k => `<button type="button" data-cnt="${k}" class="${r.want === k ? 'on' : ''}">${k} místa</button>`).join('')}</div>
+      <div class="seg" title="Kolik míst navrhnout">${[2, 3, 4].filter(k => k <= total).map(k => `<button type="button" data-cnt="${k}" class="${r.want === k && n === k ? 'on' : ''}">${k} místa</button>`).join('')}</div>
       <button type="button" class="btn sm ghost" id="rtAgain">↻ Navrhnout znovu</button>`;
     // cesta z letiště (města příjezdu) na 1. místo a z posledního zpět: l = úsek z routeLegs, to = cíl úseku pro Waze
     const legRow = (l, ic, html, to) => {
@@ -4023,6 +4024,8 @@
     const dates = multi ? baseDates(t) : [];
     const ov = ovOn(t) ? t.overland : null;
     const gTxt = (g, a, b) => `${a}→${b} ${fmtDate(g.date)}${g.dep ? ' ' + hhmm(g.dep) : ''} (${g.source === 'regiojet' ? gWho(g) + ', ' : ''}${gKind(g)}${g.source === 'regiojet' ? '' : ', odhad'})`;
+    // vyzvednutí a vrácení auta čitelně („13. 1. 16:08“) – poznámky jdou i do .ics, surové „2027-01-13T16:08“ tam nepatří
+    const carWhen = s => { const m = /^\d{4}-(\d\d)-(\d\d)(?:T(\d\d):(\d\d))?/.exec(s || ''); return m ? `${+m[2]}. ${+m[1]}.${m[3] ? ` ${+m[3]}:${m[4]}` : ''}` : ''; };
     const fTxt = l => `${l.from}→${l.to} ${fmtDate(l.date)}${depHm(l) ? ' ' + depHm(l) : ''} (${l.carrierName || l.provider})`;
     const flightTxt = ov ? `🚆 ${gTxt(ov.out, ov.from.label, ov.to.label)}${ov.back ? `, zpět ${gTxt(ov.back, ov.to.label, ov.from.label)}` : ''}`
       : isFly(t) ? `${allLegs(t).map((l, i) => `${i + 1}. ${fTxt(l)}`).join(', ')} · samostatné letenky`
@@ -4040,7 +4043,7 @@
       ...(multi ? [`Trasa: ${t.route.bases.map(b => `${b.name} (${nightsTxt(b.nights)})`).join(' → ')}`, ...moves,
         ...t.route.bases.map((b, i) => `Ubytování ${b.name} ${fmtDate(dates[i].checkin)}–${fmtDate(dates[i].checkout)}: ${hotelName(b.stay) || 'zatím nevybráno'}${stayCzk(b.stay) ? ' – ' + czk(stayCzk(b.stay)) : ''}${b.stay && b.stay.mode === 'pick' && b.stay.url ? ' ' + b.stay.url : ''}`)]
         : [t.stay && t.stay.mode !== 'skip' ? `Ubytování: ${hotelName(t.stay) || 'zatím nevybráno'}${t.stay.totalCzk ? ' – ' + czk(t.stay.totalCzk) : ''}${t.stay.url ? ' ' + t.stay.url : ''}` : '']),
-      t.car && t.car.mode !== 'skip' ? `Auto: ${carPlace(t.car, 'pu')} ${t.car.from || ''} → ${carPlace(t.car, 'do')} ${t.car.to || ''} – ${czk(t.car.totalCzk)}` : '',
+      t.car && t.car.mode !== 'skip' ? `Auto: ${carPlace(t.car, 'pu')} ${carWhen(t.car.from)} → ${carPlace(t.car, 'do')} ${carWhen(t.car.to)} – ${czk(t.car.totalCzk)}` : '',
     ].filter(Boolean).join('\n');
     // bez dat „Před cestou“ (ještě se načítají, nebo bez sítě) je null – viz znovu uložená cesta níž
     const ck = window.PreTrip && PreTrip.plannerChecklist(t, { isos: tripCountries(t), via: tripVia(t), ret: returnDate(t) });
