@@ -145,6 +145,12 @@ test('geocodePlaces (Objevuj): překlep „Krakv“ = Krakov nahoře (geokodér 
   assert.match(l[0].id, /^geo:/);
 });
 
+test('geocodePlaces: překlep „Amstrdam“ = Amsterodam v Nizozemsku, ne stejnojmenné městečko v USA', async () => {
+  const a = (await geocodePlaces('Amstrdam'))[0];
+  assert.deepEqual([a.label, a.cc, a.fuzzy], ['Amsterodam', 'NL', true]);
+  assert.ok(Math.abs(a.lat - 52.37) < 0.1 && Math.abs(a.lon - 4.89) < 0.1, `${a.lat}, ${a.lon}`);
+});
+
 test('suggest: víceslovný název ve 2. pádě („Velké Británie“, „Nového Zélandu“, „Spojených států“) – shoda podle kmenů, ne překlep', () => {
   const first = (q) => localSuggestions(q, 3)[0];
   for (const [q, id] of [['Velké Británie', 'cc:GB'], ['Nového Zélandu', 'cc:NZ'], ['Spojených států', 'cc:US'], ['Jižní Afriky', 'cc:ZA'], ['Kanárských ostrovů', 'rg:kanary'], ['Spojených arabských emirátů', 'cc:AE']]) {
