@@ -77,6 +77,43 @@ test('podvržená X-Forwarded-For limit neobejde: stejná adresa od Cloudflare =
   assert.equal((await get(q, { 'cf-connecting-ip': '2001:db8:77:1:ffff::1' })).status, 429, 'další adresa ze stejné /64');
 });
 
+test('GET /api/fx: kurzy se základem CZK z mezipaměti serveru (bez dotazu ven), limit z jedné adresy', async () => {
+  const { FALLBACK_EUR } = await import('../server/lib/fx.js');
+  cache.set('fx:rates', { base: 'EUR', rates: { ...FALLBACK_EUR, CZK: 25, USD: 1.1 }, source: 'open.er-api.com', date: 'test' }, 3600e3);
+  const calls = [];
+  globalThis.fetch = async (u) => { calls.push(String(u)); throw new Error('bez sítě'); };
+  try {
+    const r = await get('/api/fx', { 'cf-connecting-ip': '198.51.100.40' });
+    assert.equal(r.status, 200);
+    assert.match(r.headers.get('cache-control'), /max-age=3600/);
+    const j = await r.json();
+    assert.equal(j.base, 'CZK');
+    assert.equal(j.source, 'open.er-api.com');
+    assert.equal(j.rates.CZK, 1);
+    assert.equal(j.rates.EUR, 0.04, '1 Kč = 0,04 € při 25 Kč/€');
+    assert.equal(j.rates.USD, 0.044);
+    assert.deepEqual(calls, [], 'žádný dotaz ven – kurzy z mezipaměti serveru');
+    for (let i = 1; i < 60; i++) assert.equal((await get('/api/fx', { 'cf-connecting-ip': '198.51.100.40' })).status, 200, `požadavek ${i + 1}`);
+    const over = await get('/api/fx', { 'cf-connecting-ip': '198.51.100.40' });
+    assert.equal(over.status, 429);
+    assert.ok(+over.headers.get('retry-after') > 0);
+    assert.equal((await get('/api/fx', { 'cf-connecting-ip': '198.51.100.41' })).status, 200, 'jiný klient má vlastní limit');
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
+test('okno země bere kurzy ze serveru (api/fx), ne přímo z open.er-api.com; u kurzů odkaz Rates By Exchange Rate API', () => {
+  const app = readFileSync(new URL('../public/js/app.js', import.meta.url), 'utf8');
+  const fx = app.slice(app.indexOf('async function loadFx'), app.indexOf('function provLink'));
+  assert.match(fx, /fetch\('api\/fx'/);
+  assert.match(fx, /<a href="https:\/\/www\.exchangerate-api\.com" target="_blank" rel="noopener">Rates By Exchange Rate API<\/a>/);
+  for (const f of readdirSync(PUBLIC, { recursive: true }).filter((f) => /\.(js|html)$/.test(f))) {
+    // adresa API v kódu prohlížeče žádná (název zdroje v ℹ️ O aplikaci zůstává)
+    assert.doesNotMatch(readFileSync(new URL(f, PUBLIC), 'utf8'), /https?:\/\/[\w.]*er-api\.com/, f);
+  }
+});
+
 test('hlavičky: nosniff, rám, Referrer-Policy, HSTS a Permissions-Policy všude; CSP stránky s otisky vložených skriptů', async () => {
   for (const p of ['/', '/js/app.js', '/css/atlas.css', '/api/health', '/sw.js', '/neznama-stranka']) {
     const r = await get(p);
@@ -96,7 +133,9 @@ test('hlavičky: nosniff, rám, Referrer-Policy, HSTS a Permissions-Policy všud
   assert.deepEqual(dir['object-src'], ["'none'"]);
   assert.deepEqual(dir['base-uri'], ["'self'"]);
   assert.ok(dir['worker-src'].includes('blob:'), 'MapLibre worker z blob:');
-  for (const host of ['https://tiles.openfreemap.org', 'https://open.er-api.com']) assert.ok(dir['connect-src'].includes(host), host);
+  assert.ok(dir['connect-src'].includes('https://tiles.openfreemap.org'));
+  // kurzy jdou přes server (/api/fx) – prohlížeč na open.er-api.com nesahá a IP uživatele tam nejde
+  assert.ok(!dir['connect-src'].some((h) => h.includes('er-api')), dir['connect-src'].join(' '));
   // počasí a hledání míst jdou přes server (MET Norway, server/lib/weather.js) – prohlížeč na Open-Meteo nesahá
   assert.ok(!dir['connect-src'].some((h) => h.includes('open-meteo')), dir['connect-src'].join(' '));
   // písma z vlastního serveru (vendor/fonts) – IP uživatele se nedostane ke Google Fonts (CLAUDE.md: písma lokálně)
