@@ -56,9 +56,16 @@ export function providerStatus() {
       enabled: config.xotelo && !liteapiLive(),
       // pojistka po chybách (429, 401/403, výpadek): na chvíli vynecháno, ukazují se jen odkazy
       blocked: xoteloBlocked(), retryAfter: xoteloRetryAfter(), reason: xoteloBlockReason() || null,
-      hint: !config.xotelo ? 'Vypnuto (XOTELO=off) – bez klíče LiteAPI zůstanou u ubytování jen odkazy na partnery'
+      hint: !config.xotelo ? 'Vypnuto (XOTELO=off) – bez klíče LiteAPI zůstanou u ubytování odkazy na partnery a ubytování z OpenStreetMap (bez ceny)'
         : liteapiLive() ? 'Nepoužívá se – ceny hotelů dává LiteAPI'
-          : xoteloBlocked() ? `Xotelo ${xoteloBlockReason()} – teď se vynechává (u ubytování jen odkazy na partnery), znovu se zkusí za ${Math.max(1, Math.round(xoteloRetryAfter() / 60))} min` : null,
+          : xoteloBlocked() ? `Xotelo ${xoteloBlockReason()} – teď se vynechává (u ubytování odkazy na partnery a ubytování z OpenStreetMap bez ceny), znovu se zkusí za ${Math.max(1, Math.round(xoteloRetryAfter() / 60))} min` : null,
+    },
+    {
+      // Ubytování z OpenStreetMap (Nominatim, stays/osm.js): bez ceny, kde jiný zdroj nic nemá – i s XOTELO=off, ne u LiteAPI.
+      id: 'osm', name: 'Ubytování (OpenStreetMap)', color: '#7ebc6f', kind: 'stays', tag: 'bez ceny',
+      note: 'ubytování v místě bez ceny (názvy, typ, hvězdičky) tam, kde jiný zdroj nic nemá – © přispěvatelé OpenStreetMap, přes Nominatim, zdarma, bez klíče',
+      enabled: !liteapiLive(),
+      hint: liteapiLive() ? 'Nepoužívá se – ubytování dává LiteAPI' : null,
     },
     {
       id: 'travelpayouts', ...PROVIDER_INFO.travelpayouts, enabled: Boolean(config.travelpayoutsToken),

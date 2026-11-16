@@ -149,7 +149,7 @@ test('searchStays: ubytování s názvem jen řecky (OpenStreetMap) se neslučuj
   }
 });
 
-test('searchStays: záloha z OpenStreetMap ne u LiteAPI a ne bez poskytovatele cen', async () => {
+test('searchStays: záloha z OpenStreetMap ne u LiteAPI a ne u pobytu nad 30 nocí', async () => {
   const prev = { mock: config.mock, liteapiKey: config.liteapiKey, xotelo: config.xotelo };
   const calls = [];
   const lodging = async (q) => { calls.push(q.city); return [mapOsm(LIVE[0], q, PAL)]; };
@@ -159,8 +159,36 @@ test('searchStays: záloha z OpenStreetMap ne u LiteAPI a ne bez poskytovatele c
     const r = await searchStays({ city: 'Palazzolo Acreide', cc: 'IT', ...PAL, checkin: ymdPlus(30), checkout: ymdPlus(33), adults: 1, cityEn: 'Palazzolo Acreide' }, { lodging });
     assert.deepEqual([r.providers[0].id, r.items.length, calls.length], ['liteapi', 0, 0]);
     Object.assign(config, { liteapiKey: '', xotelo: false });
-    const links = await searchStays({ city: 'Palazzolo Acreide', cc: 'IT', ...PAL, checkin: ymdPlus(30), checkout: ymdPlus(33), adults: 1, cityEn: 'Palazzolo Acreide' }, { lodging });
-    assert.deepEqual([links.providers.length, calls.length], [0, 0], 'bez poskytovatele cen jen odkazy');
+    const long = await searchStays({ city: 'Palazzolo Acreide', cc: 'IT', ...PAL, checkin: ymdPlus(30), checkout: ymdPlus(62), adults: 1, cityEn: 'Palazzolo Acreide' }, { lodging });
+    assert.deepEqual([long.providers.length, long.items.length, calls.length], [0, 0, 0], '31+ nocí jen odkazy (jako ceny hotelů)');
+  } finally {
+    Object.assign(config, prev);
+    stub.restore();
+  }
+});
+
+test('searchStays: bez Xotela (XOTELO=off) ubytování z OpenStreetMap dál – z Nominatimu (User-Agent), v mezipaměti', async () => {
+  const prev = { mock: config.mock, liteapiKey: config.liteapiKey, xotelo: config.xotelo };
+  // vlastní poloha (mezipaměť osmLodging je podle polohy – jiné testy tu nic nenechají)
+  const at = { lat: 37.0801, lon: 14.8807 };
+  const stub = stubFetch((url) => ({ body: new URL(url).searchParams.get('q') === 'hotel' ? [LIVE[0], LIVE[1]] : new URL(url).searchParams.get('q') === 'guest house' ? [LIVE[2]] : [] }));
+  try {
+    Object.assign(config, { mock: false, liteapiKey: '', xotelo: false });
+    const raw = { city: 'Palazzolo Acreide', cityEn: 'Palazzolo Acreide', cc: 'IT', ...at, checkin: ymdPlus(30), checkout: ymdPlus(33), adults: 1 };
+    const r = await searchStays(raw);
+    assert.equal(r.osmFallback, true);
+    assert.deepEqual(r.items.map((h) => h.provider), ['osm', 'osm', 'osm']);
+    assert.deepEqual(r.items.map((h) => h.name).sort(), ['Agriturismo Il Casale degli Angeli', 'Hotel Colle Acre', 'Hotel Feudo Bauly']);
+    assert.ok(r.items.every((h) => h.priceTotalCzk == null && /^https:\/\/www\.booking\.com\//.test(h.bookUrl)), 'bez ceny, odkaz na hledání hotelu');
+    assert.deepEqual(r.providers.map((p) => [p.id, p.ok, p.count, p.test]), [['osm', true, 3, false]]);
+    assert.ok(r.links.length > 0, 'odkazy na partnery zůstávají');
+    // jen Nominatim (žádné Xotelo), fráze po sobě s vlastním User-Agentem
+    assert.ok(stub.calls.every((c) => c.url.startsWith('https://nominatim.openstreetmap.org/search?')), stub.calls.map((c) => c.url).join(' '));
+    assert.deepEqual(stub.calls.map((c) => new URL(c.url).searchParams.get('q')), PHRASES);
+    assert.ok(stub.calls.every((c) => /^ATLAS-travel\//.test(c.init.headers['User-Agent'])));
+    // jiný termín na stejném místě: z mezipaměti, bez dalšího dotazu na Nominatim
+    const again = await searchStays({ ...raw, checkout: ymdPlus(34) });
+    assert.deepEqual([again.items.length, stub.calls.length], [3, PHRASES.length]);
   } finally {
     Object.assign(config, prev);
     stub.restore();

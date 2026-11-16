@@ -835,7 +835,14 @@ test('/api/health: zdroj ubytování Xotelo (id, název, zapnuto, kind stays, č
   });
   await withConfig({ mock: false, liteapiKey: '', xotelo: false }, () => {
     assert.equal(st('xotelo').enabled, false);
-    assert.match(st('xotelo').hint, /XOTELO=off/);
+    assert.match(st('xotelo').hint, /XOTELO=off.*OpenStreetMap \(bez ceny\)/);
+    // ubytování z OpenStreetMap zůstává i bez Xotela
+    assert.deepEqual([st('osm').enabled, st('osm').kind, st('osm').hint], [true, 'stays', null]);
+    assert.match(st('osm').note, /© přispěvatelé OpenStreetMap/);
+  });
+  await withConfig({ mock: false, liteapiKey: 'prod_x', xotelo: false }, () => {
+    assert.equal(st('osm').enabled, false);
+    assert.match(st('osm').hint, /dává LiteAPI/);
   });
   // přes server: /api/health i ostrý test (/api/diag) s Xotelem (bez sítě)
   process.env.ATLAS_MOCK = '0';
@@ -1397,7 +1404,7 @@ test('malé místo bez cen z TripAdvisoru: ubytování z OpenStreetMap jde vybra
   c.window.Trip.render();
   await tick();
   const html = sp(c.__els['#stayBody'].innerHTML);
-  assert.match(html, /<b>TripAdvisor tu ceny nemá<\/b> – v místě jsou tato ubytování \(OpenStreetMap\)\. Cenu ověř u partnera a zadej ji níže\./);
+  assert.match(html, /<b>TripAdvisor tu ceny nemá<\/b> – v místě jsou tato ubytování \(© <a href="https:\/\/www\.openstreetmap\.org\/copyright"[^>]*>přispěvatelé OpenStreetMap<\/a>\)\. Cenu ověř u partnera a zadej ji níže\./);
   assert.doesNotMatch(html, /nemám přímé nabídky/);
   assert.doesNotMatch(html, /id="stayMin"/, 'bez hodnocení – filtr hodnocení není');
   const card = cardOf(html, 'Hotel Colle Acre');
@@ -1429,6 +1436,20 @@ test('malé místo bez cen z TripAdvisoru: ubytování z OpenStreetMap jde vybra
   c.$('#manPrice').value = '3900';
   c.$('#manSave').onclick();
   assert.deepEqual([t.stay.mode, t.stay.name, t.stay.totalCzk], ['manual', 'Penzion u kostela', 3900]);
+});
+
+test('bez Xotela (XOTELO=off): ubytování z OpenStreetMap bez zmínky o TripAdvisoru, s atribucí OpenStreetMap', async () => {
+  const row = { category: 'tourism', type: 'hotel', name: 'Hotel Colle Acre', osm_type: 'way', osm_id: 77, lat: String(PRAGUE.lat + 0.002), lon: String(PRAGUE.lon + 0.003), extratags: {} };
+  const items = rankStays(rankOsm([mapOsm(row, STAY_Q, PRAGUE)]));
+  const reply = { query: STAY_Q, providers: [{ id: 'osm', name: 'OpenStreetMap', ok: true, count: 1, ms: 3, test: false }], items, osmFallback: true, links: stayLinks(STAY_Q) };
+  const c = loadTrip(() => reply);
+  c.S.trip = pragueTrip();
+  c.window.Trip.render();
+  await tick();
+  const html = sp(c.__els['#stayBody'].innerHTML);
+  assert.match(html, /<b>Ceny hotelů tu nemám<\/b> – v místě jsou tato ubytování \(© <a href="https:\/\/www\.openstreetmap\.org\/copyright" target="_blank" rel="noopener">přispěvatelé OpenStreetMap<\/a>\)/);
+  assert.doesNotMatch(html, /TripAdvisor/);
+  assert.match(cardOf(html, 'Hotel Colle Acre'), /cenu ověř u partnera/);
 });
 
 // Malé místo bez hotelů na TripAdvisoru: ceny z nejbližších míst TripAdvisoru v okolí, ubytování v místě bez ceny
