@@ -1,12 +1,24 @@
 // Limit požadavků z jedné adresy (klouzavé okno, výchozí 10 min) s omezenou pamětí.
 // Dřív se při 5 000 adresách smazalo všechno – při návalu (nebo podvržených adresách) tak limit na chvíli zmizel všem.
 // Teď se nejdřív smažou adresy bez požadavku v okně, a kdyby jich bylo pořád moc, ty nejdéle neaktivní.
+// Adresu (IP) drží nejdél okno od posledního započteného požadavku – to slibuje okno O aplikaci. Dřív zůstala do dalšího
+// požadavku z té adresy, přetečení stropu nebo restartu (bez uspávání serveru i dny); teď ji úklid každých sweepMs smaže
+// sám. Maže o sweepMs dřív, aby slib platil přesně – adresa, která v okně už nic nezkouší, tak může nejvýš o sweepMs
+// dřív znovu (nevadí). Časovač má unref(): proces kvůli němu nečeká (testy, ukončení serveru).
 
 export class RateLimiter {
-  constructor({ windowMs = 10 * 60e3, maxKeys = 5000 } = {}) {
+  constructor({ windowMs = 10 * 60e3, maxKeys = 5000, sweepMs = 30e3 } = {}) {
     this.windowMs = windowMs;
     this.maxKeys = maxKeys;
+    this.sweepMs = Math.min(sweepMs, windowMs);
     this.map = new Map(); // klíč → časy požadavků v okně (od nejstaršího); poslední aktivní na konci
+    setInterval(() => this.sweep(), this.sweepMs).unref();
+  }
+
+  /** Smaže adresy, jejichž poslední požadavek do sweepMs vypadne z okna (další úklid by už byl po slíbené době). */
+  sweep(now = Date.now()) {
+    const from = now - this.windowMs + this.sweepMs;
+    for (const [k, list] of this.map) if (!(list[list.length - 1] > from)) this.map.delete(k);
   }
 
   /**
