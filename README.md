@@ -38,7 +38,7 @@ z ubytování nebo ze startu u cíle (parkoviště, nádraží, obec z Wikidat),
 chatami po cestě (OpenStreetMap), kratší variantou do deště, s dětmi lehčími cíli a kratší túrou v den příjezdu a odjezdu.
 Bez trasy z BRouteru zůstane odhad vzdušnou čarou a odkaz do Mapy.com. U každého dne výletu i u trasy
 je **předpověď počasí** (MET Norway) a když má pršet, ATLAS navrhne lepší den; na termíny za víc než 9 dní ukáže
-dlouhodobý průměr. Mapa je zdarma a bez klíče (MapLibre + OpenFreeMap, záloha OpenStreetMap) a odkazy do Google Map
+dlouhodobý průměr. Mapa je zdarma a bez klíče (MapLibre + OpenFreeMap; při jeho výpadku u tras pěšky a na kole turistická mapa Mapy.com, jinak poznámka „Mapa se nenačetla“ s odkazem do Google Map) a odkazy do Google Map
 hledají místo podle názvu. S volitelným bezplatným klíčem [Mapy.com](#mapycom-volitelně-zdarma) je pod trasou pěšky a na
 kole turistická mapa se značenými trasami a hledání v Objevuj najde i malé vesnice, hrady a rozhledny. Plán jde **exportovat do kalendáře** (.ics, Google Kalendář) a **sdílet odkazem**.
 
@@ -1129,14 +1129,15 @@ počítá z nabídek, které výpis po filtrech ukazuje (stejné pravidlo na ser
 |---|---|---|
 | **Odhad** (čip, srovnání, „běžně ~X Kč (od ~Y)“) | **Ceny** z živých cen RegioJetu **15. 10. 2026** (veřejné API webu, jednorázově: 45 tras z Prahy, Brna a Ostravy, 3 termíny za ~12, 33 a 61 dní po ~3 dnech; *od* = nejlevnější ze všech dní, *běžně* = medián nejlevnějšího spoje dne, který jde koupit). Praha ↔ 28 měst **změřeno** (Brno, Ostrava, Olomouc, Pardubice, Bratislava, Košice, Vídeň, Berlín, Drážďany, Mnichov, Frankfurt, Varšava, Krakov, Budapešť, Lvov, Benátky, Paříž, Amsterdam, Curych, Brusel…; *od* a čas = lepší z tohoto a z měření 13. 10. 2026 – nejrychlejší spoj a nejnižší cena RegioJetu a FlixBusu, průzkum `research/ground.md` ve větvi `pc-research`). Jinde **model podle vzdálenosti po pásmech** (Kč na osobu jedním směrem, *od* / *běžně*): **Česko a Slovensko** 30 + 0,85 / 30 + 0,95 Kč/km; **levný východ** mezi městy RegioJetu (Česko, Slovensko, Polsko, Maďarsko, Ukrajina) 140 + 0,5 / 100 + 0,85 Kč/km do 450 km a dál jen +0,1 Kč/km (Praha–Lvov běžně 449 Kč); **ostatní** (Německo, Rakousko, Švýcarsko, Francie, Benelux, Itálie a kam RegioJet nejezdí) 30 + 1,3 / 20 + 1,5 Kč/km i dál než 450 km – Praha → Gdaňsk (jen FlixBus ~900 Kč) vyjde běžně ~850 Kč, od ~750 Kč. Na 41 trasách (bez Lince a Salcburku – RegioJet tam prodává jen drahé partnerské vlaky za 1 340 a 2 010 Kč, FlixBus a ÖBB jezdí za ~300–600 Kč) klesl medián chyby *od* z 19,5 % na 10,8 % a *běžně* z 19,9 % na 13,3 %; *běžně* do ±25 % u 32 tras (dřív 25), nejhůř Praha–Vídeň +61 % (levná díky konkurenci – z Prahy ale platí změřená cena). Dřívější model byl na domácích trasách moc drahý (Praha–Olomouc 250 Kč, běžně 149 Kč) a do Německa moc levný (Frankfurt 380 Kč, běžně 639 Kč). **Čas** podle měření 13. 10.: do 450 km ~66 km/h, dál ~55 km/h + přestupy; vede-li přímka přes Alpy nebo Dinárské hory, o čtvrtinu déle (Praha–Klagenfurt ~7 h 20, ne 5 h 50); do Švédska a Norska po souši přes Øresundský most | bez sítě, počítá se u každého hledání a hledání nezpomalí; vždy označeno „odhad“ |
 | **RegioJet – živé ceny** | veřejné rozhraní webu regiojet.cz (`brn-ybus-pubapi.sa.cz`, bez klíče) | **jen ze serveru** (z prohlížeče cizího webu vrací 403) a **jen na vyžádání** – po kliknutí na *Ukázat spoje* nebo při výběru spoje v průvodci; mezipaměť 3 h, jeden dotaz naráz, aspoň 1 s mezi dotazy, nejvýš 60 za hodinu, timeout 8 s, jedno opakování (také s odstupem a v hodinovém stropu); při chybě platí odhad |
-| **FlixBus – jen odkaz** | jen UUID měst pro předvyplněný odkaz do e-shopu | podmínky FlixBusu zakazují automatické (komerční) využívání dat bez písemné smlouvy, proto ATLAS jeho ceny ani spoje **nenačítá**; UUID se zjistila jednorázově ve skriptu `scripts/build-ground.mjs` |
+| **FlixBus – jen odkaz** | jen UUID měst pro předvyplněný odkaz do e-shopu | podmínky FlixBusu zakazují automatické (komerční) využívání dat bez písemné smlouvy, proto ATLAS jeho ceny ani spoje **nenačítá**; UUID jsou pevně v `data/ground.json` a skript `scripts/build-ground.mjs` je jen převezme – z FlixBusu nic nestahuje |
 | **IDOS, Google Mapy – odkazy** | IDOS (vlaky ČD i zahraniční, autobusy) s datem; Google Mapy veřejnou dopravou bez data | ÖBB, DB, ČD, Trainline ani Omio data bez partnerské smlouvy nedávají – jen odkazy |
 
 Města a jejich ID jsou v `data/ground.json` (262 měst: 170 měst RegioJetu s polohou hlavní zastávky z jeho seznamu,
 107 z nich i s UUID FlixBusu, a 92 dalších větších evropských měst z našich dat do ~1 300 km od Česka, která FlixBus zná –
 poloha středu města z FlixBusu). Místní názvy („Wien“, „Napoli“) jsou kvůli odkazům do IDOS a Google Map. Sestavení:
-`npm run build:ground -- --cache <adresář>` (RegioJet 1 dotaz, FlixBus nejvýš 1 dotaz za sekundu, mezipaměť
-v `--cache`, přerušené sestavení pokračuje). V DEMO režimu (`ATLAS_MOCK=1`) jsou spoje RegioJetu vymyšlené a označené.
+`npm run build:ground -- --cache <adresář>` stáhne jen seznam RegioJetu (1 dotaz, mezipaměť v `--cache` na 7 dní);
+UUID FlixBusu, místní názvy a města mimo RegioJet převezme pevně z dosavadního `data/ground.json` – z FlixBusu nic
+nestahuje (FlixBus jen odkazy). Nové město RegioJetu tak odkaz na FlixBus nemá, dokud se UUID nedoplní ručně. V DEMO režimu (`ATLAS_MOCK=1`) jsou spoje RegioJetu vymyšlené a označené.
 
 **Vypínač:** `REGIOJET_LIVE=0` vypne živé spoje RegioJetu (zůstane odhad a odkazy; na Renderu: služba → Environment). Podmínky použití rozhraní RegioJetu nejsou veřejné: **před ostrým provozem doporučuji napsat RegioJetu
 a požádat o souhlas** (případně o partnerský přístup); do té doby je dotazů záměrně málo a jen na pokyn uživatele.
@@ -2049,7 +2050,7 @@ přes víc míst jedou úseky v ty dny autem a ostatní vlakem / busem. Srovnáv
 - Cesta z letiště do města: ceníky letišť, dopravců a dopravních svazů (zdroj u každého letiště v `data/arrival.json`
   a v tabulce [Z letiště do města](#z-letiště-do-města), ověřeno 7. 10. 2026), kurzy ČNB.
 - Vlak a bus: seznam měst a zastávek RegioJetu (`brn-ybus-pubapi.sa.cz/restapi/consts/locations`), UUID měst FlixBusu
-  (jen pro odkazy), změřené spoje z Prahy z průzkumu `research/ground.md` (větev `pc-research`); sestavuje `node scripts/build-ground.mjs` do
+  (jen pro odkazy, pevně v datech – skript je nestahuje), změřené spoje z Prahy z průzkumu `research/ground.md` (větev `pc-research`); sestavuje `node scripts/build-ground.mjs` do
   `data/ground.json` (zdroj a datum jsou v souboru).
 - Podnebí: meteostanice u letišť – [normály WMO 1991–2020](https://www.ncei.noaa.gov/products/wmo-climate-normals)
   (NOAA NCEI) a průměry 1991–2020 spočítané z denních měření [NOAA GHCN-Daily](https://www.ncei.noaa.gov/products/land-based-station/global-historical-climatology-network-daily)

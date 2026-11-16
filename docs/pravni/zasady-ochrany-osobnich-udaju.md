@@ -172,7 +172,7 @@ Tyto služby dostanou tvou **IP adresu** a identifikaci prohlížeče, jako u ka
 
 | Služba | Proč | Kdy |
 |---|---|---|
-| **OpenFreeMap**, záložně **OpenStreetMap** (tile.openstreetmap.org) | podklad map | když otevřeš mapu |
+| **OpenFreeMap** | podklad map | když otevřeš mapu |
 | **Wikimedia Commons**, **Unsplash**, **Pexels** | fotky měst a míst | na kartách cílů a v programu |
 | weby hotelů a jejich obrázkové servery (přes LiteAPI, TripAdvisor) | fotky ubytování | v nabídce ubytování |
 
@@ -180,7 +180,7 @@ Mapy.com (turistická mapa, návrhy míst, trasy), předpověď počasí a směn
 ATLASu** – tyto služby tvou IP adresu nevidí. Písma (Inter, Sora, Caveat) jsou na serveru ATLASu, Google Fonts se nepoužívá.
 
 > Kde v kódu: `public/css/atlas.css` (písma z `public/vendor/fonts`), `public/js/app.js` (kurzy z `/api/fx`, zdroje
-> fotek), `public/js/places.js` (`tiles.openfreemap.org`, `tile.openstreetmap.org`), `server/lib/photos.js` (Wikimedia, Pexels, Unsplash – fotky se vkládají přímo z jejich serverů),
+> fotek), `public/js/places.js` (`tiles.openfreemap.org`), `server/lib/photos.js` (Wikimedia, Pexels, Unsplash – fotky se vkládají přímo z jejich serverů),
 > `server/lib/security.js` (CSP: `connect-src`, `font-src`, `img-src https:`).
 
 ### 5.2 Služby, kterých se ptá jen server ATLASu
@@ -299,9 +299,8 @@ Zásady můžeme upravit, když se změní aplikace nebo předpisy. Aktuální z
 7. **Partnerské odkazy.** Zprostředkovatel Travelpayouts a partneři mohou na svém webu nastavit vlastní cookies
    a sledovat konverzi – ATLAS to neovlivní. Je třeba to výslovně uvést? Je označení „reklama“ u odkazu dostatečné
    (zákon o ochraně spotřebitele, § 2976 občanského zákoníku, DSA)?
-8. **Rozpor s plánem čistého režimu:** písma už jsou z vlastního serveru (#420) a kurzy jdou přes server (`/api/fx`).
-   Dlaždice **tile.openstreetmap.org** (záloha mapy) jdou dál přímo z prohlížeče (IP uživatele u OSMF) – zvážit
-   odstranění zálohy, jak doporučuje rozbor zdrojů.
+8. **Čistý režim:** písma jsou z vlastního serveru (#420), kurzy jdou přes server (`/api/fx`) a záložní dlaždice
+   tile.openstreetmap.org aplikace už nebere – prohlížeč se přímo ptá jen OpenFreeMap a zdrojů fotek.
 9. **Údaje v adrese (`?…`) v logu hostingu.** Některé dotazy jsou GET s parametry (např. našeptávač míst `?q=…`,
    souřadnice u počasí a míst, pozvánka `/j/<data>` s cílem a místem odletu v cestě adresy). Ty se mohou objevit
    v logu Renderu a Cloudflare spolu s IP adresou. Stačí to uvést v zásadách?

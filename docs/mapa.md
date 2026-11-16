@@ -350,7 +350,7 @@ Skripty (vše `node scripts/…`; README ## Data a licence má příkazy pro akt
 - `scripts/build-capitals.mjs` – capLL do `data/countries.json`; `node scripts/build-capitals.mjs [--cache dir]`; GeoNames cities15000; spustí se už importem (top-level await).
 - `scripts/build-climate.mjs` – buňky NASA v `data/climate.json`; `node scripts/build-climate.mjs [--resume]`; ~3 800 dotazů (~15 min); pak vždy stanice.
 - `scripts/build-climate-stations.mjs` – stanice WMO/GHCN do `data/climate.json`; `node scripts/build-climate-stations.mjs [--cache DIR]`; NOAA ~560 MB; `fillGaps()`, `MANUAL`, `OVERRIDE`.
-- `scripts/build-ground.mjs` – `data/ground.json`; `npm run build:ground` [--max 400] [--fresh]; RegioJet + FlixBus jen UUID (1 dotaz/s); `main()` běží už importem.
+- `scripts/build-ground.mjs` – `data/ground.json`; `npm run build:ground` [--max 400] [--fresh]; RegioJet; UUID FlixBusu jen pevně z dřívějších dat (z FlixBusu nic nestahuje); `main()` běží už importem.
 - `scripts/build-places.mjs` – `data/places.json`; `node scripts/build-places.mjs [--cache <adresář>]`; GeoNames ~630 MB; `selectPlace()`, `pickName()`, `MUST`, `mustFind()`.
 - `scripts/build-regions.mjs` – `data/regions.json`; `NODE_USE_ENV_PROXY=1 node scripts/build-regions.mjs [klíč…]`; Nominatim; nová oblast i do `server/lib/names.js` REGIONS.
 - `scripts/build-icons.mjs` – `public/icons/*.png` a blok `<!-- ios-splash -->` v `public/index.html`; `npm run build:icons`; bez sítě.
@@ -398,7 +398,7 @@ Skripty (vše `node scripts/…`; README ## Data a licence má příkazy pro akt
 ### Pravidla a produkce
 - Na produkci nevolat `/api/search` ani `/api/diag` (ostré dotazy na aerolinky). Otevřený Přehled s domovem spouští radar (`renderRadar()` → `runSearch()`) a otevřená záložka kontroluje hlídání – zkoušej v `npm run demo`.
 - Nic placeného: zdroje letů zdarma (Ryanair a Wizz web API, Kiwi MCP, Travelpayouts token), Mapy.com jen z volných kreditů se stropem MAPY_MAX_PER_HOUR; klíče jen v env na Renderu, nikdy v `public/` ani v gitu.
-- FlixBus jen odkazy (`server/lib/ground.js` `links()`, `public/js/ground.js`, `scripts/build-ground.mjs` jen UUID) – ceny ani stránky nikdy. RegioJet API jen ze serveru (z prohlížeče 403), REGIOJET_LIVE=0 vypne, max 60/h.
+- FlixBus jen odkazy (`server/lib/ground.js` `links()`, `public/js/ground.js`, `scripts/build-ground.mjs` z FlixBusu nic nestahuje) – ceny ani stránky nikdy. RegioJet API jen ze serveru (z prohlížeče 403), REGIOJET_LIVE=0 vypne, max 60/h.
 - Žádné push ani keep-alive: hlídání a `checkVersion()` běží jen při otevřené stránce, Notification až po klepnutí (`askNotif()`); náhradou je 🕘 Od minula.
 
 ### Server a API

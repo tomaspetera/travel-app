@@ -21,11 +21,11 @@ export const SECURITY_HEADERS = {
 /** CSP u odpovědí API (JSON, dlaždice): nic z nich se nemá vykreslit jako stránka. */
 export const API_CSP = "default-src 'none'; frame-ancestors 'none'";
 
-// Kam stránka smí sahat mimo vlastní server – co aplikace opravdu používá (public/js): podklad mapy (OpenFreeMap,
-// OpenStreetMap – MapLibre je stahuje fetch() i ve svém workeru). Počasí (MET Norway), hledání míst a kurzy (/api/fx)
-// jdou přes server. Obrázky (fotky měst z Wikimedie, Unsplash, Pexels, hotelů, logo Mapy.com) z jakéhokoli https –
-// zdrojů je mnoho a obrázek kód nespustí.
-const CONNECT = ['https://tiles.openfreemap.org', 'https://tile.openstreetmap.org'];
+// Kam stránka smí sahat mimo vlastní server – co aplikace opravdu používá (public/js): podklad mapy (OpenFreeMap –
+// MapLibre ho stahuje fetch() i ve svém workeru; záložní Mapy.com jdou přes server, dlaždice tile.openstreetmap.org
+// aplikace nebere). Počasí (MET Norway), hledání míst a kurzy (/api/fx) jdou přes server. Obrázky (fotky měst
+// z Wikimedie, Unsplash, Pexels, hotelů, logo Mapy.com) z jakéhokoli https – zdrojů je mnoho a obrázek kód nespustí.
+const CONNECT = ['https://tiles.openfreemap.org'];
 
 // Typ <script>, který prohlížeč spustí jako JavaScript; jiný (application/ld+json – JSON-LD pro vyhledávače) je jen
 // datový blok: nespustí se a CSP se ho netýká, otisk do script-src nepatří.
