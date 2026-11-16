@@ -20,6 +20,15 @@ test('inRegion: Toskánsko podle hranice, ne podle obdélníku (Ravenna a Trasim
   assert.equal(inRegion('istrie', 45.327, 14.442), false); // Rijeka
 });
 
+test('inRegion: místa na pobřeží těsně za zjednodušenou hranicí patří k oblasti, sousední města ne', () => {
+  for (const [key, id, lat, lon] of [['apulie', 'polignano', 40.9958, 17.2186], ['apulie', 'leuca', 39.7959, 18.3594], ['algarve', 'benagil', 37.0874, -8.4258],
+    ['toskansko', 'portoferraio', 42.8131, 10.3133], ['normandie', 'mont-saint-michel', 48.636, -1.511], ['normandie', 'honfleur', 49.4194, 0.2333],
+    ['normandie', 'giverny', 49.0758, 1.5339], ['provence', 'gordes', 43.9116, 5.2001], ['provence', 'saintes-maries', 43.4519, 4.4286],
+    ['provence', 'cassis', 43.2147, 5.5378], ['goa', 'palolem', 15.01, 74.0232], ['goa', 'fort-aguada', 15.4925, 73.7736]]) assert.equal(inRegion(key, lat, lon), true, id);
+  for (const [key, id, lat, lon] of [['normandie', 'rennes', 48.1173, -1.6778], ['normandie', 'saint-malo', 48.6493, -2.0257], ['normandie', 'pariz', 48.8566, 2.3522],
+    ['provence', 'nice', 43.7102, 7.262], ['provence', 'nimes', 43.8367, 4.3601], ['goa', 'belgaum', 15.8497, 74.4977]]) assert.equal(inRegion(key, lat, lon), false, id);
+});
+
 test('keepInRegion: jen cíle v oblasti, připnuté vždy, příznaky pole zůstanou; málo cílů → kruh', () => {
   const all = Object.assign([...IN, ...OUT], { natureLoading: true, descFailed: true });
   const kept = keepInRegion(all, 'toskansko', { min: 6, keep: (c) => c.id === 'perugia' });

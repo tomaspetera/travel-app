@@ -192,6 +192,7 @@ export const REGIONS = [
   { key: 'egypt-more', cs: 'Rudé moře (Egypt)', aliases: ['rude more', 'hurghada', 'sharm', 'egypt more'], airports: ['HRG', 'SSH', 'RMF'] },
   { key: 'turecka-riviera', cs: 'Turecká riviéra', aliases: ['turecka riviera', 'turecko more'], airports: ['AYT', 'DLM', 'BJV', 'GZP'] },
   { key: 'island', cs: 'Island', aliases: ['island', 'iceland'], airports: ['KEF'] },
+  { key: 'lofoty', cs: 'Lofoty', aliases: ['lofoty', 'lofoten'], airports: ['LKN', 'SVJ'] },
   // pevninské oblasti (vlajka země místo ostrova)
   { key: 'toskansko', cs: 'Toskánsko', flag: '🇮🇹', aliases: ['toskansko', 'toscana', 'tuscany'], airports: ['FLR', 'PSA'] },
   { key: 'apulie', cs: 'Apulie', flag: '🇮🇹', aliases: ['apulie', 'puglia', 'apulia'], airports: ['BRI', 'BDS'] },
@@ -202,9 +203,12 @@ export const REGIONS = [
   { key: 'dalmacie', cs: 'Dalmácie', flag: '🇭🇷', aliases: ['dalmacie', 'dalmatia', 'dalmacija'], airports: ['SPU', 'ZAD', 'DBV'] },
   { key: 'istrie', cs: 'Istrie', flag: '🇭🇷', aliases: ['istrie', 'istria', 'istra'], airports: ['PUY', 'TRS'] },
   { key: 'azurove-pobrezi', cs: 'Azurové pobřeží', flag: '🇫🇷', aliases: ['azurove pobrezi', 'lazurove pobrezi', 'cote d azur', 'francouzska riviera', 'french riviera'], airports: ['NCE'] },
+  { key: 'provence', cs: 'Provence', flag: '🇫🇷', aliases: ['provence', 'provensalsko'], airports: ['MRS', 'AVN'] },
+  { key: 'normandie', cs: 'Normandie', flag: '🇫🇷', aliases: ['normandie', 'normandy'], airports: ['CFR', 'DOL'] },
   { key: 'bulharske-pobrezi', cs: 'Bulharské pobřeží', flag: '🇧🇬', aliases: ['bulharske pobrezi', 'slunecne pobrezi', 'sunny beach', 'zlate pisky', 'golden sands', 'cerne more bulharsko'], airports: ['BOJ', 'VAR'] },
   { key: 'skotsko', cs: 'Skotsko', flag: '🏴󠁧󠁢󠁳󠁣󠁴󠁿', aliases: ['skotsko', 'scotland'], airports: ['EDI', 'GLA', 'ABZ', 'INV'] },
   { key: 'laponsko', cs: 'Laponsko', flag: '🇫🇮', aliases: ['laponsko', 'lapland', 'lappi'], airports: ['RVN', 'KTT'] },
+  { key: 'goa', cs: 'Goa', flag: '🇮🇳', aliases: ['goa'], airports: ['GOI', 'GOX'] }, // geokodér zná jen Goa na Filipínách (stát Goa je správní celek)
   // geokodér spolkové země do našeptávače nepustí (správní celek) – bez nich „Bavorsko“, „do Tyrolska“ nic nenajdou
   { key: 'bavorsko', cs: 'Bavorsko', flag: '🇩🇪', aliases: ['bavorsko', 'bavaria', 'bayern'], airports: ['MUC', 'NUE', 'FMM'] },
   { key: 'tyrolsko', cs: 'Tyrolsko', flag: '🇦🇹', aliases: ['tyrolsko', 'tyrol'], airports: ['INN'] }, // bez „tirol“ – „Tir…“ je Tirana
@@ -272,6 +276,9 @@ export const NATURE = [
   { cs: 'Malá Fatra', kind: 'park', sub: 'národní park, Vrátna dolina', cc: 'SK', lat: 49.1935, lon: 19.0386, km: 20, aliases: ['vratna dolina'] },
   { cs: 'Slovenský ráj', kind: 'park', sub: 'národní park, Suchá Belá a Sokolia dolina', cc: 'SK', lat: 48.9491, lon: 20.3836, km: 20 },
   { cs: 'Hallstatt', kind: 'lake', sub: 'městečko u Halštatského jezera, Solná komora', cc: 'AT', lat: 47.5622, lon: 13.6487, km: 10, aliases: ['halstatt'] },
+  { cs: 'Solná komora', kind: 'lake', sub: 'jezera a hory, Hallstatt, Bad Ischl, Wolfgangsee', cc: 'AT', lat: 47.7111, lon: 13.6189, km: 20, aliases: ['salzkammergut', 'solne komory'] },
+  { cs: 'Gardské jezero', kind: 'lake', sub: 'největší italské jezero, Sirmione, Bardolino, Malcesine', cc: 'IT', lat: 45.6000, lon: 10.6800, km: 20, aliases: ['lago di garda', 'garda', 'gardsee'] },
+  { cs: 'Cinque Terre', kind: 'park', sub: 'národní park, pět vesnic nad mořem', cc: 'IT', lat: 44.1199, lon: 9.7081, km: 10 },
   { cs: 'Königssee', kind: 'lake', sub: 'jezero, národní park Berchtesgaden', cc: 'DE', lat: 47.5551, lon: 12.9766, km: 10, aliases: ['koenigssee'] },
   { cs: 'Plitvická jezera', kind: 'park', sub: 'národní park, UNESCO', cc: 'HR', lat: 44.8835, lon: 15.6138, km: 10, aliases: ['plitvice', 'plitvice lakes'] },
   { cs: 'Nízké Tatry', kind: 'range', sub: 'pohoří a národní park', cc: 'SK', lat: 48.9102, lon: 19.8624, km: 20, aliases: ['nizkych tater'] },

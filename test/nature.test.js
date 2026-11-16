@@ -95,8 +95,8 @@ test('seznam míst v přírodě: druh, okruh, země a poloha v pořádku, názvy
     assert.ok(['range', 'park', 'peak', 'cave', 'rocks', 'lake'].includes(n.kind), n.cs);
     assert.ok([10, 20].includes(n.km), `${n.cs}: okruh z nabídky Objevuj`);
     assert.ok(COUNTRY_BY_ISO.has(n.cc), n.cs);
-    // (od Triglavu a Plitvic po Krkonoše a Bastei, od Dolomit po Slovenský kras)
-    assert.ok(n.lat > 44 && n.lat < 51.1 && n.lon > 11 && n.lon < 21, `${n.cs}: poloha ve střední Evropě`);
+    // (od Triglavu a Plitvic po Krkonoše a Bastei, od Cinque Terre po Slovenský kras)
+    assert.ok(n.lat > 44 && n.lat < 51.1 && n.lon > 9 && n.lon < 21, `${n.cs}: poloha ve střední Evropě`);
     assert.ok(NATURE_KINDS.includes(n.kind), n.cs);
     // hranice: poloha uvnitř obdélníku své země (u hranice nerozliší – Javorníky se středem spíš na Slovensku proto chybí úplně)
     const [la0, la1, lo0, lo1] = BOX[n.cc] || [];

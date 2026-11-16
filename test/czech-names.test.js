@@ -139,7 +139,8 @@ test('Objevuj: oblast přesným názvem → město jejího největšího letišt
     const first = async (q, regions = true) => (await geocodeExplore(q, { mapy: false, regions }))[0];
     for (const [q, label, region] of [['Toskánsko', 'Florencie', 'toskansko'], ['Kanáry', 'Tenerife', 'kanary'], ['Mallorka', 'Mallorca', 'mallorca'],
       ['Kréta', 'Heraklion', 'kreta'], ['Korsika', 'Ajaccio', 'korsika'], ['Bavorsko', 'Mnichov', 'bavorsko'], ['Tyrolsko', 'Innsbruck', 'tyrolsko'],
-      ['Sicílie', 'Palermo', 'sicilie'], ['Sardinie', 'Cagliari', 'sardinie']]) {
+      ['Sicílie', 'Palermo', 'sicilie'], ['Sardinie', 'Cagliari', 'sardinie'], ['Provence', 'Marseille', 'provence'], ['Normandie', 'Caen', 'normandie'],
+      ['Lofoty', 'Leknes', 'lofoty'], ['Goa', 'Goa', 'goa']]) {
       const s = await first(q);
       assert.deepEqual([s?.label, s?.region], [label, region], q);
       assert.ok(Number.isFinite(s.lat) && Number.isFinite(s.lon), q);
@@ -149,6 +150,14 @@ test('Objevuj: oblast přesným názvem → město jejího největšího letišt
     assert.equal((await first('Benátky')).label, 'Benátky', 'město zůstává městem');
     // Dolomity jsou i hory (server/lib/names.js NATURE): napřed hory, ne Verona (test/nature.test.js)
     assert.deepEqual([(await first('Dolomity'))?.label, (await first('Dolomity'))?.nature], ['Dolomity', 'range']);
+    // stejnojmenná místa jinde ne: vesnice Provence ve Švýcarsku, Goa na Filipínách
+    assert.equal((await first('Provence')).cc, 'FR');
+    assert.equal((await first('Goa')).cc, 'IN');
+    // oblasti, které nejsou správním celkem, jako příroda (střed a okruh v km): Cinque Terre, Solná komora, Gardské jezero
+    for (const [q, label, nature] of [['Cinque Terre', 'Cinque Terre', 'park'], ['Salzkammergut', 'Solná komora', 'lake'], ['Lago di Garda', 'Gardské jezero', 'lake']]) {
+      const s = await first(q);
+      assert.deepEqual([s?.label, s?.nature], [label, nature], q);
+    }
   } finally {
     config.mock = mock;
   }

@@ -338,7 +338,7 @@ Tabulka odpovídá pořadí větví v `route()` (`server/index.js`). Limity jsou
 | `data/entry.json` | vstupní podmínky pro občany ČR, 197 zemí | prohlížeč `/data/entry.json` → `public/js/entry.js` | ručně (checked) | MZV ČR, weby e-víz, WHO, CDC |
 | `data/ground.json` | města RegioJetu a UUID FlixBusu (262 měst, 234 zastávek) | `server/lib/ground.js` | `scripts/build-ground.mjs` | RegioJet API, FlixBus jen UUID pro odkazy |
 | `data/places.json` | ~161 tis. míst, kódované řádky (7,8 MB) | `server/lib/places.js` `loadPlaces()` | `scripts/build-places.mjs` | GeoNames, CC BY 4.0 |
-| `data/regions.json` | hranice 7 oblastí, [lon, lat], 1 řádek | `server/lib/regions.js` | `scripts/build-regions.mjs` | OpenStreetMap / Nominatim, ODbL |
+| `data/regions.json` | hranice 10 oblastí, [lon, lat], 1 řádek | `server/lib/regions.js` | `scripts/build-regions.mjs` | OpenStreetMap / Nominatim, ODbL |
 | `data/sight-hours.json` | zavírací dny 55 nejnavštěvovanějších památek | `server/lib/hours.js` | ručně (src, checked) | oficiální weby památek |
 | `data/transfers.json` | pravidla přejezdů: regions, rail, openBorders, border, congestion, hsr, railLinks | `server/lib/transfers.js` | ručně (README ## Přejezdy mezi místy) | jízdní řády 2026 |
 | `public/data/pretrip.json` | Před cestou: EHIC, DROZD, řidičák, zásuvky, telefony | `public/js/pretrip.js` | ručně (checked) | MZV, VZP, KZP |
