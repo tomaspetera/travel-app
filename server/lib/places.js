@@ -155,7 +155,19 @@ export function natureMatches(query) {
     const exact = names.includes(q);
     if (exact || (q.length >= 4 && names.some((x) => x.startsWith(q)))) out.push({ s: natureSuggestion(n), exact });
   }
+  if (!out.length) return natureTypos(q);
   return [...out.filter((x) => x.exact), ...out.filter((x) => !x.exact)];
+}
+
+/**
+ * Překlep v názvu hor a přírody („Hallsttat“, „Sněžla“): jako u měst (localScored) od 5 znaků, první písmeno sedí,
+ * 1 překlep (od 9 znaků 2). Návrh s fuzzy: true – nabídka ukáže „Překlep? Asi myslíš:“. q = normalize(dotaz).
+ */
+function natureTypos(q) {
+  if (q.length < 5) return [];
+  const k = q.length >= 9 ? 2 : 1;
+  return NATURE.filter((n) => [n.cs, ...(n.aliases || [])].map(normalize).some((t) => t[0] === q[0] && editDist(q, t, k) <= k))
+    .slice(0, 2).map((n) => ({ s: { ...natureSuggestion(n), fuzzy: true }, exact: false, fuzzy: true }));
 }
 
 /** Kandidáti z vlastních dat: { s: návrh, m: shoda názvu (100/80/60/30), score: m + velikost − vzdálenost }. */
@@ -503,7 +515,18 @@ export async function geocodeExplore(query, { mapy = true, regions = false } = {
       ...base.filter((y) => !strong.includes(y) && !conv.some((x) => dup(x, y)))].slice(0, 10);
   }
   if (rg.value) list = townBeforeRegion(list, q, (x) => /^PPL/.test(x.fc || '') || towns.has(x));
-  return nat.length ? withNature(list, nat) : list;
+  return sameOnce(nat.length ? withNature(list, nat, q) : list);
+}
+
+/**
+ * Dva řádky se stejným názvem i podtitulkem do 10 km od sebe jednou („Ibiza – Balearic Islands, Španělsko“ byla
+ * dvakrát: obec a ostrov) – v nabídce se rozeznat nedají. Jen obce a ostrovy (GeoNames PPL…, ISL…, jinak bez druhu):
+ * hrad Karlštejn u obce Karlštejn je jiný cíl a zůstane.
+ */
+export function sameOnce(list) {
+  const area = (x) => !x.fc || /^(PPL|ISL)/.test(x.fc);
+  return list.filter((x, i) => !area(x) || !list.slice(0, i).some((y) => area(y) && y.label === x.label && (y.sub || '') === (x.sub || '')
+    && haversineKm(y.lat, y.lon, x.lat, x.lon) <= 10));
 }
 
 /**
@@ -525,9 +548,16 @@ export function townBeforeRegion(list, query, isTown) {
  * pod ním), rozepsaný začátek názvu za většími místy (u „Jese“ město Jeseník, pak Jeseníky). Totéž místo z geokodéru
  * („Sněžka (1603 m)“ z Mapy.com) jednou a bez opravy překlepu – začátek skutečného názvu překlep není.
  */
-function withNature(list, nat) {
+function withNature(list, nat, query) {
   const ns = nat.map((x) => x.s);
   const same = (n, x) => normalize(String(x.label || '').replace(/\s*\(.*\)$/, '')) === normalize(n.label) && haversineKm(n.lat, n.lon, x.lat, x.lon) < 10;
+  // oprava překlepu („Hallsttat“ → Hallstatt) nahoře – jen když větší místo (od 1000 obyvatel) nebo oblast názvem
+  // nezačíná napsaným textem (jako u měst v geocodePlaces); oprava města z geocodePlaces zůstane
+  if (nat.every((x) => x.fuzzy)) {
+    const q = normalize(query);
+    if (list.some((x) => normalize(x.label).startsWith(q) && (x.pop >= 1000 || x.region))) return list;
+    return [...ns, ...list.filter((x) => !ns.some((n) => same(n, x)))].slice(0, 10);
+  }
   const rest = list.filter((x) => !x.fuzzy && !ns.some((n) => same(n, x)));
   const big = rest.findIndex((x) => !(x.region || x.pop >= 1000));
   const at = big < 0 ? rest.length : big;
@@ -549,7 +579,12 @@ async function regionPlace(query) {
   const name = /\(.*\)$/.test(a.cityCs) ? a.city : a.cityCs;
   const g = (await geocode(name).catch(() => [])).find((x) => normalize(x.label) === normalize(name) && haversineKm(a.lat, a.lon, x.lat, x.lon) < 60);
   const p = g || { id: `geo:${a.lat.toFixed(4)},${a.lon.toFixed(4)}|${name}`, type: 'place', label: name, flag: flag(a.cc), cc: a.cc, lat: a.lat, lon: a.lon, pop: 0 };
-  return { ...p, region: r.key, sub: [r.cs, p.sub].filter(Boolean).join(' · ') };
+  return { ...p, region: r.key, sub: regionSub(r.cs, p.sub) };
+}
+
+/** Podtitulek města oblasti: oblast a podtitulek místa – bez zdvojení („Toskánsko, Itálie“, ne „Toskánsko · Toskánsko, Itálie“). */
+export function regionSub(region, sub) {
+  return sub && normalize(sub).startsWith(normalize(region)) ? sub : [region, sub].filter(Boolean).join(' · ');
 }
 
 /** Střed města z vlastních dat (města domova, metropole; jinak poloha letiště) – když ho seznam míst nezná. */
