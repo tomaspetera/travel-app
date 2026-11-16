@@ -1264,14 +1264,29 @@
     for (const items of fl) { const n = items.find(x => x.nature); if (n) return n; }
     // jen místa z databáze letů (letiště, města, země, oblasti) – geokódované vesnice (geo:…, „Brná“ pro „Brna“) ne;
     // shoda i podle jiného názvu (en „Rome“, místní „Roma“, „Toscana“) → hledá se český název („Řím“, „Toskánsko“)
-    let known = null, region = null;
+    // at = známé místo s polohou a zemí (letiště, metropole, město; u oblasti její letiště, u země hlavní město)
+    let known = null, region = null, at = null;
     for (const [i, c] of cands.entries()) {
       const it = fl[i].find(x => !/^geo:/.test(x.id || '') && [x.label, x.en, ...(x.aliases || [])].some(n => n && same(n, c)));
-      if (it) { known = String(it.label).replace(/\s*\(.*\)$/, ''); if (it.type === 'region') { region = await regionCity(it); if (region) known = region.name; } break; }
+      if (!it) continue;
+      known = String(it.label).replace(/\s*\(.*\)$/, ''); at = it;
+      if (it.type === 'region') { region = await regionCity(it); if (region) { known = region.name; at = region.ap; } }
+      // země („Itálie na týden“): geokódování ji nezná – program v hlavním městě (jako přehled země)
+      if (it.type === 'country') { const cap = await capitalOf(it.cc); if (cap) { known = cap.name; at = cap.it; } }
+      break;
     }
     const geo = async c => (await getJson('api/geocode?q=' + enc(c)).catch(() => ({ items: [] }))).items || [];
+    // stejnojmenná místa jinde ne (Amsterdam v USA, Singāpur v Indii, Goa na Filipínách): napřed místo ve stejné zemi
+    // do 60 km od známého (český název „Amsterodam“ se s „Amsterdam“ neshoduje – pak první obec tam, ne „Heraklion Airport
+    // Terminal“; u oblasti jen přesný název), jinak poloha známého místa
+    const ok = Number.isFinite(+at?.lat) && Number.isFinite(+at?.lon) ? at : null;
+    const inCc = (items, c, a, any = true) => {
+      const l = items.filter(it => it.cc === a.cc && kmBetween([+a.lon, +a.lat], [it.lon, it.lat]) <= 60);
+      return l.find(it => same(it.label, c)) || (any && l.find(it => /^PPL/.test(it.fc || ''))) || null;
+    };
+    const own = (a, name) => ({ label: name, lat: +a.lat, lon: +a.lon, cc: a.cc || '' });
     for (const c of known ? [known] : [...cands.slice(1), cands[0]]) {
-      const items = await geo(c), hit = items.find(it => same(it.label, c)) || (known && !region ? items[0] : null);
+      const items = await geo(c), hit = ok && ok.cc ? inCc(items, c, ok, !region) || (region ? null : own(ok, c)) : items.find(it => same(it.label, c)) || (known && !region ? items[0] : null);
       if (hit) return region ? { ...hit, region: region.key } : hit;
     }
     // město oblasti, které geokódování česky nezná (Heraklion → jen „Heraklion Airport Terminal“): poloha letiště
@@ -1280,9 +1295,12 @@
     const fz = known ? null : fl.flat().find(x => x.fuzzy && !/^geo:/.test(x.id || ''));
     if (fz) {
       const rc = fz.type === 'region' ? await regionCity(fz) : null, nm = rc ? rc.name : String(fz.label).replace(/\s*\(.*\)$/, '');
-      const hit = (await geo(nm)).find(it => same(it.label, nm));
+      const fa = rc ? rc.ap : Number.isFinite(+fz.lat) && fz.cc ? fz : null, items = await geo(nm);
+      // „Amstrdam“ → Amsterodam u letiště AMS, ne Amsterdam v USA
+      const hit = (fa && inCc(items, nm, fa, !rc)) || items.find(it => same(it.label, nm) && (!fa || it.cc === fa.cc));
       if (hit) return rc ? { ...hit, region: rc.key } : hit;
       if (rc) return { label: rc.name, lat: rc.ap.lat, lon: rc.ap.lon, cc: rc.ap.cc || '', region: rc.key };
+      if (fa) return own(fa, nm);
     }
     return (await geo(cands[0]))[0] || null;
   }
@@ -1294,6 +1312,14 @@
     const ap = ((await getJson('api/places?q=' + enc(iata)).catch(() => ({ items: [] }))).items || []).find(x => x.id === 'ap:' + iata);
     // „Kréta (Heraklion)“ → město letiště (anglicky Heraklion), „Florencie“ → Florencie; ap = poloha pro zálohu
     return ap && Number.isFinite(+ap.lat) ? { name: /\(.*\)$/.test(ap.label) && ap.en ? ap.en : String(ap.label).replace(/\s*\(.*\)$/, ''), ap, key: String(it.id || '').replace(/^rg:/, '') } : null;
+  }
+  // hlavní město země z vlastních dat (jako openWholeCountry): { name: „Řím“, it: návrh s polohou }; jinak null
+  async function capitalOf(cc) {
+    const c = typeof byIso !== 'undefined' && byIso[cc], name = c && (c.capCs || c.cap);
+    if (!name) return null;
+    const j = await getJson('api/places?remote=0&q=' + enc(name)).catch(() => ({ items: [] }));
+    const it = (j.items || []).find(x => x && x.cc === cc && ['metro', 'city', 'airport'].includes(x.type) && Number.isFinite(+x.lat) && Number.isFinite(+x.lon));
+    return it ? { name, it } : null;
   }
   /** ✨ Volby z věty do Objevuj: druh plánu, dny, délka trasy, od kdy, zájmy; plán se po načtení míst sestaví sám. */
   function exploreApply(px, s) {

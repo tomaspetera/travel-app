@@ -172,6 +172,26 @@ test('Objevuj, věta: místo ve tvaru z věty (smartPlace) – exonymum, množn�
   }
 });
 
+test('Objevuj, věta: město ve své zemi, ne stejnojmenné jinde; země = hlavní město; překlep „Amstrdam“ (DEMO)', async () => {
+  const mock = config.mock;
+  config.mock = true;
+  ctx.byIso = { IT: { cs: 'Itálie', capCs: 'Řím', cap: 'Rome' } }; // app.js načítá země až v prohlížeči
+  try {
+    // Amsterdam česky „Amsterodam“ – shoda podle názvu by vzala městečko v USA
+    for (const [text, label, cc] of [['Amsterdam na 3 dny', 'Amsterodam', 'NL'], ['Amsterodam na 3 dny', 'Amsterodam', 'NL'],
+      ['Singapur na 3 dny', 'Singapore', 'SG'], ['Goa na týden', 'Goa', 'IN'], ['Alexandria na 2 dny', 'Alexandrie', 'EG'],
+      ['Itálie na týden', 'Řím', 'IT'], ['Amstrdam na 3 dny', 'Amsterodam', 'NL']]) {
+      const px = Smart.parseExplore(text, { today });
+      const s = await T.smartPlace(px.place);
+      assert.deepEqual([s?.label, s?.cc], [label, cc], `${text} [${px.place}]`);
+      assert.ok(Number.isFinite(+s.lat) && Number.isFinite(+s.lon), text);
+    }
+  } finally {
+    config.mock = mock;
+    delete ctx.byIso;
+  }
+});
+
 test('Objevuj, věta: „do Českého Krumlova“, „do Kutné Hory“ – geokodér dostane 1. pád (Český Krumlov), ne „Českého Krumlov“', async () => {
   // geokodér zná jen základní tvar
   for (const [phrase, want] of [['Českého Krumlova', 'Český Krumlov'], ['Kutné Hory', 'Kutná Hora']]) {

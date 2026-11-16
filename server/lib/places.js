@@ -454,8 +454,13 @@ export async function geocodePlaces(query) {
   if (q.length >= 5 && !items.some((x) => normalize(x.label).startsWith(q) && x.pop >= 1000)) {
     const fz = localSuggestions(query, 3).find((s) => s.fuzzy && ['city', 'metro', 'airport'].includes(s.type));
     const name = fz && fz.label.replace(/\s*\(.*\)$/, '');
-    // střed města z geokódování (letiště bývá za městem), jinak z vlastních dat
-    const fix = name && ((await geocode(name).catch(() => [])).find((x) => normalize(x.label) === normalize(name)) || localCityCenters(name)[0]);
+    // střed města z geokódování (letiště bývá za městem) ve stejné zemi a do 60 km – „Amstrdam“ → Amsterodam (NL), ne
+    // stejnojmenné městečko v USA; český název se s opravou shodovat nemusí (Amsterdam/Amsterodam), pak první obec tam;
+    // jinak střed z vlastních dat
+    const near = (x) => x.cc === fz.cc && (fz.lat == null || haversineKm(fz.lat, fz.lon, x.lat, x.lon) <= 60);
+    const g = name ? (await geocode(name).catch(() => [])).filter(near) : [];
+    const fix = name && (g.find((x) => normalize(x.label) === normalize(name)) || g.find((x) => x.fc.startsWith('PPL'))
+      || localCityCenters(name).find((x) => x.cc === fz.cc));
     if (fix) items = [{ ...fix, fuzzy: true }, ...items.filter((x) => x.id !== fix.id)];
   }
   return items;
