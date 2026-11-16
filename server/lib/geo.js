@@ -16,13 +16,16 @@ export function haversineKm(lat1, lon1, lat2, lon2) {
 // se po NORM_MAX různých smaže celá a plní znovu.
 const NORM_MAX = 50000;
 const normMemo = new Map();
+// Písmena, která NFD nerozloží – bez náhrady by zmizela: z „Bodø“ by bylo „bod“ (hledání „Bodo“ nic nenajde),
+// z „København“ „kbenhavn“, ze „Straße“ „strae“, z „Đakovo“ „akovo“ (seznam míst i našeptávač porovnávají takhle).
+const UNSPLIT = { ł: 'l', ø: 'o', æ: 'ae', œ: 'oe', ß: 'ss', đ: 'd', ð: 'd', þ: 'th', ı: 'i', ħ: 'h', ŧ: 't', ŀ: 'l' };
 export const normalize = (s) => {
   const k = String(s || '');
   let v = normMemo.get(k);
   if (v === undefined) {
     v = k
       .toLowerCase()
-      .replace(/ł/g, 'l') // ł se v NFD nerozloží (Wrocław, Łódź)
+      .replace(/[łøæœßđðþıħŧŀ]/g, (c) => UNSPLIT[c])
       .normalize('NFD')
       .replace(/[̀-ͯ]/g, '')
       .replace(/[^a-z0-9 ]+/g, ' ')

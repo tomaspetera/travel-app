@@ -53,7 +53,8 @@ test('data s pamětí: parseYmd, addDays, daysBetween a weekday vrací totéž c
 test('normalize s pamětí (našeptávač): stejný převod jako dřív, i podruhé z paměti; paměť nepřeroste strop', async () => {
   const { normalize, _normalizeMemoSize } = await import('../server/lib/geo.js');
   const { AIRPORTS, COUNTRIES } = await import('../server/lib/airports.js');
-  const ref = (s) => String(s || '').toLowerCase().replace(/ł/g, 'l').normalize('NFD').replace(/[̀-ͯ]/g, '')
+  const SPLIT = { ł: 'l', ø: 'o', æ: 'ae', œ: 'oe', ß: 'ss', đ: 'd', ð: 'd', þ: 'th', ı: 'i', ħ: 'h', ŧ: 't', ŀ: 'l' };
+  const ref = (s) => String(s || '').toLowerCase().replace(/[łøæœßđðþıħŧŀ]/g, (c) => SPLIT[c]).normalize('NFD').replace(/[̀-ͯ]/g, '')
     .replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();
   const texts = [...[...AIRPORTS.values()].flatMap((a) => [a.name, a.city, a.cityCs]), ...COUNTRIES.flatMap((c) => [c.cs, c.en]),
     'Łódź', '  Wrocław  ', 'São Paulo', 'Ústí nad Labem', 'Kréta (Heraklion)', 'ŘÍM', '', null, undefined, 0, 42, '🏖️ Pláž'];
@@ -61,6 +62,9 @@ test('normalize s pamětí (našeptávač): stejný převod jako dřív, i podru
   for (let i = 0; i < 60000; i++) normalize(`dotaz ${i}`); // cizí texty (dotazy, geokódování)
   assert.ok(_normalizeMemoSize() <= 50000, `paměť ${_normalizeMemoSize()}`);
   assert.equal(normalize('Łódź'), 'lodz');
+  // písmena, která NFD nerozloží: dřív zmizela („Bodø“ → „bod“, „København“ → „kbenhavn“)
+  for (const [a, b] of [['Bodø', 'bodo'], ['København', 'kobenhavn'], ['ÆRØ', 'aero'], ['Straße', 'strasse'], ['Đakovo', 'dakovo'],
+    ['Iğdır', 'igdir'], ['İstanbul', 'istanbul'], ['Þingvellir', 'thingvellir'], ['Œuvre', 'oeuvre']]) assert.equal(normalize(a), b, a);
 });
 
 const busy = (ms) => {
