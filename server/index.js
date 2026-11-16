@@ -202,6 +202,7 @@ const PREVIEW_BUILD = { 'X-Atlas-Build': 'preview' };
 // fotka cíle do náhledu odkazu: z mezipaměti fotek, nová nejvýš 3 s (odkaz bez fotky má obecný náhled ATLASu)
 const previewPhoto = async (place) => ogPhoto(String(((await Promise.race([cityPhotos([place]), new Promise((r) => setTimeout(() => r(null), 3000))])) || {}).photos?.[place] || ''));
 const wxHits = new RateLimiter(); // předpověď mimo mezipaměť serveru (MET Norway)
+const fxHits = new RateLimiter(); // kurzy pro okno země (/api/fx): klient je bere jednou denně, 60 za 10 minut stačí
 // clientIp (server/lib/security.js): na Renderu adresa od Cloudflare, ne podvrhnutelná první z X-Forwarded-For
 /** Nad limitem → true a req.retryAfter = za kolik sekund to půjde znovu (hlavička Retry-After u 429). */
 function rateLimited(req, max = config.searchesPer10Min, bucket = hits) {
@@ -802,6 +803,16 @@ async function route(req, res) {
     // Aktuální ceny nafty a benzínu (Kč/l) v ČR a okolních zemích pro cenu cesty autem (ČSÚ, Oil Bulletin EU)
     // a ceník nabíjení elektroauta (ev: odhad DC Kč/kWh, ceníky provozovatelů s datem).
     return sendJson(req, res, 200, await fuelInfo(), { 'Cache-Control': 'public, max-age=3600' });
+  }
+  if (p === '/api/fx') {
+    // Kurzy pro okno země (app.js loadFx) přes server – prohlížeč dřív volal open.er-api.com sám a ten viděl IP
+    // uživatele. Sazby z mezipaměti serveru (loadRates, žádný dotaz ven navíc), základ CZK: rates[X] = X za 1 Kč.
+    if (rateLimited(req, 60, fxHits)) return sendJson(req, res, 429, { error: 'Příliš mnoho požadavků' });
+    const r = await loadRates();
+    const czk = r.rates.CZK;
+    const rates = {};
+    for (const [k, v] of Object.entries(r.rates)) if (/^[A-Z]{3}$/.test(k) && v > 0) rates[k] = Number((v / czk).toPrecision(6));
+    return sendJson(req, res, 200, { base: 'CZK', rates, source: r.source, date: r.date }, { 'Cache-Control': 'public, max-age=3600' });
   }
   if (p === '/api/poi') {
     const lat = Number(url.searchParams.get('lat'));

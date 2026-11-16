@@ -65,7 +65,7 @@
   function setRate(x) { if (Number(x) > 0) rate = Number(x); }
   function eurCzk() {
     if (rate) return rate;
-    // kurzy z detailu země (open.er-api.com, základ CZK)
+    // kurzy z detailu země (S.fx z /api/fx serveru, základ CZK)
     try { const r = S.fx.rates.EUR; if (r > 0) return 1 / r; } catch (e) { /* bez kurzů */ }
     return 24.6;
   }

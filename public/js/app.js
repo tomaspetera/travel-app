@@ -1850,9 +1850,15 @@ function paintWeather(j) {
 }
 async function loadFx(c) {
   if (!c.cur || c.cur === 'CZK') { const el = $('#fxLine'); if (el) el.textContent = c.cur === 'CZK' ? 'domácí měna' : ''; return; }
-  if (!S.fx || Date.now() - S.fx.ts > 86400000) { try { const r = await fetch('https://open.er-api.com/v6/latest/CZK', { signal: wxSignal() }); const j = await r.json(); if (j && j.rates) { S.fx = { ts: Date.now(), rates: j.rates }; save(); } } catch (e) { } }
+  // kurzy přes server ATLASu (/api/fx, základ CZK) – IP uživatele se ke zdroji kurzů nedostane; chyba nebo limit tiše
+  if (!S.fx || Date.now() - S.fx.ts > 86400000) { try { const r = await fetch('api/fx', { signal: wxSignal() }); const j = r.ok ? await r.json() : null; if (j && j.rates) { S.fx = { ts: Date.now(), rates: j.rates, src: j.source }; save(); } } catch (e) { } }
   const el = $('#fxLine'); if (!el || curIso !== c.iso2) return; // mezitím otevřená jiná země
-  if (S.fx && S.fx.rates[c.cur]) { const v = 1 / S.fx.rates[c.cur], dp = v < 1 ? 3 : 2; el.textContent = `1 ${c.cur} ≈ ${v.toLocaleString('cs-CZ', { minimumFractionDigits: dp, maximumFractionDigits: dp })} Kč`; }
+  if (S.fx && S.fx.rates[c.cur]) {
+    const v = 1 / S.fx.rates[c.cur], dp = v < 1 ? 3 : 2;
+    el.textContent = `1 ${c.cur} ≈ ${v.toLocaleString('cs-CZ', { minimumFractionDigits: dp, maximumFractionDigits: dp })} Kč`;
+    // bezplatné kurzy ExchangeRate-API chtějí u zobrazení viditelný odkaz (starší S.fx bez src je od nich taky)
+    if (!S.fx.src || S.fx.src === 'open.er-api.com') el.insertAdjacentHTML('beforeend', ' · <a href="https://www.exchangerate-api.com" target="_blank" rel="noopener">Rates By Exchange Rate API</a>');
+  }
 }
 function provLink(name, sub, url, color, lab) { return `<a class="result-link" href="${url}" target="_blank" rel="noopener"><div class="lg" style="background:${color}">${lab}</div><div><div class="rl-t">${name}</div><div class="rl-s">${sub}</div></div><div class="go">${ico('M5 12h14M13 6l6 6-6 6')}</div></a>`; }
 
