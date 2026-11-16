@@ -1393,17 +1393,22 @@ const Photos = (() => {
     if ((!src && !wiki) || !e.by) return;
     el.title = wiki ? `Foto: ${e.by}, ${e.lic} / Wikimedia Commons` : `Foto: ${e.by} / ${src[0]}`;
     if (el.clientWidth < 140 || el.querySelector(':scope > .ph-cr')) return;
+    el.insertAdjacentHTML('beforeend', creditHtml(e, src));
+  }
+  /**
+   * Popisek ⓘ „Foto: autor, licence“ (Commons; src = null) nebo „Foto: autor / Unsplash“ (src = [název, odkaz]) jako
+   * HTML – i pro fotky památek v Objevuj (places.js). e = { by, bu: profil autora / stránka souboru, lic, lu }.
+   */
+  function creditHtml(e, src = null) {
+    if (!e || !e.by || (!src && !e.lic)) return '';
     const bu = /^https:\/\/(www\.)?(unsplash|pexels)\.com\/[^\s"'<>]*$/.test(e.bu || '') || /^https:\/\/commons\.wikimedia\.org\/wiki\/File:[^\s"'<>]+$/.test(e.bu || '') ? e.bu : '';
     const lk = (href, txt, cls = '') => `<span class="ph-a${cls}" role="link" tabindex="0" data-href="${esc(href)}">${esc(txt)}</span>`;
     const by = bu ? lk(bu, e.by, ' ph-by') : `<span class="ph-by">${esc(e.by)}</span>`;
     const lu = /^https:\/\/creativecommons\.org\/[^\s"'<>]*$/.test(e.lu || '') ? e.lu : '';
-    const s = document.createElement('span');
-    s.className = 'ph-cr';
     // dlouhé jméno autora se zkrátí (…), zdroj („/ Unsplash“) i licence zůstanou celé
-    s.innerHTML = `<span class="ph-i" role="button" tabindex="0" aria-label="Kdo fotil">i</span><span class="ph-pop"><span>Foto:</span>${by}${wiki
+    return `<span class="ph-cr"><span class="ph-i" role="button" tabindex="0" aria-label="Kdo fotil">i</span><span class="ph-pop"><span>Foto:</span>${by}${!src
       ? `<span class="ph-c">,</span>${lu ? lk(lu, e.lic) : `<span>${esc(e.lic)}</span>`}`
-      : `<span>/</span>${lk(src[1], src[0])}`}</span>`;
-    el.append(s);
+      : `<span>/</span>${lk(src[1], src[0])}`}</span></span>`;
   }
   // ⓘ otevře popisek (karta pod ním se neotevře); odkaz v popisku: nové okno; klepnutí jinam popisek zavře
   // (karty bývají tlačítka – <a> v nich nejde)
@@ -1460,7 +1465,7 @@ const Photos = (() => {
     io = io || new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { io.unobserve(e.target); want(e.target); } }), { rootMargin: '600px 1200px' }); // pruhy do strany a kus dolů dopředu
     els.forEach(el => io.observe(el));
   }
-  return { paint };
+  return { paint, creditHtml };
 })();
 window.Photos = Photos;
 // úvod Přehledu: velká fotka krásného místa (každý den jiná) pod „Kam poletíme?“ a hledáním na skle

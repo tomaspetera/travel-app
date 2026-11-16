@@ -23,8 +23,16 @@ const CITY = [
   row('Q186434', 'Milano Centrale', 45.4859, 9.2045, 40, 'Q55488'),
   row('Q2', 'Q2', 45.47, 9.19, 10, 'Q33506'),
   row('Q490', 'Milán', 45.4669, 9.19, 200, 'Q515'),
-  row('Q5', 'Castello Sforzesco', 45.4705, 9.1793, 60, 'Q23413'),
+  row('Q5', 'Castello Sforzesco', 45.4705, 9.1793, 60, 'Q23413', { img: uri('http://commons.wikimedia.org/wiki/Special:FilePath/Castello%20NC.jpg') }),
 ];
+// náhled z Wikipedie (soubor na Commons) a odpověď Commons s autorem a licencí (imageinfo + extmetadata)
+const DUOMO_THUMB = 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/Duomo_di_Milano.jpg/330px-Duomo_di_Milano.jpg';
+const ii = (file, artist, lic) => ({
+  title: file, imageinfo: [{ descriptionurl: `https://commons.wikimedia.org/wiki/${file.replace(/ /g, '_')}`, extmetadata: {
+    Artist: { value: artist }, LicenseShortName: { value: lic }, LicenseUrl: { value: 'https://creativecommons.org/licenses/by-sa/4.0' },
+  } }],
+});
+const COMMONS = { query: { pages: [ii('File:Duomo di Milano.jpg', '<a href="//commons.wikimedia.org/wiki/User:JN">Jan Novák</a>', 'CC BY-SA 4.0'), ii('File:Castello NC.jpg', 'Petr', 'CC BY-NC-SA 2.0')] } };
 const TRIPS = [
   row('Q6414', 'Como', 45.8081, 9.0852, 110, 'Q747074', { en: uri('https://en.wikipedia.org/wiki/Como') }),
   row('Q6413', 'Bergamo', 45.695, 9.67, 120, 'Q747074'),
@@ -57,8 +65,9 @@ test('findPlaces: Wikidata + popisy z Wikipedie, výlety mimo město, User-Agent
       return { body: { results: { bindings: q.includes('"120"') ? TRIPS : q.includes('VALUES ?ft') || q.includes('VALUES ?item') || q.includes('?whs ; wdt:P625') ? [] : CITY } } };
     }
     if (url.startsWith('https://cs.wikipedia.org/w/api.php')) {
-      return { body: { query: { pages: [{ title: 'Milánská katedrála', extract: 'Milánská katedrála je gotická katedrála v Miláně.', thumbnail: { source: 'https://upload.wikimedia.org/duomo-480.jpg' } }] } } };
+      return { body: { query: { pages: [{ title: 'Milánská katedrála', extract: 'Milánská katedrála je gotická katedrála v Miláně.', thumbnail: { source: DUOMO_THUMB } }] } } };
     }
+    if (url.startsWith('https://commons.wikimedia.org/w/api.php')) return { body: COMMONS };
     if (url.startsWith('https://en.wikipedia.org/w/api.php')) {
       return { body: { query: { normalized: [{ from: 'The_Last_Supper_(Leonardo)', to: 'The Last Supper (Leonardo)' }], pages: [{ title: 'The Last Supper (Leonardo)', extract: 'The Last Supper is a mural painting by Leonardo da Vinci.' }, { title: 'Como', extract: 'Como is a city on Lake Como.' }] } } };
     }
@@ -77,7 +86,15 @@ test('findPlaces: Wikidata + popisy z Wikipedie, výlety mimo město, User-Agent
     const wiki = stub.calls.filter((c) => c.url.includes('wikipedia.org/w/api.php'));
     assert.ok(wiki.length && wiki.every((c) => new URL(c.url).searchParams.get('pithumbsize') === '330'), wiki.map((c) => c.url).join('\n'));
     assert.equal(duomo.extractLang, 'cs');
-    assert.equal(duomo.image, 'https://upload.wikimedia.org/duomo-480.jpg');
+    assert.equal(duomo.image, DUOMO_THUMB);
+    // autor a licence z Commons – jeden dotaz na obě fotky; fotka s licencí bez komerčního užití se nepoužije
+    const commons = stub.calls.filter((c) => c.url.startsWith('https://commons.wikimedia.org/'));
+    assert.equal(commons.length, 1);
+    assert.match(commons[0].init.headers['User-Agent'], /^ATLAS-travel\//);
+    assert.deepEqual(new URL(commons[0].url).searchParams.get('titles').split('|').sort(), ['File:Castello NC.jpg', 'File:Duomo di Milano.jpg']);
+    assert.deepEqual(duomo.imageCredit, { by: 'Jan Novák', lic: 'CC BY-SA 4.0', lu: 'https://creativecommons.org/licenses/by-sa/4.0', pg: 'https://commons.wikimedia.org/wiki/File:Duomo_di_Milano.jpg' });
+    const castle = items.find((p) => p.id === 'Q5');
+    assert.ok(castle && castle.image === null && !castle.imageCredit, 'NC licence → bez fotky');
     assert.equal(duomo.categoryLabel, 'Kostel / chrám');
     assert.equal(items.find((p) => p.id === 'Q1060').extractLang, 'en');
     const como = items.find((p) => p.id === 'Q6414');
@@ -610,4 +627,55 @@ test('familySlots: Řím plný kostelů a muzeí – pár míst pro zoo, zábavn
   // vejde-li se všechno, nic se nemění
   const few = [...sights.slice(0, 10), ...family].sort((a, b) => b.score - a.score);
   assert.deepEqual(familySlots(few, 60), few);
+});
+
+test('creditImages: autor a licence z Commons jedním dotazem a z mezipaměti; soubor jen na Wikipedii nebo výpadek → bez fotky', async () => {
+  const { creditImages, commonsFile } = await import('../server/lib/poi.js');
+  assert.equal(commonsFile('http://commons.wikimedia.org/wiki/Special:FilePath/Ko%C5%A1e_n%C3%A1m.jpg?width=330'), 'File:Koše nám.jpg');
+  assert.equal(commonsFile('https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/Ko%C5%A1e.jpg/330px-Ko%C5%A1e.jpg'), 'File:Koše.jpg');
+  assert.equal(commonsFile('https://upload.wikimedia.org/wikipedia/commons/a/ab/Ko%C5%A1e.jpg'), 'File:Koše.jpg');
+  assert.equal(commonsFile('https://cs.wikipedia.org/wiki/Special:FilePath/Ko%C5%A1e.jpg?width=330'), 'File:Koše.jpg');
+  assert.equal(commonsFile('https://upload.wikimedia.org/wikipedia/cs/thumb/a/ab/Logo.jpg/330px-Logo.jpg'), '', 'soubor jen na české Wikipedii (fair use)');
+  assert.equal(commonsFile('https://example.com/x.jpg'), '');
+  assert.equal(commonsFile(null), '');
+
+  const ok = { query: { normalized: [{ from: 'File:Credit_A.jpg', to: 'File:Credit A.jpg' }], pages: [
+    ii('File:Credit A.jpg', 'Anna', 'CC BY 2.0'), ii('File:Credit B.jpg', 'Unknown author', 'CC BY 2.0'), { title: 'File:Credit C.jpg', missing: true },
+  ] } };
+  let stub = stubFetch((url) => (url.startsWith('https://commons.wikimedia.org/w/api.php') ? { body: ok } : { status: 404, body: '{}' }));
+  const places = [
+    { id: 'a', image: 'https://cs.wikipedia.org/wiki/Special:FilePath/Credit_A.jpg?width=330' },
+    { id: 'b', image: 'http://commons.wikimedia.org/wiki/Special:FilePath/Credit%20B.jpg?width=330' },
+    { id: 'c', image: 'http://commons.wikimedia.org/wiki/Special:FilePath/Credit%20C.jpg?width=330' },
+    { id: 'd', image: 'https://upload.wikimedia.org/wikipedia/en/b/bc/Credit_D.jpg' },
+    { id: 'e', image: null },
+  ];
+  try {
+    assert.equal(await creditImages(places), false);
+    assert.equal(stub.calls.length, 1, 'jeden dotaz na všechny soubory');
+    const qs = new URL(stub.calls[0].url).searchParams;
+    assert.equal(qs.get('iiextmetadatafilter'), 'Artist|LicenseShortName|LicenseUrl');
+    assert.match(stub.calls[0].init.headers['User-Agent'], /^ATLAS-travel\//);
+  } finally {
+    stub.restore();
+  }
+  const [a, b, c, d, e] = places;
+  assert.equal(a.image, 'https://commons.wikimedia.org/wiki/Special:FilePath/Credit_A.jpg?width=330', 'ukáže se ověřený soubor z Commons');
+  assert.deepEqual(a.imageCredit, { by: 'Anna', lic: 'CC BY 2.0', lu: 'https://creativecommons.org/licenses/by-sa/4.0', pg: 'https://commons.wikimedia.org/wiki/File:Credit_A.jpg' });
+  for (const p of [b, c, d, e]) assert.ok(p.image === null && !p.imageCredit, p.id);
+
+  // podruhé z mezipaměti (i „autor není“) – bez dotazu; nový soubor při výpadku Commons → bez fotky a true (krátká mezipaměť)
+  stub = stubFetch(() => ({ status: 503, body: 'down' }));
+  try {
+    const again = [{ id: 'a', image: 'https://cs.wikipedia.org/wiki/Special:FilePath/Credit_A.jpg?width=330' }, { id: 'b', image: 'http://commons.wikimedia.org/wiki/Special:FilePath/Credit%20B.jpg?width=330' }];
+    assert.equal(await creditImages(again), false);
+    assert.equal(stub.calls.length, 0);
+    assert.equal(again[0].imageCredit.by, 'Anna');
+    assert.equal(again[1].image, null);
+    const fresh = [{ id: 'n', image: 'http://commons.wikimedia.org/wiki/Special:FilePath/Credit%20New.jpg?width=330' }];
+    assert.equal(await creditImages(fresh), true);
+    assert.equal(fresh[0].image, null);
+  } finally {
+    stub.restore();
+  }
 });

@@ -138,7 +138,8 @@ const baseOut = (b, nights) => ({
   // „Alcobaça (Portugalsko)“ → „Alcobaça“ (rozlišení z Wikidat do trasy nepatří)
   id: String(b.id), name: String(b.name).replace(/ \([^)]*\)$/, ''), nameEn: b.nameEn ? String(b.nameEn).slice(0, 80) : '', lat: round5(b.lat), lon: round5(b.lon), cc: b.cc || '', country: b.country || '',
   ...(nights != null ? { nights } : {}), score: Math.round(b.score), anchor: b.anchor || null, reason: reasonOf(b),
-  highlights: (b.highlights || []).slice(0, 3), extract: b.extract ? String(b.extract).slice(0, 280) : '', image: b.image || null, url: b.url || null,
+  highlights: (b.highlights || []).slice(0, 3), extract: b.extract ? String(b.extract).slice(0, 280) : '', image: b.image || null,
+  ...(b.image && b.imageCredit ? { imageCredit: b.imageCredit } : {}), url: b.url || null,
 });
 
 /**

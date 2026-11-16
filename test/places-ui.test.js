@@ -778,7 +778,7 @@ test('náhled cíle: karta (fotka, druh, jedna věta, anglicky se štítkem), po
   const card = T.previewCard(PV(XSS, 5, img, { extract: 'Gotická katedrála ze 14. století s věží. Druhá věta už se nevypíše.', unesco: true, distanceKm: 0.8 }));
   assert.ok(!card.includes('<img src=x'), 'název escapovaný');
   // fotka jako vrstva nad ikonou druhu – nenačtená nechá vidět 🏛️, ne prázdný čtverec
-  assert.ok(card.includes(`<div class="dp-img has-ph" style="--ph:url('https://upload.wikimedia.org/a%20b%27%28c%29.jpg')" aria-hidden="true">🏛️</div>`), card);
+  assert.ok(card.includes(`<div class="dp-img has-ph" style="--ph:url('https://upload.wikimedia.org/a%20b%27%28c%29.jpg')"><span aria-hidden="true">🏛️</span></div>`), card);
   assert.ok(card.includes('🏛️ Muzeum · UNESCO · 0,8\u00a0km'));
   assert.ok(card.includes('Gotická katedrála ze 14. století s věží.') && !card.includes('Druhá věta'));
   const sv = T.previewCard(PV('Kostel sv. Mikuláše', 5, IMG, { extract: 'Barokní římskokatolický kostel sv. Mikuláše stojí na hlavním náměstí a patří k nejcennějším stavbám města. Postaven v 18. století.', descLang: 'cs' }));
@@ -787,7 +787,7 @@ test('náhled cíle: karta (fotka, druh, jedna věta, anglicky se štítkem), po
   assert.ok(arch.includes('anglicky</span> The Arc de Triomphe is a triumphal arch.</span>'), 'bez údaje o jazyku: anglický text podle celého úryvku, krácený anglicky');
   const en = T.previewCard(PV('Old Bridge', 5, null, { category: 'bridge', categoryLabel: 'Most', extract: 'The bridge was built in 1566 and is one of the best known sights of the city. It was destroyed in 1993.', descLang: 'en' }));
   assert.ok(en.includes('poi-lang') && en.includes('anglicky') && !en.includes('destroyed'));
-  assert.ok(en.includes('<div class="dp-img" aria-hidden="true">🌉</div>'), 'bez fotky ikona druhu');
+  assert.ok(en.includes('<div class="dp-img"><span aria-hidden="true">🌉</span></div>'), 'bez fotky ikona druhu');
   assert.ok(!T.previewCard(PV('Bez popisu', 1)).includes('dp-pd'));
   assert.ok(T.previewCard(PV('Bez druhu', 1, null, { category: 'xyz', categoryLabel: '' })).includes('📍 Zajímavosti'));
   assert.deepEqual([[1, 0], [3, 0], [4, 0], [5, 0], [0, 1], [0, 8], [2, 3], [1, 1], [0, 0]].map(([c, t]) => T.moreTxt(c, t)), [
@@ -1312,8 +1312,38 @@ test('Objevuj: fotka místa leží přes ikonu druhu – když se nenačte (slab
   const g = ['city', '🏙️', 'Města', 'Město'];
   assert.match(T.countryCard({ id: 'c1', name: 'Řím', image: img }, g, { label: 'Řím', country: 'Itálie' }), /<div class="poi-img has-ph" style="--ph:url\([^)]*\)">🏙️<\/div>/);
   const css = readFileSync(new URL('../public/css/trip.css', import.meta.url), 'utf8');
-  assert.match(css, /\.poi-img\{[^}]*position:relative;overflow:hidden\}/);
+  // rohy fotky zaoblí border-radius:inherit, ne overflow:hidden – ten by uřízl popisek autora fotky
+  assert.match(css, /\.poi-img\{[^}]*position:relative\}/);
   assert.match(css, /\.poi-img\.has-ph::after\{content:"";position:absolute;inset:0;background:var\(--ph\) center\/cover no-repeat\}/);
+  assert.match(css, /\.poi-img::after\{border-radius:inherit\}/);
   const fcss = readFileSync(new URL('../public/css/flights.css', import.meta.url), 'utf8');
   assert.match(fcss, /\.dp-img\.has-ph::after\{content:"";position:absolute;inset:0;background:var\(--ph\) center\/cover no-repeat\}/);
+  assert.match(fcss, /\.dp-img\{[^}]*position:relative\}/);
+  assert.match(fcss, /\.dp-img::after\{border-radius:inherit\}/);
+});
+
+test('Objevuj: fotka památky z Commons má ⓘ s autorem a licencí jako fotky měst; bez autora nic', () => {
+  const seen = [];
+  const C = load({ window: { Photos: { creditHtml: (e) => { seen.push(e); return '<span class="ph-cr">CR</span>'; } } } }).window.Places._t;
+  const imageCredit = { by: 'Anna', lic: 'CC BY-SA 4.0', lu: 'https://creativecommons.org/licenses/by-sa/4.0', pg: 'https://commons.wikimedia.org/wiki/File:Hrad.jpg' };
+  const img = 'https://commons.wikimedia.org/wiki/Special:FilePath/Hrad.jpg?width=330';
+  const card = C.poiCard({ id: 'Q1', name: 'Hrad', category: 'castle', image: img, imageCredit }, {});
+  assert.match(card, /<div class="poi-img has-ph" style="[^"]*">🏰<span class="ph-cr">CR<\/span><\/div>/);
+  assert.deepEqual(plain(seen[0]), { by: 'Anna', bu: imageCredit.pg, lic: 'CC BY-SA 4.0', lu: imageCredit.lu }, 'stránka souboru jako odkaz u autora');
+  assert.ok(C.countryCard({ id: 'c1', name: 'Řím', image: img, imageCredit }, ['city', '🏙️', 'Města', 'Město'], { label: 'Řím', country: 'Itálie' }).includes('ph-cr'));
+  assert.ok(C.previewCard(PV('Hrad', 5, img, { imageCredit })).includes('<span aria-hidden="true">🏛️</span><span class="ph-cr">CR</span></div>'));
+  assert.ok(!C.poiCard({ id: 'Q2', name: 'Bez autora', category: 'castle', image: img }, {}).includes('ph-cr'), 'bez imageCredit nic');
+  assert.ok(!C.poiCard({ id: 'Q3', name: 'Bez fotky', category: 'castle', image: null, imageCredit }, {}).includes('ph-cr'), 'bez fotky nic');
+  assert.ok(!T.poiCard({ id: 'Q4', name: 'Bez Photos', category: 'castle', image: img, imageCredit }, {}).includes('ph-cr'));
+
+  // creditHtml z app.js: „Foto: autor, licence“ s odkazy na stránku souboru a licenci, escapované; bez autora nebo licence nic
+  const fn = src('app.js').match(/\n {2}function creditHtml\(e, src = null\) \{[\s\S]*?\n {2}\}\n/)[0];
+  const ctx = {};
+  vm.createContext(ctx);
+  vm.runInContext(`${src('app.js').match(/^const esc = .*$/m)[0]}\n${fn}\nthis.creditHtml = creditHtml;`, ctx);
+  const h = ctx.creditHtml({ by: 'A<b>', bu: imageCredit.pg, lic: 'CC BY 2.0', lu: 'javascript:alert(1)' });
+  assert.match(h, /^<span class="ph-cr"><span class="ph-i" role="button" tabindex="0" aria-label="Kdo fotil">i<\/span><span class="ph-pop"><span>Foto:<\/span>/);
+  assert.ok(h.includes(`data-href="${imageCredit.pg}">A&lt;b&gt;</span><span class="ph-c">,</span><span>CC BY 2.0</span>`), h);
+  assert.equal(ctx.creditHtml({ by: 'A', lic: '' }), '');
+  assert.equal(ctx.creditHtml({ by: '', lic: 'CC BY 2.0' }), '');
 });
