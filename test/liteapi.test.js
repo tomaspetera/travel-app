@@ -155,7 +155,8 @@ test('testovací klíč LiteAPI (sand_…): smyšlené hotely se v ostrém provo
   config.xotelo = false; // se zapnutým Xotelem by ceny dal TripAdvisor (test/xotelo.test.js)
   const stub = stubFetch(() => ({ body: { data: HOTELS } }));
   try {
-    const r = await searchStays({ city: 'Milán', iata: 'MXP', checkin: ymdPlus(30), checkout: ymdPlus(32) });
+    // ubytování z OpenStreetMap (bez Xotela i s testovacím klíčem) tu prázdné – test/osm.test.js
+    const r = await searchStays({ city: 'Milán', iata: 'MXP', checkin: ymdPlus(30), checkout: ymdPlus(32) }, { lodging: async () => [] });
     assert.equal(r.items.length, 0);
     assert.equal(r.providers.length, 0);
     assert.equal(stub.calls.filter((c) => c.url.includes('liteapi')).length, 0, 'na LiteAPI se vůbec neptá');

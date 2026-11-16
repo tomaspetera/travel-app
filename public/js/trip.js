@@ -2179,7 +2179,7 @@
       const res = await autoPickStays(t, (k, of, name) => { ab.innerHTML = `<span class="spin"></span> ${esc(name)} ${k}/${of}`; });
       if (T() !== t) return;
       const vf = res.verified.length === res.ok.length ? ' · volno ověřeno teď' : res.verified.length ? ` · volno ověřeno: ${res.verified.join(', ')}` : '';
-      const np = res.noPrice.length ? `${res.noPrice.join(', ')}: TripAdvisor tu ceny nemá – vyber z ubytování v místě a doplň cenu` : '';
+      const np = res.noPrice.length ? `${res.noPrice.join(', ')}: ceny hotelů tu nemám – vyber z ubytování v místě a doplň cenu` : '';
       if (res.ok.length) toast(`Vybráno: ${res.ok.join(', ')}${vf}${res.unsure.length ? ` · volno se nepodařilo ověřit: ${res.unsure.join(', ')}` : ''}${res.miss.length ? ` · bez cen zatím: ${res.miss.join(', ')}` : ''}${np ? ` · ${np}` : ''}`, '', np ? 7000 : 5200);
       else if (np && !res.miss.length) toast(np, 'info', 6000);
       else toast('Ceny hotelů zatím nepřišly – vyber prosím ručně, nebo to zkus za chvíli', 'err', 4200);
@@ -2585,18 +2585,21 @@
     // a hodnocení)
     const base = (d.query && d.query.city) || '';
     const nearTxt = nearOther.map(x => `${esc(x.name || 'okolí')} ~${kmTxt(x.km)}`).join(', ');
+    // atribuce dat OpenStreetMap (ODbL): „© přispěvatelé OpenStreetMap“ s odkazem na licenci
+    const osmSrc = '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">přispěvatelé OpenStreetMap</a>';
     const townTxt = split ? ' V místě jsou i ubytování bez ceny (OpenStreetMap) níže.' : '';
     // jen místo stejného jména a nic v místě bez ceny → bez poznámky (ne prázdný rámeček)
     const nearMsg = !near ? '' : nearOther.length < near.length
       ? (nearOther.length ? `<b>Část hotelů je z okolí</b> (${nearTxt}).${townTxt}` : townTxt.trim())
       : `<b>${base ? `TripAdvisor nemá hotely přímo v místě ${esc(base)}` : 'TripAdvisor tu hotely nemá'}</b> – ceny jsou z okolí (${nearTxt}).${townTxt}`;
     const osmNote = near ? (nearMsg ? `<div class="note info st-src" style="margin-bottom:10px">ℹ️ <div>${nearMsg}</div></div>` : '')
-      : d.osmFallback ? `<div class="note info st-src" style="margin-bottom:10px">ℹ️ <div><b>TripAdvisor tu ceny nemá</b> – v místě jsou tato ubytování (OpenStreetMap). Cenu ověř u partnera a zadej ji níže.</div></div>` : '';
+      // bez Xotela (XOTELO=off) jsou ubytování z OpenStreetMap jediný zdroj – TripAdvisor tu pak vůbec nehledal
+      : d.osmFallback ? `<div class="note info st-src" style="margin-bottom:10px">ℹ️ <div><b>${d.providers.some(p => p.id === 'xotelo') ? 'TripAdvisor tu ceny nemá' : 'Ceny hotelů tu nemám'}</b> – v místě jsou tato ubytování (${osmSrc}). Cenu ověř u partnera a zadej ji níže.</div></div>` : '';
     // stupnice filtru podle zdroje: TripAdvisor 0–5 (3,5+ / 4+ / 4,5+ = 7+ / 8+ / 9+ na stupnici 0–10); bez hodnocení (OSM) bez filtru
     const five = main.length > 0 && main.every(h => h.rating5 != null), rated = main.some(h => h.rating != null);
     // ubytování v místě bez ceny: nejdřív 3, zbytek na požádání (jen pro tohle místo a termín)
     const osmLim = stayView.osm === d.key ? inTown.length : 3;
-    const townHtml = inTown.length ? `<div class="st-town"><h4>🏡 V místě${base ? ` – ${esc(base)}` : ''} (bez ceny)</h4><div class="faint" style="font-size:12px;margin-bottom:8px">Ubytování z OpenStreetMap – cenu a volno ověř u partnera a zadej ji níže.</div>
+    const townHtml = inTown.length ? `<div class="st-town"><h4>🏡 V místě${base ? ` – ${esc(base)}` : ''} (bez ceny)</h4><div class="faint" style="font-size:12px;margin-bottom:8px">Ubytování: ${osmSrc}. Cenu a volno ověř u partnera a zadej ji níže.</div>
         <div class="stay-list">${inTown.slice(0, osmLim).map(h => stayCard(h, d.items.indexOf(h), base, dq)).join('')}</div>
         ${inTown.length > osmLim ? `<button type="button" class="more-btn" id="stayTownN">▼ Další v místě (${inTown.length - osmLim})</button>` : ''}</div>` : '';
     // nejdřív 6 hotelů (na telefonu je každý ~140 px) – „Ubytování neřeším“ a vlastní cena jsou pak blízko
@@ -3372,7 +3375,7 @@
     try { r = await autoBest(t, q); } finally { autoBusy = false; }
     if (T() !== t || t.step !== 'stay') return { away: true };
     if (t.stay || seq !== pickSeq) return t.stay ? {} : { away: true }; // mezitím vybral sám
-    if (!r.h) return { stop: r.osmOnly ? 'TripAdvisor tu ceny nemá – vyber z ubytování v místě a doplň cenu. Auto a program jsem zatím nechal.' : 'Ubytování s cenou se nepodařilo najít – vyber ho prosím ručně, nebo to zkus za chvíli. Auto a program jsem zatím nechal.' };
+    if (!r.h) return { stop: r.osmOnly ? 'Ceny hotelů tu nemám – vyber z ubytování v místě a doplň cenu. Auto a program jsem zatím nechal.' : 'Ubytování s cenou se nepodařilo najít – vyber ho prosím ručně, nebo to zkus za chvíli. Auto a program jsem zatím nechal.' };
     t.stay = pickOf(r.h, stayDates(t).nights, q.params); unbook(t, 'stay');
     persist();
     return {};

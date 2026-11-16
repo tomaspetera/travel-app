@@ -21,7 +21,11 @@ export const liteapiTestKey = () => /^sand_/i.test(config.liteapiKey || '');
 /** Ostrý klíč LiteAPI – má přednost (lepší pokrytí, později provize). */
 export const liteapiLive = () => Boolean(config.liteapiKey) && !liteapiTestKey();
 
-/** DEMO → ukázková data; ostrý klíč LiteAPI → LiteAPI; jinak Xotelo (zdarma, bez klíče), pokud není XOTELO=off. */
+/**
+ * DEMO → ukázková data; ostrý klíč LiteAPI → LiteAPI; jinak Xotelo (zdarma, bez klíče), pokud není XOTELO=off.
+ * Ubytování z OpenStreetMap (osm.js, bez ceny) sem nepatří – searchStays ho přidá sám, kde jiný zdroj nic nemá
+ * (i s XOTELO=off), jen ne u LiteAPI.
+ */
 export function stayProviders() {
   if (config.mock) return [demoStays];
   if (liteapiLive()) return [liteapi];

@@ -1,7 +1,8 @@
 // Ubytování v místě z OpenStreetMap (Nominatim) – záloha pro malá místa, kde TripAdvisor (Xotelo) nic nemá: obec bez
 // ID místa TripAdvisoru ve Wikidatech ani v okolí (Palazzolo Acreide na Sicílii – nejbližší ID až Ortygia 35 km,
 // Alcobaça v Portugalsku). Jen názvy, typ, hvězdičky a poloha – bez ceny a hodnocení; cenu uživatel ověří u partnera
-// (odkaz na hledání hotelu na Booking.com s termínem) a zadá ji sám. Zdarma, bez klíče.
+// (odkaz na hledání hotelu na Booking.com s termínem) a zadá ji sám. Zdarma, bez klíče. S XOTELO=off jediný zdroj
+// ubytování v aplikaci (bez LiteAPI) – pak u každého místa (searchStays).
 //   GET nominatim.openstreetmap.org/search?q=hotel&viewbox=…&bounded=1   zvláštní fráze = tourism=hotel v okolí
 // Pravidla Nominatimu: nejvýš 1 dotaz za sekundu, vlastní User-Agent, výsledky v mezipaměti (týden; výpadek 10 min).
 import { request, limiter } from '../../lib/http.js';
