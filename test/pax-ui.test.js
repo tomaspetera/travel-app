@@ -31,12 +31,14 @@ test('texty cestujících: tlačítko, souhrn, cena celkem a poznámka – bez d
   assert.equal(H.paxShort({ adults: 2, children: 2, infants: 1 }), '2 dosp. + 2 děti + miminko');
   assert.equal(H.paxTotalLbl({ adults: 2 }), 'celkem 2 os.');
   assert.equal(H.paxTotalLbl({ adults: 2, children: 2 }), 'celkem za 4 osoby');
-  assert.equal(H.paxTotalLbl({ adults: 3, children: 3, infants: 1 }), 'celkem za 6 osob + miminko');
-  assert.equal(H.paxTotalLbl({ adults: 1, infants: 1 }), 'celkem za 1 osobu + miminko');
+  // poplatek za miminko ATLAS nezná – popisek nesmí vypadat, že je v částce
+  assert.equal(H.paxTotalLbl({ adults: 3, children: 3, infants: 1 }), 'celkem za 6 osob (bez poplatku za miminko)');
+  assert.equal(H.paxTotalLbl({ adults: 1, infants: 1 }), 'celkem za 1 osobu (bez poplatku za miminko)');
+  assert.equal(H.paxTotalLbl({ adults: 2, infants: 2 }), 'celkem za 2 osoby (bez poplatku za miminka)');
   assert.deepEqual([H.paxTotalOn({ adults: 1 }), H.paxTotalOn({ adults: 1, infants: 1 }), H.paxTotalOn({ adults: 2 })], [false, true, true]);
   assert.equal(H.paxNote({ adults: 2 }), '');
   assert.equal(H.paxNote({ adults: 2, children: 2 }), 'děti platí sedadlo jako dospělí');
-  assert.equal(H.paxNote({ adults: 2, children: 1, infants: 1 }), 'dítě platí sedadlo jako dospělý, miminko na klíně – poplatek aerolinky se doplní při nákupu');
+  assert.equal(H.paxNote({ adults: 2, children: 1, infants: 1 }), 'dítě platí sedadlo jako dospělý, miminko na klíně – poplatek aerolinky v ceně není, doplní se při nákupu');
 });
 
 test('kidsBuyNote: Ryanair a Wizz Air mají děti v odkazu, ostatní je přidají na webu; bez dětí nic', () => {

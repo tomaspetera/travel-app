@@ -2120,11 +2120,14 @@
     if (!kidsOf(p)) return `${p.adults} os.`;
     return [`${p.adults} dosp.`, p.children ? plural3(p.children, 'dítě', 'děti', 'dětí') : '', p.infants ? (p.infants === 1 ? 'miminko' : plural3(p.infants, 'miminko', 'miminka', 'miminek')) : ''].filter(Boolean).join(' + ');
   }
-  /** Popisek ceny celkem: bez dětí jako dřív „celkem 2 os.“, s dětmi „celkem za 4 osoby + miminko“ (miminko bez ceny). */
+  /**
+   * Popisek ceny celkem: bez dětí jako dřív „celkem 2 os.“, s dětmi „celkem za 4 osoby“. S miminkem „celkem za 3 osoby
+   * (bez poplatku za miminko)“ – dřív „+ miminko“ vypadalo, že poplatek za miminko v částce je, ATLAS ho ale nezná.
+   */
   function paxTotalLbl(x) {
     const p = paxOf(x);
     if (!kidsOf(p)) return `celkem ${p.seats} os.`;
-    return `celkem za ${p.seats} ${p.seats === 1 ? 'osobu' : p.seats <= 4 ? 'osoby' : 'osob'}${p.infants ? ` + ${p.infants === 1 ? 'miminko' : plural3(p.infants, 'miminko', 'miminka', 'miminek')}` : ''}`;
+    return `celkem za ${p.seats} ${p.seats === 1 ? 'osobu' : p.seats <= 4 ? 'osoby' : 'osob'}${p.infants ? ` (bez poplatku za ${p.infants === 1 ? 'miminko' : 'miminka'})` : ''}`;
   }
   /** Ukázat cenu celkem: víc sedadel, nebo miminko navíc (i u jednoho dospělého). */
   const paxTotalOn = x => { const p = paxOf(x); return p.seats > 1 || p.infants > 0; };
@@ -2138,7 +2141,7 @@
     const p = paxOf(x);
     if (!kidsOf(p)) return '';
     const kids = p.children ? `${p.children === 1 ? 'dítě platí' : 'děti platí'} sedadlo jako ${p.children === 1 ? 'dospělý' : 'dospělí'}` : '';
-    const baby = p.infants ? `${p.infants === 1 ? 'miminko' : 'miminka'} na klíně – poplatek aerolinky se doplní při nákupu` : '';
+    const baby = p.infants ? `${p.infants === 1 ? 'miminko' : 'miminka'} na klíně – poplatek aerolinky v ceně není, doplní se při nákupu` : '';
     return [kids, baby].filter(Boolean).join(', ');
   }
   // Rezervační odkazy, které děti a miminka umí předvyplnit (server/providers: Ryanair i Wizz Air v adrese); ostatní

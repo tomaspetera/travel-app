@@ -1093,7 +1093,9 @@
       // poslední let vede domů → nové město patří před něj (Praha → Řím → [nové] → Praha)
       const gap = prev.date && last.date ? SearchHelp.diffDays(prev.date, last.date) : 6;
       legs.splice(at = legs.length - 1, 0, { from: prev.to, to: [], date: prev.date ? addDays(prev.date, Math.max(0, Math.floor(gap / 2))) : '', flex: 0 });
-      last.from = [];
+      // odkud návratu doplní nové město (mlFollow) – jen když bylo předvyplněné z cíle předchozího letu; ručně
+      // zadané (návrat z Neapole po Římu) zůstane
+      if (idsOf(last.from) === idsOf(prev.to)) last.from = [];
     } else {
       legs.push({ from: last.to, to: [], date: last.date ? addDays(last.date, 3) : '', flex: 0 });
     }
@@ -1326,8 +1328,9 @@
     $$('#quickDest [data-qd]').forEach(b => b.onclick = () => {
       const k = b.dataset.qd;
       if (k === 'exotic') toInput.set(EXOTIC.slice(0, 5).map(cc => ({ id: 'cc:' + cc, label: byIso[cc]?.cs || cc, flag: flag(cc) })));
+      // Evropa = světadíl ct:europe (server/lib/longhaul.js) – dřív „kamkoliv“ a ve výsledcích bylo Alžírsko nebo Tunisko
+      else if (k === 'eu') toInput.set([{ id: 'ct:europe', label: 'Evropa', flag: '🇪🇺' }]);
       else toInput.set([]);
-      if (k === 'eu') toast('Evropa = kamkoliv; seřaď výsledky podle ceny 😉');
     });
     $('#geoBtn').onclick = () => useMyLocation(p => fromInput.set([...fromInput.items.filter(x => !/\|Moje poloha$/.test(x.id)), p]));
     // napsané, ale nevybrané místo nebo věta: nejdřív je použít (jinak by se hledalo bez nich – „kamkoliv“)
@@ -4182,7 +4185,9 @@
     const w = { id: Date.now().toString(36), label: watchLabel(f), sub: watchSub(roll ? Alerts.rollForm(wf, today()) : f), form: wf, best: b, history: b ? [{ at: Date.now(), czk: b.czk }] : [], checked: Date.now(), base: czk0, low: czk0, seen: czk0, target: null, own: SearchHelp.ownPrint(res), pv: Alerts.PV };
     // stejné hledání podruhé (♡ pod formulářem i v „Je to dobrá cena?“) jen aktualizuje cenu té, co už je
     const r = Alerts.upsertWatch(S.watch || [], w, watchKey, { now: Date.now(), cap: 12, partial: Alerts.incomplete(res.providers) });
-    S.watch = r.list; save();
+    const before = S.watch; // upsertWatch karty nemění, vrací nový seznam
+    S.watch = r.list;
+    if (!watchSave(() => { S.watch = before; })) return;
     // výzva „Tohle hledáš už po 3. – ♡ Hlídat cenu“ po uložení (i přes ♡ pod formulářem) pryč – hledání už se hlídá
     // jen výzva k hlídání – „🧒 přidej děti“ má stejnou třídu a zůstane
     nudge = null; document.getElementById('nudgeWatch')?.closest('.watch-nudge')?.remove();
@@ -4221,9 +4226,13 @@
     costOf: w => (w.form && w.form.trip === 'multi' ? 2 : 1), // cesta přes víc měst = 2 hledání v limitu serveru
   });
   const cardSel = id => `#watchList [data-w="${CSS.escape(id)}"]`;
-  // Chrome na Androidu Notification má, ale ze stránky ho vytvořit nejde (jen přes service worker) → jako by ho neměl.
-  const notifCtor = !(navigator.userAgentData && /Android/i.test(navigator.userAgent));
-  const notifOk = () => notifCtor ? Alerts.notifState(window.Notification, window.isSecureContext !== false) : 'unsupported';
+  // Upozornění jen v prohlížeči na počítači (pravidlo projektu: na telefonu nikdy) – iPhone s aplikací na ploše nebo
+  // Firefox pro Android Notification umí, ale nabízet ho tam nesmíme; Chrome na Androidu ho ze stránky ani vytvořit
+  // neumí. Počítač = myš (jemný ukazatel s najetím), ne mobilní prohlížeč a ne úzké okno; počítá se při každém
+  // vykreslení – okno se dá zúžit i rozšířit.
+  const notifCtor = () => !/Android|iPhone|iPad|iPod|Mobi/i.test(navigator.userAgent) && !(navigator.userAgentData && navigator.userAgentData.mobile)
+    && !!(window.matchMedia && matchMedia('(pointer: fine) and (hover: hover) and (min-width: 1024px)').matches);
+  const notifOk = () => notifCtor() ? Alerts.notifState(window.Notification, window.isSecureContext !== false) : 'phone';
 
   // graf jen od poslední změny 🏠 vlastní ceny na letiště (Alerts.epoch) – starší ceny jsou s jinou cestou na letiště;
   // ze 2 bodů by „vývoj“ byla jedna čára – graf až od 3 kontrol, jinak jen řádky s cenami (st = Alerts.watchStats)
@@ -4271,6 +4280,7 @@
       granted: '<span class="w-ntf">🔔 Upozornění v prohlížeči jsou zapnutá.</span>',
       denied: '<span class="w-ntf">🔕 Upozornění má prohlížeč pro ATLAS zablokovaná – povolíš je v nastavení webu (ikona vedle adresy).</span>',
       unsupported: '<span class="w-ntf">Tento prohlížeč upozornění neumí – zlevnění uvidíš tady a u položky Přehled.</span>',
+      phone: '', // telefon: ani tlačítko, ani dotaz na povolení
     }[notifOk()];
     return `<div class="watch-bar"><span title="Každé hledání kontroluji automaticky zhruba jednou za 6 h – ale jen dokud máš ATLAS otevřený v prohlížeči a panel není schovaný na pozadí. Zavřená stránka nehlídá nic.">🔄 Kontroluji samo zhruba každých 6 h, dokud máš ATLAS otevřený.</span>${n}</div>`;
   }
@@ -4350,12 +4360,28 @@
   // ✕ smaže hned (i s historií cen a cílovou cenou) – „↩ Vrátit“ v hlášce ho vrátí na stejné místo
   function delWatch(id) {
     const i = (S.watch || []).findIndex(x => x.id === id); if (i < 0) return;
-    const w = S.watch[i];
-    S.watch = S.watch.filter(x => x.id !== id); save(); renderWatch(); updateWatchBtn();
+    const w = S.watch[i], before = S.watch;
+    S.watch = S.watch.filter(x => x.id !== id);
+    if (!watchSave(() => { S.watch = before; })) return;
+    renderWatch(); updateWatchBtn();
     toast(`Hlídání ${w.label || ''} smazáno`, '', 6000, { label: '↩ Vrátit', run: () => {
       if ((S.watch || []).some(x => x.id === id || watchKey(x) === watchKey(w))) return; // mezitím hlídané znovu
-      S.watch = [...(S.watch || [])]; S.watch.splice(Math.min(i, S.watch.length), 0, w); save(); renderWatch(); updateWatchBtn();
+      const was = S.watch;
+      S.watch = [...(S.watch || [])]; S.watch.splice(Math.min(i, S.watch.length), 0, w);
+      if (!watchSave(() => { S.watch = was; })) return;
+      renderWatch(); updateWatchBtn();
     } });
+  }
+  /**
+   * Uložit změnu hlídání. Plné nebo zakázané úložiště: změna se vrátí (undo) a ohlásí – jinak by hláška tvrdila
+   * „uloženo“ a po obnovení stránky by změna zmizela (stejně jako pinSet u odložených nabídek). → false = neuloženo.
+   */
+  function watchSave(undo) {
+    if (save() !== false) return true;
+    undo();
+    renderWatch(); updateWatchBtn(); updateWatchBadges();
+    toast('V prohlížeči není místo – hlídání se nepodařilo uložit', 'err');
+    return false;
   }
   function paintCard(id) {
     const el = $(cardSel(id)), w = (S.watch || []).find(x => x.id === id);
@@ -4397,8 +4423,11 @@
     if (Alerts.isPast(w.form, today())) { expandForm(); toast('Termín už proběhl – vyber nový a spusť hledání'); return; }
     startSearch();
   }
+  // id → cílová cena (a ohlášená cena) před psaním: plné úložiště po dopsání vrátí tuhle, ne rozepsanou
+  const tgtWas = new Map();
   function setTarget(id, v, done) {
     const w = (S.watch || []).find(x => x.id === id); if (!w) return;
+    if (!tgtWas.has(id)) tgtWas.set(id, { target: w.target, notified: w.notified, notifiedAt: w.notifiedAt });
     const n = Math.round(+v), cur = w.best?.czk;
     w.target = n > 0 ? n : null;
     const met = !!(cur && w.target && cur <= w.target) && !Alerts.bestGone(w, today()); // odlétlá nabídka cíl nesplní
@@ -4409,8 +4438,11 @@
     if (done && met) w.notified = cur;
     // nový cíl nad cenou ohlášenou dřív (třeba „📉 zlevnilo“) – jinak by ji shouldNotify bralo za už ohlášený cíl a 🎯 by nepřišlo
     else if (done && w.target && +w.notified > 0 && w.notified <= w.target) { delete w.notified; delete w.notifiedAt; }
-    save(); renderNews(); // „🎯 pod tvou cenou“ v řádku Od minula hned podle nové cílové ceny
-    if (done) toast(!w.target ? 'Cílová cena zrušena' : met ? `Už teď stojí ${czk(cur)} – ozvu se, až cena ještě klesne` : `Upozorním, až bude cena ${czk(w.target)} nebo méně`);
+    if (!done) { save(); renderNews(); return; } // rozepsaná – nepovedené uložení ohlásí až dopsání
+    const was = tgtWas.get(id); tgtWas.delete(id);
+    if (!watchSave(() => { for (const k in was) if (was[k] === undefined) delete w[k]; else w[k] = was[k]; })) return;
+    renderNews(); // „🎯 pod tvou cenou“ v řádku Od minula hned podle nové cílové ceny
+    toast(!w.target ? 'Cílová cena zrušena' : met ? `Už teď stojí ${czk(cur)} – ozvu se, až cena ještě klesne` : `Upozorním, až bude cena ${czk(w.target)} nebo méně`);
   }
   // Klouzavý termín pro uložené hlídání: rozsah, který už začal, se posune jako v den uložení (čas v id, jinak první bod historie).
   function rollOf(w) {
@@ -4425,14 +4457,16 @@
     const { roll, ...fixed } = Alerts.rollForm(w.form, t); // vypnuto: dnešní termín natrvalo
     const form = on ? { ...w.form, roll: spec } : fixed;
     // pevný termín může být stejné hledání jako jiné hlídání (a naopak) – dvakrát totéž ne
-    const k = watchKey({ ...w, form });
+    const k = watchKey({ ...w, form }), prev = { form: w.form, sub: w.sub, rebNext: w.rebNext }; // prev: plné úložiště vrátí
     if ((S.watch || []).some(x => x !== w && watchKey(x) === k)) { toast('Tohle hledání už hlídáš v jiné kartě', 'err'); return renderWatch(); }
     // jiný termín = jiné ceny: první kontrola nového termínu je nový základ, ne zlevnění / zdražení (Alerts.rebaseWhy).
     // Porovnávají se dnešní data obou (vypnutí 📅 nechá dnešní termín, zapnutí u budoucího rozsahu dá dnes tentýž) –
     // jinak by i beze změny termínu další skutečné zlevnění spolkl „nový termín“
     const eff = f => { const { roll: r0, ...x } = Alerts.rollForm(f, t); return watchKey({ ...w, form: x }); };
     if (eff(w.form) !== eff(form) || was) w.rebNext = 'term';
-    w.form = form; w.sub = watchSub(watchForm(w)); save(); renderWatch();
+    w.form = form; w.sub = watchSub(watchForm(w));
+    if (!watchSave(() => { Object.assign(w, prev); if (prev.rebNext === undefined) delete w.rebNext; })) return;
+    renderWatch();
     toast(on ? `📅 Termín se posouvá s časem – ${Alerts.rollTxt(form, t)}` : `Termín zůstane ${fmtDate(fixed.dFrom)}–${fmtDate(fixed.dTo)}`);
     if (on && was) checkWatch(id);
   }
