@@ -1624,8 +1624,9 @@ displeje.
 ## Sdílení odkazem
 
 **🔗 Zkopírovat odkaz na cestu** (shrnutí průvodce) a **🔗 Sdílet plán** (plánovač) vytvoří odkaz, který nese celou
-cestu nebo plán. Na server se nic neukládá (část adresy za `#` prohlížeč na server neposílá), takže odkaz platí, dokud
-ho někdo má, i po novém nasazení. JSON je v odkazu zkomprimovaný (`public/js/sharelink.js`: deflate-raw přímo
+cestu nebo plán. Dlouhý odkaz nese data v části adresy za `#`, kterou prohlížeč na server neposílá – platí, dokud ho
+někdo má, i po novém nasazení. Se zapnutými krátkými odkazy (klíče Upstash, viz níž) sdílení místo něj vytvoří krátký
+odkaz `/c/<id>`: cesta se uloží na serveru na 400 dní, bez jména a kódů rezervací (`server/lib/shortlinks.js`). JSON je v odkazu zkomprimovaný (`public/js/sharelink.js`: deflate-raw přímo
 v prohlížeči přes `CompressionStream`, base64url se značkou `z` na začátku). Odkaz je asi 3,7× kratší: cesta do
 Barcelony autem na letiště s trasou Barcelona → Lloret de Mar → Tarragona a programem na 7 nocí měla 18 135 znaků
 a teď má 4 945, plán z plánovače (Lisabon, 5 dní s lety a programem) má 1 935 znaků (živá data, 7. 10. 2026).
@@ -1639,8 +1640,9 @@ a teď má 4 945, plán z plánovače (Lisabon, 5 dní s lety a programem) má 1
 - **🔖 Kódy rezervací** v odkazu nikdy nejsou – plán do odkazu bere jen známá pole a cesta z průvodce je nemá.
 - Odkaz je cizí vstup: rozbalí se nejvýš 1 MB (ochrana proti „kompresní bombě“), poškozený odkaz ukáže hlášku
   „Odkaz na cestu je poškozený“ a data projdou stejným pročištěním jako dřív (`Trip.sanitizeTrip`, `PlanShare.sanitize`).
-- Krátký odkaz typu `…/s/abc123` by potřeboval úložiště na serveru. Bezplatný Render ale při každém nasazení disk
-  smaže a odkazy by přestaly fungovat.
+- **Krátký odkaz** `…/c/Ab3kQ9xZ` (s náhledem ve WhatsAppu: cíl, termín, fotka) se ukládá v Redis od Upstash, ne na
+  disku Renderu – ten bezplatný Render při každém nasazení maže. Cesta se uloží jen při sdílení a po 400 dnech ji Upstash
+  sám smaže. Bez klíčů `UPSTASH_REDIS_REST_URL` a `UPSTASH_REDIS_REST_TOKEN` aplikace pošle dlouhý odkaz s `#`.
 
 ## Jak to funguje
 
