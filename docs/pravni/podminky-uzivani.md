@@ -170,7 +170,7 @@ Kontakt pro dotazy a stížnosti: [e-mail].
    - **Kiwi.com** – veřejný MCP server, podmínky pro neagentní použití nejsou zveřejněné (README),
    - **Xotelo** – neoficiální API nad daty TripAdvisoru (README: „neoficiální API“),
    - **tile.openstreetmap.org, Nominatim, Overpass, BRouter** – veřejné servery s pravidly férového užití,
-   - **open.er-api.com** – bezplatný tarif vyžaduje atribuci; atribuce je jen v ℹ️ O aplikaci.
+   - **open.er-api.com (ExchangeRate-API)** – bezplatný tarif vyžaduje atribuci; odkaz „Rates By Exchange Rate API“ je u kurzů v okně země i v ℹ️ O aplikaci,
    Je to s podmínkou čistého režimu (jen zdroje, které komerční použití dovolují) slučitelné? Které zdroje před
    spuštěním vypnout (u Kiwi jde `KIWI_ENABLED=0`)?
 4. **Pořadí výsledků a označení reklamy.** Odpovídá informace o řazení § 5 odst. 2 zákona o ochraně spotřebitele
