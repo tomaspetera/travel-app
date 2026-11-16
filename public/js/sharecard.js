@@ -96,13 +96,14 @@
   const photoInfo = {};
   async function photo(label, w, h) {
     try {
-      if (!photoInfo[label]) photoInfo[label] = fetch('api/photos?v=3&t=' + encodeURIComponent(label)).then(r => r.json());
+      if (!photoInfo[label]) photoInfo[label] = fetch('api/photos?v=4&t=' + encodeURIComponent(label)).then(r => r.json());
       const j = await photoInfo[label], u = String((j.photos || {})[label] || '');
       if (!/^https:\/\//.test(u)) return null;
       const host = (/^https:\/\/([^/]+)\//.exec(u) || [])[1];
       const sized = SRC[host] ? u.replace(/w=960&h=1200/, `w=${w}&h=${h}`) : u.replace('/960px-', '/1280px-');
-      const by = txt(String((j.by || {})[label] || ''), 40);
-      return { img: await img(sized), credit: SRC[host] ? `foto: ${by ? by + ' / ' : ''}${SRC[host]}` : `foto: ${by || 'Wikimedia Commons'}` };
+      const by = txt(String((j.by || {})[label] || ''), 40), lic = txt(String((j.lic || {})[label] || ''), 24);
+      // Commons: autor a licence (CC BY, CC BY-SA je chtějí u každého použití fotky, i na obrázku ke sdílení)
+      return { img: await img(sized), credit: SRC[host] ? `foto: ${by ? by + ' / ' : ''}${SRC[host]}` : `foto: ${by && lic ? `${by}, ${lic}` : 'Wikimedia Commons'}` };
     } catch (e) {
       return null;
     }

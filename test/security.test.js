@@ -143,7 +143,7 @@ test('fotky měst: dotazy mimo mezipaměť jen do limitu z adresy, odpověď z m
     assert.equal(over.status, 429);
     assert.ok((await over.json()).error);
     assert.equal(calls, 3, 'nad limitem žádný dotaz na Wikipedii');
-    cache.set('ph6:wiki:Praha', { u: 'https://upload.wikimedia.org/praha.jpg', by: '' }, 60e3);
+    cache.set('ph7:wiki:Praha', { u: 'https://upload.wikimedia.org/praha.jpg', by: '' }, 60e3);
     const hit = await get('/api/photos?t=Praha', h);
     assert.equal(hit.status, 200, 'z mezipaměti i nad limitem');
     assert.equal((await hit.json()).photos.Praha, 'https://upload.wikimedia.org/praha.jpg');

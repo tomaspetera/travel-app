@@ -161,8 +161,11 @@ export async function searchStays(raw, { english = englishName, partners = null,
   const ids = partnerIds(q, partners).catch(() => ({}));
   // Ceny hotelů API vrací nejvýš pro 30 nocí; delší pobyt → jen odkazy na partnery.
   const providers = q.nights <= 30 ? stayProviders() : [];
+  // Ubytování v místě z OpenStreetMap (záloha níž) vedle Xotela / DEMO i bez nich (XOTELO=off – jinak by malá místa
+  // zůstala jen s odkazy); ne u LiteAPI (vlastní pokrytí) a ne u pobytu nad 30 nocí (jako ceny hotelů).
+  const osmOn = q.nights <= 30 && !providers.some((p) => p.id === 'liteapi');
   // Střed města kvůli vzdálenosti hotelů (u metropolí známe z databáze, jinak geokódování).
-  if (q.lat == null && providers.length && q.city) {
+  if (q.lat == null && (providers.length || osmOn) && q.city) {
     try {
       const g = (await geocode(q.city)).find((x) => !q.cc || String(x.cc || '').toUpperCase() === q.cc);
       if (g) { q.lat = g.lat; q.lon = g.lon; }
@@ -231,11 +234,11 @@ export async function searchStays(raw, { english = englishName, partners = null,
   // Malé místo, kde TripAdvisor nic nemá (Palazzolo Acreide, Alcobaça – Xotelo bez hotelů s cenou i bez nich, nebo
   // výpadek): ubytování v místě z OpenStreetMap – názvy, typ, hvězdičky a odkaz na hledání hotelu u partnera, cenu
   // uživatel ověří a zadá sám. I vedle hotelů s cenou z okolí (nearbyFrom – v místě samém TripAdvisor nic nemá, i když
-  // ceny z okolí ještě přicházejí); jinak ne, když ceny ještě přicházejí (partial), a ne u LiteAPI (vlastní pokrytí).
+  // ceny z okolí ještě přicházejí); jinak ne, když ceny ještě přicházejí (partial). Bez Xotela (XOTELO=off) tam, kde
+  // jiný zdroj nic nemá, tedy u každého místa (podmínky osmOn výš).
   let osmFallback = false;
-  const xoLike = providers.some((p) => p.id === 'xotelo' || p.id === 'demo');
   const inTown = items.some((h) => !h.nearby);
-  if (xoLike && !inTown && q.lat != null && (nearbyFrom || !status.some((s) => s.ok && s.partial))) {
+  if (osmOn && !inTown && q.lat != null && (nearbyFrom || !status.some((s) => s.ok && s.partial))) {
     const t0 = Date.now();
     try {
       const list = await startOsm();

@@ -1334,13 +1334,14 @@ function costDots(n) { return `<span class="dots warm" role="img" title="Ceny na
    (Pexels nebo Unsplash s klíčem, jinak Wikimedia; jeden dotaz na viditelné karty), v prohlížeči 30 dní – fotky
    z Wikimedie 6 hodin, ať se po přidání klíče brzy vymění (server je má v mezipaměti, dotaz je levný). Fotka se na kartu dá až načtená a jen tak velká, jak ji karta
    na displeji potřebuje (~40–150 kB, pak v mezipaměti prohlížeče). U fotky z Pexels a Unsplash drobně autor s odkazem
-   na jeho profil a na zdroj (podmínky Unsplash API) – odkaz otevře nové okno, karta pod ním se neotevře. */
+   na jeho profil a na zdroj (podmínky Unsplash API), u fotky z Wikimedia Commons autor a licence (CC BY a CC BY-SA to
+   vyžadují) s odkazem na stránku souboru – odkaz otevře nové okno, karta pod ním se neotevře. */
 const Photos = (() => {
-  const KEY = 'atlas_ph8', TTL = { pexels: 30 * 864e5, unsplash: 30 * 864e5, wiki: 6 * 36e5 };
+  const KEY = 'atlas_ph9', TTL = { pexels: 30 * 864e5, unsplash: 30 * 864e5, wiki: 6 * 36e5 };
   // zdroj fotky podle serveru, odkud se načítá: název a odkaz zpět (Unsplash s utm)
   const SRC = { 'images.pexels.com': ['Pexels', 'https://www.pexels.com/'], 'images.unsplash.com': ['Unsplash', 'https://unsplash.com/?utm_source=atlas_letenky&utm_medium=referral'] };
   const srcOf = u => SRC[(/^https:\/\/([^/]+)\//.exec(u) || [])[1]] || null;
-  try { ['atlas_ph', 'atlas_ph2', 'atlas_ph3', 'atlas_ph4', 'atlas_ph5', 'atlas_ph6', 'atlas_ph7'].forEach(k => localStorage.removeItem(k)); } catch (e) { /* nevadí */ }
+  try { ['atlas_ph', 'atlas_ph2', 'atlas_ph3', 'atlas_ph4', 'atlas_ph5', 'atlas_ph6', 'atlas_ph7', 'atlas_ph8'].forEach(k => localStorage.removeItem(k)); } catch (e) { /* nevadí */ }
   let mem = null, timer = null, io = null;
   const queue = new Set();
   // rozběhnutý dotaz podle názvu: karty překreslené, než odpověď přijde (radar, hlídané ceny po kontrole), se neptají
@@ -1383,20 +1384,25 @@ const Photos = (() => {
     img.src = src;
   }
   /**
-   * Autor fotky (podmínky Unsplash): jen drobné ⓘ v rohu fotky – klepnutí (na počítači i najetí myší) ukáže „Foto: Jméno /
-   * Unsplash“ s odkazy na profil a zdroj; na malé ikonce (srovnání, hlídání) jen v title.
+   * Autor fotky (podmínky Unsplash, licence Commons): jen drobné ⓘ v rohu fotky – klepnutí (na počítači i najetí myší)
+   * ukáže „Foto: Jméno / Unsplash“ s odkazy na profil a zdroj, u Commons „Foto: Jméno, CC BY-SA 4.0“ s odkazy na stránku
+   * souboru a licenci; na malé ikonce (srovnání, hlídání) jen v title.
    */
   function credit(el, e) {
-    const src = srcOf(e.u);
-    if (!src || !e.by) return;
-    el.title = `Foto: ${e.by} / ${src[0]}`;
+    const src = srcOf(e.u), wiki = !src && /^https:\/\/upload\.wikimedia\.org\//.test(e.u) && e.lic;
+    if ((!src && !wiki) || !e.by) return;
+    el.title = wiki ? `Foto: ${e.by}, ${e.lic} / Wikimedia Commons` : `Foto: ${e.by} / ${src[0]}`;
     if (el.clientWidth < 140 || el.querySelector(':scope > .ph-cr')) return;
-    const bu = /^https:\/\/(www\.)?(unsplash|pexels)\.com\/[^\s"'<>]*$/.test(e.bu || '') ? e.bu : '';
+    const bu = /^https:\/\/(www\.)?(unsplash|pexels)\.com\/[^\s"'<>]*$/.test(e.bu || '') || /^https:\/\/commons\.wikimedia\.org\/wiki\/File:[^\s"'<>]+$/.test(e.bu || '') ? e.bu : '';
     const lk = (href, txt, cls = '') => `<span class="ph-a${cls}" role="link" tabindex="0" data-href="${esc(href)}">${esc(txt)}</span>`;
+    const by = bu ? lk(bu, e.by, ' ph-by') : `<span class="ph-by">${esc(e.by)}</span>`;
+    const lu = /^https:\/\/creativecommons\.org\/[^\s"'<>]*$/.test(e.lu || '') ? e.lu : '';
     const s = document.createElement('span');
     s.className = 'ph-cr';
-    // dlouhé jméno autora se zkrátí (…), zdroj („/ Unsplash“) zůstane celý
-    s.innerHTML = `<span class="ph-i" role="button" tabindex="0" aria-label="Kdo fotil">i</span><span class="ph-pop"><span>Foto:</span>${bu ? lk(bu, e.by, ' ph-by') : `<span class="ph-by">${esc(e.by)}</span>`}<span>/</span>${lk(src[1], src[0])}</span>`;
+    // dlouhé jméno autora se zkrátí (…), zdroj („/ Unsplash“) i licence zůstanou celé
+    s.innerHTML = `<span class="ph-i" role="button" tabindex="0" aria-label="Kdo fotil">i</span><span class="ph-pop"><span>Foto:</span>${by}${wiki
+      ? `<span class="ph-c">,</span>${lu ? lk(lu, e.lic) : `<span>${esc(e.lic)}</span>`}`
+      : `<span>/</span>${lk(src[1], src[0])}`}</span>`;
     el.append(s);
   }
   // ⓘ otevře popisek (karta pod ním se neotevře); odkaz v popisku: nové okno; klepnutí jinam popisek zavře
@@ -1427,13 +1433,13 @@ const Photos = (() => {
     if (ask.length) {
       const job = (async () => {
         try {
-          // v=3 (a nový klíč atlas_ph8): fotky uložené v prohlížeči před lepším výběrem z Unsplash se znovu nepoužijí
-          const r = await fetch('api/photos?v=3&t=' + enc(ask.join('|')));
+          // v=4 (a nový klíč atlas_ph9): fotky z Wikimedie uložené v prohlížeči bez autora a licence se znovu nepoužijí
+          const r = await fetch('api/photos?v=4&t=' + enc(ask.join('|')));
           // odmítnuto (429 – Retry-After, přetížený server): karty zatím bez fotek, další se chvíli nežádají
           if (!r.ok) { pause = Date.now() + ((window.Pwa && Pwa.retryAfterS && Pwa.retryAfterS(r.headers.get('retry-after'))) || 120) * 1000; return; }
           const j = await r.json(), p = Object.hasOwn(TTL, j.prov) ? j.prov : 'wiki';
           // náhradní výběr (zdroj neodpověděl) jen na den – pak hezčí fotka
-          for (const [t, u] of Object.entries(j.photos || {})) st[t] = { u: String(u || ''), t: j.partial ? now - TTL[p] + 864e5 : now, p, by: String((j.by || {})[t] || ''), bu: String((j.bu || {})[t] || '') };
+          for (const [t, u] of Object.entries(j.photos || {})) st[t] = { u: String(u || ''), t: j.partial ? now - TTL[p] + 864e5 : now, p, by: String((j.by || {})[t] || ''), bu: String((j.bu || {})[t] || ''), lic: String((j.lic || {})[t] || ''), lu: String((j.lu || {})[t] || '') };
           save();
         } catch (e) { /* bez sítě: karty bez fotek, příště znovu */ }
       })();

@@ -39,12 +39,15 @@ const hang = (init) => new Promise((resolve, reject) => {
   init.signal.addEventListener('abort', () => reject(Object.assign(new Error('This operation was aborted'), { name: 'AbortError' })));
 });
 
-/** Hledání ubytování jen s odkazy (bez LiteAPI a Xotela), partners = dohledání ID u partnerů. */
+/**
+ * Hledání ubytování jen s odkazy (bez LiteAPI a Xotela; ubytování z OpenStreetMap prázdné – bez dotazu na Nominatim),
+ * partners = dohledání ID u partnerů.
+ */
 async function stays(raw, partners) {
   const prev = { liteapiKey: config.liteapiKey, xotelo: config.xotelo };
   Object.assign(config, { liteapiKey: '', xotelo: false });
   try {
-    return await searchStays({ checkin: ymdPlus(30), checkout: ymdPlus(33), adults: 2, ...raw }, { partners });
+    return await searchStays({ checkin: ymdPlus(30), checkout: ymdPlus(33), adults: 2, ...raw }, { partners, lodging: async () => [] });
   } finally {
     Object.assign(config, prev);
   }
