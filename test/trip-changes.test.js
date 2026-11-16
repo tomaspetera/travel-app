@@ -22,7 +22,7 @@ function load(extra = {}) {
     var $$ = (s) => __all[s] || [];
     var go = (v) => { __go.push(v); }; var save = () => {}; var flag = (cc) => '[' + cc + ']';
     var confirm = (m) => { __confirms.push(m); return __ok; };
-    var toast = (msg) => { __toasts.push(msg); };
+    var __act = null; var toast = (msg, kind, ms, act) => { __toasts.push(msg); __act = act || null; };
     var byIso = { AT: { cs: 'Rakousko' } }; var PACK = ['Pas'];`, ctx, { filename: 'app-helpers.js' });
   vm.runInContext(src('trip.js'), ctx, { filename: 'trip.js' });
   return ctx;
@@ -265,6 +265,53 @@ test('🧳 ↺ Začít znovu sama uloženou cestu odebere z Mých cest, uloženo
   assert.ok(c.__toasts.includes('Vídeň zůstává v Mých cestách – vyber další let'), c.__toasts.join(' | '));
 });
 
+test('🧳 ↺ Začít znovu: sama uložená s vlastními daty z Mých cest (kód rezervace, aktivita, poznámka…) zůstane; ↩ Vrátit vrátí cestu i záznam', () => {
+  const c = load();
+  c.__ok = true;
+  const T = c.window.Trip;
+  // sama uložená, v Mých cestách beze změn → zmizí, ale ↩ Vrátit ji vrátí i se záznamem na původní místo
+  c.S.trips = [{ tripId: 1, dest: 'Jiná' }];
+  const t = vie({ step: 'summary' });
+  render(c, t);
+  T.saveToPlanner({ quiet: true });
+  const e = c.S.trips[1];
+  assert.equal(e.auto, true);
+  c.__els['#tripRestart'].onclick();
+  assert.match(c.__confirms.at(-1), /Zmizí i z Mých cest\.$/);
+  assert.deepEqual([c.S.trip, c.S.trips.length, c.__toasts.at(-1), c.__act && c.__act.label], [null, 1, 'Cesta zahozena – vyber nový let', '↩ Vrátit']);
+  c.__act.run();
+  assert.deepEqual([c.S.trip === t, c.S.trips[1] === e, e.auto, c.__go.at(-1)], [true, true, true, 'trip']);
+  // vlastní data v Mých cestách: záznam zůstane (už jako uložený na přání), Vrátit ho nechá jako dřív
+  const own = [
+    ['kód rezervace', (x) => { x.refs = [{ co: 'Hotel', kod: 'AB12' }]; }],
+    ['vlak z plánovače', (x) => { x.rides = [{ date: '2026-11-12', dep: '10:42' }]; }],
+    ['vlastní aktivita', (x) => { x.days = { ...x.days, '2026-11-11': [...(x.days['2026-11-11'] || []), 'Opera'] }; }],
+    ['poznámka', (x) => { x.notes += '\nVzít deštník'; }],
+    ['název', (x) => { x.name = 'Vídeň s mámou'; }],
+    ['odškrtnutí', (x) => { x.checklist[0].done = true; }],
+    ['vlastní věc do „Sbaleno“', (x) => { x.checklist.push({ t: 'Nabíječka', done: false }); }],
+  ];
+  for (const [what, edit] of own) {
+    c.S.trips = [];
+    render(c, vie({ step: 'summary' }));
+    T.saveToPlanner({ quiet: true });
+    const x = c.S.trips[0];
+    edit(x);
+    c.__els['#tripRestart'].onclick();
+    assert.match(c.__confirms.at(-1), /Uložená cesta v Mých cestách zůstane\.$/, what);
+    assert.deepEqual([c.S.trip, c.S.trips.length, x.auto], [null, 1, undefined], what);
+    c.__act.run();
+    assert.deepEqual([c.S.trips.length, x.auto], [1, true], what);
+  }
+  // mezitím rozpracovaná jiná cesta: Vrátit ji nepřepíše
+  render(c, vie({ step: 'summary', created: 5 }));
+  c.__els['#tripRestart'].onclick();
+  const act = c.__act;
+  render(c, vie({ step: 'stay', created: 6 }));
+  act.run();
+  assert.equal(c.S.trip.created, 6);
+});
+
 test('🧳 otevření jiné uložené cesty z Mých cest: rozpracovaná tam zůstane bez otázky i bez hlášky (seznam je vidět)', () => {
   const c = load();
   const mine = vie({ step: 'summary' });
@@ -379,6 +426,29 @@ test('auto s upravenými časy („Pokračovat“ i „Uložit“): odkaz ve shr
   assert.deepEqual([w.car.totalCzk, w.car.url], [3000, null]);
   await tick();
   assert.equal(w.car.url, NEW);
+});
+
+test('trasa: odebrání i přidání místa, které posune termín hotelu – „Odebráno“ / „Přidáno“ i „hotel tam vyber znovu“ v jedné hlášce', () => {
+  const c = load();
+  c.fetch = () => new Promise(() => {}); // přepočet přejezdů na pozadí nedoběhne
+  const base = (id, name, lat, lon, nights) => ({ id, name, lat, lon, nights, cc: 'AT', country: 'Rakousko', anchor: null, stay: null, plan: null });
+  const hotel = (checkin) => ({ mode: 'pick', id: 'h1', name: 'Hotel Sacher', totalCzk: 9000, checkin, checkout: '2026-11-11' });
+  const route = () => ({ mode: 'multi', transport: 'transit', want: 2, exclude: [], candidates: [{ id: 'Q41329', name: 'Linec', lat: 48.306, lon: 14.286, cc: 'AT', country: 'Rakousko' }], notes: [], legs: {},
+    bases: [base('city:VIE', 'Vídeň', 48.2082, 16.3738, 3), { ...base('Q34713', 'Salcburk', 47.8, 13.045, 4), stay: hotel('2026-11-07') }],
+    transfers: [{ km: 295, carMin: 190, transitMin: 160, transitKind: 'rail', basis: 'estimate' }] });
+  // ✕ u Vídně: noci připadnou Salcburku (4.–11. 11.), hotel na 7.–11. 11. neplatí
+  const t = vie({ car: null, plan: null, route: route(), step: 'route' });
+  c.__all['[data-del]'] = [{ dataset: { del: '0' } }];
+  render(c, t);
+  c.__all['[data-del]'][0].onclick();
+  assert.deepEqual(plain([t.route.bases.map((b) => [b.name, b.nights, b.stay]), c.__toasts]), [[['Salcburk', 7, null]], ['Odebráno: Vídeň. Termín jednoho místa se změnil – hotel tam vyber znovu']]);
+  // + Linec: noc od Salcburku, vloží se mezi Vídeň a Salcburk → hotel Salcburku na jiné noci
+  const a = vie({ car: null, plan: null, route: route(), step: 'route' });
+  c.__all['[data-del]'] = [];
+  c.__all['[data-cand]'] = [{ dataset: { cand: 'Q41329' } }];
+  render(c, a);
+  c.__all['[data-cand]'][0].onclick();
+  assert.deepEqual(plain([a.route.bases.map((b) => b.name), a.route.bases[2].stay, c.__toasts]), [['Vídeň', 'Linec', 'Salcburk'], null, ['Přidáno: Linec. Termín jednoho místa se změnil – hotel tam vyber znovu']]);
 });
 
 test('hotel jednoho místa při zapnuté trase: vlak jindy nebo jiný počet nocí ho zahodí – po přepnutí na Jedno místo neplatí se starým termínem', async () => {
