@@ -234,6 +234,30 @@ test('zapojení: skripty po sharelink.js a backup.js, ⋯ Další, postranní pa
   assert.match(app, /\['📲', 'Přenos do jiného zařízení QR kódem'/);
 });
 
+test('prázdné zařízení: 📲 Přenést nabídne i obnovu ze souboru zálohy (na počítači 💾 jinde není); návod v záloze vede přes ⋯ Další', () => {
+  const els = {}, html = [];
+  const el = (s) => (els[s] = els[s] || { open: false, onclick: null, onkeydown: null });
+  const old = { countsNow: B.countsNow, open: B.open };
+  let opened = 0;
+  Object.assign(ctx, { modalOpen: (x) => html.push(x), $: el });
+  B.countsNow = () => B.counts({});
+  B.open = () => opened++;
+  try {
+    T.open();
+    assert.match(html[0], /id="tfFile">📂 Obnovit ze souboru zálohy</);
+    assert.equal(els['details.tf-paste'].open, true, 'vložení odkazu zůstává');
+    els['#tfFile'].onclick();
+    assert.equal(opened, 1, 'otevře 💾 Přenos a záloha s 📂 Obnovit ze zálohy');
+  } finally {
+    Object.assign(B, old);
+    delete ctx.modalOpen; delete ctx.$;
+  }
+  // na telefonu je 💾 vždy v ⋯ Další (Moje cesty se bez uložené cesty neukážou), na počítači 📲 vlevo dole
+  const bk = read('public/js/backup.js');
+  assert.match(bk, /otevři ATLAS → ⋯ Další → 💾 Přenos a záloha → 📂 Obnovit ze zálohy \(na počítači vlevo dole 📲 Přenést do jiného zařízení/);
+  assert.doesNotMatch(bk, /'Cesty nebo ⋯ Další'/);
+});
+
 test('QR přes celou obrazovku: Escape zavře jen QR kód, ne i okno Přenést pod ním (to zavírá Escape na document)', async () => {
   const { url } = await linkOf(light());
   const ls = [], el = { removed: false, setAttribute() {}, remove() { this.removed = true; }, querySelector: () => ({ style: {} }) };

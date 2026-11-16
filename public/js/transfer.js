@@ -117,9 +117,12 @@
     if (Backup.isEmpty(c)) {
       modalOpen(`<div class="modal-body tf-modal">
         <h3>📲 Přenést do jiného zařízení</h3>
-        <p class="muted tf-lead">V tomhle zařízení zatím nic uloženého není. Data sem přeneseš z druhého: otevři tam ATLAS → <b>⋯ Další</b> (na počítači vlevo dole) → <b>📲 Přenést do jiného zařízení</b> a QR kód naskenuj fotoaparátem tohohle telefonu – nebo si odtamtud pošli odkaz.</p>
+        <p class="muted tf-lead">V tomhle zařízení zatím nic uloženého není. Data sem přeneseš z druhého: otevři tam ATLAS → <b>⋯ Další</b> (na počítači vlevo dole) → <b>📲 Přenést do jiného zařízení</b> a QR kód naskenuj fotoaparátem tohohle telefonu – nebo si odtamtud pošli odkaz. Máš soubor zálohy? Obnovíš ho tady.</p>
+        <div class="bk-actions"><button type="button" class="btn" id="tfFile">📂 Obnovit ze souboru zálohy</button></div>
         ${PASTE}</div>`);
       $('details.tf-paste').open = true;
+      // na počítači je 💾 Přenos a záloha jen v Mých cestách, které prázdné zařízení neukáže – obnova ze souboru tudy
+      $('#tfFile').onclick = () => Backup.open();
       wirePaste();
       return;
     }
