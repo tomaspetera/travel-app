@@ -416,6 +416,8 @@ html:not(.booted) #view-dashboard>.hero~*{visibility:hidden;animation:boot-show 
 .ph-pop>*{flex:none}
 .ph-pop>.ph-by{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis} /* dlouhé jméno autora zkrátit, zdroj ne */
 .ph-pop>.ph-c{margin-left:-.3em} /* „Foto: autor, licence“ (Commons) – čárka hned za jménem */
+/* malý náhled památky (Objevuj, náhled cíle – places.js): ⓘ vlevo dole, popisek se rozbalí doprava přes text karty */
+.poi-img>.ph-cr,.dp-img>.ph-cr{left:4px;right:auto;bottom:4px;flex-direction:row;max-width:min(300px,calc(100vw - 72px))}
 .ph-cr .ph-a{pointer-events:auto;cursor:pointer;text-decoration:underline;text-decoration-color:rgba(255,255,255,.45);text-underline-offset:1.5px}
 .dest[data-photo]::before{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(180deg,rgba(0,0,0,.28) 0%,rgba(0,0,0,0) 30%,rgba(0,0,0,0) 50%,rgba(0,0,0,.3) 100%)}
 .dest[data-photo]:hover{border-color:transparent}
