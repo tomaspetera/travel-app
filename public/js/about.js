@@ -21,8 +21,9 @@
     ['🗺️', 'Mapy a trasy', 'OpenFreeMap a OpenStreetMap, Mapy.com, BRouter (trasy na kole, pěšky a autem), chaty u túr z OpenStreetMap (Overpass); hledání míst GeoNames (CC BY 4.0)'],
     ['🏛️', 'Místa a program', 'Wikidata, Wikipedie a Wikivoyage'],
     ['📷', 'Fotky', 'Unsplash, Pexels a Wikimedia Commons'],
-    ['⛽', 'Palivo a kurzy', 'ČSÚ a Weekly Oil Bulletin EU; kurzy ECB a open.er-api.com'],
-    ['🛂', 'Vstup a letiště', 'MZV ČR a oficiální weby e-víz; letiště z OurAirports a OpenFlights'],
+    ['⛽', 'Palivo a kurzy', 'ČSÚ a Weekly Oil Bulletin EU (CC BY 4.0, upraveno); kurzy ECB a open.er-api.com'],
+    ['🛂', 'Vstup a letiště', 'MZV ČR a oficiální weby e-víz; letiště z OurAirports a OpenFlights (ODbL)'],
+    ['🏳️', 'Vlajky', 'písmo Twemoji (CC BY 4.0) tam, kde systém vlajky neumí (Windows)'],
   ];
 
   /** Předmět e-mailu: verze a obrazovka, ze které uživatel píše (ať je jasné, o čem je řeč). */
@@ -44,7 +45,8 @@
       <p style="font-size:14px">ATLAS najde levné letenky ze všech letišť ve tvém okolí a poskládá z nich celou cestu – ubytování, dopravu na letiště i na místě, program a shrnutí s odkazy k rezervaci. Je zdarma, bez účtu a bez registrace. Letenky ani hotely sám neprodává: rezervuješ vždy přímo u aerolinky nebo partnera.</p>
       <h4 class="ab-h">Odkud jsou data</h4>
       <ul class="ab-list">${SOURCES.map(([i, t, d]) => `<li><span aria-hidden="true">${i}</span> <b>${h(t)}</b> – ${h(d)}</li>`).join('')}</ul>
-      <p class="faint" style="font-size:12px">Předpověď <a href="https://www.met.no/en" target="_blank" rel="noopener">MET Norway</a> a seznam míst <a href="https://www.geonames.org/" target="_blank" rel="noopener">GeoNames</a> jsou pod licencí <a href="https://creativecommons.org/licenses/by/4.0/deed.cs" target="_blank" rel="noopener">CC BY 4.0</a>, v aplikaci upravené (denní souhrny, výběr míst). Kurzy: <a href="https://www.exchangerate-api.com" target="_blank" rel="noopener">Rates By Exchange Rate API</a>.</p>
+      <p class="faint" style="font-size:12px">Předpověď <a href="https://www.met.no/en" target="_blank" rel="noopener">MET Norway</a> a seznam míst <a href="https://www.geonames.org/" target="_blank" rel="noopener">GeoNames</a> jsou pod licencí <a href="https://creativecommons.org/licenses/by/4.0/deed.cs" target="_blank" rel="noopener">CC BY 4.0</a>, v aplikaci upravené (denní souhrny, výběr míst). Stejně ceny paliva z <a href="https://data.csu.gov.cz/datastat/info/SADA/CENPHMT" target="_blank" rel="noopener">ČSÚ</a> a <a href="https://energy.ec.europa.eu/data-and-analysis/weekly-oil-bulletin_en" target="_blank" rel="noopener">Weekly Oil Bulletin</a> (© Evropská unie; upraveno – přepočet na Kč/l) a vlajky <a href="https://twitter.github.io/twemoji" target="_blank" rel="noopener">Twemoji</a>. Letiště obsahují data © <a href="https://openflights.org/data" target="_blank" rel="noopener">OpenFlights</a> pod licencí <a href="https://opendatacommons.org/licenses/odbl/1-0/" target="_blank" rel="noopener">ODbL</a>. Fotky měst dodávají <a href="https://www.pexels.com" target="_blank" rel="noopener">Pexels</a>, Unsplash a Wikimedia Commons – autor je u každé fotky pod ⓘ. Kurzy: <a href="https://www.exchangerate-api.com" target="_blank" rel="noopener">Rates By Exchange Rate API</a>.</p>
+      <p style="font-size:14px">ATLAS není spojen s žádnou leteckou společností ani prodejcem; ceny a odkazy jsou z veřejných a partnerských zdrojů.</p>
       <h4 class="ab-h">Co se ukládá a kam</h4>
       <ul class="ab-list">
         <li><b>Jen v tomhle prohlížeči na tomhle zařízení</b> (localStorage): cesty, hlídané ceny, odložené nabídky, domov, navštívené země, oblíbená a skrytá místa, poslední i rozepsané hledání a nastavení. Na jiné zařízení je přeneseš odkazem s QR kódem (📲 Přenést do jiného zařízení) nebo zálohou.</li>

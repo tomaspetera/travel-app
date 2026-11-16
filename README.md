@@ -790,12 +790,14 @@ a pozdní návrat končí doma po půlnoci. ATLAS proto sečte čas letu s odhad
 Ceny nafty a benzínu bere ATLAS z otevřených dat (`server/lib/fuel.js`, `GET /api/fuel`):
 
 - **Česko:** ČSÚ – *Průměrné spotřebitelské ceny pohonných hmot – týdenní* (DataStat API, sada
-  [CENPHMT](https://data.csu.gov.cz/datastat/info/SADA/CENPHMT), otevřená data CC0): nafta a Natural 95 v Kč/l za poslední
+  [CENPHMT](https://data.csu.gov.cz/datastat/info/SADA/CENPHMT), otevřená data
+  [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/), upraveno – výběr paliv a týdne): nafta a Natural 95 v Kč/l za poslední
   úplný týden, nový týden vychází v pátek ráno. Např. 40. týden 2026 (28. 9.–4. 10.): nafta 50,65 Kč/l, Natural 95
   45,87 Kč/l.
 - **Ostatní země EU** (sousedé i cíle cest autem – Chorvatsko, Itálie, Francie, Španělsko…) a záloha pro Česko: Evropská komise –
   [Weekly Oil Bulletin](https://energy.ec.europa.eu/data-and-analysis/weekly-oil-bulletin_en), ceny s daněmi (EUR za 1000 l
-  k pondělí), na Kč aktuálním kurzem. Platí cena v zemi, odkud jedeš (z Bratislavy slovenská nafta, z Vídně rakouská,
+  k pondělí; © Evropská unie, [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/), upraveno – výběr zemí, přepočet na
+  Kč/l), na Kč aktuálním kurzem. Platí cena v zemi, odkud jedeš (z Bratislavy slovenská nafta, z Vídně rakouská,
   přejezd po Chorvatsku chorvatská; země mimo EU → česká cena). Českou cenu z bulletinu ATLAS vezme, jen když ČSÚ neodpoví nebo je o víc než týden starší.
 - **Obnovení:** každý zdroj nejvýš jednou za 24 hodin (po chybě znovu za 2 h, timeout 8 s). Hledání na síť nikdy
   nečeká – počítá s posledními staženými cenami a nové stáhne na pozadí. Když zdroje nejsou k dispozici, platí
@@ -2025,7 +2027,9 @@ přes víc míst jedou úseky v ty dny autem a ostatní vlakem / busem. Srovnáv
 ## Data a licence
 
 - Letiště: [OurAirports](https://ourairports.com/data/) (public domain) + názvy měst a časová pásma z
-  [OpenFlights](https://openflights.org/data) (ODbL). Aktualizace: `npm run build:airports`.
+  [OpenFlights](https://openflights.org/data) (© OpenFlights,
+  [ODbL](https://opendatacommons.org/licenses/odbl/1-0/) – pro `data/airports.json` jako odvozenou databázi platí stejná
+  licence). Aktualizace: `npm run build:airports`.
 - Počty cestujících na letištích (výběr letišť z okolí – odkud se opravdu létá, ne podle typu z OurAirports):
   [Wikidata](https://www.wikidata.org/) vlastnost P3872 (CC0), `data/airport-pax.json`. Aktualizace:
   `node scripts/build-airport-pax.mjs`.
@@ -2039,7 +2043,8 @@ přes víc míst jedou úseky v ty dny autem a ostatní vlakem / busem. Srovnáv
   (© přispěvatelé OpenStreetMap, ODbL), zjednodušené na ~2 km, `data/regions.json`. Aktualizace:
   `NODE_USE_ENV_PROXY=1 node scripts/build-regions.mjs` (proxy jen tam, kde je potřeba; jen vybrané oblasti:
   `node scripts/build-regions.mjs istrie`).
-- Ceny paliva: ČSÚ (DataStat, sada CENPHMT, CC0) a Evropská komise – Weekly Oil Bulletin; ceny nabíjení elektroaut:
+- Ceny paliva: ČSÚ (DataStat, sada CENPHMT, [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)) a Evropská komise –
+  Weekly Oil Bulletin (© Evropská unie, CC BY 4.0), obojí upraveno (výběr paliv a zemí, přepočet na Kč/l); ceny nabíjení elektroaut:
   ceníky provozovatelů (ČEZ, PRE, E.ON, IONITY; Shell, MOL a Tesla ze sekundárních zdrojů) k 6. 10. 2026.
 - Cesta z letiště do města: ceníky letišť, dopravců a dopravních svazů (zdroj u každého letiště v `data/arrival.json`
   a v tabulce [Z letiště do města](#z-letiště-do-města), ověřeno 7. 10. 2026), kurzy ČNB.
