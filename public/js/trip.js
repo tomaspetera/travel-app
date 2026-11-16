@@ -4072,7 +4072,10 @@
   /** JSON cesty do sdíleného odkazu (#trip=…, zkomprimovaný – sharelink.js): bez odškrtnutých rezervací a času založení. */
   function shareJson(t) {
     // shared = příznak cesty otevřené z cizího odkazu (jen u příjemce) – do plánovače ani dalšího odkazu nepatří
-    const slim = { ...t, booked: {}, created: undefined, shared: undefined, sharedOn: undefined, statsWait: undefined, statsPreview: undefined, statsPart: t.statsPart ? true : undefined };
+    // refs / rides / kod = 🔖 kódy rezervací a kód jízdenky z plánovače: průvodce je čte jen přes entryOf (savedRides),
+    // ale cesta otevřená z Mých cest (sanitizeTrip nechá i neznámá pole) by je nesla – do odkazu ani wizard nepatří
+    const slim = { ...t, booked: {}, created: undefined, shared: undefined, sharedOn: undefined, statsWait: undefined, statsPreview: undefined, statsPart: t.statsPart ? true : undefined,
+      refs: undefined, rides: undefined, kod: undefined };
     // „Co zařídit a co sbalit“: aktivity, vlastní položky i odškrtnutí (ta jsou jinak jen v localStorage tohoto prohlížeče)
     if (window.PreTrip) slim.pretrip = PreTrip.shareState(t);
     if (t.route) {
