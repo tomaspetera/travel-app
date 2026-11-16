@@ -173,7 +173,7 @@ Tyto služby dostanou tvou **IP adresu** a identifikaci prohlížeče, jako u ka
 | Služba | Proč | Kdy |
 |---|---|---|
 | **Google Fonts** (Google Ireland Ltd. / Google LLC) | písmo aplikace (Inter, Sora; Caveat u karty na sítě) | při každém otevření – **odstraňuje se, písmo bude z vlastního serveru** |
-| **OpenFreeMap**, záložně **OpenStreetMap** (tile.openstreetmap.org) | podklad map | když otevřeš mapu |
+| **OpenFreeMap** | podklad map | když otevřeš mapu |
 | **Wikimedia Commons**, **Unsplash**, **Pexels** | fotky měst a míst | na kartách cílů a v programu |
 | weby hotelů a jejich obrázkové servery (přes LiteAPI, TripAdvisor) | fotky ubytování | v nabídce ubytování |
 | **open.er-api.com** (ExchangeRate-API) | směnné kurzy | v okně země, nejvýš jednou denně |
@@ -182,7 +182,7 @@ Mapy.com (turistická mapa, návrhy míst, trasy) a předpověď počasí jdou *
 adresu nevidí.
 
 > Kde v kódu: `public/index.html` (odkazy na `fonts.googleapis.com`), `public/js/sharecard.js` (písmo Caveat),
-> `public/js/places.js` (`tiles.openfreemap.org`, `tile.openstreetmap.org`), `public/js/app.js` (`open.er-api.com`,
+> `public/js/places.js` (`tiles.openfreemap.org`), `public/js/app.js` (`open.er-api.com`,
 > zdroje fotek), `server/lib/photos.js` (Wikimedia, Pexels, Unsplash – fotky se vkládají přímo z jejich serverů),
 > `server/lib/security.js` (CSP: `connect-src`, `font-src`, `img-src https:`).
 
@@ -306,8 +306,8 @@ Zásady můžeme upravit, když se změní aplikace nebo předpisy. Aktuální z
 8. **Rozpor s plánem čistého režimu a s CLAUDE.md:** písmo se stále načítá z **Google Fonts** (`public/index.html`,
    `public/js/sharecard.js`) – podle pravidel projektu má být z vlastního serveru (rozsudek LG München 20. 1. 2022,
    3 O 17493/20). Do spuštění odstranit, jinak zásady musí předání IP adresy Googlu popsat jako skutečnost, ne plán.
-   Kurzy z **open.er-api.com** a dlaždice **tile.openstreetmap.org** jdou přímo z prohlížeče (IP uživatele u třetích
-   stran) – zvážit, zda je neposílat přes server jako počasí a Mapy.com.
+   Kurzy z **open.er-api.com** jdou přímo z prohlížeče (IP uživatele u třetí strany) – zvážit, zda je neposílat přes
+   server jako počasí a Mapy.com. (Záložní dlaždice tile.openstreetmap.org už aplikace nebere.)
 9. **Údaje v adrese (`?…`) v logu hostingu.** Některé dotazy jsou GET s parametry (např. našeptávač míst `?q=…`,
    souřadnice u počasí a míst, pozvánka `/j/<data>` s cílem a místem odletu v cestě adresy). Ty se mohou objevit
    v logu Renderu a Cloudflare spolu s IP adresou. Stačí to uvést v zásadách?

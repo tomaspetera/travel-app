@@ -4,7 +4,15 @@ import { test, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { stubFetch, ymdPlus } from './helpers.js';
 import { RJ_PRAHA_VIDEN } from './fixtures/regiojet.js';
+import { readFileSync } from 'node:fs';
 import * as G from '../server/lib/ground.js';
+
+test('scripts/build-ground.mjs: z FlixBusu nic nestahuje (CLAUDE.md: FlixBus jen odkazy) – UUID zůstávají pevně z dat', () => {
+  const js = readFileSync(new URL('../scripts/build-ground.mjs', import.meta.url), 'utf8');
+  assert.ok(!/flixbus\.com/i.test(js), 'žádná adresa FlixBusu ve skriptu');
+  const g = JSON.parse(readFileSync(new URL('../data/ground.json', import.meta.url), 'utf8'));
+  assert.ok(g.cities.filter((c) => c[g.cols.indexOf('fb')]).length > 100, 'odkazy na FlixBus v datech zůstaly');
+});
 
 const P = (label, cc, lat, lon, rj = null, extra = {}) => ({ label, cc, lat, lon, rj, fb: null, loc: label, ...extra });
 const PRAHA = P('Praha', 'CZ', 50.0833, 14.4353, G.PRAHA_RJ, { fb: '40de1ad1-8646-11e6-9066-549f350fcb0c' });

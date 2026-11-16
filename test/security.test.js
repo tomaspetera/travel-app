@@ -97,6 +97,8 @@ test('hlavičky: nosniff, rám, Referrer-Policy, HSTS a Permissions-Policy všud
   assert.deepEqual(dir['base-uri'], ["'self'"]);
   assert.ok(dir['worker-src'].includes('blob:'), 'MapLibre worker z blob:');
   for (const host of ['https://tiles.openfreemap.org', 'https://open.er-api.com']) assert.ok(dir['connect-src'].includes(host), host);
+  // dlaždice tile.openstreetmap.org aplikace nebere (pravidla OSM: ne jako základní zdroj aplikace)
+  assert.ok(!dir['connect-src'].some((h) => h.includes('openstreetmap')), dir['connect-src'].join(' '));
   // počasí a hledání míst jdou přes server (MET Norway, server/lib/weather.js) – prohlížeč na Open-Meteo nesahá
   assert.ok(!dir['connect-src'].some((h) => h.includes('open-meteo')), dir['connect-src'].join(' '));
   // písma z vlastního serveru (vendor/fonts) – IP uživatele se nedostane ke Google Fonts (CLAUDE.md: písma lokálně)
