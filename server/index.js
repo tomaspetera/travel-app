@@ -738,10 +738,12 @@ async function route(req, res) {
     if (!t.length) return sendJson(req, res, 400, { error: 'Zadej názvy měst (t=Řím|Tirana).' });
     // Názvy, ke kterým server fotky ještě nemá, stojí dotazy na Wikipedii a s klíčem i na Pexels / Unsplash (strop pro celý
     // server) – jen do limitu z adresy; odpověď celá z mezipaměti zdarma. Aplikace 429 snese (karty bez fotky, příště znovu).
-    if (!photosCached(t) && rateLimited(req, config.photosPer10Min, photoHits)) return sendJson(req, res, 429, { error: 'Příliš mnoho fotek najednou – zkus to za pár minut.' });
+    if (!config.mock && !photosCached(t) && rateLimited(req, config.photosPer10Min, photoHits)) return sendJson(req, res, 429, { error: 'Příliš mnoho fotek najednou – zkus to za pár minut.' });
     const r = await cityPhotos(t);
-    // fotky z Wikimedie jen na 6 h – po přidání klíče (Unsplash, Pexels) se brzy vymění za hezčí
-    return sendJson(req, res, 200, r, { 'Cache-Control': `public, max-age=${r.partial ? 3600 : r.prov === 'wiki' ? 21600 : 86400}` });
+    // fotky z Wikimedie jen na 6 h – po přidání klíče (Unsplash, Pexels) se brzy vymění za hezčí; po výpadku zdroje
+    // (failed) jen 5 min, ať prohlížeč „žádné fotky“ nedrží hodiny; DEMO (bez fotek) se neukládá vůbec
+    const cc = r.demo ? 'no-store' : `public, max-age=${r.failed ? 300 : r.partial ? 3600 : r.prov === 'wiki' ? 21600 : 86400}`;
+    return sendJson(req, res, 200, r, { 'Cache-Control': cc });
   }
   if (p === '/api/climate') {
     // Dlouhodobé podnebí (meteostanice u letiště, jinak NASA POWER) u letiště, místa nebo hlavního letiště země – data se nemění.
