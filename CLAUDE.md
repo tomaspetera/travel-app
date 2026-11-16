@@ -17,3 +17,13 @@ po sloučení do `main`). Hlavní uživatel ji používá na telefonu (~412 px, 
 - Na produkci nevolat `/api/search` (drahé hledání u aerolinek); ke kontrole stačí `/api/health` a `/api/places`.
 - Žádná upozornění na telefon, žádné „keep-alive“ dotazy, nic, co vyžaduje údržbu navíc.
 - Malé, ověřené změny. Velké přestavby nebo nové funkce jen navrhni v popisu PR.
+
+## Bezpečnost a právo
+- API klíče (lety, platby, AI) jen na serveru – nikdy ve front-endu (`public/`) ani v gitu. Hledání letů musí mít limit
+  z jedné adresy a mezipaměť (`rateLimited()` a `searchKeys()` v `server/index.js`).
+- Cena letenky je od prvního zobrazení konečná včetně všech nevyhnutelných poplatků a daní (nařízení EU 1008/2008,
+  čl. 23); volitelné příplatky (zavazadla) zvlášť a srozumitelně.
+- Údaje cestujících ukládat jen nutné, šifrovaně a s dobou smazání.
+- ČR: písma z vlastního serveru (ne Google Fonts), analytika až po souhlasu, platební tlačítko „Objednávka zavazující
+  k platbě“, e-maily s odkazem na odhlášení.
+- Design bez typického „AI“ vzhledu (generické přechody, ikony a fráze); vzor je identita Letsi 2.1.
