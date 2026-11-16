@@ -46,6 +46,31 @@ test('GET /api/health', async () => {
   assert.ok(j.providers.length >= 1);
 });
 
+test('DEMO bez sítě: /api/health a /api/photos nevolají nic ven, fotky se neukládají', async () => {
+  const out = stubFetch((url) => { throw new Error(`DEMO nemá volat ${url}`); });
+  try {
+    // stubFetch nahradí i fetch testu – dotazy na vlastní server pustí přes http
+    const get = (path) => new Promise((resolve, reject) => {
+      http.get({ host: '127.0.0.1', port: server.address().port, path }, (res) => {
+        let body = '';
+        res.on('data', (c) => { body += c; });
+        res.on('end', () => resolve({ status: res.statusCode, cc: res.headers['cache-control'], j: JSON.parse(body) }));
+      }).on('error', reject);
+    });
+    const h = await get('/api/health');
+    assert.equal(h.j.fx.source, 'approx');
+    for (let i = 0; i < 3; i++) {
+      const p = await get('/api/photos?v=4&t=' + encodeURIComponent('Řím|Tirana'));
+      assert.equal(p.status, 200);
+      assert.deepEqual(p.j.photos, {});
+      assert.equal(p.cc, 'no-store');
+    }
+    assert.deepEqual(out.calls.map((c) => c.url), []);
+  } finally {
+    out.restore();
+  }
+});
+
 test('GET /healthz a /api/diag (ostrý test zdrojů)', async () => {
   const h = await fetch(`${base}/healthz`);
   assert.equal(h.status, 200);

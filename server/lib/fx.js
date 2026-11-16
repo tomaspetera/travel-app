@@ -4,6 +4,7 @@
 // Záloha: pevné orientační kurzy (označené jako approx).
 import { cache } from './cache.js';
 import { request } from './http.js';
+import { config } from '../config.js';
 
 // Orientační kurzy za 1 EUR (záloha při výpadku obou zdrojů), aktualizováno 19. 10. 2026 podle ECB a open.er-api.
 export const FALLBACK_EUR = {
@@ -37,7 +38,8 @@ const FAIL_MS = 15 * 60e3;
 let failedUntil = 0;
 
 export async function loadRates() {
-  if (Date.now() < failedUntil) return rates;
+  // DEMO (npm run demo) je bez sítě: orientační kurzy, žádný dotaz ven (při startu, /api/health ani hledání)
+  if (config.mock || Date.now() < failedUntil) return rates;
   try {
     rates = await cache.wrap('fx:rates', 6 * 3600e3, async () => {
       try {

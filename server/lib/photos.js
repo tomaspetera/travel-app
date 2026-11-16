@@ -314,16 +314,19 @@ export const photosCached = (titles, prov = defaultProv()) => wanted(titles).eve
 /**
  * { photos: { název: adresa fotky | '' (fotka není) }, by: { název: autor fotky }, bu: { název: profil autora
  * (Pexels, Unsplash) nebo stránka souboru (Commons) }, lic / lu: { název: licence / její odkaz } (Commons), partial,
- * prov }. Výpadek Wikimedie (chyba, 429): nic se neuloží a nenalezené názvy v odpovědi
- * chybí – příště znovu. Náhradní výběr (partial, u Unsplash po limitu dotazů retry) se uloží jen na hodinu – partial
+ * prov }. Výpadek Wikimedie (chyba, 429): nic se neuloží, nenalezené názvy v odpovědi chybí a odpověď má partial
+ * i failed – prohlížeč ji drží jen chvíli a zeptá se znovu (ne 6 h „žádné fotky“). DEMO: bez fotek a bez dotazu
+ * ven (demo: true). Náhradní výběr (partial, u Unsplash po limitu dotazů retry) se uloží jen na hodinu – partial
  * pak má i odpověď, ať se prohlížeč brzy zeptá znovu. prov: 'pexels' / 'unsplash' s klíčem, jinak
  * 'wiki' (prohlížeč wiki fotky drží kratší dobu, aby po přidání klíče brzy přešel na hezčí fotky).
  */
-export async function cityPhotos(titles, { pick = pickPhotos, prov = defaultProv() } = {}) {
+export async function cityPhotos(titles, { pick = pickPhotos, prov = defaultProv(), mock = config.mock } = {}) {
+  // DEMO (npm run demo) je bez sítě – karty bez fotek
+  if (mock) return { photos: {}, by: {}, bu: {}, lic: {}, lu: {}, partial: false, prov, demo: true };
   const want = wanted(titles);
   const photos = {}, by = {}, bu = {}, lic = {}, lu = {}, miss = [];
   const credit = { by, bu, lic, lu };
-  let partial = false;
+  let partial = false, failed = false;
   for (const t of want) {
     const c = cache.get(`ph7:${prov}:${t}`);
     // náhradní výběr z paměti (s: do hodiny) je pořád jen na chvíli – partial, ať ho prohlížeč nedrží 30 dní
@@ -345,7 +348,10 @@ export async function cityPhotos(titles, { pick = pickPhotos, prov = defaultProv
         const short = Boolean(got.partial || soon.has(t));
         cache.set(`ph7:${prov}:${t}`, short ? { ...keep, s: 1 } : keep, short ? 36e5 : TTL);
       }
-    } catch { /* výpadek – příště znovu */ }
+    } catch {
+      // výpadek – příště znovu: nic se neuloží a odpověď se v prohlížeči drží jen chvíli
+      partial = failed = true;
+    }
   }
-  return { photos, by, bu, lic, lu, partial, prov };
+  return { photos, by, bu, lic, lu, partial, prov, ...(failed && { failed }) };
 }

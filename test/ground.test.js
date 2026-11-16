@@ -528,6 +528,28 @@ test('attachGround: odhad ke skupinám v dosahu, od dveří ke dveřím s nejkra
   assert.equal(stub.calls.length, 0, 'žádný dotaz na RegioJet');
 });
 
+test('attachGround: u víc cílů srovnání s cílem, do kterého lety jsou (ne první zadaný bez letů)', () => {
+  const trip = (to, czk) => ({ out: { from: 'PRG', to, durationMin: 60 }, back: { from: to, to: 'PRG', durationMin: 60 }, perPersonCzk: czk, destKey: to });
+  const home = { lat: 50.0755, lon: 14.4378, label: 'Praha' };
+  const origins = [{ iata: 'PRG', ground: { minutes: 40 } }];
+  const ber = { dest: { key: 'BER', id: 'ap:BER', label: 'Berlín', cc: 'DE', lat: 52.3667, lon: 13.5033 }, best: trip('BER', 2100), options: [] };
+  const dests = [
+    { id: 'ap:DRS', type: 'airport', label: 'Drážďany', cc: 'DE', lat: 51.1328, lon: 13.7672 },
+    { id: 'ap:BER', type: 'airport', label: 'Berlín', cc: 'DE', lat: 52.3667, lon: 13.5033 },
+  ];
+  const r = G.attachGround({ home, origins, groups: [ber], flat: [ber.best], dests });
+  assert.ok(ber.ground, 'Berlín v dosahu vlaku/busu');
+  assert.deepEqual([r.dest, r.destKey, r.flightCzk, r.trips], ['Berlín', 'BER', 2100, 2]);
+  // bez letů kamkoli: srovnání pro první cíl jako dřív
+  const none = G.attachGround({ home, origins, groups: [], dests });
+  assert.deepEqual([none.dest, none.destKey, none.flightCzk], ['Drážďany', null, null]);
+  // lety do zadaného cíle jsou, jen bez odhadu po zemi: žádná karta „Letadlo – nic nenalezeno“ u druhého cíle
+  const lis = { id: 'ap:LIS', type: 'airport', label: 'Lisabon', cc: 'PT', lat: 38.7742, lon: -9.1342 };
+  const flis = { dest: { key: 'LIS', id: 'ap:LIS', label: 'Lisabon', cc: 'PT', lat: lis.lat, lon: lis.lon }, best: trip('LIS', 3000), options: [] };
+  assert.equal(G.attachGround({ home, origins, groups: [flis], flat: [flis.best], dests: [dests[0], lis] }), null);
+  assert.equal(flis.ground, undefined, 'Lisabon mimo dosah');
+});
+
 /* ---------- dotaz /api/ground ---------- */
 test('groundQuery: místa z ID aplikace i z polohy, kontrola data a počtu cestujících', () => {
   const q = G.groundQuery(new URLSearchParams(`from=ap:PRG&to=metro:PAR&date=${ymdPlus(5)}&adults=2&flightCzk=3500&trips=2`));
