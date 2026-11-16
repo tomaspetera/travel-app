@@ -67,7 +67,7 @@ test('okno (#modal): dialog s aria-modal, jméno z prvního nadpisu, stránka po
 
 test('okno dostane fokus i na telefonu (dřív jen počítač s myší) a po zavření ho vrátí – na telefonu ne do textového pole (klávesnice)', () => {
   assert.doesNotMatch(appJs, /modalKb\.mq/);
-  assert.match(appJs, /const modalKb = \{ ret: null, sel: '', touch: window\.matchMedia \? matchMedia\('\(pointer:coarse\)'\) : null \};/);
+  assert.match(appJs, /const modalKb = \{ ret: null, sel: '', fresh: false, touch: window\.matchMedia \? matchMedia\('\(pointer:coarse\)'\) : null \};/);
   assert.match(appJs, /if \(on\) \{ if \(!m\.contains\(a\)\) \{ m\.tabIndex = -1; m\.focus\(\{ preventScroll: true \}\); \} return; \}/);
   assert.match(appJs, /if \(r && modalKb\.touch && modalKb\.touch\.matches && \/\^\(INPUT\|TEXTAREA\|SELECT\)\$\/\.test\(r\.tagName\)\) return;/);
   assert.match(atlasCss, /#modal:focus\{outline:none\}/, 'bez rámečku kolem celého okna (i na telefonu)');
@@ -384,4 +384,95 @@ test('omezit pohyb: plynulé rolování z kódu (behavior smooth, ~50 míst) sko
     const b = reduce ? 'auto' : 'smooth';
     assert.deepEqual(JSON.parse(JSON.stringify(calls)), [['el', 'x', { behavior: b, block: 'start' }], ['el', 'x', true], ['w', { top: 0, left: 0, behavior: b }, null], ['w', 0, 50]]);
   }
+});
+
+test('našeptávače: posouvatelný seznam návrhů není zastávkou Tabu (Chrome) – Tab z pole jde na další prvek, ne na body', () => {
+  assert.match(flightsJs, /<div class="pi-dd" id="\$\{id\}" role="listbox" aria-label="[^"]*" tabindex="-1" hidden><\/div>/);
+  assert.match(placesJs, /<div class="pi-dd" id="exDd" tabindex="-1" hidden><\/div>/);
+  assert.match(tripJs, /<div class="pi-dd" id="rtDd" tabindex="-1" hidden><\/div>/);
+});
+
+test('okno z okna (⋯ Další → ✨ Co je nového, 💾 Záloha…): zavření a otevření v jednom tasku – nové okno fokus dostane', () => {
+  assert.match(pick('modalOpen'), /if \(!was\) modalKb\.fresh = true;\n\s*\$\('#modal'\)\.innerHTML = html;/);
+  const cb = appJs.match(/new MutationObserver\((\(\) => \{[\s\S]*?\n\})\)\.observe\(\$\('#modalBg'\)/)[1];
+  const focused = [];
+  const m = { tabIndex: 0, contains: () => false, focus: () => focused.push('modal') };
+  const bg = { classList: { contains: () => true }, contains: () => false };
+  const ctx = vm.createContext({ $: (s) => (s === '#modal' ? m : bg), $$: () => [], document: { activeElement: { tagName: 'BODY' } }, modalKb: { on: true, fresh: false } });
+  vm.runInContext(`this.cb = ${cb};`, ctx);
+  ctx.cb(); // okno pořád otevřené (překreslení) – fokus zůstává
+  assert.deepEqual(focused, []);
+  ctx.modalKb.fresh = true; ctx.cb(); // Další zavřené a hned otevřené nové okno – observer vidí jen „otevřené“
+  assert.deepEqual([focused, m.tabIndex, ctx.modalKb.fresh], [['modal'], -1, false]);
+});
+
+test('úvodní Odkud/Kam bez rámečku: obrys při fokusu z klávesnice (ve světlém motivu modrý)', () => {
+  assert.match(flightsCss, /\.pi-dark:has\(\.pi-input:focus-visible\)\{outline:2px solid rgba\(255,255,255,\.9\);outline-offset:3px\}/);
+  assert.match(flightsCss, /\[data-theme="light"\] \.hero-search2 \.pi-dark:has\(\.pi-input:focus-visible\)\{outline-color:var\(--accent-ink\)\}/);
+});
+
+test('index.html: hlavní obsah v <main>, dekorativní SVG skryté před čtečkou (mapa světa ne – ovládá se)', () => {
+  assert.equal((html.match(/<main class=/g) || []).length, 1);
+  assert.match(html, /<main class="content">[\s\S]*<\/main>\n {2}<\/div>\n<\/div>/);
+  // l-ico a l-jet jsou uvnitř #launch s aria-hidden, ikony polí v <span aria-hidden="true">
+  const bare = [...html.matchAll(/(aria-hidden="true">)?(<svg\b[^>]*>)/g)].filter((x) => !x[1]).map((x) => x[2])
+    .filter((t) => !/aria-hidden="true"|id="worldmap"|class="l-(ico|jet)"/.test(t));
+  assert.deepEqual(bare, []);
+});
+
+test('přepínač motivu v panelu: stálý název „🌗 Tmavý režim“ (jako akce v ⋯ Další) a stav v aria-pressed', () => {
+  assert.match(html, /<div class="theme-toggle" id="themeToggle" role="button" tabindex="0" aria-pressed="false">\n\s*<span>🌗 Tmavý režim<\/span>/);
+  assert.match(pick('applyTheme'), /\$\('#themeToggle'\)\.setAttribute\('aria-pressed', String\(t === 'dark'\)\)/);
+  assert.doesNotMatch(appJs, /themeLabel/);
+  assert.match(appJs, /id="moreTheme">🌗 \$\{themeNow\(\) === 'dark' \? 'Světlý' : 'Tmavý'\} režim/);
+});
+
+test('našeptávač Odkud/Kam: šipka po Esc nabídku znovu otevře (prázdné pole → tipy), jinak beze změny', () => {
+  const src = flightsJs.match(/\n {4}key\(e\) \{[\s\S]*?\n {4}\}\n/)[0];
+  const ctx = vm.createContext({});
+  vm.runInContext(`this.K = {${src}};`, ctx);
+  const mk = (value, rows) => {
+    const calls = [];
+    const o = { input: { value }, dd: { hidden: true }, active: 0, rows: () => rows, open() { calls.push('open'); this.dd.hidden = false; }, fetch: () => calls.push('fetch'), showTips() { calls.push('tips'); }, close() { this.dd.hidden = true; } };
+    return { o, calls };
+  };
+  const key = (o, k) => { let pd = false; ctx.K.key.call(o, { key: k, preventDefault: () => { pd = true; } }); return pd; };
+  let t = mk('Pra', [{ sug: {} }, { sug: {} }]);
+  t.o.dd.hidden = false;
+  assert.equal(key(t.o, 'Escape'), false); assert.equal(t.o.dd.hidden, true);
+  assert.equal(key(t.o, 'ArrowDown'), true);
+  assert.deepEqual([t.calls, t.o.dd.hidden, t.o.active], [['open'], false, 0], 'otevře se stejným výběrem');
+  key(t.o, 'ArrowDown'); assert.equal(t.o.active, 1, 'otevřená: šipka posouvá výběr');
+  t = mk('Pra', []); key(t.o, 'ArrowDown'); assert.deepEqual(t.calls, ['fetch'], 'bez návrhů je načte');
+  t = mk('', []); key(t.o, 'ArrowDown'); assert.deepEqual(t.calls, ['tips']);
+  t = mk('P', []); assert.equal(key(t.o, 'ArrowDown'), false); assert.deepEqual(t.calls, [], 'jedno písmeno: nic');
+});
+
+test('našeptávač offline: hláška, že je zařízení offline (pwa.js netError e.offline), ne „neodpovídá“', () => {
+  assert.match(flightsJs, /this\.open\(e\.offline \? 'offline' : true\)/);
+  assert.match(flightsJs, /\$\{err === 'offline' \? 'Jsi offline – návrhy míst se načtou po připojení k internetu' : err \? 'Našeptávač teď neodpovídá/);
+  assert.match(flightsJs, /down = e\.busy \? 'busy' : e\.offline \? 'offline' : true;/);
+  assert.match(placesJs, /err = !sugs\.length && \(e\.offline \? 'offline' : true\);/);
+  assert.match(placesJs, /\{ down: true, offline \}\)/);
+  assert.match(placesJs, /down === 'offline' \? 'Jsi offline – místo půjde dohledat po připojení k internetu'/);
+});
+
+test('hledání země: štítky jen od začátku slova – „Itál“ nenajde Estonsko („digitál“)', () => {
+  const ctx = vm.createContext({});
+  vm.runInContext(`${pick('norm')}\n${pick('tagHit')}\nthis.tagHit = tagHit; this.norm = norm;`, ctx);
+  const hit = (tag, q) => ctx.tagHit(tag, ctx.norm(q));
+  assert.equal(hit('digitální nomádi', 'Itál'), false);
+  assert.equal(hit('pláže', 'plaz'), true);
+  assert.equal(hit('hory a pláže', 'pláž'), true);
+  assert.equal(hit('street-food', 'food'), true);
+  assert.equal(hit('pláže', '!'), false, 'jen interpunkce nenajde všechno');
+  assert.match(appJs, /\(c\.tags \|\| \[\]\)\.some\(t => tagHit\(t, q\)\)/);
+});
+
+test('ikony v ⋯ Další: ➕ Přidat ATLAS na plochu, 📲 Přenést do jiného zařízení – každá jiná', () => {
+  const pwa = read('js/pwa.js'), tr = read('js/transfer.js');
+  assert.match(pwa, /const LABEL = '➕ Přidat ATLAS na plochu';/);
+  assert.match(pwa, /<h2 class="pwa-h">➕ ATLAS na plochu<\/h2>/);
+  assert.doesNotMatch(pwa.replace(/\/\*[\s\S]*?\*\//g, ''), /📲/);
+  assert.match(tr, /id="moreXfer">📲 Přenést do jiného zařízení/);
 });

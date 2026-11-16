@@ -363,7 +363,7 @@
       el.classList.add('pi'); if (dark) el.classList.add('pi-dark');
       // našeptávač jako combobox: čtečka obrazovky ohlásí, že se nabídka otevřela, a šipkami vybraný návrh (aria-activedescendant)
       const id = 'pi' + (++piSeq), name = label || (origin ? 'Odkud' : 'Kam');
-      el.innerHTML = `<div class="pi-chips"></div><input class="pi-input" placeholder="${esc(placeholder || '')}" aria-label="${esc(name)}" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="${id}"${hint ? ` aria-description="${esc(hint)}"` : ''} autocomplete="off" spellcheck="false"><div class="pi-dd" id="${id}" role="listbox" aria-label="${esc(`Návrhy – ${name}`)}" hidden></div>`;
+      el.innerHTML = `<div class="pi-chips"></div><input class="pi-input" placeholder="${esc(placeholder || '')}" aria-label="${esc(name)}" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="${id}"${hint ? ` aria-description="${esc(hint)}"` : ''} autocomplete="off" spellcheck="false"><div class="pi-dd" id="${id}" role="listbox" aria-label="${esc(`Návrhy – ${name}`)}" tabindex="-1" hidden></div>`;
       this.chipsEl = $('.pi-chips', el); this.input = $('.pi-input', el); this.dd = $('.pi-dd', el); this.id = id;
       this.active = -1; this.sugs = []; this.ctl = null; this.ph = placeholder;
       const load = debounce(() => this.fetch(), 160);
@@ -438,7 +438,7 @@
         const r = await this.lookup(q, signal);
         done = true;
         show(r);
-      } catch (e) { if (e.name !== 'AbortError') { this.hit = null; this.sugs = []; this.open(true); } }
+      } catch (e) { if (e.name !== 'AbortError') { this.hit = null; this.sugs = []; this.open(e.offline ? 'offline' : true); } } // offline: pwa.js netError
     }
     open(err) {
       const typeLbl = { airport: 'letiště', metro: 'město', city: 'město', country: 'země', region: 'oblast', place: 'místo', continent: 'světadíl' };
@@ -465,7 +465,7 @@
       };
       this.dd.innerHTML = (this.tips.length ? '<div class="pi-head">✨ Pro tebe – nebo napiš celou větu, třeba „k moři v květnu do 5000“</div>' : '')
         + (rows[0] && rows[0].sug && rows[0].sug.fuzzy ? '<div class="pi-head">🔤 Překlep? Asi myslíš:</div>' : '')
-        + (rows.length ? rows.map(row).join('') : `<div class="pi-empty">${err ? 'Našeptávač teď neodpovídá – zkus to za chvíli znovu' : `Nic nenalezeno – zkus jiný název nebo kód letiště${this.smart ? ', nebo napiš větu, třeba „k moři v květnu“' : ''}`}</div>`);
+        + (rows.length ? rows.map(row).join('') : `<div class="pi-empty">${err === 'offline' ? 'Jsi offline – návrhy míst se načtou po připojení k internetu' : err ? 'Našeptávač teď neodpovídá – zkus to za chvíli znovu' : `Nic nenalezeno – zkus jiný název nebo kód letiště${this.smart ? ', nebo napiš větu, třeba „k moři v květnu“' : ''}`}</div>`);
       this.dd.hidden = false;
       this.input.setAttribute('aria-expanded', 'true');
       if (this.active >= 0 && this.active < rows.length) this.input.setAttribute('aria-activedescendant', `${this.id}-${this.active}`); else this.input.removeAttribute('aria-activedescendant');
@@ -489,8 +489,8 @@
         const { hit, items } = await this.lookup(q);
         if (hit) { this.input.value = ''; this.smart.run(hit); return 'run'; }
         if (items[0]) { this.pick(items[0]); return 'pick'; }
-      } catch (e) { down = e.busy ? 'busy' : true; } // našeptávač nedostupný (výpadek sítě / serveru) – nejde o neznámé místo
-      toast(down === 'busy' ? 'Server je teď přetížený a místa nejde dohledat – zkus to za chvíli znovu' : down ? 'Místa teď nejde dohledat – zkontroluj připojení a zkus to znovu' : `„${q}“ neznám – vyber místo z nabídky`, 'err');
+      } catch (e) { down = e.busy ? 'busy' : e.offline ? 'offline' : true; } // našeptávač nedostupný (výpadek sítě / serveru) – nejde o neznámé místo
+      toast(down === 'busy' ? 'Server je teď přetížený a místa nejde dohledat – zkus to za chvíli znovu' : down === 'offline' ? 'Jsi offline – místa půjde dohledat po připojení k internetu' : down ? 'Místa teď nejde dohledat – zkontroluj připojení a zkus to znovu' : `„${q}“ neznám – vyber místo z nabídky`, 'err');
       this.input.focus();
       return false;
     }
@@ -504,7 +504,14 @@
     key(e) {
       const n = this.rows().length;
       if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-        if (this.dd.hidden || !n) return;
+        // zavřená nabídka (Esc, klik vedle): šipka ji znovu otevře se stejným výběrem (jako rozbalovací výběr); prázdné pole → tipy
+        if (this.dd.hidden) {
+          const v = this.input.value.trim();
+          if (!v) this.showTips(); else if (v.length >= 2) { if (n) this.open(); else this.fetch(); }
+          if (!this.dd.hidden || v.length >= 2) e.preventDefault();
+          return;
+        }
+        if (!n) return;
         e.preventDefault(); this.active = (this.active + (e.key === 'ArrowDown' ? 1 : -1) + n) % n; this.open();
       } else if (e.key === 'Enter') {
         if (!this.dd.hidden && this.active >= 0 && this.active < n) { e.preventDefault(); this.choose(this.rows()[this.active]); }
