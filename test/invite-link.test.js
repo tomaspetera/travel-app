@@ -68,6 +68,8 @@ test('stránka /j/: prohlížeč přesměruje do aplikace, robot náhledu (Whats
   assert.equal(page.headers.get('vary'), 'User-Agent');
   // verze, kterou žádný service worker nemá – starší by stránku jinak uložil místo stránky aplikace
   assert.equal(page.headers.get('x-atlas-build'), 'preview');
+  // CSP bez skriptů jako u /c/ (shortlinks.js PREVIEW_CSP)
+  assert.match(page.headers.get('content-security-policy') || '', /^default-src 'none'; style-src 'unsafe-inline'/);
   const bot = await (await fetch(`${base}/j/${data}`, { headers: { 'User-Agent': 'WhatsApp/2.23.20.0 A' } })).text();
   assert.match(bot, /og:title" content="Jede někdo se mnou\? Madeira/);
   assert.doesNotMatch(bot, /http-equiv="refresh"/);

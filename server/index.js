@@ -7,7 +7,7 @@ import { createHash } from 'node:crypto';
 import path from 'node:path';
 import zlib from 'node:zlib';
 import { config } from './config.js';
-import { suggest, describe, resolveOrigins, geocodeExplore, loadPlaces } from './lib/places.js';
+import { suggest, resolveOrigins, geocodeExplore, loadPlaces } from './lib/places.js';
 import { NATURE_KINDS } from './lib/names.js';
 import { search, UserError, legBagCzk } from './lib/search.js';
 import { stayProviders } from './providers/stays/index.js';
@@ -24,7 +24,7 @@ import { searchCars } from './lib/cars.js';
 import { findPlaces, findTrips, mockPlaces, mockTrips, placesCached, tripsCached, countryHighlights, countryCached, countryWithDistance, mockCountry, countryCategory, countryCatCached, mockCountryCat, withDistance, COUNTRY_CATS } from './lib/poi.js';
 import { planTrips } from './lib/roadtrip.js';
 import { keepInRegion } from './lib/regions.js';
-import { bikeLoop, mockBikeLoop, hikeLoop, mockHikeLoop, bikeFromStation, mockBikeFromStation } from './lib/bike.js';
+import { BIKES, bikeLoop, mockBikeLoop, hikeLoop, mockHikeLoop, bikeFromStation, mockBikeFromStation } from './lib/bike.js';
 import { planItinerary, keepOf } from './lib/itinerary.js';
 import { planHikes, mockHikePlan, natureAreaAt } from './lib/hikeplan.js';
 import { planStay, StayPlanError } from './lib/stayplan.js';
@@ -43,12 +43,13 @@ import { BRAND } from './brand.js';
 import { mapyOn, mapyReady, mapyStatus, parseTile, mapyTile } from './lib/mapy.js';
 import { cleanReport, recordClientError, clientErrorCount, MAX_BODY as CLIENT_ERR_MAX } from './lib/clienterr.js';
 import { RateLimiter } from './lib/ratelimit.js';
-import { upstashStore, memoryStore, cachedStore, createShare, loadShare, sharePage, inviteMeta, invitePage, ogPhoto, PREVIEW_BOT, MAX_JSON as SHARE_MAX, ID_RE as SHARE_ID } from './lib/shortlinks.js';
+import { upstashStore, memoryStore, cachedStore, createShare, loadShare, sharePage, inviteMeta, invitePage, ogPhoto, PREVIEW_BOT, PREVIEW_CSP, MAX_JSON as SHARE_MAX, ID_RE as SHARE_ID } from './lib/shortlinks.js';
 import { sharedRuns, gate, perClient, recentResults, breathe } from './lib/crowd.js';
 import { SECURITY_HEADERS, API_CSP, clientIp, crossSite } from './lib/security.js';
 
 const PUBLIC = path.join(config.root, 'public');
 const DATA = path.join(config.root, 'data');
+const INDEX_FILE = path.join(PUBLIC, 'index.html');
 // Soubory aplikace pro service worker a stránku (pwa.js); salt = název, popis a adresa webu, které server dosazuje do
 // stránky a manifestu – i jejich změna je nová verze aplikace
 const appDirs = () => ({ publicDir: PUBLIC, dataDir: DATA, salt: JSON.stringify([BRAND, config.publicUrl]) });
@@ -77,7 +78,9 @@ function packedFile(file, st) {
 const etagOf = (file, st) => { const p = packedFile(file, st); return p.etag || (p.etag = `"${createHash('sha1').update(p.raw).digest('base64url').slice(0, 22)}"`); };
 // Otisk obsahu jako v adrese ze stránky (js/app.js?v=… – server/lib/pwa.js versionAssets), jednou na verzi souboru
 const versionOf = (file, st) => { const p = packedFile(file, st); return p.ver || (p.ver = contentVersion(p.raw)); };
-// Adresa s otiskem obsahu se nikdy nezmění: Cloudflare i prohlížeč ji drží rok bez ptaní serveru (nová verze = nová adresa)
+// Adresa s otiskem obsahu se nikdy nezmění: prohlížeč ji drží rok bez ptaní serveru (nová verze = nová adresa).
+// Cloudflare před Renderem soubory neukládá (cf-cache-status: DYNAMIC) – každý požadavek bez mezipaměti prohlížeče
+// dojde až sem.
 const IMMUTABLE = 'public, max-age=31536000, immutable';
 function packedBody(file, st, enc) {
   const p = packedFile(file, st);
@@ -94,6 +97,8 @@ function sendJson(req, res, status, obj, extra = {}) {
   const retry = status === 429 && req.retryAfter ? { 'Retry-After': String(req.retryAfter) } : {};
   const headers = { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', ...retry, ...extra };
   const enc = body.length > 1024 ? (wantsBr(req) ? 'br' : wantsGzip(req) ? 'gzip' : '') : '';
+  // Podoba odpovědi (br / gzip / bez) podle Accept-Encoding: veřejná mezipaměť ji tak nedá klientovi, který ji neumí
+  if (body.length > 1024) headers.Vary = headers.Vary ? `${headers.Vary}, Accept-Encoding` : 'Accept-Encoding';
   if (enc) {
     headers['Content-Encoding'] = enc;
     res.writeHead(status, headers);
@@ -172,6 +177,21 @@ function readBody(req, limit = 64 * 1024) {
   });
 }
 
+/** Souřadnice z adresy: chybějící nebo prázdná → NaN (Number(null) i Number('') je 0 – bod 0,0 v Guinejském zálivu). */
+export const coordOf = (v) => (v == null || String(v).trim() === '' ? NaN : Number(v));
+
+/** Datum YYYY-MM-DD, které opravdu existuje: 2027-02-30 isYmd pustí a Date ho tiše posune na 2. 3. */
+export const realYmd = (s) => isYmd(s) && addDays(s, 0) === s;
+
+/** Endpoint jen pro POST zavolaný jinou metodou: 405 s hlavičkou Allow (ne 404 „Neznámý endpoint“). */
+const POST_ONLY = new Set(['/api/itinerary', '/api/hikeplan', '/api/roadtrip', '/api/stayplan', '/api/bike', '/api/hike', '/api/search']);
+
+/** Chyba požadavku mimo API (poškozená adresa, cesta mimo public/): krátký český text. */
+function sendText(res, status, text) {
+  res.writeHead(status, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' });
+  res.end(text);
+}
+
 /** Chyba čtení těla: nad limit 413 (spojení se pak zavře, zbytek těla se nečte), jinak neplatný JSON 400. */
 const badBody = (req, res, e) => (e && e.status === 413
   ? sendJson(req, res, 413, { error: e.message }, { Connection: 'close' })
@@ -198,7 +218,8 @@ const shareGetLimited = (req, id) => !shareStore.has('s:' + id) && rateLimited(r
 // Stránky /c/ a /j/ (náhled a přesměrování) nejsou stránka aplikace: verze, kterou žádný service worker nemá – starší
 // service worker (z doby před /j/) by je jinak uložil místo stránky aplikace (sw.js remember ukládá stránku bez verze)
 // a offline by se otevřelo jen „Otevírám…“ s nekonečným přesměrováním
-const PREVIEW_BUILD = { 'X-Atlas-Build': 'preview' };
+// CSP bez skriptů (shortlinks.js PREVIEW_CSP): text ze sdíleného odkazu na stránce nic nespustí
+const PREVIEW_BUILD = { 'X-Atlas-Build': 'preview', 'Content-Security-Policy': PREVIEW_CSP };
 // fotka cíle do náhledu odkazu: z mezipaměti fotek, nová nejvýš 3 s (odkaz bez fotky má obecný náhled ATLASu)
 const previewPhoto = async (place) => ogPhoto(String(((await Promise.race([cityPhotos([place]), new Promise((r) => setTimeout(() => r(null), 3000))])) || {}).photos?.[place] || ''));
 const wxHits = new RateLimiter(); // předpověď mimo mezipaměť serveru (MET Norway)
@@ -548,8 +569,7 @@ async function route(req, res) {
     url = new URL(req.url, 'http://localhost');
   } catch {
     // „//“ (roboti, překlep v odkazu) URL nepřečte – 400 jako u poškozené adresy, ne 500 s výpisem chyby do logu
-    res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8' });
-    return res.end('Bad request');
+    return sendText(res, 400, 'Neplatná adresa.');
   }
   const p = url.pathname;
 
@@ -645,14 +665,10 @@ async function route(req, res) {
     if (cc) items = [...items.filter((x) => x.cc === cc), ...items.filter((x) => x.cc !== cc)];
     return sendJson(req, res, 200, { items });
   }
-  if (p === '/api/place') {
-    const d = describe(url.searchParams.get('id'));
-    return d ? sendJson(req, res, 200, d) : sendJson(req, res, 404, { error: 'Neznámé místo' });
-  }
   if (p === '/api/nearby') {
     // Letiště v okolí bodu s cestou na letiště; volby jako u /api/origins (výchozí veřejnou dopravou).
-    const lat = Number(url.searchParams.get('lat'));
-    const lon = Number(url.searchParams.get('lon'));
+    const lat = coordOf(url.searchParams.get('lat'));
+    const lon = coordOf(url.searchParams.get('lon'));
     const radius = Math.min(600, Number(url.searchParams.get('radius')) || 250);
     if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return sendJson(req, res, 400, { error: 'Chybí lat/lon' });
     const ap = accessParams(url.searchParams);
@@ -817,8 +833,8 @@ async function route(req, res) {
     return sendJson(req, res, 200, { base: 'CZK', rates, source: r.source, date: r.date }, { 'Cache-Control': 'public, max-age=3600' });
   }
   if (p === '/api/poi') {
-    const lat = Number(url.searchParams.get('lat'));
-    const lon = Number(url.searchParams.get('lon'));
+    const lat = coordOf(url.searchParams.get('lat'));
+    const lon = coordOf(url.searchParams.get('lon'));
     if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return sendJson(req, res, 400, { error: 'Chybí poloha (lat/lon).' });
     const radiusKm = Math.min(25, Math.max(1, Number(url.searchParams.get('radius')) || 10));
     const dayTrips = url.searchParams.get('dayTrips') !== '0';
@@ -829,8 +845,8 @@ async function route(req, res) {
   if (p === '/api/poi/trips') {
     // Objevuj s okruhem 50/100 km: nejzajímavější místa v okolí do ~120 km – stejné cíle (a mezipaměť) jako plánovač
     // výletů, takže „🎒 Výlet sem“ pak nečeká na další dotaz.
-    const lat = Number(url.searchParams.get('lat'));
-    const lon = Number(url.searchParams.get('lon'));
+    const lat = coordOf(url.searchParams.get('lat'));
+    const lon = coordOf(url.searchParams.get('lon'));
     if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return sendJson(req, res, 400, { error: 'Chybí poloha (lat/lon).' });
     if (exploreLimited(req, tripsCached({ lat, lon }))) return sendJson(req, res, 429, TOO_MANY_EXPLORE);
     try {
@@ -844,8 +860,8 @@ async function route(req, res) {
   if (p === '/api/poi/country') {
     // 🌍 Celá země v Objevuj: města a cíle z Wikivoyage, UNESCO a národní parky; vzdálenost od místa (lat/lon), země podle
     // kódu (cc), jinak podle polohy.
-    const lat = url.searchParams.get('lat') == null ? NaN : Number(url.searchParams.get('lat'));
-    const lon = url.searchParams.get('lon') == null ? NaN : Number(url.searchParams.get('lon'));
+    const lat = coordOf(url.searchParams.get('lat'));
+    const lon = coordOf(url.searchParams.get('lon'));
     const at = Number.isFinite(lat) && Number.isFinite(lon) && Math.abs(lat) <= 90 && Math.abs(lon) <= 180;
     const raw = (url.searchParams.get('cc') || '').toUpperCase();
     const cc = /^[A-Z]{2}$/.test(raw) ? raw : at ? countryAt(lat, lon) : '';
@@ -883,7 +899,7 @@ async function route(req, res) {
     const lat = Number(b.lat);
     const lon = Number(b.lon);
     if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return sendJson(req, res, 400, { error: 'Chybí poloha (lat/lon).' });
-    if (!isYmd(b.start) || !isYmd(b.end) || daysBetween(b.start, b.end) < 0 || daysBetween(b.start, b.end) > 30) return sendJson(req, res, 400, { error: 'Neplatné datum (max. 31 dní).' });
+    if (!realYmd(b.start) || !realYmd(b.end) || daysBetween(b.start, b.end) < 0 || daysBetween(b.start, b.end) > 30) return sendJson(req, res, 400, { error: 'Neplatné datum (max. 31 dní).' });
     // Okruh jako u seznamu míst (/api/poi) – program pak použije už načtená místa z mezipaměti; starší klient bez něj 10 km.
     const near = { lat, lon, radiusKm: Math.min(25, Math.max(1, Number(b.radius) || 10)), dayTrips: true };
     if (exploreLimited(req, placesCached(near))) return sendJson(req, res, 429, TOO_MANY_EXPLORE);
@@ -907,8 +923,8 @@ async function route(req, res) {
   if (p === '/api/nature') {
     // Leží místo v horách nebo v přírodě ze seznamu (Pec pod Sněžkou = Krkonoše, Poprad = Vysoké Tatry)? Program pobytu
     // pak nabídne túry na každý den. Jen výpočet nad vlastním seznamem – bez dotazu ven.
-    const lat = Number(url.searchParams.get('lat'));
-    const lon = Number(url.searchParams.get('lon'));
+    const lat = coordOf(url.searchParams.get('lat'));
+    const lon = coordOf(url.searchParams.get('lon'));
     if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return sendJson(req, res, 400, { error: 'Chybí poloha (lat/lon).' });
     return sendJson(req, res, 200, { area: natureAreaAt(lat, lon) }, { 'Cache-Control': 'public, max-age=86400' });
   }
@@ -924,7 +940,7 @@ async function route(req, res) {
     const lat = Number(b.lat);
     const lon = Number(b.lon);
     if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return sendJson(req, res, 400, { error: 'Chybí poloha (lat/lon).' });
-    if (!isYmd(b.start) || !isYmd(b.end) || daysBetween(b.start, b.end) < 0 || daysBetween(b.start, b.end) > 30) return sendJson(req, res, 400, { error: 'Neplatné datum (max. 31 dní).' });
+    if (!realYmd(b.start) || !realYmd(b.end) || daysBetween(b.start, b.end) < 0 || daysBetween(b.start, b.end) > 30) return sendJson(req, res, 400, { error: 'Neplatné datum (max. 31 dní).' });
     const hm = (v) => (/^\d{2}:\d{2}$/.test(v || '') ? v : null);
     // radius = okruh míst načtených v Objevuj (stejná mezipaměť), fromBase false = střed oblasti z Objevuj, ne ubytování
     const radius = Number(b.radius) > 0 ? Math.min(25, Math.max(5, Number(b.radius))) : 0;
@@ -958,7 +974,7 @@ async function route(req, res) {
     const lat = Number(b.lat);
     const lon = Number(b.lon);
     if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return sendJson(req, res, 400, { error: 'Chybí poloha (lat/lon).' });
-    if (!isYmd(b.start)) return sendJson(req, res, 400, { error: 'Neplatné datum.' });
+    if (!realYmd(b.start)) return sendJson(req, res, 400, { error: 'Neplatné datum.' });
     if (exploreLimited(req, tripsCached({ lat, lon }))) return sendJson(req, res, 429, TOO_MANY_EXPLORE);
     let candidates;
     try {
@@ -1036,7 +1052,8 @@ async function route(req, res) {
     if (hike && NATURE_KINDS.includes(b.nature)) q.area = Number(b.area) === 20 ? 20 : 10;
     // Kolo: typ kola; „vlakem tam, na kole zpět“ potřebuje i název a zemi domova (odkaz do IDOS).
     if (!hike) {
-      Object.assign(q, { bike: String(b.bike || 'trekking'), kind: b.kind === 'train' ? 'train' : 'loop' });
+      // hasOwn: typ kola „__proto__“ nebo „constructor“ by v bike.js našel vlastnost Object.prototype místo kola
+      Object.assign(q, { bike: Object.hasOwn(BIKES, b.bike) ? b.bike : 'trekking', kind: b.kind === 'train' ? 'train' : 'loop' });
       if (q.kind === 'train') Object.assign(q, { label: String(b.label || '').slice(0, 120), cc: /^[A-Z]{2}$/.test(b.cc) ? b.cc : '' });
     }
     const plan = hike ? hikeLoop : q.kind === 'train' ? bikeFromStation : bikeLoop;
@@ -1085,6 +1102,7 @@ async function route(req, res) {
       return sendJson(req, res, 503, { error: 'Dlaždice Mapy.com teď není k dispozici.' }, { 'Retry-After': '300' });
     }
   }
+  if (POST_ONLY.has(p)) return sendJson(req, res, 405, { error: 'Jen POST' }, { Allow: 'POST' });
   if (p.startsWith('/api/')) return sendJson(req, res, 404, { error: 'Neznámý endpoint' });
 
   // Service worker (aplikace na ploše, offline): verze a seznam souborů z obsahu public/ – server/lib/pwa.js
@@ -1131,21 +1149,20 @@ async function route(req, res) {
   try {
     rel = decodeURIComponent(p);
   } catch {
-    res.writeHead(400);
-    return res.end('Bad request');
+    return sendText(res, 400, 'Neplatná adresa.');
   }
   const file = path.normalize(path.join(PUBLIC, rel));
-  if (!file.startsWith(PUBLIC + path.sep)) {
-    res.writeHead(403, { 'Content-Type': 'text/plain; charset=utf-8' });
-    return res.end('Forbidden');
-  }
+  if (!file.startsWith(PUBLIC + path.sep)) return sendText(res, 403, 'Sem přístup není.');
+  // Jiná podoba adresy stránky (/%69ndex.html, //index.html, /./index.html) vede na stejný soubor: i ta jen přes
+  // serveIndex – syrový index.html by šel bez CSP a bez dosazené verze a štítků
+  if (file === INDEX_FILE) return serveIndex(req, res, appDirs(), headTags(config.publicUrl));
   // Skryté soubory a složky (.env, .git, .DS_Store) se nikdy neposílají – kdyby se do public/ dostaly; service worker
   // je taky nebere (pwa.js walk)
   if (/(^|[\\/])\./.test(path.relative(PUBLIC, file))) return serveNotFound(req, res);
   // Kód aplikace (HTML, JS, CSS, manifest) se vždy ověří u serveru (no-cache → levné 304): po nasazení nikdy stará
   // verze – ani z paměti otevřeného panelu, která by soubor s max-age použila bez ptaní. Obrázky, písma a data mapy
   // ve vendor/ mají mezipaměť jako dřív. Výjimka: adresa s otiskem obsahu ze stránky (js/app.js?v=…) – ta se už nikdy
-  // nezmění, takže ji Cloudflare i prohlížeč drží napořád a na server nejde (serveFile, server/lib/pwa.js versionAssets).
+  // nezmění, takže ji prohlížeč drží napořád a na server nejde (serveFile, server/lib/pwa.js versionAssets).
   const maxAge = /\.(?:html|js|css|webmanifest)$/.test(rel) ? 0 : rel.startsWith('/vendor/') ? 86400 * 30 : 60;
   if (serveFile(req, res, file, { maxAge, version: url.searchParams.get('v') })) return;
   // Neznámá adresa: česká stránka 404 s odkazem do aplikace. Dřív stránka aplikace se stavem 200 – vyhledávačům se pak
@@ -1156,8 +1173,9 @@ async function route(req, res) {
 
 export function createServer() {
   // Pomalý klient (hlavičky / tělo po kapkách) nesmí držet spojení minuty: hlavičky do 20 s, celý požadavek do 30 s.
-  // Platí jen pro příjem požadavku – dlouhé streamované hledání (odpověď) se tím nezkracuje.
-  return http.createServer({ headersTimeout: 20e3, requestTimeout: 30e3 }, (req, res) => {
+  // Platí jen pro příjem požadavku – dlouhé streamované hledání (odpověď) se tím nezkracuje. Node limity kontroluje
+  // jen jednou za connectionsCheckingInterval (výchozí 30 s) – po 5 s, jinak by pomalý klient visel až ~40 s.
+  return http.createServer({ headersTimeout: 20e3, requestTimeout: 30e3, connectionsCheckingInterval: 5e3 }, (req, res) => {
     for (const [k, v] of Object.entries(SECURITY_HEADERS)) res.setHeader(k, v); // server/lib/security.js
     route(req, res).catch((e) => {
       // Chyba cizí služby (HttpError z request()) není chyba uživatele: 503 a česky, bez adresy API.

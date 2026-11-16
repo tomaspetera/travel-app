@@ -169,7 +169,6 @@ Tabulka odpovídá pořadí větví v `route()` (`server/index.js`). Limity jsou
 | GET `/api/share/<id>` | obsah krátkého odkazu {k, j} | `server/lib/shortlinks.js` `loadShare()` | shareGets 60/10 min jen mimo mezipaměť (`shareGetLimited()`); public 1 den; 404 |
 | GET `/api/places` | našeptávač Odkud/Kam (q, near, role, remote, nature) | `server/lib/places.js` `suggest()` | bez limitu (bez sítě) |
 | GET `/api/geocode` | města a místa pro Objevuj a program (mapy=1, cc) | `server/lib/places.js` `geocodeExplore()` | Mapy.com jen pod mapySugs (EXPLORE_RATE_LIMIT), jinak tiše bez nich |
-| GET `/api/place` | popis místa podle id | `server/lib/places.js` `describe()` | bez limitu; z public/ se nevolá |
 | GET `/api/nearby` | ≤ 15 letišť u bodu s cestou na letiště | `server/index.js` `accessParams()`, `withTrip()` → `airportsNear()`, `airportAccess()` | bez limitu; volá jen `test/server.test.js` |
 | GET `/api/origins` | letiště odletu s cenou cesty na letiště | `server/lib/places.js` `resolveOrigins()` + `withTrip()` (`server/index.js`) | bez limitu; from ≤ 8, radius ≤ 600, max 20 letišť |
 | GET `/api/stays/check` | živé volno vybraného hotelu | `server/lib/stays.js` `checkStay()` | stayChecks (VERIFY_RATE_LIMIT); bez mezipaměti |
@@ -199,7 +198,7 @@ Tabulka odpovídá pořadí větví v `route()` (`server/index.js`). Limity jsou
 | GET `/robots.txt` | vše povoleno + Sitemap | `server/lib/seo.js` `robotsTxt()` | 1 h |
 | GET `/sitemap.xml` | jediná adresa webu | `server/lib/seo.js` `sitemapXml()` | 1 h |
 | GET `/manifest.webmanifest` | manifest s názvem z BRAND | `server/lib/seo.js` `serveManifest()`, `manifestFor()` | no-cache |
-| GET `/c/<id>` (8 znaků) | náhled krátkého odkazu → `/#s=<id>` | `server/lib/shortlinks.js` `loadShare()`, `sharePage()` | jen se shareStore; private 1 h, Vary UA, X-Atlas-Build: preview |
+| GET `/c/<id>` (8 znaků) | náhled krátkého odkazu → `/#s=<id>` | `server/lib/shortlinks.js` `loadShare()`, `sharePage()` | jen se shareStore; private 1 h, Vary UA, X-Atlas-Build: preview, CSP bez skriptů (`PREVIEW_CSP`) |
 | GET `/j/<data>` | náhled pozvánky → `/#jed=<data>` | `server/lib/shortlinks.js` `inviteMeta()`, `invitePage()` | nic se neukládá; fotka jen robotu |
 | GET `/data/countries.json`, `/data/entry.json` | jediné soubory z data/ přes HTTP | `server/index.js` `serveFile()` | max-age 1 h |
 | GET `/`, `/index.html` | stránka aplikace s verzí a CSP | `server/lib/pwa.js` `serveIndex()` + `server/lib/seo.js` `headTags()` | no-cache, ETag, X-Atlas-Build |
@@ -410,8 +409,10 @@ Skripty (vše `node scripts/…`; README ## Data a licence má příkazy pro akt
 - Objevuj (EXPLORE_RATE_LIMIT) počítá jen dotazy mimo mezipaměť (z mezipaměti 5× víc); kolo, pěšky a túry až první cache miss → nový síťový dotaz v `server/lib/bike.js` nebo `server/lib/hikeplan.js` musí volat `q.onMiss`.
 - Změníš klíč nebo volby `findPlaces()`, `findTrips()`, `countryHighlights()` → uprav i placesKey/tripsKey/countryKey/countryCatKey (funkce *Cached), jinak limit Objevuj počítá špatně.
 - Některé limity neodmítají, jen ubírají: stayplan s bases bez nových tras, ground jen odhad, weather bez nových dotazů na MET, geocode bez Mapy.com.
-- `/api/places`, `/api/place`, `/api/climate` a `/api/nature` nemají limit, protože nejdou do sítě – nepřidávat do nich síťové dotazy.
-- `/api/place` nikdo v public/ ani test/ nevolá, `/api/nearby` jen `test/server.test.js` – před změnou nebo odstraněním ověř.
+- `/api/places`, `/api/climate` a `/api/nature` nemají limit, protože nejdou do sítě – nepřidávat do nich síťové dotazy.
+- `/api/nearby` volá jen `test/server.test.js` – před změnou nebo odstraněním ověř.
+- POST endpointy jinou metodou → 405 s `Allow: POST` (`POST_ONLY` v `server/index.js`) – nový POST endpoint tam dopiš. lat/lon z adresy přes `coordOf()` (prázdné ≠ 0), data z těla přes `realYmd()` (2027-02-30 neprojde).
+- Vyhledání v obyčejném objektu podle vstupu uživatele jen přes `Object.hasOwn()` (`__proto__`, `constructor` by jinak našly Object.prototype → 500).
 - Chyby: `HttpError` → 503 česky bez URL; `UserError`, `StayPlanError`, `GroundError`, `StayQueryError`, `CarQueryError` (status 400) → jejich text; jiné → 500 obecně, detail jen do logu. `request()` opakuje jen 5xx a síť; 429 jen s volbou `retry429` (Wikimedia, Retry-After ≤ 10 s), u aerolinek nikdy.
 - Server poslouchá jen jako vstupní skript (process.argv[1]); testy importují `createServer()` bez startu. `server/config.js` čte env při importu → testy nastaví process.env a pak importují dynamicky.
 - Neplatné FEEDBACK_EMAIL, SUPPORT_URL (jen https://buy.stripe.com/…), OPERATOR a PUBLIC_URL se tiše zahodí; osobní údaje provozovatele jen v env.

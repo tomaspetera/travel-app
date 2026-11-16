@@ -19,6 +19,7 @@ import { airportAccess } from './access.js';
 import { cache } from './cache.js';
 import { config } from '../config.js';
 import { mapyOn, mapySuggest } from './mapy.js';
+import { UserError } from './search.js'; // kruhový import (search.js bere places.js) – UserError se použije až za běhu
 
 const flag = (cc) =>
   cc && cc.length === 2 ? String.fromCodePoint(...[...cc.toUpperCase()].map((c) => 0x1f1e6 + c.charCodeAt(0) - 65)) : '';
@@ -720,7 +721,11 @@ export function resolveDestinations(ids) {
     const [kind, rest] = splitId(id);
     const d = describe(id);
     if (d) labels.push(d.label);
-    if (kind === 'cc') countries.add(rest);
+    // jen známá země: cc:__proto__ nebo vymyšlený kód by hledání shodil výjimkou hlouběji (seznamy zemí v objektech)
+    if (kind === 'cc') {
+      if (!COUNTRY_BY_ISO.has(rest)) throw new UserError('Neznámá země v cíli – vyber ji prosím znovu z nabídky.');
+      countries.add(rest);
+    }
     else if (kind === 'ct' && CONTINENT_BY_KEY.has(rest)) {
       continents.push(rest);
       continentCountries(rest).forEach((cc) => countries.add(cc));

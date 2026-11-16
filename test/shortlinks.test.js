@@ -102,6 +102,10 @@ test('API v demu: krátký odkaz → stránka s náhledem a přesměrováním do
   assert.match(html, new RegExp(`<meta http-equiv="refresh" content="0;url=/#s=${id}">`));
   assert.match(html, /<meta name="robots" content="noindex">/);
   assert.doesNotMatch(html, /<script/);
+  // přísná CSP bez skriptů: přesměrování (meta refresh) jde dál, text ze sdílené cesty nic nespustí
+  assert.equal(page.headers.get('content-security-policy'), S.PREVIEW_CSP);
+  assert.match(S.PREVIEW_CSP, /default-src 'none'/);
+  assert.doesNotMatch(S.PREVIEW_CSP, /script-src/);
   const back = await (await fetch(`${base}/api/share/${id}`)).json();
   assert.deepEqual(back, { k: 'trip', j: json });
   assert.equal((await fetch(`${base}/api/share/Zzzzzzzz`)).status, 404);

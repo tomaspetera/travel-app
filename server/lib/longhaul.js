@@ -60,7 +60,8 @@ export const HUBS = {
   AU: ['SYD', 'MEL'], NZ: ['AKL'], FJ: ['NAN'], PF: ['PPT'],
 };
 export function hubsOf(cc, max = 2) {
-  const list = (HUBS[cc] || airportsInCountry(cc).filter((a) => a.type === 'L').map((a) => a.iata)).filter((x) => getAirport(x));
+  // hasOwn: kód země z požadavku („__proto__“, „constructor“) nesmí najít vlastnost Object.prototype
+  const list = ((Object.hasOwn(HUBS, cc) && HUBS[cc]) || airportsInCountry(cc).filter((a) => a.type === 'L').map((a) => a.iata)).filter((x) => getAirport(x));
   return list.slice(0, max);
 }
 

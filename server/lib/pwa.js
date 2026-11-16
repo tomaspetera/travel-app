@@ -2,8 +2,9 @@
 // service worker při instalaci uloží pro offline. Obojí se odvozuje ze souborů na disku: skript přejmenovaný
 // v index.html se do seznamu dostane sám a smazaný z něj vypadne (instalace tak nikdy nespadne na 404) a každá
 // změna v public/ (nebo v datech, která se ukládají) změní verzi → prohlížeč nainstaluje nový service worker.
-// Kód aplikace (JS, CSS) má ve stránce adresu s otiskem obsahu (js/app.js?v=…, versionAssets) – Cloudflare a prohlížeč
-// ho pak drží bez ptaní serveru (server/index.js serveFile) a změněný soubor má novou adresu.
+// Kód aplikace (JS, CSS) má ve stránce adresu s otiskem obsahu (js/app.js?v=…, versionAssets) – prohlížeč ho pak drží
+// bez ptaní serveru (server/index.js serveFile) a změněný soubor má novou adresu. Cloudflare před Renderem soubory
+// neukládá (cf-cache-status: DYNAMIC), jen je přeposílá.
 import { createHash } from 'node:crypto';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
@@ -13,7 +14,10 @@ import { pageCsp } from './security.js';
 // Data, která aplikace stahuje až za běhu (ne přes <script>/<link> v index.html) a bez kterých by offline chyběly
 // země (přehled, plánovač), vstupní podmínky, karta „Co zařídit a co sbalit“ a mapa navštívených zemí. data/…
 // jako server: ze složky data/ (countries.json, entry.json), a když tam soubor není, z public/data/ (pretrip.json).
-export const RUNTIME_ASSETS = ['data/countries.json', 'data/entry.json', 'data/pretrip.json', 'vendor/countries-110m.json'];
+// Písma Inter a Sora (styly v css/ je berou přes @font-face, ne přes <link> v index.html) – bez nich by offline hned
+// po první návštěvě aplikace měla náhradní písmo.
+export const RUNTIME_ASSETS = ['data/countries.json', 'data/entry.json', 'data/pretrip.json', 'vendor/countries-110m.json',
+  'vendor/fonts/inter-v20-latin.woff2', 'vendor/fonts/inter-v20-latin-ext.woff2', 'vendor/fonts/sora-v17-latin.woff2', 'vendor/fonts/sora-v17-latin-ext.woff2'];
 const LINK_RELS = /^(?:stylesheet|manifest|icon|shortcut icon|apple-touch-icon)$/i;
 
 /** Hodnota atributu ze značky (v uvozovkách, apostrofech i bez nich), nebo undefined. */
@@ -41,6 +45,12 @@ export function shellAssets(html) {
   }
   return out;
 }
+
+/**
+ * Shoduje se If-None-Match s ETagem? Slabý W/"…" bere jako shodu – dosadí ho Cloudflare, když odpověď sám zkomprimuje,
+ * a bez toho by stránka, sw.js ani manifest nikdy nedostaly 304 (stejně jako serveFile v server/index.js).
+ */
+export const etagMatches = (inm, etag) => String(inm || '').split(/\s*,\s*/).some((t) => t === '*' || t.replace(/^W\//, '') === etag);
 
 /** Krátký otisk obsahu souboru do adresy (?v=…) – podle něj server pozná, že požadavek chce právě tento obsah. */
 export const contentVersion = (buf) => createHash('sha256').update(buf).digest('hex').slice(0, 10);
@@ -187,7 +197,7 @@ export function serveServiceWorker(req, res, dirs) {
     return res.end('Service worker není k dispozici');
   }
   const headers = { 'Content-Type': 'text/javascript; charset=utf-8', 'Cache-Control': 'no-cache', ETag: sw.etag, 'X-Atlas-Build': sw.build };
-  if ((req.headers['if-none-match'] || '').split(/\s*,\s*/).includes(sw.etag)) {
+  if (etagMatches(req.headers['if-none-match'], sw.etag)) {
     res.writeHead(304, headers);
     return res.end();
   }
@@ -204,8 +214,8 @@ let indexMemo = null;
  * GET/HEAD stránky aplikace (/ a /index.html): index.html s dosazenou verzí do <meta name="atlas-build"> – pwa.js tak
  * zná verzi stránky, i když ji service worker dal z uložené kopie, a hned pozná novější na serveru – a se značkami
  * head (titulek, popis, náhled odkazu) místo bloku <!-- brand … --> … <!-- /brand -->. Skripty a styly s otiskem obsahu
- * v adrese (versionAssets) – ty pak Cloudflare i prohlížeč drží napořád; stránka sama no-cache + ETag podle obsahu
- * (levné 304), gzip podle Accept-Encoding. CSP se počítá z hotové stránky (verze v adresách otisky vložených skriptů nemění).
+ * v adrese (versionAssets) – ty pak prohlížeč drží napořád; stránka sama no-cache + ETag podle obsahu
+ * (levné 304, i se slabým W/ – etagMatches), gzip podle Accept-Encoding. CSP se počítá z hotové stránky (verze v adresách otisky vložených skriptů nemění).
  */
 export function serveIndex(req, res, dirs, head = '') {
   const file = path.join(dirs.publicDir, 'index.html');
@@ -233,7 +243,7 @@ export function serveIndex(req, res, dirs, head = '') {
   const { body, gz, etag, csp } = indexMemo;
   // X-Atlas-Build: service worker se stejnou verzí pak soubory stránky vezme z uložené sady bez ptaní serveru (sw.js)
   const headers = { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache', ETag: etag, Vary: 'Accept-Encoding', 'Content-Security-Policy': csp, ...(build ? { 'X-Atlas-Build': build } : {}) };
-  if ((req.headers['if-none-match'] || '').split(/\s*,\s*/).includes(etag)) {
+  if (etagMatches(req.headers['if-none-match'], etag)) {
     res.writeHead(304, headers);
     return res.end();
   }
