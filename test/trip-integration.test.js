@@ -578,7 +578,17 @@ test('kdy vyrazit: z domu na let tam a z ubytování na let zpět – průběh c
   assert.equal(leaveBy({ ...t, ground: {} }).home, null);
   assert.equal(leaveBy({ ...t, flight: { ...t.flight, out: { ...t.flight.out, hasTime: false } } }).home, null);
   assert.equal(leaveBy({ ...t, arrival: null }).hotel, null);
-  assert.equal(leaveBy({ ...t, car: { mode: 'pick', pickup: 'VIE', dropoff: 'VIE', from: '2026-11-10T09:00', to: '2026-11-14T05:00' } }).hotel, null, 'čas dává vrácení auta');
+  // auto vrácené na letišti: z ubytování autem (40 min) + 30 min vrácení auta + 2 h před odletem v 7:00
+  const car = { ...t, car: { mode: 'pick', pickup: 'VIE', dropoff: 'VIE', from: '2026-11-10T09:00', to: '2026-11-14T05:00' } };
+  assert.deepEqual(plain(leaveBy(car).hotel), { date: '2026-11-14', hm: '03:50', min: 40, airport: 'VIE', before: 120, hint: null, ret: 30, car: true, noStay: false });
+  // vrácení auta zadané dřív (ve 2:00): vyrazit tak, aby ho stihl vrátit
+  assert.equal(leaveBy({ ...car, car: { ...car.car, to: '2026-11-14T02:00' } }).hotel.hm, '01:20');
+  const rc = rows(render(c, car)), hc = rc.findIndex((r) => /🚪 Z ubytování/.test(r));
+  assert.equal(rc[hc], 'so 14. 11. 🚪 Z ubytování na letiště VIE vyraž nejpozději ve 3:50 <span class="faint">(~40 min autem + 30 min vrácení auta + 2 h před odletem, odhad)</span>', rc.join('\n'));
+  assert.match(rc[hc + 1], /^so 14\. 11\. 🚗 Vrácení auta VIE 05:00/, 'nejdřív vyrazit, pak vrátit auto');
+  assert.ok(!rc.some((r) => /🚆 Vídeň → letiště VIE/.test(r)), 'cestu na letiště kryje auto');
+  const cc = plain(c.window.Trip.calendarEvents(car)).find((e) => e.title === '🚪 Vyraž na letiště VIE');
+  assert.deepEqual([cc.start, cc.description], ['2026-11-14T03:50', 'Odhad: ~40 min autem z ubytování na letiště + 30 min vrácení auta + 2 h před odletem.']);
   assert.deepEqual(plain(leaveBy({ ...t, overland: OV() })), { home: null, hotel: null });
   // mimo Schengen o půl hodiny dřív – podle země (Irsko a Kypr jsou v EU, ale mimo Schengen)
   const uk = plain(leaveBy({ ...t, dest: { label: 'Londýn', cc: 'GB' } }));
