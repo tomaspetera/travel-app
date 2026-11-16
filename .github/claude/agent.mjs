@@ -1,7 +1,7 @@
 // Claude (Agent SDK) pro GitHub Actions: opraví chybu z issue (@claude), denní kontrolu jedné oblasti aplikace nebo
 // ruční úkol. Mění jen soubory v repozitáři – větev, commit, PR a komentář udělá workflow (claude-agent.yml), ať
 // Claude nemá přístup ke git push ani GitHubu. Platí se z kreditu Anthropic API (ANTHROPIC_API_KEY).
-// Výstup: $RUNNER_TEMP/claude-summary.md – první řádek = název PR, dál český popis; při chybě exit 1 s důvodem.
+// Výstup: $RUNNER_TEMP/claude-summary.md – první řádek = název PR (z řádku „# …“), dál český popis; při chybě exit 1.
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -40,10 +40,10 @@ Pravidla: drž se CLAUDE.md. Malé, ověřené změny ve stylu okolního kódu. 
 a spusť \`npm test\` – musí projít. Na živou aplikaci (https://atlas-letenky.onrender.com) smíš jen GET /api/health a
 /api/places, nikdy /api/search. Commity, větve a PR nedělej – udělá je workflow z tvých změn v souborech.
 
-Na úplný konec napiš shrnutí česky: první řádek krátký název změny (bude to název PR, bez „#“, do 80 znaků; popiš,
-co se v aplikaci změnilo, např. „Hlídání: prošlé datum už nehlásí zlevnění“, ne „Hotovo“ ani „Funkce je hotová“), pak prázdný řádek a
-odrážky: co bylo špatně, co se změnilo a jak je to ověřené, a zvlášť nálezy, které jsi neopravil, s důvodem.
-Když jsi nic neměnil, první řádek začni „Beze změn:“.`;
+Na úplný konec napiš shrnutí česky: nejdřív řádek „# Název změny“ (bude to název PR, do 80 znaků; popiš, co se
+v aplikaci změnilo, např. „# Hlídání: prošlé datum už nehlásí zlevnění“, ne „Hotovo“ ani „Funkce je hotová“), před ním
+nic, pak prázdný řádek a odrážky: co bylo špatně, co se změnilo a jak je to ověřené, a zvlášť nálezy, které jsi
+neopravil, s důvodem. Když jsi nic neměnil, název začni „Beze změn:“.`;
 
 const allowedTools = [
   'Read', 'Edit', 'Write', 'Glob', 'Grep',
@@ -78,4 +78,10 @@ if (result.subtype !== 'success' || result.is_error) {
   console.log(`::error::Claude skončil chybou (${result.subtype}${result.api_error_status ? `, HTTP ${result.api_error_status}` : ''}): ${why}`);
   process.exit(1);
 }
-writeFileSync(out, `${(result.result || '').trim()}\n\n---\n_Claude (Agent SDK, ${result.num_turns} kroků, ~${(result.total_cost_usd || 0).toFixed(2)} $ z kreditu API)_\n`);
+// Název PR = řádek „# …“ – Claude před něj občas napíše větu („Všechny testy prošly…“), ta by se stala názvem PR;
+// bez nadpisu první řádek jako dřív. Workflow bere název z prvního řádku souboru.
+const lines = (result.result || '').trim().split('\n');
+const h = lines.findIndex((l) => /^#\s+\S/.test(l));
+const title = (h >= 0 ? lines[h].replace(/^#\s+/, '') : lines[0]).trim();
+const body = (h >= 0 ? [...lines.slice(0, h), ...lines.slice(h + 1)] : lines.slice(1)).join('\n').trim();
+writeFileSync(out, `${title}\n\n${body}\n\n---\n_Claude (Agent SDK, ${result.num_turns} kroků, ~${(result.total_cost_usd || 0).toFixed(2)} $ z kreditu API)_\n`);
