@@ -43,7 +43,7 @@ Navigační mapa repozitáře: kde co je a jak to spolu souvisí, aby se kód da
 - Našeptávač Odkud/Kam na serveru, pořadí návrhů (město × letiště podle role, vzdálenost od domova) → `server/lib/places.js`: `suggest()`, `localScored()` (skóre shody), `rank()` (výběr a pořadí), `homePoint()`
 - Našeptávač v prohlížeči → `public/js/flights.js`: `class PlaceInput`, `placesFor()`, `placeCtx()`
 - Načtení a geokódování `data/places.json` → `server/lib/places.js`: `loadPlaces()`, `geocode()`, `geocodePlaces()`, `englishName()`
-- Hledání místa v Objevuj (Mapy.com, oblasti, příroda) → `server/lib/places.js`: `geocodeExplore()`, `regionPlace()`, `regionSub()`, `natureMatches()` (překlep `natureTypos()`), `withNature()`, `sameOnce()`
+- Hledání místa v Objevuj (Mapy.com, oblasti, příroda) → `server/lib/places.js`: `geocodeExplore()`, `regionPlace()`, `regionSub()`, `townBeforeRegion()` (obec před oblastí), `natureMatches()` (překlep `natureTypos()`), `withNature()`, `sameOnce()`
 - ID místa → štítek; výběr → letiště → `server/lib/places.js`: `describe()`, `resolveOrigins()`, `resolveDestinations()`, `cityAirports()`
 - České a cizí názvy, metropole, regiony, hory → `server/lib/names.js`: `EXONYMS`, `CITY_CS`, `AIRPORT_CITY_CS`, `METROS`, `REGIONS`, `NATURE`, `COUNTRY_ALIASES`
 - Letiště, klíč cíle, země podle polohy → `server/lib/airports.js`: `getAirport()`, `airportsNear()`, `destKey()`, `countryAt()`, `sizePenaltyKm()`
@@ -122,7 +122,7 @@ Navigační mapa repozitáře: kde co je a jak to spolu souvisí, aby se kód da
 - Service worker, offline: co obsluhuje (`route()`: API, /c/, /j/ ne), kdy ukládá (`networkFirst()`, `remember()`) → `public/sw.js`; co předem uloží (PRECACHE = `shellAssets()` ze stránky + `RUNTIME_ASSETS`), BUILD a otisky souborů → `server/lib/pwa.js`: `serviceWorker()`, `contentVersion()`
 - Nová verze, offline pruh, instalace, české chyby sítě → `public/js/pwa.js`: `checkVersion()`, `install()`, `httpError()`, `netError()`, `whenOnline()`
 - Odložené moduly a knihovny map → `public/js/lazy.js`: `need()`, `run()`, `soon()`, `url()`
-- Navigace, Zpět, okno, hlášky, stav S, motiv → `public/js/app.js`: `go()`, `buildNav()`, `histPop()`, `modalOpen()`, `modalClose()`, `toast()`, `save()`, `applyTheme()`
+- Navigace, Zpět, okno, hlášky, stav S, motiv → `public/js/app.js`: `go()`, `buildNav()`, `histPop()`, `histSub()` (krok uvnitř sekce: Zpět z 🔎 Prozkoumat na přehled země), `modalOpen()`, `modalClose()`, `toast()`, `save()`, `applyTheme()`
 - ✨ Co je nového → `public/js/app.js`: `WHATS_NEW`, `WN_ID`, `whatsNewPop()`, `whatsNewOpen()`
 - 🕘 Od minula → `public/js/since.js`: `gate()`, `digest()`; `public/js/app.js`: `renderSince()`, `sinceStart()`
 - ℹ️ O aplikaci a soukromí → `public/js/about.js`: `open()`, `html()`, `SOURCES`
@@ -368,13 +368,13 @@ Skripty (vše `node scripts/…`; README ## Data a licence má příkazy pro akt
 - Server – HTTP, bezpečnost, PWA, SEO: `test/server.test.js` (vzor serveru), `test/security.test.js`, `test/seo.test.js`, `test/pwa.test.js`, `test/startup.test.js`, `test/lazy.test.js`, `test/scriptload.test.js`
 - Server – další služby: `test/clienterr.test.js`, `test/about.test.js`, `test/shortlinks.test.js`, `test/invite-link.test.js`, `test/weather-met.test.js`, `test/photos.test.js`, `test/mapy.test.js`
 - Doprava: `test/access.test.js`, `test/applinks.test.js`, `test/arrival.test.js`, `test/fuel.test.js`, `test/fuel-api.test.js`, `test/ground.test.js`, `test/ground-api.test.js`, `test/ground-ui.test.js`, `test/transfers.test.js`
-- Místa a našeptávač: `test/suggest.test.js`, `test/places-search.test.js`, `test/places-missing.test.js`, `test/czech-names.test.js`, `test/nature.test.js`, `test/places-ui.test.js`
+- Místa a našeptávač: `test/suggest.test.js`, `test/places-search.test.js`, `test/places-missing.test.js`, `test/czech-names.test.js`, `test/nature.test.js`, `test/places-ui.test.js`, `test/objevuj-poradi.test.js`, `test/objevuj-drobnosti.test.js`
 - POI, výlety, program, túry: `test/poi.test.js`, `test/country.test.js`, `test/daytrips.test.js`, `test/regions.test.js`, `test/roadtrip.test.js`, `test/itinerary.test.js`, `test/program.test.js`, `test/hours.test.js`, `test/hikeplan.test.js`, `test/hikeplan-ui.test.js`, `test/trailhead.test.js`, `test/bike.test.js`
 - Ubytování a serverový plánovač: `test/xotelo.test.js`, `test/liteapi.test.js`, `test/osm.test.js`, `test/partnerids.test.js`, `test/stays-ui.test.js`, `test/trip.test.js`
 - Průvodce a trasa přes víc míst: `test/stayplan.test.js`, `test/stayplan-nights.test.js`, `test/stayplan-openjaw.test.js`, `test/trip-auto.test.js`, `test/trip-car.test.js`, `test/trip-changes.test.js`, `test/trip-fly.test.js`, `test/trip-integration.test.js`, `test/trip-legs.test.js`, `test/trip-next.test.js`, `test/trip-route.test.js`
 - Moje cesty: `test/trip-edit.test.js`, `test/plan-nav.test.js`, `test/plan-update.test.js`, `test/planner-stay.test.js`, `test/mytrips.test.js`
 - Na cestě a před cestou: `test/ontrip.test.js`, `test/ontrip-rides.test.js`, `test/pretrip.test.js`, `test/entry.test.js`, `test/weather.test.js`, `test/ics.test.js`
-- Lety v prohlížeči: `test/lety-form.test.js`, `test/lety-filters.test.js`, `test/lety-detail.test.js`, `test/searchhelp.test.js` (vzor klienta), `test/holiday.test.js`, `test/daycal.test.js`, `test/spancal.test.js`, `test/rank.test.js`, `test/smart.test.js`, `test/smart-diacritics.test.js`, `test/draft.test.js`, `test/pax-ui.test.js`
+- Lety v prohlížeči: `test/lety-form.test.js`, `test/drobnosti-lety.test.js`, `test/lety-filters.test.js`, `test/lety-detail.test.js`, `test/searchhelp.test.js` (vzor klienta), `test/holiday.test.js`, `test/daycal.test.js`, `test/spancal.test.js`, `test/rank.test.js`, `test/smart.test.js`, `test/smart-diacritics.test.js`, `test/draft.test.js`, `test/pax-ui.test.js`
 - Přehled, hlídání, uložený stav: `test/alerts.test.js`, `test/buytip.test.js`, `test/pins.test.js`, `test/since.test.js`, `test/tips.test.js`, `test/migrate.test.js`, `test/recs.test.js`, `test/world-trips.test.js`
 - Sdílení, záloha, přenos: `test/sharelink.test.js`, `test/sharecard.test.js`, `test/offershare.test.js`, `test/share-codes.test.js`, `test/backup.test.js`, `test/transfer.test.js`, `test/qr.test.js`
 - Vzhled, přístupnost, telefon a počítač: `test/a11y.test.js`, `test/css-ph.test.js`, `test/dark-visual.test.js`, `test/desktop.test.js`, `test/desktop-trip.test.js`, `test/modal-scroll.test.js`, `test/phone-text.test.js`, `test/phone-visual.test.js`, `test/theme.test.js`, `test/history.test.js`, `test/newcomer.test.js`
