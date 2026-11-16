@@ -43,7 +43,7 @@ Navigační mapa repozitáře: kde co je a jak to spolu souvisí, aby se kód da
 - Našeptávač Odkud/Kam na serveru, pořadí návrhů (město × letiště podle role, vzdálenost od domova) → `server/lib/places.js`: `suggest()`, `localScored()` (skóre shody), `rank()` (výběr a pořadí), `homePoint()`
 - Našeptávač v prohlížeči → `public/js/flights.js`: `class PlaceInput`, `placesFor()`, `placeCtx()`
 - Načtení a geokódování `data/places.json` → `server/lib/places.js`: `loadPlaces()`, `geocode()`, `geocodePlaces()`, `englishName()`
-- Hledání místa v Objevuj (Mapy.com, oblasti, příroda) → `server/lib/places.js`: `geocodeExplore()`, `regionPlace()`, `natureMatches()`, `withNature()`
+- Hledání místa v Objevuj (Mapy.com, oblasti, příroda) → `server/lib/places.js`: `geocodeExplore()`, `regionPlace()`, `regionSub()`, `natureMatches()` (překlep `natureTypos()`), `withNature()`, `sameOnce()`
 - ID místa → štítek; výběr → letiště → `server/lib/places.js`: `describe()`, `resolveOrigins()`, `resolveDestinations()`, `cityAirports()`
 - České a cizí názvy, metropole, regiony, hory → `server/lib/names.js`: `EXONYMS`, `CITY_CS`, `AIRPORT_CITY_CS`, `METROS`, `REGIONS`, `NATURE`, `COUNTRY_ALIASES`
 - Letiště, klíč cíle, země podle polohy → `server/lib/airports.js`: `getAirport()`, `airportsNear()`, `destKey()`, `countryAt()`, `sizePenaltyKm()`

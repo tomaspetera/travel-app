@@ -128,10 +128,13 @@
   // Poznámka pod trasou a túrami: zdroje a výpočet času sbalené pod „Jak počítám ▾“ (na telefonu to bylo 8–12 řádků);
   // vidět zůstane, co je potřeba hned (čas bez přestávek, ověř chaty a počasí) a atribuce dat
   const footMore = html => ` <details class="foot-more"><summary>Jak počítám</summary>${html}</details>`;
+  // „Překlep? Asi myslíš:“ jen nad opravami (Kraków u „Krakv“); nesouvisející místa za nimi (Kråkvåg) pod vlastním řádkem
+  const sugHead = (sugs, i) => (sugs[i].fuzzy ? (i && sugs[i - 1].fuzzy ? '' : '<div class="pi-head">🔤 Překlep? Asi myslíš:</div>')
+    : i && sugs[i - 1].fuzzy ? '<div class="pi-head">Další místa:</div>' : '');
   // err 'offline' (pwa.js netError – zařízení bez připojení): ne „nefunguje“ – čekat na server nemá smysl
   const sugHtml = (sugs, act, err) => (err === 'offline' ? '<div class="pi-empty">Jsi offline – návrhy míst se načtou po připojení k internetu</div>'
     : err ? '<div class="pi-empty">Hledání míst teď nefunguje – zkus to za chvíli</div>'
-    : sugs.length ? (sugs[0].fuzzy ? '<div class="pi-head">🔤 Překlep? Asi myslíš:</div>' : '') + sugs.map((s, i) => `<div class="pi-opt ${i === act ? 'on' : ''}" data-i="${i}"><span class="pi-flag">${s.flag || '📍'}</span><span class="pi-t"><b>${esc(s.label)}</b><small>${esc(s.sub || '')}</small></span></div>`).join('')
+    : sugs.length ? sugs.map((s, i) => sugHead(sugs, i) + `<div class="pi-opt ${i === act ? 'on' : ''}" data-i="${i}"><span class="pi-flag">${s.flag || '📍'}</span><span class="pi-t"><b>${esc(s.label)}</b><small>${esc(s.sub || '')}</small></span></div>`).join('')
       + (sugs.some(s => s.src === 'mapy') ? `<div class="pi-by">${mapyBy('Hledají i')}</div>` : '')
       : '<div class="pi-empty">Nic nenalezeno</div>');
 
@@ -621,6 +624,10 @@
     return `${WX_IN[dow(w.date)]} hrozí déšť${w.pop != null ? ` (${w.pop} %)` : ''}${alt
       ? ` – lepší by ${WX_BYL[dow(best.date)]} <b>${Weather.dayName(best.date)} ${+best.date.slice(8)}. ${+best.date.slice(5, 7)}.</b>: ${wIco(best.code)[0]} ${best.hi}°` : ''}`;
   }
+  // Den bez předpovědi: dlouhodobý průměr s vysvětlením – za dosahem předpovědi, i v jejím dosahu, když chybí (výpadek,
+  // limit, DEMO; dřív tam nebylo nic). Den v minulosti nic ('').
+  const wxAvgWhy = (ahead, max) => (!(ahead >= 0) ? '' : `dlouhodobý průměr (meteostanice u blízkého letiště, jinak NASA POWER), ne předpověď – ${
+    ahead > max ? `ta je nejvýš na ${max} dní dopředu` : 'ta teď není k dispozici'}`);
   async function fillWx(host) {
     const W = window.Weather;
     const slots = $$('[data-wx]', host).map(el => { const [lat, lon, date] = el.dataset.wx.split(','); return { el, key: el.dataset.wx, lat: +lat, lon: +lon, date, route: el.classList.contains('wx-day') }; });
@@ -643,12 +650,12 @@
             const best = W.bestDay(await W.days(s.lat, s.lon, fmtYMD(new Date()), 7));
             put(s, `${line}<div class="note info">🌧️ <div>${rainTip(w, best)}</div></div>`);
           }
-        } else if (W.daysAhead(s.date) > W.AHEAD) {
-          const n = await W.normal(s.lat, s.lon, s.date);
-          const why = 'dlouhodobý průměr (meteostanice u blízkého letiště, jinak NASA POWER), ne předpověď – ta je nejvýš na 9 dní dopředu';
+        } else {
+          const why = wxAvgWhy(W.daysAhead(s.date), W.AHEAD);
+          const n = why && await W.normal(s.lat, s.lon, s.date).catch(() => null);
           put(s, !n ? '' : s.route ? `📅 ${esc(n.text)} <span class="faint">– ${why}</span>`
             : `<span class="wx avg" title="${esc(`${n.text} – ${why}`)}">obvykle ${esc(n.hi)}°<small> / ${esc(n.lo)}°</small></span>`);
-        } else put(s, '');
+        }
       }));
     } catch { /* bez počasí se plán obejde */ }
   }
@@ -808,6 +815,14 @@
     st.keep = keptDays(plan, id);
     replan();
     toast(`Vyřazeno${name ? `: ${name}` : ''} – program jsem upravil`, '', 6000, { label: '↩ Vrátit', run: () => { st.exclude.delete(id); if (was) st.must.add(id); replan(); } });
+  }
+  /** ✕ u zastávky výletu: vyřadit a naplánovat znovu – s hláškou ↩ Vrátit jako u programu (dřív se cíl smazal potichu). */
+  function tripDropUndo(id, plan, replan) {
+    const was = ex.tripMust.has(id);
+    const name = plan && Array.isArray(plan.days) ? (plan.days.flatMap(d => d.stops || []).find(x => x.id === id) || {}).name : '';
+    ex.tripEx.add(id); ex.tripMust.delete(id);
+    replan();
+    toast(`Vyřazeno${name ? `: ${name}` : ''} – výlety jsem upravil`, '', 6000, { label: '↩ Vrátit', run: () => { ex.tripEx.delete(id); if (was) ex.tripMust.add(id); replan(); } });
   }
   function plannerControls(st) {
     // zájmy nejsou filtr – vybraná místa dostanou v programu přednost; „on“ s barvou a aria-pressed, ať je vidět, co platí
@@ -1347,7 +1362,7 @@
     if (px.mode) ex.mode = px.mode;
     else if (s && s.region && px.days >= 2) ex.mode = 'loop';
     // hory a příroda na víc dní („Krkonoše na 3 dny“): túra na každý den, ne program po místech
-    else if (s && NATURE_KINDS.includes(s.nature) && px.days >= 2) { ex.mode = 'hike'; ex.hike.kind = 'days'; }
+    else if (s && hikesAt(s) && px.days >= 2) { ex.mode = 'hike'; ex.hike.kind = 'days'; }
     else if (px.days || px.interests.length) ex.mode = 'city';
     if (px.mode === 'hike' && px.days >= 2) ex.hike.kind = 'days';
     // druh plánu z věty platí – u dalšího místa ho natureMode nevrátí (hory pak z „programu ve městě“ udělají pěšky)
@@ -1390,11 +1405,14 @@
     if (a) { if (ex.mode === a.mode) { ex.mode = a.was.mode; ex.planOpen = a.was.planOpen; } if (ex.radius === a.radius) ex.radius = a.was.radius; }
     if (!p || !p.nature) return;
     const was = { mode: ex.mode, radius: ex.radius, planOpen: ex.planOpen };
-    if (ex.mode === 'city') { ex.mode = 'hike'; ex.planOpen = true; }
+    if (ex.mode === 'city' && hikesAt(p)) { ex.mode = 'hike'; ex.planOpen = true; }
     const km = areaKm(p);
     if (typeof ex.radius === 'number' && ex.radius < km) ex.radius = km;
     if (ex.mode !== was.mode || ex.radius !== was.radius) ex.auto = { mode: ex.mode, radius: ex.radius, was };
   }
+  // místo na túry: hory, parky, jeskyně a skalní města; jezero a městečko u něj (Hallstatt, Lipno) je program ve městě
+  // a výlety – „Hallstatt na 3 dny“ dřív naplánoval tři dny horských túr
+  const hikesAt = p => Boolean(p && NATURE_KINDS.includes(p.nature) && p.nature !== 'lake');
   // okruh oblasti místa v přírodě (ze serveru; starší záznam bez km: pohoří a parky 20 km, jinak 10 km)
   const areaKm = p => p.km || (p.nature === 'range' || p.nature === 'park' ? 20 : 10);
   // Pěšky u hor a přírody: druh a okruh oblasti do api/hike – server najde start u cíle (parkoviště, nádraží, obec)
@@ -1641,7 +1659,8 @@
       if (!s) { dd.innerHTML = `<div class="pi-empty">${down === 'offline' ? 'Jsi offline – místo půjde dohledat po připojení k internetu' : down ? 'Místa teď nejde dohledat – zkontroluj připojení a zkus to znovu' : `Místo „${esc(px.place)}“ jsem nenašel – zkus jen jeho název`}</div>`; return; }
       dd.hidden = true; q.blur();
       exploreApply(px, s);
-      if (px.place) openPlace(s, { start: !px.start, days: !px.days }); else paintExplore();
+      // věta bez místa („na 2 dny“): v poli zase otevřené místo, ne text věty
+      if (px.place) openPlace(s, { start: !px.start, days: !px.days }); else { q.value = qLabel(); paintExplore(); }
     };
     const pick = s => { if (!s) return; dd.hidden = true; if (s.ccPick) { q.blur(); openWholeCountry(s.ccPick); } else openPlace(s); };
     // Návrhy k textu; null = předběhl je novější dotaz (nebo psaní).
@@ -2950,7 +2969,7 @@
     on('#exRetry', 'onclick', () => replan(null, { other: er?.other }));
     on('#routeGpx', 'onclick', () => downloadText(`atlas-${hikeMode ? 'pesky' : rr.kind === 'train' ? 'vlak-kolo' : 'kolo'}-${slug(p.label)}-${rr.km}km.gpx`, gpxOf(rr, routeName(rr, p)), 'application/gpx+xml'));
     $$('[data-drop]', body).forEach(b => b.onclick = () => dropUndo(st, b.dataset.drop, ex.plan, () => replan()));
-    $$('[data-tdrop]', body).forEach(b => b.onclick = () => { ex.tripEx.add(b.dataset.tdrop); ex.tripMust.delete(b.dataset.tdrop); onlyThisTrip(); replan(); });
+    $$('[data-tdrop]', body).forEach(b => b.onclick = () => tripDropUndo(b.dataset.tdrop, trip,() => { onlyThisTrip(); replan(); }));
     $$('[data-tmust]', body).forEach(b => b.onclick = e => { e.stopPropagation(); ex.tripMust.add(b.dataset.tmust); ex.tripEx.delete(b.dataset.tmust); onlyThisTrip(); replan(); });
     // 🎒 Výlet sem (místo z okolí v okruhu 50/100 km): jednodenní výlety s tímto místem – naplánují se hned
     $$('[data-tgo]', body).forEach(b => b.onclick = e => {
@@ -3017,7 +3036,7 @@
   window.Places = {
     renderExplore, renderPlanner, retheme, routeMap, dayRoute, gmDir, openAt, preview, previewHtml, openCountryView, makeHikePlan,
     // jen pro testy (test/places-ui.test.js)
-    _t: { tripPlaces, ownPlaces, savedPlaces, tripDatesFor, inspSub, searchedPlaces, plural, placesTxt, mustTxt, inRadius, needsFetch, outsideIds, planIds, withPlanStops, enterAction, sugHtml, waitHtml, errLead, errHtml, httpErr, mustBtn, poiCard,
+    _t: { hikesAt, wxAvgWhy, tripDropUndo, tripPlaces, ownPlaces, savedPlaces, tripDatesFor, inspSub, searchedPlaces, plural, placesTxt, mustTxt, inRadius, needsFetch, outsideIds, planIds, withPlanStops, enterAction, sugHtml, waitHtml, errLead, errHtml, httpErr, mustBtn, poiCard,
       uiSnapshot, uiRestore, okStart, pushRecent, samePlace, cleanPlace, getJson, firstSentence, descHtml, inclHtml, gq, poiQ, centerQ, gmDir, dayLbl, slug, gpxOf, SLOW_MS, UI_LS,
       countryCs, stopQ, mapyDir, dayLinks, planHtml, tripHtml, MAPY_WP, emptyHtml, planEmptyHtml, variantTxt, routeHtml, ROUTE_VARIANTS, blankHtml, looksEnglish, surfaceRows, surfaceHtml,
       afterDark, routeBack, sunSlot, sunHtml, fillSun, toHm, modeBtns, previewPick, previewCard, moreTxt, poiUrl, pvFor, PREVIEW_KM, ex, loadExplore,
