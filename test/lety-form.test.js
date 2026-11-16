@@ -2,6 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { CONTINENT_BY_KEY, continentCountries } from '../server/lib/longhaul.js';
 
 const html = readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
 const src = readFileSync(new URL('../public/js/flights.js', import.meta.url), 'utf8');
@@ -115,4 +116,82 @@ test('neplatné pole ve sbalené sekci se rozbalí – hledání potichu nestoj�
 
 test('schovaná délka pobytu (jen tam, přesná data) je mimo kontrolu formuláře', () => {
   assert.match(src, /\$\('#nMin'\)\.disabled = \$\('#nMax'\)\.disabled = !\(ret && !exact\);/);
+});
+
+test('Max. cena bere libovolnou částku – krok 100 by 1550 Kč zablokoval bublinou prohlížeče', () => {
+  const inp = html.match(/<input[^>]*id="maxPrice"[^>]*>/)[0];
+  assert.match(inp, /step="1"/);
+});
+
+test('čip 🏙️ Evropa dá do Kam světadíl Evropa (ne kamkoliv s Alžírskem a Tuniskem)', () => {
+  assert.match(src, /else if \(k === 'eu'\) toInput\.set\(\[\{ id: 'ct:europe', label: 'Evropa', flag: '🇪🇺' \}\]\);/);
+  assert.doesNotMatch(src, /Evropa = kamkoliv/);
+  // server světadíl zná a severní Afriku do něj nepočítá
+  assert.equal(CONTINENT_BY_KEY.get('europe').cs, 'Evropa');
+  const cc = continentCountries('europe');
+  assert.ok(cc.includes('ES') && cc.includes('IT'));
+  for (const x of ['DZ', 'TN', 'MA', 'EG']) assert.ok(!cc.includes(x), x);
+});
+
+test('Víc měst: přidané město smaže odkud návratu jen předvyplněné, ručně zadané zůstane', () => {
+  const fn = src.match(/\n {2}function mlAdd\(\) \{[\s\S]*?\n {2}\}\n/)[0];
+  const idsOf = items => (items || []).map(x => x.id).sort().join('|');
+  const run = (legs, home) => {
+    let out;
+    const rows = Array.from({ length: 9 }, () => ({ to: { input: { focus() {} } } }));
+    new Function('mlRead', 'ML_MAX', 'idsOf', 'fromInput', 'SearchHelp', 'addDays', 'mlRender', 'formEdited', 'mlRows',
+      `let mlTouched; ${fn} mlAdd();`)(() => legs, 6, idsOf, { items: home }, { diffDays: () => 6 }, d => d, l => { out = l; }, () => {}, rows);
+    return out;
+  };
+  const P = [{ id: 'ap:PRG' }], R = [{ id: 'ap:FCO' }], N = [{ id: 'ap:NAP' }];
+  // Praha → Řím, Neapol → Praha: návrat z Neapole zůstane
+  let l = run([{ from: P, to: R, date: '' }, { from: N, to: P, date: '' }], P);
+  assert.equal(l.length, 3);
+  assert.deepEqual(l[2].from, N);
+  // Praha → Řím, Řím → Praha (předvyplněné): odkud návratu se uvolní pro nové město
+  l = run([{ from: P, to: R, date: '' }, { from: R, to: P, date: '' }], P);
+  assert.deepEqual(l[1].from, R);
+  assert.deepEqual(l[2].from, []);
+});
+
+test('🔔 upozornění se nabízí jen na počítači – na telefonu ani tlačítko, ani dotaz na povolení', () => {
+  const m = src.match(/const notifCtor = \(\) => ([\s\S]*?);\n/);
+  assert.ok(m);
+  const ok = (ua, { mobile = false, desk = true } = {}) => new Function('navigator', 'window', 'matchMedia', `return ${m[1]};`)(
+    { userAgent: ua, userAgentData: { mobile } }, { matchMedia: 1 }, q => ({ matches: desk && /pointer: fine/.test(q) && /hover: hover/.test(q) }));
+  const WIN = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/130.0 Safari/537.36';
+  assert.equal(ok(WIN), true);
+  assert.equal(ok(WIN, { desk: false }), false, 'úzké okno / dotyk');
+  assert.equal(ok(WIN, { mobile: true }), false);
+  assert.equal(ok('Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148'), false);
+  assert.equal(ok('Mozilla/5.0 (Android 14; Mobile; rv:132.0) Gecko/132.0 Firefox/132.0'), false);
+  // na telefonu žádný text ani tlačítko; askNotif bez stavu „default“ o povolení neprosí
+  assert.match(src, /notifCtor\(\) \? Alerts\.notifState\([^)]*\) : 'phone'/);
+  assert.match(src, /phone: '',/);
+  assert.match(src, /function askNotif\(\) \{\n {4}if \(notifOk\(\) !== 'default'\) return renderWatch\(\);/);
+});
+
+test('hlídání při plném úložišti nehlásí „uloženo“ – změna se vrátí a ohlásí', () => {
+  const fn = src.match(/\n {2}function watchSave\(undo\) \{[\s\S]*?\n {2}\}\n/)[0];
+  const mk = ok => {
+    const log = [];
+    const f = new Function('save', 'renderWatch', 'updateWatchBtn', 'updateWatchBadges', 'toast', `${fn} return watchSave;`)(
+      () => (ok ? undefined : false), () => log.push('render'), () => {}, () => {}, (t, k) => log.push(k));
+    return { f, log };
+  };
+  let undone = false;
+  let x = mk(true);
+  assert.equal(x.f(() => { undone = true; }), true);
+  assert.equal(undone, false);
+  x = mk(false);
+  assert.equal(x.f(() => { undone = true; }), false);
+  assert.equal(undone, true);
+  assert.deepEqual(x.log, ['render', 'err']);
+  // všechny změny seznamu hlídání jdou přes watchSave, ne holé save()
+  const body = name => src.match(new RegExp(`\\n {2}(?:async )?function ${name}\\([^)]*\\) \\{[\\s\\S]*?\\n {2}\\}\\n`))[0];
+  for (const name of ['addWatch', 'delWatch', 'setRoll']) {
+    assert.match(body(name), /watchSave\(/, name);
+    assert.doesNotMatch(body(name), /\bsave\(\)/, name);
+  }
+  assert.match(body('setTarget'), /if \(!done\) \{ save\(\); renderNews\(\); return; \}[\s\S]*watchSave\(/);
 });
