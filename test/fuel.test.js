@@ -172,6 +172,12 @@ test('fuelPrices: ČR z ČSÚ, sousedé z bulletinu přepočtení kurzem, slušn
     assert.deepEqual(info.sources.map((x) => [x.id, x.ok, x.date]), [['czso', true, '2026-09-28'], ['wob', true, '2026-09-28']]);
     assert.equal(info.sources[0].period, '40. týden 2026');
     assert.equal(info.sources[1].fx.eurCzk, 24.4);
+    // ČSÚ i Oil Bulletin jsou CC BY 4.0 (ne CC0): u zdroje licence s odkazem a že jsou data upravená
+    for (const x of info.sources) {
+      assert.deepEqual([x.license, x.licenseUrl], ['CC BY 4.0', 'https://creativecommons.org/licenses/by/4.0/'], x.id);
+      assert.match(x.adapted, /^upraveno/, x.id);
+    }
+    assert.equal(info.sources[1].attribution, '© Evropská unie');
     assert.equal(info.CZ.diesel, 50.65);
     assert.equal(info.demo, undefined);
     assert.equal(count(s, 'data.csu.gov.cz'), 1, 'druhý dotaz z mezipaměti');
