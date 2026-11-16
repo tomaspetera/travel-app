@@ -1,9 +1,9 @@
-# Claude na GitHubu přes Agent SDK – platí se z kreditu Anthropic API (tajný údaj ANTHROPIC_API_KEY; propagační kredit
-# pokrývá Agent SDK a API, ne Claude Code GitHub Action). Claude jen mění soubory (.github/claude/agent.mjs), větev,
+# Claude na GitHubu přes Agent SDK – platí se z kreditu Anthropic API (tajný údaj ANTHROPIC_API_KEY; kredit k předplatnému
+# „API credit (Max)“ platí do 8. 12. 2026 a pokrývá Agent SDK a API, ne Claude Code GitHub Action). Claude jen mění soubory (.github/claude/agent.mjs), větev,
 # commit, PR a komentář dělá tenhle workflow – Claude sám ke GitHubu ani git push přístup nemá.
 # - @claude v novém issue nebo v komentáři k issue (jen lidé s právem zápisu) → oprava jako PR + odkaz v issue
-# - každý den 6:17 UTC kontrola jedné oblasti aplikace (do vypršení kreditu 8. 11. 2026) → PR, jen když něco opravil;
-#   běh stojí ~1–1,6 $ z propagačního kreditu – do jeho konce denně (Peter, 27. 10. 2026)
+# - každý den 6:17 UTC kontrola jedné oblasti aplikace → PR, jen když něco opravil; od 6. 11. vypnutá (krok Spustit?),
+#   běh stojí ~1–1,6 $ z kreditu – kredit jde na ruční úkoly
 # - ručně: Actions → Claude (Agent SDK) → Run workflow, s vlastním úkolem nebo prázdné = denní kontrola
 name: Claude (Agent SDK)
 
@@ -59,9 +59,8 @@ jobs:
           EVENT: ${{ github.event_name }}
         run: |
           if [ "$HAS_KEY" != true ]; then echo "::notice::Bez ANTHROPIC_API_KEY se nic nespouští"; echo run=false >> "$GITHUB_OUTPUT"; exit 0; fi
-          # propagační kredit platí do 8. 11. 2026; zbytek (~10 $) šel 5. 11. na ruční úkoly, tak denní kontrola
-          # od 6. 11. nic nespustí, ať kredit nepřečerpá (ruční úkol a @claude ano)
-          if [ "$EVENT" = schedule ] && [[ "$(date -u +%F)" > "2026-11-05" ]]; then echo "::notice::Kredit vypršel, denní kontrola stojí"; echo run=false >> "$GITHUB_OUTPUT"; exit 0; fi
+          # denní kontrola od 6. 11. nic nespustí – kredit (do 8. 12. 2026) jde na ruční úkoly; ruční úkol a @claude ano
+          if [ "$EVENT" = schedule ] && [[ "$(date -u +%F)" > "2026-11-05" ]]; then echo "::notice::Denní kontrola je vypnutá (kredit jde na ruční úkoly)"; echo run=false >> "$GITHUB_OUTPUT"; exit 0; fi
           echo run=true >> "$GITHUB_OUTPUT"
       - name: Kontrola klíče Anthropic API
         if: steps.gate.outputs.run == 'true'
