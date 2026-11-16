@@ -2060,6 +2060,8 @@ přes víc míst jedou úseky v ty dny autem a ostatní vlakem / busem. Srovnáv
 - Vlajky na Windows: písmo Twemoji Country Flags (Twemoji, CC BY 4.0; detekce z country-flag-emoji-polyfill, MIT),
   přibaleno v `public/vendor/flags/`.
 - Mapa světa: d3, topojson-client, world-atlas (ISC, přibaleno v `public/vendor/`).
+- Písma Inter, Sora a Caveat (SIL Open Font License 1.1), přibaleno v `public/vendor/fonts/` – stránka nic
+  nestahuje z Google Fonts, IP uživatele se ke Googlu nedostane.
 - Mapy míst: MapLibre GL JS (BSD-3-Clause, přibaleno v `public/vendor/maplibre/`), podklad OpenFreeMap
   (© OpenMapTiles, data © přispěvatelé OpenStreetMap, ODbL), záloha dlaždice OpenStreetMap.
 - Trasy na kole a přejezdy autem mezi místy trasy: [BRouter](https://brouter.de/) (veřejný server, bez klíče; jiný

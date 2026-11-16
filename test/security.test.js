@@ -89,7 +89,7 @@ test('hlavičky: nosniff, rám, Referrer-Policy, HSTS a Permissions-Policy všud
   const dir = Object.fromEntries(csp.split(/;\s*/).map((d) => { const [k, ...v] = d.split(' '); return [k, v]; }));
   // otisky přesně z obsahu vložených skriptů stránky (nezávisle na security.js)
   const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => `'sha256-${createHash('sha256').update(m[1]).digest('base64')}'`);
-  assert.ok(scripts.length >= 3, 'polyfilly, motiv, písmo');
+  assert.ok(scripts.length >= 2, 'polyfilly, motiv (písma už bez skriptu – z vlastního serveru)');
   assert.deepEqual(dir['script-src'], ["'self'", ...scripts]);
   assert.ok(!dir['script-src'].includes("'unsafe-inline'") && !dir['script-src'].includes("'unsafe-eval'"), 'žádné vložené obsluhy ani eval');
   assert.deepEqual(dir['frame-ancestors'], ["'none'"]);
@@ -99,7 +99,9 @@ test('hlavičky: nosniff, rám, Referrer-Policy, HSTS a Permissions-Policy všud
   for (const host of ['https://tiles.openfreemap.org', 'https://open.er-api.com']) assert.ok(dir['connect-src'].includes(host), host);
   // počasí a hledání míst jdou přes server (MET Norway, server/lib/weather.js) – prohlížeč na Open-Meteo nesahá
   assert.ok(!dir['connect-src'].some((h) => h.includes('open-meteo')), dir['connect-src'].join(' '));
-  assert.ok(dir['style-src'].includes('https://fonts.googleapis.com') && dir['font-src'].includes('https://fonts.gstatic.com'));
+  // písma z vlastního serveru (vendor/fonts) – IP uživatele se nedostane ke Google Fonts (CLAUDE.md: písma lokálně)
+  assert.deepEqual(dir['font-src'], ["'self'"]);
+  assert.ok(!dir['style-src'].some((h) => h.includes('google')), dir['style-src'].join(' '));
   assert.match((await get('/api/health')).headers.get('content-security-policy'), /^default-src 'none'; frame-ancestors 'none'$/);
   assert.equal(pageCsp('<script src="a.js"></script><script>x()</script>'), pageCsp('<script>x()</script>'), 'skript se src se nehashuje');
   assert.deepEqual(inlineScriptHashes('<script>a\r\nb</script>'), inlineScriptHashes('<script>a\nb</script>'), 'konce řádků jako po parseru HTML');

@@ -55,8 +55,8 @@ export function pageCsp(html) {
   return [
     "default-src 'self'",
     `script-src 'self' ${inlineScriptHashes(html).join(' ')}`.trim(),
-    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-    "font-src 'self' https://fonts.gstatic.com",
+    "style-src 'self' 'unsafe-inline'",
+    "font-src 'self'", // písma z vlastního serveru (vendor/fonts) – IP uživatele se nedostane ke Google Fonts
     "img-src 'self' data: blob: https:",
     `connect-src 'self' ${CONNECT.join(' ')}`,
     "worker-src 'self' blob:",

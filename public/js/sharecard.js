@@ -74,28 +74,15 @@
   const LOGO = 'M22 2L11 13M22 2l-7 20-4-9-9-4z';
   const wait = ms => new Promise(r => setTimeout(r, ms));
 
-  // Písma: Inter a Sora má stránka, Caveat („třeba ty?“) jen pro kartu a jen s těmi pár písmeny (text=, ~3 kB).
-  // Nenačtené písmo (bez sítě) nevadí – rozměry se měří (measureText), karta jen bude v náhradním písmu.
+  // Písma: Inter a Sora má stránka, Caveat („třeba ty?“) jen karta – všechna z vlastního serveru (@font-face v css/atlas.css,
+  // vendor/fonts), fonts.load je stáhne, až je karta potřebuje. Nenačtené písmo (bez sítě) nevadí – rozměry se měří
+  // (measureText), karta jen bude v náhradním písmu.
   let fontsP = null;
   function fonts() {
     if (fontsP) return fontsP;
-    const css = new Promise(r => {
-      if (document.querySelector('link[data-hand]')) return r();
-      const l = document.createElement('link');
-      l.rel = 'stylesheet'; l.dataset.hand = '1'; l.onload = r; l.onerror = r;
-      l.href = 'https://fonts.googleapis.com/css2?family=Caveat:wght@700&display=swap&text=' + encodeURIComponent(HAND);
-      document.head.appendChild(l);
-    });
-    // písma aplikace platí až po stažení jejich stylu (index.html: media print → all) – do té doby by fonts.load nic nenačetl;
-    // styl, který se stáhnout nepovedlo (data-err), už nepřijde – nečekat
-    const app = new Promise(r => {
-      const l = document.getElementById('fontCss');
-      if (!l || l.media === 'all' || l.hasAttribute('data-err')) return r();
-      l.addEventListener('load', () => setTimeout(r, 0)); l.addEventListener('error', r);
-    });
     const load = (f, s) => (document.fonts && document.fonts.load ? document.fonts.load(f, s).catch(() => { }) : null);
-    const all = Promise.all([css, app]).then(() => Promise.all([load('800 100px Sora', 'Jede někdo se mnou?'), load('700 50px Sora', 'Praha'), load('800 30px Inter', 'HLEDÁM PARŤÁKA'),
-      load('700 30px Inter', 'klikni'), load('600 22px Inter', 'foto'), load('700 70px Caveat', HAND)]));
+    const all = Promise.all([load('800 100px Sora', 'Jede někdo se mnou?'), load('700 50px Sora', 'Praha'), load('800 30px Inter', 'HLEDÁM PARŤÁKA'),
+      load('700 30px Inter', 'klikni'), load('600 22px Inter', 'foto'), load('700 70px Caveat', HAND)]);
     fontsP = Promise.race([all, wait(8000)]); // pomalá síť: karta se kreslí, zatímco okno ukazuje „Chystám obrázky…“
     return fontsP;
   }

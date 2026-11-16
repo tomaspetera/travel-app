@@ -4,7 +4,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 
 const src = (f) => readFileSync(new URL(`../public/js/${f}`, import.meta.url), 'utf8');
 const ctx = { window: {}, TextEncoder, TextDecoder, btoa, atob, CompressionStream, DecompressionStream, location: { origin: 'https://atlas.example', pathname: '/' }, navigator: {} };
@@ -89,27 +89,24 @@ test('okno Sdílet: „bez ubytování“ jen u karty na sítě – Poslat kamar
   assert.doesNotMatch(past, /ubytování ani adresu|Jede někdo se mnou/, 'proběhlá cesta: karta na sítě není, zámek také ne');
 });
 
-test('okno Sdílet: písma Googlu se nestáhla (bez sítě, blokovaná) – karty se kreslí hned, ne až po 8 s „Chystám obrázky…“', async () => {
-  // index.html si nestažený styl písem poznamená (data-err) – událost error by sharecard.js zachytit nestihl
-  const html = readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
-  assert.match(html, /l\.addEventListener\('error', function \(\) \{ l\.setAttribute\('data-err', '1'\); \}\)/);
-  /** render(): po písmech (fonts) se stahuje fotka cíle – fetch api/photos = písma vyřízená. Pojistka 8 s nedoběhne. */
-  const photosAsked = async (failed) => {
-    const asked = [];
-    const link = { media: 'print', hasAttribute: (a) => failed && a === 'data-err', addEventListener: () => { } };
-    const c = {
-      window: {}, TextEncoder, TextDecoder, btoa, atob, navigator: {}, location: ctx.location, setTimeout: () => 0,
-      document: { getElementById: (id) => (id === 'fontCss' ? link : null), querySelector: () => ({}), fonts: { load: async () => [] } },
-      fetch: (u) => { asked.push(u); return new Promise(() => { }); },
-    };
-    vm.createContext(c);
-    for (const f of ['sharelink.js', 'sharecard.js']) vm.runInContext(src(f), c, { filename: f });
-    c.window.ShareCard.render(c.window.ShareCard.sanitize(TRIP));
-    await new Promise((r) => setImmediate(r));
-    return asked.length > 0;
+test('písma z vlastního serveru: nic z Google Fonts, @font-face míří na přibalené soubory, karta Sdílet čeká jen na fonts.load', async () => {
+  const read = (p) => readFileSync(new URL(`../public/${p}`, import.meta.url), 'utf8');
+  for (const p of ['index.html', 'js/sharecard.js', 'css/atlas.css']) assert.doesNotMatch(read(p), /fonts\.(googleapis|gstatic)\.com/, p);
+  const files = [...read('css/atlas.css').matchAll(/url\(\.\.\/vendor\/fonts\/([^)]+)\)/g)].map((m) => m[1]);
+  assert.deepEqual(new Set(files.map((f) => f.split('-v')[0])), new Set(['inter', 'sora', 'caveat']));
+  for (const f of files) assert.ok(existsSync(new URL(`../public/vendor/fonts/${f}`, import.meta.url)), f);
+  /** render(): po písmech (fonts) se stahuje fotka cíle – fetch api/photos = písma vyřízená, bez čekání na styl Googlu. */
+  const asked = [];
+  const c = {
+    window: {}, TextEncoder, TextDecoder, btoa, atob, navigator: {}, location: ctx.location, setTimeout: () => 0,
+    document: { getElementById: () => null, querySelector: () => ({}), fonts: { load: async () => [] } },
+    fetch: (u) => { asked.push(u); return new Promise(() => { }); },
   };
-  assert.equal(await photosAsked(true), true, 'styl písem se nestáhl → nečeká se');
-  assert.equal(await photosAsked(false), false, 'styl se ještě stahuje → čeká se (nejvýš 8 s)');
+  vm.createContext(c);
+  for (const f of ['sharelink.js', 'sharecard.js']) vm.runInContext(src(f), c, { filename: f });
+  c.window.ShareCard.render(c.window.ShareCard.sanitize(TRIP));
+  await new Promise((r) => setImmediate(r));
+  assert.ok(asked.length > 0, 'písma vyřízená → karta pokračuje (fotka cíle)');
 });
 
 test('#jed= okno: proběhlé až po návratu, probíhající cesta „Cesta už začala“ (přidat se od zítřka), nad 45 nocí jen tam', () => {
