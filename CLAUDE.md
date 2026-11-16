@@ -6,6 +6,8 @@ po sloučení do `main`). Hlavní uživatel ji používá na telefonu (~412 px, 
 ## Kód
 - Node 22, **žádné závislosti** (žádný `npm install` balíčků, žádný build). Server `server/` (index.js, lib/, providers/),
   front-end `public/` (vanilla JS moduly v IIFE, CSS), data `data/`, testy `test/` (`node --test`).
+- **Mapa kódu: `docs/mapa.md`** (kde co je: soubory, funkce, endpointy, data, testy). Čti ji dřív, než začneš hledat –
+  jen osnovu a potřebný oddíl. Nový soubor nebo endpoint do ní dopiš (hlídá `test/mapa.test.js`).
 - `npm test` musí projít. K opravě logiky přidej test. Demo bez sítě: `npm run demo` (vymyšlená data).
 - Texty v aplikaci, komentáře v kódu, commity a popisy PR **česky**, ve stylu okolního kódu (komentáře vysvětlují proč).
 - Desktop CSS jen v `public/css/desktop*.css` uvnitř `@media (min-width:1024px…)`; telefon se tím nesmí změnit.
