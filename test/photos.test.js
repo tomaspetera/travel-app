@@ -2,10 +2,19 @@
 // odpovědi API jsou vzorky ve tvaru formatversion=2.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parsePageImages, photoScore, namesCity, pexelsPick, unsplashPick, unsplashClient, UNSPLASH_UTM, pickPhotos, cityPhotos } from '../server/lib/photos.js';
+import { parsePageImages, photoScore, namesCity, pexelsPick, unsplashPick, unsplashClient, UNSPLASH_UTM, pickPhotos, cityPhotos, plainText, commonsCredit } from '../server/lib/photos.js';
 
 const FP = 'Category:Featured pictures on Wikimedia Commons';
 const QI = 'Category:Quality images';
+// Commons: autor (Artist bývá HTML s odkazem na uživatele) a licence k souboru, jak je vrací imageinfo s extmetadata
+const ARTIST = '<a href="//commons.wikimedia.org/wiki/User:Fotograf" title="User:Fotograf">Jan Fotograf</a>';
+const pageOf = (t) => `https://commons.wikimedia.org/wiki/${t.replace(/ /g, '_')}`;
+const ext = (artist = ARTIST, lic = 'CC BY-SA 4.0') => ({ Artist: { value: artist }, LicenseShortName: { value: lic }, LicenseUrl: { value: 'https://creativecommons.org/licenses/by-sa/4.0' } });
+/** Odpověď Commons na dotaz p.titles podle info { soubor: { cats, w, h, artist, lic } }; co v info není, chybí. */
+const commonsReply = (p, info) => ({ query: { pages: p.titles.split('|').map((t) => (info[t]
+  ? { title: t, categories: (info[t].cats || []).map((c) => ({ title: c })), imageinfo: [{ width: info[t].w || 4000, height: info[t].h || 2600, thumburl: info[t].url || `https://u/thumb/500px-${t.slice(5)}`, descriptionurl: pageOf(t), extmetadata: ext(info[t].artist, info[t].lic) }] }
+  : { title: t, missing: true })) } });
+const CREDIT = { by: 'Jan Fotograf', lic: 'CC BY-SA 4.0', lu: 'https://creativecommons.org/licenses/by-sa/4.0' };
 
 test('parsePageImages: normalizace a přesměrování k názvu z dotazu, SVG (znak, mapa) se nebere', () => {
   const j = {
@@ -58,10 +67,10 @@ test('pickPhotos: z článku vybere oceněnou fotku města, cíl po letišti dos
     if (host === 'cs.wikipedia.org') {
       return { query: {
         pages: [
-          { title: 'Řím', thumbnail: { source: 'https://u/thumb/500px-Rome_Montage_2017.jpg?utm=x' }, langlinks: [{ lang: 'en', title: 'Rome' }] },
-          { title: 'Pécs', thumbnail: { source: 'https://u/thumb/500px-Pecs_lead.jpg' }, langlinks: [{ lang: 'en', title: 'Pécs' }] },
+          { title: 'Řím', pageimage: 'Rome_Montage_2017.jpg', thumbnail: { source: 'https://u/thumb/500px-Rome_Montage_2017.jpg?utm=x' }, langlinks: [{ lang: 'en', title: 'Rome' }] },
+          { title: 'Pécs', pageimage: 'Pecs_lead.jpg', thumbnail: { source: 'https://u/thumb/500px-Pecs_lead.jpg' }, langlinks: [{ lang: 'en', title: 'Pécs' }] },
           { title: 'Pécs-Pogány', missing: true },
-          { title: 'Oradea', thumbnail: { source: 'https://u/thumb/500px-Oradea_lead.jpg' }, langlinks: [{ lang: 'en', title: 'Oradea' }] },
+          { title: 'Oradea', pageimage: 'Oradea_lead.jpg', thumbnail: { source: 'https://u/thumb/500px-Oradea_lead.jpg' }, langlinks: [{ lang: 'en', title: 'Oradea' }] },
         ],
       } };
     }
@@ -72,47 +81,99 @@ test('pickPhotos: z článku vybere oceněnou fotku města, cíl po letišti dos
         { title: 'Oradea', images: [{ title: 'File:Oradea street.jpg' }] },
       ] } };
     }
-    // Commons: ocenění a rozměry
-    const info = {
+    // Commons: ocenění, rozměry, autor a licence
+    return commonsReply(p, {
       'File:Pincio panorama.jpg': { cats: [QI], w: 10931, h: 4975 },
       'File:Colosseum at night.jpg': { cats: [FP], w: 5000, h: 3300 },
       'File:Pecs cathedral view.jpg': { cats: [QI], w: 4000, h: 2700 },
       'File:Oradea street.jpg': { cats: [], w: 3000, h: 2000 },
-    };
-    return { query: { pages: p.titles.split('|').map((t) => (info[t]
-      ? { title: t, categories: info[t].cats.map((c) => ({ title: c })), imageinfo: [{ width: info[t].w, height: info[t].h, thumburl: `https://u/thumb/500px-${t.slice(5)}` }] }
-      : { title: t, missing: true })) } };
+      'File:Oradea lead.jpg': { artist: 'Ana &amp; Ion', lic: 'CC BY 3.0' },
+    });
   };
-  const { photos: out, partial } = await pickPhotos(['Řím', 'Pécs-Pogány', 'Oradea'], api);
+  const { photos: out, by, bu, lic, partial } = await pickPhotos(['Řím', 'Pécs-Pogány', 'Oradea'], api);
   assert.equal(partial, false);
   assert.deepEqual(out, {
     'Řím': 'https://u/thumb/500px-Colosseum at night.jpg', // FP s nočním pohledem; koláž z úvodu ne
     'Pécs-Pogány': 'https://u/thumb/500px-Pecs cathedral view.jpg',
     Oradea: 'https://u/thumb/500px-Oradea_lead.jpg', // nic oceněného – úvodní obrázek článku
   });
-  // tři dotazy: cs (s městem před pomlčkou), en, Commons jen na kandidáty bez map a soch
+  // ke každé fotce autor, licence a stránka souboru na Commons (u úvodního obrázku českého článku taky)
+  assert.deepEqual(by, { 'Řím': 'Jan Fotograf', 'Pécs-Pogány': 'Jan Fotograf', Oradea: 'Ana & Ion' });
+  assert.deepEqual(lic, { 'Řím': 'CC BY-SA 4.0', 'Pécs-Pogány': 'CC BY-SA 4.0', Oradea: 'CC BY 3.0' });
+  assert.deepEqual(bu, { 'Řím': pageOf('File:Colosseum at night.jpg'), 'Pécs-Pogány': pageOf('File:Pecs cathedral view.jpg'), Oradea: pageOf('File:Oradea lead.jpg') });
+  // tři dotazy: cs (s městem před pomlčkou), en, Commons jen na kandidáty bez map a soch (a úvodní obrázky)
   assert.deepEqual(calls.map((c) => c[0]), ['cs.wikipedia.org', 'en.wikipedia.org', 'commons.wikimedia.org']);
   assert.equal(calls[0][1], 'Řím|Pécs-Pogány|Oradea|Pécs');
-  assert.ok(!calls[2][1].includes('Map of Rome') && !calls[2][1].includes('Statue') && !calls[2][1].includes('Montage'));
-  // Commons neodpovídá (429): zatím úvodní obrázky bez koláže, partial
+  assert.ok(!calls[2][1].includes('Map of Rome') && !calls[2][1].includes('Statue'));
+  // Commons neodpovídá (429): autora a licenci nezná – zatím karty bez fotky, partial
   const down = await pickPhotos(['Řím', 'Oradea'], async (host, p) => { if (host === 'commons.wikimedia.org') throw new Error('429'); return api(host, p); });
-  assert.deepEqual(down, { photos: { 'Řím': '', Oradea: 'https://u/thumb/500px-Oradea_lead.jpg' }, by: {}, bu: {}, partial: true, retry: [] });
+  assert.deepEqual(down, { photos: { 'Řím': '', Oradea: '' }, by: {}, bu: {}, lic: {}, lu: {}, partial: true, retry: [] });
+});
+
+test('plainText: z HTML v Artist zbude jen text (bez značek a skriptu), entity dekódované, dlouhé jméno zkrácené', () => {
+  assert.equal(plainText(ARTIST), 'Jan Fotograf');
+  assert.equal(plainText('<span class="fn"><a href="x">Jiří&nbsp;Novák</a></span> (<a href="y">talk</a>)\n'), 'Jiří Novák ( talk )');
+  assert.equal(plainText('<b onmouseover="alert(1)">Eve</b> &lt;script&gt;x&lt;/script&gt; &#268;ech &#x10C;'), 'Eve script x /script Čech Č');
+  assert.equal(plainText('&#0;Ana&#1;'), 'Ana');
+  assert.equal(plainText('x'.repeat(200)).length, 80);
+  assert.equal(plainText(null), '');
+});
+
+test('commonsCredit: autor a licence pro komerční užití, jinak fotka nejde (bez autora, NC, GFDL, mimo Commons)', () => {
+  const ii = (o = {}) => ({ descriptionurl: 'https://commons.wikimedia.org/wiki/File:Praha.jpg', extmetadata: ext(), ...o });
+  assert.deepEqual(commonsCredit(ii()), { ...CREDIT, pg: 'https://commons.wikimedia.org/wiki/File:Praha.jpg' });
+  for (const l of ['CC BY 2.0', 'CC BY-SA 3.0 de', 'CC BY-SA 2.5,2.0,1.0', 'CC0', 'Public domain']) assert.ok(commonsCredit(ii({ extmetadata: ext(ARTIST, l) })), l);
+  for (const l of ['CC BY-NC-SA 2.0', 'CC BY-ND 4.0', 'GFDL', 'Fair use', '', 'Attribution']) assert.equal(commonsCredit(ii({ extmetadata: ext(ARTIST, l) })), null, l);
+  for (const a of ['', '<a href="x"></a>', 'Unknown author', 'unknown', 'Anonymous']) assert.equal(commonsCredit(ii({ extmetadata: ext(a) })), null, a);
+  assert.equal(commonsCredit(ii({ descriptionurl: 'https://en.wikipedia.org/wiki/File:Praha.jpg' })), null);
+  assert.equal(commonsCredit(ii({ extmetadata: undefined })), null);
+  assert.equal(commonsCredit(null), null);
+  // odkaz na licenci jen na creativecommons.org (i bez https), jinak bez odkazu
+  assert.equal(commonsCredit(ii({ extmetadata: { ...ext(), LicenseUrl: { value: '//creativecommons.org/licenses/by/2.0' } } })).lu, 'https://creativecommons.org/licenses/by/2.0');
+  assert.equal(commonsCredit(ii({ extmetadata: { ...ext(), LicenseUrl: { value: 'javascript:alert(1)' } } })).lu, '');
+});
+
+test('pickPhotos: fotka bez autora nebo s licencí bez komerčního užití se nevrátí – vezme se jiná, jinak nic', async () => {
+  const api = async (host, p) => {
+    if (host === 'cs.wikipedia.org') return { query: { pages: [{ title: 'Brno', pageimage: 'Brno_lead.jpg', thumbnail: { source: 'https://u/thumb/960px-Brno_lead.jpg' }, langlinks: [{ lang: 'en', title: 'Brno' }] }] } };
+    if (host === 'en.wikipedia.org') return { query: { pages: [{ title: 'Brno', images: [{ title: 'File:Brno panorama.jpg' }, { title: 'File:Brno old town.jpg' }] }] } };
+    return commonsReply(p, {
+      'File:Brno panorama.jpg': { cats: [FP], artist: '<span>Unknown author</span>' }, // oceněná, ale bez autora
+      'File:Brno old town.jpg': { cats: [QI], lic: 'CC BY-NC-SA 2.0' }, // nekomerční
+      'File:Brno lead.jpg': { artist: 'Petr Novák', lic: 'CC0' },
+    });
+  };
+  const r = await pickPhotos(['Brno'], api);
+  assert.deepEqual([r.photos, r.by, r.lic], [{ Brno: 'https://u/thumb/960px-Brno_lead.jpg' }, { Brno: 'Petr Novák' }, { Brno: 'CC0' }]);
+  // ani úvodní obrázek nemá autora → karta bez fotky (ne fotka bez popisku)
+  const none = await pickPhotos(['Brno'], async (host, p) => (host === 'commons.wikimedia.org'
+    ? commonsReply(p, { 'File:Brno panorama.jpg': { artist: '' }, 'File:Brno lead.jpg': { artist: 'Anonymous' } }) : api(host, p)));
+  assert.deepEqual([none.photos, none.by, none.bu], [{ Brno: '' }, {}, {}]);
 });
 
 test('cityPhotos: z paměti bez dotazu, „fotka není“ jako prázdná adresa, výpadek se neuloží', async () => {
   const ok = (photos, by = {}) => async () => ({ photos, by, partial: false });
   const opt = (pick) => ({ pick, prov: 'wiki' });
   assert.deepEqual(await cityPhotos(['Testov A', 'Testov B', 'Testov A', 'X|Y', ''], opt(ok({ 'Testov A': 'https://x/a.jpg' }))),
-    { photos: { 'Testov A': 'https://x/a.jpg', 'Testov B': '' }, by: {}, bu: {}, partial: false, prov: 'wiki' });
+    { photos: { 'Testov A': 'https://x/a.jpg', 'Testov B': '' }, by: {}, bu: {}, lic: {}, lu: {}, partial: false, prov: 'wiki' });
   assert.deepEqual((await cityPhotos(['Testov A', 'Testov B'], opt(async () => { throw new Error('nemá se ptát'); }))).photos, { 'Testov A': 'https://x/a.jpg', 'Testov B': '' });
   assert.deepEqual((await cityPhotos(['Testov C'], opt(async () => { throw new Error('429'); }))).photos, {});
   const half = await cityPhotos(['Testov C'], opt(async () => ({ photos: { 'Testov C': 'https://x/c.jpg' }, partial: true })));
   assert.deepEqual([half.photos, half.partial], [{ 'Testov C': 'https://x/c.jpg' }, true]);
   // s Pexels: autor fotky jde s ní (i z paměti); paměť je zvlášť pro Pexels a Wikimedii
   const px = { pick: ok({ 'Testov D': 'https://images.pexels.com/d.jpeg' }, { 'Testov D': 'Jana Nováková' }), prov: 'pexels' };
-  assert.deepEqual(await cityPhotos(['Testov D'], px), { photos: { 'Testov D': 'https://images.pexels.com/d.jpeg' }, by: { 'Testov D': 'Jana Nováková' }, bu: {}, partial: false, prov: 'pexels' });
+  assert.deepEqual(await cityPhotos(['Testov D'], px), { photos: { 'Testov D': 'https://images.pexels.com/d.jpeg' }, by: { 'Testov D': 'Jana Nováková' }, bu: {}, lic: {}, lu: {}, partial: false, prov: 'pexels' });
   assert.deepEqual((await cityPhotos(['Testov D'], { pick: async () => { throw new Error('z paměti'); }, prov: 'pexels' })).by, { 'Testov D': 'Jana Nováková' });
   assert.deepEqual((await cityPhotos(['Testov D'], opt(ok({ 'Testov D': 'https://x/wiki-d.jpg' })))).photos, { 'Testov D': 'https://x/wiki-d.jpg' });
+});
+
+test('cityPhotos s Wikimedií: autor, licence a stránka souboru jdou s fotkou (i z paměti)', async () => {
+  const pick = async () => ({ photos: { 'Testov K': 'https://upload.wikimedia.org/k.jpg' }, by: { 'Testov K': 'Jan Fotograf' }, bu: { 'Testov K': pageOf('File:K.jpg') },
+    lic: { 'Testov K': 'CC BY-SA 4.0' }, lu: { 'Testov K': CREDIT.lu }, partial: false });
+  const want = { photos: { 'Testov K': 'https://upload.wikimedia.org/k.jpg' }, by: { 'Testov K': 'Jan Fotograf' }, bu: { 'Testov K': pageOf('File:K.jpg') },
+    lic: { 'Testov K': 'CC BY-SA 4.0' }, lu: { 'Testov K': CREDIT.lu }, partial: false, prov: 'wiki' };
+  assert.deepEqual(await cityPhotos(['Testov K'], { pick, prov: 'wiki' }), want);
+  assert.deepEqual(await cityPhotos(['Testov K'], { pick: async () => { throw new Error('z paměti'); }, prov: 'wiki' }), want);
 });
 
 test('pickPhotos: hlavní fotka anglického článku (Eiffelovka) před oceněnou fotkou se jménem města z okolí (HEC Paris)', async () => {
@@ -123,10 +184,7 @@ test('pickPhotos: hlavní fotka anglického článku (Eiffelovka) před oceněno
         { title: 'File:Chateau, HEC Paris, Jouy-en-Josas, Southwest view.jpg' }, { title: 'File:Paris Seine at dusk.jpg' }, { title: 'File:La Tour Eiffel vue de la Tour Saint-Jacques.jpg' },
       ] }] } };
     }
-    const info = { 'File:La Tour Eiffel vue de la Tour Saint-Jacques.jpg': [], 'File:Paris Seine at dusk.jpg': [QI] };
-    return { query: { pages: p.titles.split('|').map((t) => (info[t]
-      ? { title: t, categories: info[t].map((c) => ({ title: c })), imageinfo: [{ width: 4000, height: 2600, thumburl: `https://u/${t.slice(5)}` }] }
-      : { title: t, missing: true })) } };
+    return commonsReply(p, { 'File:La Tour Eiffel vue de la Tour Saint-Jacques.jpg': { url: 'https://u/La Tour Eiffel vue de la Tour Saint-Jacques.jpg' }, 'File:Paris Seine at dusk.jpg': { cats: [QI] } });
   };
   const calls = [];
   const out = await pickPhotos(['Paříž'], async (h, p) => { calls.push(p.titles); return api(h, p); });
@@ -146,18 +204,19 @@ test('pexelsPick: jen fotka, v jejímž popisu nebo adrese je jméno města; ná
 test('pickPhotos s Pexels: fotka města z Pexels, co Pexels nemá, dohledá Wikimedia', async () => {
   const api = async (host, p) => {
     if (host === 'cs.wikipedia.org') return { query: { pages: [
-      { title: 'Řím', thumbnail: { source: 'https://u/thumb/960px-Rome_lead.jpg' }, langlinks: [{ lang: 'en', title: 'Rome' }] },
-      { title: 'Oradea', thumbnail: { source: 'https://u/thumb/960px-Oradea_lead.jpg' }, langlinks: [{ lang: 'en', title: 'Oradea' }] },
+      { title: 'Řím', pageimage: 'Rome_lead.jpg', thumbnail: { source: 'https://u/thumb/960px-Rome_lead.jpg' }, langlinks: [{ lang: 'en', title: 'Rome' }] },
+      { title: 'Oradea', pageimage: 'Oradea_lead.jpg', thumbnail: { source: 'https://u/thumb/960px-Oradea_lead.jpg' }, langlinks: [{ lang: 'en', title: 'Oradea' }] },
     ] } };
     if (host === 'en.wikipedia.org') return { query: { pages: [{ title: 'Oradea', images: [] }, { title: 'Rome', images: [] }] } };
-    return { query: { pages: [] } };
+    return commonsReply(p, { 'File:Oradea lead.jpg': {} });
   };
   const asked = [];
   const pexels = async (q) => { asked.push(q); return q.startsWith('Rome') ? [{ alt: 'Trevi Fountain, Rome', url: 'https://www.pexels.com/photo/9/', photographer: 'Luca', src: { original: 'https://images.pexels.com/photos/9/t.jpeg' } }] : [{ alt: 'Romania mountains', url: 'https://www.pexels.com/photo/8/', photographer: 'X', src: { original: 'https://images.pexels.com/photos/8/m.jpeg' } }]; };
   const out = await pickPhotos(['Řím', 'Oradea'], api, pexels);
   assert.deepEqual(asked.sort(), ['Oradea city', 'Rome city']);
   assert.deepEqual(out.photos, { 'Řím': 'https://images.pexels.com/photos/9/t.jpeg?auto=compress&cs=tinysrgb&fit=crop&w=960&h=1200', Oradea: 'https://u/thumb/960px-Oradea_lead.jpg' });
-  assert.deepEqual(out.by, { 'Řím': 'Luca' });
+  assert.deepEqual(out.by, { 'Řím': 'Luca', Oradea: 'Jan Fotograf' });
+  assert.deepEqual(out.lic, { Oradea: 'CC BY-SA 4.0' }); // licence jen u fotky z Commons
 });
 
 // ---------- Unsplash (UNSPLASH_ACCESS_KEY) ----------
@@ -222,14 +281,14 @@ test('unsplashClient: dotaz s klíčem a verzí; po vyčerpání limitu (403) č
 });
 
 test('pickPhotos s Unsplash: co Pexels nemá, zkusí Unsplash, zbytek Wikimedia; limit Unsplash → partial (Wikimedia jen na chvíli)', async () => {
-  const api = async (host) => {
+  const api = async (host, p) => {
     if (host === 'cs.wikipedia.org') return { query: { pages: [
-      { title: 'Řím', thumbnail: { source: 'https://u/thumb/960px-Rome_lead.jpg' }, langlinks: [{ lang: 'en', title: 'Rome' }] },
-      { title: 'Oradea', thumbnail: { source: 'https://u/thumb/960px-Oradea_lead.jpg' }, langlinks: [{ lang: 'en', title: 'Oradea' }] },
-      { title: 'Lisabon', thumbnail: { source: 'https://u/thumb/960px-Lisbon_lead.jpg' }, langlinks: [{ lang: 'en', title: 'Lisbon' }] },
+      { title: 'Řím', pageimage: 'Rome_lead.jpg', thumbnail: { source: 'https://u/thumb/960px-Rome_lead.jpg' }, langlinks: [{ lang: 'en', title: 'Rome' }] },
+      { title: 'Oradea', pageimage: 'Oradea_lead.jpg', thumbnail: { source: 'https://u/thumb/960px-Oradea_lead.jpg' }, langlinks: [{ lang: 'en', title: 'Oradea' }] },
+      { title: 'Lisabon', pageimage: 'Lisbon_lead.jpg', thumbnail: { source: 'https://u/thumb/960px-Lisbon_lead.jpg' }, langlinks: [{ lang: 'en', title: 'Lisbon' }] },
     ] } };
     if (host === 'en.wikipedia.org') return { query: { pages: [{ title: 'Oradea', images: [] }, { title: 'Rome', images: [] }, { title: 'Lisbon', images: [] }] } };
-    return { query: { pages: [] } };
+    return commonsReply(p, { 'File:Oradea lead.jpg': {}, 'File:Lisbon lead.jpg': {} });
   };
   const pAsked = [], uAsked = [];
   const pexels = async (q) => { pAsked.push(q); return q.startsWith('Rome') ? [{ alt: 'Rome', url: 'https://www.pexels.com/photo/9/', photographer: 'Luca', photographer_url: 'https://www.pexels.com/@luca', src: { original: 'https://images.pexels.com/photos/9/t.jpeg' } }] : []; };
@@ -240,8 +299,8 @@ test('pickPhotos s Unsplash: co Pexels nemá, zkusí Unsplash, zbytek Wikimedia;
   assert.match(out.photos['Řím'], /^https:\/\/images\.pexels\.com\//);
   assert.match(out.photos.Lisabon, /^https:\/\/images\.unsplash\.com\/photo-1\?ixid=abc&w=960&h=1200/);
   assert.equal(out.photos.Oradea, 'https://u/thumb/960px-Oradea_lead.jpg');
-  assert.deepEqual(out.by, { 'Řím': 'Luca', Lisabon: 'Ana Silva' });
-  assert.deepEqual(out.bu, { 'Řím': 'https://www.pexels.com/@luca', Lisabon: `https://unsplash.com/@anasilva?${UNSPLASH_UTM}` });
+  assert.deepEqual(out.by, { 'Řím': 'Luca', Lisabon: 'Ana Silva', Oradea: 'Jan Fotograf' });
+  assert.deepEqual(out.bu, { 'Řím': 'https://www.pexels.com/@luca', Lisabon: `https://unsplash.com/@anasilva?${UNSPLASH_UTM}`, Oradea: pageOf('File:Oradea lead.jpg') });
   assert.equal(out.partial, false);
   // limit dotazů Unsplash: fotky z Wikimedie jen na chvíli; neplatný klíč ne (jinak by se Wikimedia ptala pořád)
   const limited = await pickPhotos(['Lisabon'], api, null, async () => { throw Object.assign(new Error('HTTP 403'), { status: 403, soon: true }); });
@@ -253,7 +312,7 @@ test('pickPhotos s Unsplash: co Pexels nemá, zkusí Unsplash, zbytek Wikimedia;
 test('cityPhotos s Unsplash: autor a odkaz na profil jdou s fotkou (i z paměti), paměť zvlášť pro Unsplash', async () => {
   const pick = async () => ({ photos: { 'Testov U': 'https://images.unsplash.com/u.jpg' }, by: { 'Testov U': 'Ana' }, bu: { 'Testov U': 'https://unsplash.com/@ana?x=1' }, partial: false });
   assert.deepEqual(await cityPhotos(['Testov U'], { pick, prov: 'unsplash' }),
-    { photos: { 'Testov U': 'https://images.unsplash.com/u.jpg' }, by: { 'Testov U': 'Ana' }, bu: { 'Testov U': 'https://unsplash.com/@ana?x=1' }, partial: false, prov: 'unsplash' });
+    { photos: { 'Testov U': 'https://images.unsplash.com/u.jpg' }, by: { 'Testov U': 'Ana' }, bu: { 'Testov U': 'https://unsplash.com/@ana?x=1' }, lic: {}, lu: {}, partial: false, prov: 'unsplash' });
   const again = await cityPhotos(['Testov U'], { pick: async () => { throw new Error('z paměti'); }, prov: 'unsplash' });
   assert.deepEqual([again.by, again.bu], [{ 'Testov U': 'Ana' }, { 'Testov U': 'https://unsplash.com/@ana?x=1' }]);
   assert.deepEqual((await cityPhotos(['Testov U'], { pick: async () => ({ photos: { 'Testov U': 'https://x/w.jpg' }, partial: false }), prov: 'wiki' })).photos, { 'Testov U': 'https://x/w.jpg' });
@@ -262,7 +321,7 @@ test('cityPhotos s Unsplash: autor a odkaz na profil jdou s fotkou (i z paměti)
   assert.equal(r.partial, true);
   const { cache } = await import('../server/lib/cache.js');
   const ttl = (k) => cache.map.get(k).exp - Date.now();
-  const [tv, tw] = [ttl('ph6:unsplash:Testov V'), ttl('ph6:unsplash:Testov W')];
+  const [tv, tw] = [ttl('ph7:unsplash:Testov V'), ttl('ph7:unsplash:Testov W')];
   assert.ok(tv > 6 * 864e5 && tw <= 36e5, `${tv} ${tw}`);
   // náhradní fotka z paměti (do hodiny, jiné zařízení) je pořád jen na chvíli – partial, ať ji prohlížeč nedrží 30 dní
   const hit = await cityPhotos(['Testov W'], { pick: async () => { throw new Error('z paměti'); }, prov: 'unsplash' });
