@@ -8,6 +8,8 @@ import { cache } from './cache.js';
 import { haversineKm, normalize } from './geo.js';
 import { countryAt, COUNTRY_BY_ISO, airportsInCountry } from './airports.js';
 import { CLASSIC_IDS, CLASSIC_KM, GONEXT_PTS, CLASSIC_PTS, parseGoNext, rankTrips, reachOf, whyOf } from './daytrips.js';
+// photos.js bere odsud UA – kruh nevadí, obě strany se volají až z funkcí
+import { commonsCredit } from './photos.js';
 
 export const UA = 'ATLAS-travel/2.0 (https://github.com/tomaspetera/travel-app; hobby travel planner)';
 const WDQS = 'https://query.wikidata.org/sparql';
@@ -397,6 +399,64 @@ async function enrich(places, { preferCs = false } = {}) {
       p.extractLang = undefined;
     }
     if (p.extract) p.descLang = p.extractLang;
+  }
+  return failed;
+}
+
+// ---------- autor a licence fotek míst (Wikimedia Commons) ----------
+// Licence Commons (CC BY, CC BY-SA) chtějí u každé fotky autora a licenci – jako u fotek měst (photos.js): k fotce místa
+// se z Commons vezme autor, licence a stránka souboru. Fotka bez autora, s licencí bez komerčního užití nebo mimo Commons
+// (obrázek nahraný jen na Wikipedii, často „fair use“) se nepoužije – karta ukáže ikonu druhu.
+const CREDIT_TTL = 7 * 864e5; // autor ani licence souboru se skoro nemění
+const creditKey = (file) => `poicr1:${file}`;
+const safeDecode = (s) => { try { return decodeURIComponent(s); } catch { return s; } };
+
+/** Adresa fotky místa → soubor na Commons („File:Název.jpg“), jinak '' (soubor jen na Wikipedii, cizí adresa). */
+export function commonsFile(url) {
+  const u = String(url || '').split(/[?#]/)[0];
+  const m = /^https?:\/\/(?:commons\.wikimedia\.org|[a-z-]+\.wikipedia\.org)\/wiki\/Special:FilePath\/([^/]+)$/.exec(u)
+    || /^https:\/\/upload\.wikimedia\.org\/wikipedia\/commons\/(?:thumb\/)?[0-9a-f]\/[0-9a-f]{2}\/([^/]+)/.exec(u);
+  const name = m ? safeDecode(m[1]).replace(/_/g, ' ').trim() : '';
+  return name && !/[|#<>[\]{}]/.test(name) ? `File:${name}` : '';
+}
+
+/**
+ * Autor a licence k fotkám míst: soubory bez záznamu v mezipaměti jedním dotazem na Commons (po 50). Místo s fotkou
+ * dostane imageCredit { by, lic, lu, pg }, jinak image = null. Vrací true, když Commons neodpověděly – fotky bez
+ * ověřeného autora se pak neukážou a volající uloží výsledek jen krátce (jako výpadek popisů).
+ */
+export async function creditImages(places) {
+  const fileOf = new Map(places.filter((p) => p.image).map((p) => [p, commonsFile(p.image)]));
+  const need = [...new Set([...fileOf.values()].filter((f) => f && cache.get(creditKey(f)) === undefined))];
+  let failed = false;
+  for (let i = 0; i < need.length && !failed; i += 50) {
+    const batch = need.slice(i, i + 50);
+    const qs = new URLSearchParams({
+      action: 'query', format: 'json', formatversion: '2', redirects: '1', prop: 'imageinfo', iiprop: 'url|extmetadata',
+      iiextmetadatafilter: 'Artist|LicenseShortName|LicenseUrl', titles: batch.join('|'),
+    });
+    try {
+      const j = await limitWiki(() => request(`https://commons.wikimedia.org/w/api.php?${qs}`, { headers: { 'User-Agent': UA }, retry429: true, timeoutMs: 15000, retries: 1 }));
+      if (!j || !j.query) throw new Error('Commons: odpověď bez query');
+      const norm = new Map((j.query.normalized || []).map((n) => [n.from, n.to]));
+      const redir = new Map((j.query.redirects || []).map((n) => [n.from, n.to]));
+      const pages = new Map((j.query.pages || []).map((pg) => [pg.title, pg]));
+      for (const f of batch) {
+        const t = norm.get(f) || f;
+        const pg = pages.get(redir.get(t) || t);
+        // '' = soubor bez autora, s nevhodnou licencí nebo mimo Commons – příště už se neptat
+        cache.set(creditKey(f), (pg && !pg.missing && pg.imageinfo && commonsCredit(pg.imageinfo[0])) || '', CREDIT_TTL);
+      }
+    } catch {
+      failed = true; // další dávky neposílej
+    }
+  }
+  for (const [p, f] of fileOf) {
+    const cr = f && cache.get(creditKey(f));
+    if (!cr) { p.image = null; continue; }
+    p.imageCredit = cr;
+    // náhled přes Special:FilePath české nebo anglické Wikipedie: ověřený je soubor na Commons – ten se i ukáže
+    p.image = p.image.replace(/^https?:\/\/[a-z-]+\.wikipedia\.org\/wiki\/Special:FilePath\//, 'https://commons.wikimedia.org/wiki/Special:FilePath/');
   }
   return failed;
 }
@@ -964,6 +1024,7 @@ export async function findTrips({ lat, lon, limit = 30 }) {
       p.cc = p.cc || countryAt(p.lat, p.lon) || '';
     }
     const descFailed = await enrich(picked);
+    const creditFailed = await creditImages(picked);
     // lázně i podle první věty článku („… jsou krajské, statutární a lázeňské město“)
     for (const p of picked) if (p.tripKind === 'town' && !p.spa && SPA.test(String(p.extract || '').split(/\.\s/)[0])) p.spa = true;
     const out = picked.map(({ island, ...p }) => ({
@@ -973,7 +1034,8 @@ export async function findTrips({ lat, lon, limit = 30 }) {
     // degraded = neúplné cíle (kratší mezipaměť); descFailed = opravdu se nenačetly popisy z Wikipedie – jen to
     // aplikace hlásí („Část popisů se nenačetla“). Dřív hlášku spustila i příroda, která se ještě načítá (dotaz
     // trvá ~45 s, takže skoro u každého prvního plánu a minutu po něm), nebo pomalý dotaz na hrady či UNESCO.
-    if (descFailed || !unesco || !nature || !heritage || !extras || extras.failed) out.degraded = true;
+    // bez autorů fotek (Commons neodpověděly) jsou karty bez fotek – také jen na chvíli
+    if (descFailed || creditFailed || !unesco || !nature || !heritage || !extras || extras.failed) out.degraded = true;
     if (descFailed) out.descFailed = true;
     if (nature === undefined || heritage === undefined) out.natureLoading = true;
     return out;
@@ -1002,7 +1064,8 @@ export async function findTowns({ lat, lon, limit = 25 }) {
         ...p, nameEn: wiki.en ? wiki.en.replace(/ \((.+)\)$/, ', $1') : null, ...countryOf(p), categoryLabel: p.spa ? 'Lázně' : 'Město / obec',
         url: wiki.cs ? `https://cs.wikipedia.org/wiki/${encodeURIComponent(wiki.cs.replace(/ /g, '_'))}` : wiki.en ? `https://en.wikipedia.org/wiki/${encodeURIComponent(wiki.en.replace(/ /g, '_'))}` : `https://www.wikidata.org/wiki/${p.id}`,
       }));
-    if (!unesco) out.degraded = true; // bez UNESCO jsou skóre měst slabší – zkusit znovu za 15 min
+    // bez UNESCO jsou skóre měst slabší, bez autorů fotek (Commons neodpověděly) chybí fotky – zkusit znovu za 15 min
+    if ((await creditImages(out)) || !unesco) out.degraded = true;
     return out;
   });
 }
@@ -1104,6 +1167,7 @@ export async function findPlaces({ lat, lon, radiusKm = 10, dayTrips = true, lim
       const fb = applyWikivoyage(await findPlacesViaWikipedia({ lat, lon }), await wvP).sort((a, b) => b.score - a.score);
       const picked = fb.slice(0, limit);
       await enrich(picked, { preferCs: true });
+      await creditImages(picked);
       const out = picked.map((p) => ({ ...p, categoryLabel: catLabel(p) || p.category }));
       out.degraded = true;
       return out;
@@ -1144,7 +1208,9 @@ export async function findPlaces({ lat, lon, radiusKm = 10, dayTrips = true, lim
       unesco: unesco || [], goNext: ex.goNext, classic: CLASSIC_IDS, nearKm: 3, cover: new Set(merged.map((p) => p.id)),
     }), { center });
     const picked = [...merged, ...trips.slice(0, 8)];
-    const enrichFailed = await enrich(picked, { preferCs: true });
+    // autoři fotek až po popisech – enrich bere fotku i z článku na Wikipedii
+    const descFailed = await enrich(picked, { preferCs: true });
+    const enrichFailed = (await creditImages(picked)) || descFailed;
     // island zůstane: na ostrov (Lokrum u Dubrovníku) se v programu jede lodí, ne jde pěšky
     const out = picked.map(({ island, ...p }) => ({ ...tripOut(p), ...(island ? { island: true } : {}), categoryLabel: p.eatery ? 'Kavárna / restaurace' : catLabel(p) || p.category }));
     if (tripsMissing || familyMissing || enrichFailed || wvFailed || extrasMissing) out.degraded = true;
@@ -1392,7 +1458,8 @@ export async function countryHighlights(cc) {
     const here = inCountry(cc);
     for (const g of COUNTRY_KINDS) groups[g] = groups[g].filter(here);
     const all = COUNTRY_KINDS.flatMap((g) => groups[g]);
-    const enrichFailed = await enrich(all, { preferCs: true });
+    const descFailed = await enrich(all, { preferCs: true });
+    const enrichFailed = (await creditImages(all)) || descFailed;
     const out = Object.fromEntries(COUNTRY_KINDS.map((g) => [g, groups[g].map(({ wiki, ...p }) => p)]));
     if (wvFailed || enrichFailed) out.degraded = true;
     return out;
@@ -1442,7 +1509,8 @@ export async function countryCategory(cc, cat, { query } = {}) {
     if (!ids.length) ids = await search(true);
     const rows = ids.length ? await q(sparqlCountry([...new Set(ids)])) : [];
     const items = [...countryById(rows).values()].filter((p) => p.name).filter(inCountry(cc)).sort((a, b) => b.sitelinks - a.sitelinks).slice(0, 20);
-    const failed = query ? false : await enrich(items, { preferCs: true });
+    const descFailed = query ? false : await enrich(items, { preferCs: true });
+    const failed = (query ? false : await creditImages(items)) || descFailed;
     const out = {
       items: items.map(({ wiki, kinds, types, ...p }) => {
         const c = catsOf(types);
