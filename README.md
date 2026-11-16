@@ -9,7 +9,7 @@ s celkovou cenou, seznamem, co v jakém pořadí zarezervovat, a časovou osou (
 *Kam chceš jet?* – město, „kamkoliv“ nebo celá věta – a rovnou hledá lety). Sekce **Objevuj** funguje i samostatně:
 zadáš místo a ATLAS najde, co tam stojí za vidění, a rozplánuje to do dnů – jako pěší program ve městě,
 **jednodenní výlety** (ráno ven, večer zpět) nebo **vícedenní okruh** s přespáním po cestě (u oblasti jako Toskánsko,
-Apulie, Istrie i se slovinským pobřežím, Algarve, Skotsko nebo Laponsko jen uvnitř její hranice), autem i vlakem
+Apulie, Istrie i se slovinským pobřežím, Algarve, Normandie, Provence, Skotsko nebo Laponsko jen uvnitř její hranice), autem i vlakem
 a autobusem (čas cesty je odhad, skutečné spoje ukáže odkaz do Google Map u každého úseku). U výletů si zvolíš,
 co tě láká – města, památky (hrady, zámky, kláštery), poznávací, přírodu (národní parky, hory, vodopády, jeskyně,
 skály), lázně nebo výlety s dětmi. Program ve městě počítá s délkou návštěvy podle významu místa (Bazilika sv. Petra
@@ -2039,9 +2039,9 @@ přes víc míst jedou úseky v ty dny autem a ostatní vlakem / busem. Srovnáv
   jak chce bezplatné použití), ECB; prohlížeč je bere jen přes server (`/api/fx`).
 - Hledání míst: [GeoNames](https://www.geonames.org/) ([CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) – vybraná místa, česká a další jména, upravený výběr), `data/places.json`.
   Aktualizace: `node scripts/build-places.mjs --cache <adresář>` (viz [Hledání míst](#hledání-míst-geonames)).
-- Hranice oblastí pro okruh v Objevuj (Toskánsko, Apulie, Kalábrie, Istrie i se slovinským pobřežím, Algarve, Skotsko,
-  Laponsko – zastávky okruhu „po Toskánsku“ zůstanou v Toskánsku): [OpenStreetMap](https://www.openstreetmap.org/copyright) přes Nominatim
-  (© přispěvatelé OpenStreetMap, ODbL), zjednodušené na ~2 km, `data/regions.json`. Aktualizace:
+- Hranice oblastí pro okruh v Objevuj (Toskánsko, Apulie, Kalábrie, Istrie i se slovinským pobřežím, Algarve, Normandie,
+  Provence, Goa, Skotsko, Laponsko – zastávky okruhu „po Toskánsku“ zůstanou v Toskánsku): [OpenStreetMap](https://www.openstreetmap.org/copyright) přes Nominatim
+  (© přispěvatelé OpenStreetMap, ODbL), zjednodušené na ~2 km (místa do 3 km za hranicí, hlavně na pobřeží, patří k oblasti), `data/regions.json`. Aktualizace:
   `NODE_USE_ENV_PROXY=1 node scripts/build-regions.mjs` (proxy jen tam, kde je potřeba; jen vybrané oblasti:
   `node scripts/build-regions.mjs istrie`).
 - Ceny paliva: ČSÚ (DataStat, sada CENPHMT, [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)) a Evropská komise –

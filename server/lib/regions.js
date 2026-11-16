@@ -20,10 +20,25 @@ function inRing(ring, lat, lon) {
   return inside;
 }
 
-/** Leží bod v oblasti? null = oblast bez známé hranice. */
+// hranice jsou zjednodušené na ~2 km, takže místa na pobřeží (Polignano a Mare, Benagil, Mont-Saint-Michel) leží
+// těsně za ní – do EDGE_KM od hranice platí jako uvnitř
+const EDGE_KM = 3;
+function nearRing(ring, lat, lon) {
+  const kx = 111.32 * Math.cos((lat * Math.PI) / 180), ky = 110.57; // km na stupeň v okolí bodu
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const ax = (ring[j][0] - lon) * kx, ay = (ring[j][1] - lat) * ky;
+    const dx = (ring[i][0] - lon) * kx - ax, dy = (ring[i][1] - lat) * ky - ay;
+    const t = dx || dy ? Math.max(0, Math.min(1, -(ax * dx + ay * dy) / (dx * dx + dy * dy))) : 0;
+    if (Math.hypot(ax + t * dx, ay + t * dy) <= EDGE_KM) return true;
+  }
+  return false;
+}
+
+/** Leží bod v oblasti (nebo do 3 km od její hranice)? null = oblast bez známé hranice. */
 export function inRegion(key, lat, lon) {
   if (!hasRegion(key)) return null;
-  return REGIONS[key].polys.some((ring) => inRing(ring, lat, lon));
+  const polys = REGIONS[key].polys;
+  return polys.some((ring) => inRing(ring, lat, lon)) || polys.some((ring) => nearRing(ring, lat, lon));
 }
 
 /**

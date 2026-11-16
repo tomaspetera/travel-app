@@ -21,6 +21,10 @@ const ADMIN = {
   algarve: 'Distrito de Faro, Portugal', // Algarve = distrikt Faro
   skotsko: 'Scotland, United Kingdom',
   laponsko: 'Lappi, Suomi',
+  normandie: 'Normandie, France',
+  // Provence = čtyři provensálské departementy (bez Přímořských Alp a Hautes-Alpes – Nice je Azurové pobřeží)
+  provence: ['Bouches-du-Rhône, France', 'Vaucluse, France', 'Var, France', 'Alpes-de-Haute-Provence, France'],
+  goa: 'Goa, India',
 };
 const UA = 'ATLAS-travel/2.0 (hobby travel planner)';
 const r4 = (x) => Math.round(x * 1e4) / 1e4;
