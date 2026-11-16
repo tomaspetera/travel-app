@@ -80,8 +80,9 @@ test('podvržená X-Forwarded-For limit neobejde: stejná adresa od Cloudflare =
 test('GET /api/fx: kurzy se základem CZK z mezipaměti serveru (bez dotazu ven), limit z jedné adresy', async () => {
   const { FALLBACK_EUR } = await import('../server/lib/fx.js');
   cache.set('fx:rates', { base: 'EUR', rates: { ...FALLBACK_EUR, CZK: 25, USD: 1.1 }, source: 'open.er-api.com', date: 'test' }, 3600e3);
-  const calls = [];
+  const calls = [], mock = config.mock;
   globalThis.fetch = async (u) => { calls.push(String(u)); throw new Error('bez sítě'); };
+  config.mock = false; // DEMO má jen orientační kurzy – tady jde o kurzy z mezipaměti ostrého serveru
   try {
     const r = await get('/api/fx', { 'cf-connecting-ip': '198.51.100.40' });
     assert.equal(r.status, 200);
@@ -99,6 +100,7 @@ test('GET /api/fx: kurzy se základem CZK z mezipaměti serveru (bez dotazu ven)
     assert.ok(+over.headers.get('retry-after') > 0);
     assert.equal((await get('/api/fx', { 'cf-connecting-ip': '198.51.100.41' })).status, 200, 'jiný klient má vlastní limit');
   } finally {
+    config.mock = mock;
     globalThis.fetch = realFetch;
   }
 });
@@ -175,11 +177,18 @@ test('fotky měst: dotazy mimo mezipaměť jen do limitu z adresy, odpověď z m
   // Wikipedie „neodpovídá“ (404) → nic se neuloží a každý další dotaz jde znovu ven
   let calls = 0;
   globalThis.fetch = async (url, init) => (String(url).startsWith(base) ? realFetch(url, init) : (calls++, new Response('{}', { status: 404 })));
-  const max = config.photosPer10Min;
+  const max = config.photosPer10Min, mock = config.mock;
   config.photosPer10Min = 3;
+  config.mock = false; // DEMO fotky nehledá vůbec – tady jde o ostrý provoz
   try {
     const h = { 'cf-connecting-ip': '198.51.100.40' };
-    for (let i = 0; i < 3; i++) assert.equal((await get(`/api/photos?t=Mesto${i}x|Jine${i}y`, h)).status, 200);
+    for (let i = 0; i < 3; i++) {
+      const r = await get(`/api/photos?t=Mesto${i}x|Jine${i}y`, h);
+      assert.equal(r.status, 200);
+      // výpadek: „bez fotek“ jen na 5 min (dřív 6 h v prohlížeči), partial
+      assert.equal(r.headers.get('cache-control'), 'public, max-age=300');
+      assert.deepEqual([(await r.json()).partial], [true]);
+    }
     const over = await get('/api/photos?t=Mesto9x', h);
     assert.equal(over.status, 429);
     assert.ok((await over.json()).error);
@@ -191,6 +200,7 @@ test('fotky měst: dotazy mimo mezipaměť jen do limitu z adresy, odpověď z m
     assert.equal((await get('/api/photos?t=Mesto9x', { 'cf-connecting-ip': '198.51.100.41' })).status, 200, 'jiná adresa');
   } finally {
     config.photosPer10Min = max;
+    config.mock = mock;
     globalThis.fetch = realFetch;
   }
 });

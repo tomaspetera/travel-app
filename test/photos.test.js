@@ -157,7 +157,16 @@ test('cityPhotos: z paměti bez dotazu, „fotka není“ jako prázdná adresa,
   assert.deepEqual(await cityPhotos(['Testov A', 'Testov B', 'Testov A', 'X|Y', ''], opt(ok({ 'Testov A': 'https://x/a.jpg' }))),
     { photos: { 'Testov A': 'https://x/a.jpg', 'Testov B': '' }, by: {}, bu: {}, lic: {}, lu: {}, partial: false, prov: 'wiki' });
   assert.deepEqual((await cityPhotos(['Testov A', 'Testov B'], opt(async () => { throw new Error('nemá se ptát'); }))).photos, { 'Testov A': 'https://x/a.jpg', 'Testov B': '' });
-  assert.deepEqual((await cityPhotos(['Testov C'], opt(async () => { throw new Error('429'); }))).photos, {});
+  // výpadek: nic v odpovědi ani v paměti, ale partial a failed – server ji pošle s krátkou mezipamětí (ne 6 h „bez fotek“)
+  const down = await cityPhotos(['Testov C'], opt(async () => { throw new Error('429'); }));
+  assert.deepEqual([down.photos, down.partial, down.failed], [{}, true, true]);
+  // i se skutečným výběrem: česká Wikipedie neodpovídá → nic se neuloží, příště se ptá znovu
+  const wikiDown = (t) => pickPhotos(t, async () => { throw new Error('503'); }, null, null);
+  assert.equal((await cityPhotos(['Testov Z'], opt(wikiDown))).failed, true);
+  assert.equal((await cityPhotos(['Testov Z'], opt(wikiDown))).failed, true);
+  // DEMO: bez fotek a bez dotazu ven
+  const demo = await cityPhotos(['Testov C'], { pick: async () => { throw new Error('nemá se ptát'); }, prov: 'wiki', mock: true });
+  assert.deepEqual([demo.photos, demo.partial, demo.demo], [{}, false, true]);
   const half = await cityPhotos(['Testov C'], opt(async () => ({ photos: { 'Testov C': 'https://x/c.jpg' }, partial: true })));
   assert.deepEqual([half.photos, half.partial], [{ 'Testov C': 'https://x/c.jpg' }, true]);
   // s Pexels: autor fotky jde s ní (i z paměti); paměť je zvlášť pro Pexels a Wikimedii
