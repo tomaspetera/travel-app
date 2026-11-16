@@ -477,6 +477,9 @@ test('drobnosti: „varianta n/10“ u Jiné trasy, prázdný okruh, mapa bez po
   assert.match(blank, /🗺️ Mapa se nenačetla/);
   assert.match(blank, /href="https:\/\/www\.google\.com\/maps\/search\/\?api=1&amp;query=Barcelona%2C%20%C5%A0pan%C4%9Blsko"[^>]*>Otevřít v Google Maps ↗/);
   assert.ok(!T.blankHtml({}).includes('<a'), 'bez názvu místa bez odkazu');
+  // při výpadku OpenFreeMap žádná tichá záloha na dlaždice tile.openstreetmap.org (pravidla OSM), ani preconnect k Unsplash
+  for (const f of ['places.js', 'app.js', 'trip.js', 'about.js']) assert.ok(!src(f).includes('tile.openstreetmap.org'), f);
+  assert.ok(!readFileSync(new URL('../public/index.html', import.meta.url), 'utf8').includes('preconnect'), 'index.html bez preconnect');
 
   const en = 'La Boqueria is a large public market in the Ciutat Vella district of Barcelona, Catalonia, Spain. It is one of the city\'s foremost tourist landmarks.';
   assert.ok(T.looksEnglish(en));

@@ -204,13 +204,10 @@
     return drop(r);
   }
 
-  /* ---------- mapa (MapLibre + OpenFreeMap: zdarma, bez klíče; záloha rastr OpenStreetMap) ---------- */
+  /* ---------- mapa (MapLibre + OpenFreeMap: zdarma, bez klíče) ---------- */
+  // Záloha z dlaždicového serveru OpenStreetMap není: pravidla OSM ho aplikacím jako základní zdroj nedoporučují.
+  // Při výpadku OpenFreeMap turistická mapa Mapy.com (jen kde ji server nabízí), jinak poznámka „Mapa se nenačetla“.
   const OFM = 'https://tiles.openfreemap.org/styles/';
-  const OSM_STYLE = {
-    version: 8,
-    sources: { osm: { type: 'raster', tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'], tileSize: 256, maxzoom: 19, attribution: '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>' } },
-    layers: [{ id: 'osm', type: 'raster', source: 'osm' }],
-  };
   const liveMaps = new Set();
   // Odkazy do Google Map podle názvu místa (ne souřadnic) – Google pak ukáže přímo to místo.
   const gq = (name, ctx) => (ctx && !String(name).includes(ctx) ? (name ? `${name}, ${ctx}` : ctx) : String(name || ''));
@@ -293,7 +290,7 @@
   function mapFallback(el, center, msg) {
     el.innerHTML = `<div class="map-fallback"><div>🗺️ ${esc(msg)}</div>${gmBtn(center)}</div>`;
   }
-  // Mapa bez podkladu (nenačetly se dlaždice ani záložní OpenStreetMap): poznámka nad mapou, značky a trasa zůstanou.
+  // Mapa bez podkladu (nenačetly se dlaždice OpenFreeMap ani záložní Mapy.com): poznámka nad mapou, značky a trasa zůstanou.
   const blankHtml = center => `<div class="map-blank" role="status"><div>🗺️ Mapa se nenačetla</div>${gmBtn(center)}</div>`;
 
   // Knihovna mapy (~1 MB) se načte až při prvním zobrazení mapy, ne s celou aplikací – z adresy s otiskem obsahu od
@@ -399,36 +396,44 @@
       map.off('sourcedata', foldAttrib);
     };
     if (el.offsetWidth <= 640) map.on('sourcedata', foldAttrib);
-    // Když vektorová mapa nenaběhne (výpadek OpenFreeMap), přepni na rastrové dlaždice OpenStreetMap.
-    const toRaster = () => { if (ms.raster || !liveMaps.has(map)) return; ms.raster = true; ms.styleReady = false; map.setStyle(OSM_STYLE, { diff: false }); };
+    const showBlank = () => { if (liveMaps.has(map) && !el.querySelector('.map-blank')) el.insertAdjacentHTML('beforeend', blankHtml(center)); };
+    // Když vektorová mapa nenaběhne (výpadek OpenFreeMap): u trasy pěšky a na kole s turistickou mapou Mapy.com
+    // celý podklad z ní (vrstvu přidá setOutdoor po načtení stylu), jinak poznámka – potichu jiný server nezkoušet.
+    const toRaster = () => {
+      if (ms.raster || !liveMaps.has(map)) return;
+      ms.raster = true;
+      if (!ms.outdoor || ms.mapyFailed) { showBlank(); return; }
+      ms.styleReady = false;
+      map.setStyle({ version: 8, sources: {}, layers: [] }, { diff: false });
+    };
     const timer = setTimeout(() => { if (!ms.styleReady) toRaster(); }, 8000);
     map.once('remove', () => clearTimeout(timer));
     // Nenačtený styl nebo popis zdroje dlaždic (TileJSON) = mapa by zůstala prázdná → hned záloha;
     // jednotlivé dlaždice až po několika chybách (chybějící ikonky/písma nevadí).
     map.on('error', e => {
       // turistická mapa Mapy.com je jen nadstavba: její chyby podklad nepřepínají, po třech se vrstva sundá
-      if (e.sourceId === MAPY_SRC) { if (++ms.mapyErrors >= 3) { ms.mapyFailed = true; setOutdoor(ms, ms.outdoor); } return; }
+      // (jako záložní podklad po ní zůstane prázdná plocha → poznámka)
+      if (e.sourceId === MAPY_SRC) { if (++ms.mapyErrors >= 3) { ms.mapyFailed = true; setOutdoor(ms, ms.outdoor); if (ms.raster) showBlank(); } return; }
       if (!ms.styleReady || (e.sourceId && !e.tile) || (e.tile && ++ms.errors >= 3)) toRaster();
     });
     // Dlaždice, které se „zaseknou“ (požadavek visí bez chyby), by nechaly mapu prázdnou: když po
-    // 15 s od načtení stylu dorazila nejvýš jedna, přepni také na OpenStreetMap.
+    // 15 s od načtení stylu dorazila nejvýš jedna, přepni také na zálohu.
     let tiles = 0;
     let watchdog = null;
     // Počítají se jen dlaždice podkladu – vlastní čáry tras (GeoJSON, atlas-lines) se načtou vždy, i bez sítě.
-    // Dorazí-li dlaždice záložní mapy přece jen později, poznámka „Mapa se nenačetla“ zmizí.
+    // Dorazí-li dlaždice (OpenFreeMap nebo záložní Mapy.com) přece jen později, poznámka „Mapa se nenačetla“ zmizí.
     map.on('data', e => { if (e.dataType === 'source' && e.tile && e.sourceId !== 'atlas-lines' && ++tiles >= 2 && ms.raster) el.querySelector('.map-blank')?.remove(); });
     map.once('remove', () => clearTimeout(watchdog));
     map.on('style.load', () => {
       ms.styleReady = true;
       clearTimeout(timer);
-      if (ms.outdoor) setOutdoor(ms, true); // pod čáry tras (i po přepnutí na záložní OpenStreetMap)
+      if (ms.outdoor) setOutdoor(ms, true); // pod čáry tras (i jako celý záložní podklad)
       addLines(ms);
       clearTimeout(watchdog);
       tiles = 0;
-      // Vektorová mapa: viselé dlaždice → OpenStreetMap. Ani ta za 15 s nenaběhla (bez sítě, blokované dlaždice) →
+      // Vektorová mapa: viselé dlaždice → záloha. Ani Mapy.com za 15 s nenaběhly (bez sítě, blokované dlaždice) →
       // poznámka s odkazem do Google Map místo tmavé prázdné plochy (chybou skončené dlaždice se počítají jako hotové).
-      watchdog = !ms.raster ? setTimeout(() => { if (tiles < 2 && !map.areTilesLoaded()) toRaster(); }, 15000)
-        : setTimeout(() => { if (tiles < 2 && liveMaps.has(map) && !el.querySelector('.map-blank')) el.insertAdjacentHTML('beforeend', blankHtml(center)); }, 15000);
+      watchdog = setTimeout(() => { if (tiles < 2 && (ms.raster || !map.areTilesLoaded())) ms.raster ? showBlank() : toRaster(); }, 15000);
     });
   }
 

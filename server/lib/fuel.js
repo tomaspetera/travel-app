@@ -1,7 +1,7 @@
 // Aktuální ceny pohonných hmot (Kč/l) pro cenu cesty autem: nafta (výchozí) a benzín Natural 95.
-// ČR: ČSÚ – týdenní průměrné spotřebitelské ceny PHM (DataStat API, sada CENPHMT, otevřená data CC0; nový týden
-// vychází v pátek ráno). Ostatní země EU (sousedé i cíle cest autem) a záloha pro ČR: Evropská komise – Weekly Oil Bulletin,
-// ceny s daněmi (XLSX, EUR za 1000 l k pondělí; na Kč přes fx.js). Každý zdroj nejvýš 1× za 24 h (po chybě znovu
+// ČR: ČSÚ – týdenní průměrné spotřebitelské ceny PHM (DataStat API, sada CENPHMT, otevřená data CC BY 4.0; nový
+// týden vychází v pátek ráno). Ostatní země EU (sousedé i cíle cest autem) a záloha pro ČR: Evropská komise – Weekly Oil
+// Bulletin, ceny s daněmi (XLSX, EUR za 1000 l k pondělí; © Evropská unie, CC BY 4.0; na Kč přes fx.js). Každý zdroj nejvýš 1× za 24 h (po chybě znovu
 // za 2 h), timeout 8 s; mezitím platí poslední známé ceny (stale-while-revalidate – hledání na síť nikdy nečeká),
 // bez dat vestavěné ceny s datem. DEMO (ATLAS_MOCK=1) a FUEL_LIVE=0 = pevné ceny bez sítě.
 import { inflateRawSync } from 'node:zlib';
@@ -17,6 +17,8 @@ const CZSO_INFO = 'https://data.csu.gov.cz/datastat/info/SADA/CENPHMT';
 // „Weekly prices with taxes“ – dokument má stálé ID, soubor se v něm každý týden vymění (~17 kB).
 export const WOB_URL = 'https://energy.ec.europa.eu/document/download/264c2d0f-f161-4ea3-a777-78faae59bea0_en';
 const WOB_PAGE = 'https://energy.ec.europa.eu/data-and-analysis/weekly-oil-bulletin_en';
+// Oba zdroje jsou pod CC BY 4.0 – u zdroje v /api/fuel (sources) proto licence s odkazem a co je upravené
+const CC_BY = { license: 'CC BY 4.0', licenseUrl: 'https://creativecommons.org/licenses/by/4.0/', adapted: 'upraveno – výběr paliv a zemí, přepočet na Kč/l' };
 const TTL_MS = 24 * 3600e3;
 const RETRY_MS = 2 * 3600e3;
 const timeoutMs = () => Number(process.env.FUEL_TIMEOUT_MS) || 8000;
@@ -368,8 +370,8 @@ function compose() {
   const meta = (s) => ({ ok: !!s.data, date: s.data?.date ?? null, fetched: at(s.okAt), ...(s.error ? { error: s.error } : {}) });
   const fx = fxInfo();
   const sources = [
-    { id: 'czso', name: 'ČSÚ', title: 'Průměrné spotřebitelské ceny pohonných hmot – týdenní', url: CZSO_INFO, ...meta(state.czso), period: c?.period ?? null },
-    { id: 'wob', name: 'Weekly Oil Bulletin (Evropská komise)', title: 'Weekly prices with taxes', url: WOB_PAGE, ...meta(state.wob), fx: w ? { source: fx.source, eurCzk: fx.eurCzk } : null },
+    { id: 'czso', name: 'ČSÚ', title: 'Průměrné spotřebitelské ceny pohonných hmot – týdenní', url: CZSO_INFO, ...CC_BY, ...meta(state.czso), period: c?.period ?? null },
+    { id: 'wob', name: 'Weekly Oil Bulletin (Evropská komise)', title: 'Weekly prices with taxes', url: WOB_PAGE, attribution: '© Evropská unie', ...CC_BY, ...meta(state.wob), fx: w ? { source: fx.source, eurCzk: fx.eurCzk } : null },
   ];
   if (Object.values(prices).some((p) => p.source === 'builtin')) {
     sources.push({ id: 'builtin', name: 'vestavěné orientační ceny', ok: true, date: FALLBACK.date });

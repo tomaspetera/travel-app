@@ -53,6 +53,14 @@ test('okno: zdroje dat, ukládání jen v prohlížeči, řazení, orientační 
   assert.doesNotMatch(html, /Open-Meteo/, 'hledání míst z vlastního seznamu (GeoNames), ne Open-Meteo');
   // licence CC BY 4.0 chce u dat odkaz na licenci a na zdroj
   for (const u of ['https://creativecommons.org/licenses/by/4.0/', 'https://www.geonames.org/', 'https://www.met.no/']) assert.ok(html.includes(u), u);
+  // ČSÚ a Oil Bulletin jsou CC BY 4.0 (ne CC0), letiště z OpenFlights ODbL, vlajky Twemoji CC BY 4.0, odkaz na Pexels
+  assert.doesNotMatch(html, /CC0/);
+  assert.match(html, /ČSÚ a Weekly Oil Bulletin EU \(CC BY 4\.0, upraveno\)/);
+  assert.match(html, /© Evropská unie; upraveno/);
+  assert.match(html, /OpenFlights \(ODbL\)/);
+  for (const u of ['https://opendatacommons.org/licenses/odbl/1-0/', 'https://openflights.org/data', 'https://twitter.github.io/twemoji', 'https://www.pexels.com']) assert.ok(html.includes(u), u);
+  assert.match(html, /Twemoji \(CC BY 4\.0\)/);
+  assert.match(html, /ATLAS není spojen s žádnou leteckou společností ani prodejcem; ceny a odkazy jsou z veřejných a partnerských zdrojů\./);
   assert.match(html, /localStorage/);
   assert.match(html, /žádné cookies, analytika ani měření návštěvnosti/);
   assert.match(html, /žádná aerolinka ani partner si za lepší pozici neplatí/);

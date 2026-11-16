@@ -136,6 +136,8 @@ test('hlavičky: nosniff, rám, Referrer-Policy, HSTS a Permissions-Policy všud
   assert.ok(dir['connect-src'].includes('https://tiles.openfreemap.org'));
   // kurzy jdou přes server (/api/fx) – prohlížeč na open.er-api.com nesahá a IP uživatele tam nejde
   assert.ok(!dir['connect-src'].some((h) => h.includes('er-api')), dir['connect-src'].join(' '));
+  // dlaždice tile.openstreetmap.org aplikace nebere (pravidla OSM: ne jako základní zdroj aplikace)
+  assert.ok(!dir['connect-src'].some((h) => h.includes('openstreetmap')), dir['connect-src'].join(' '));
   // počasí a hledání míst jdou přes server (MET Norway, server/lib/weather.js) – prohlížeč na Open-Meteo nesahá
   assert.ok(!dir['connect-src'].some((h) => h.includes('open-meteo')), dir['connect-src'].join(' '));
   // písma z vlastního serveru (vendor/fonts) – IP uživatele se nedostane ke Google Fonts (CLAUDE.md: písma lokálně)
