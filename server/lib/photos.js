@@ -7,6 +7,9 @@
 //   náhled 960 px (velká karta na telefonu) – prohlížeč si podle velikosti karty vezme menší 500 nebo 330 px;
 //   vítězí oceněná fotka na šířku s celkovým pohledem (panorama, staré město, výhled), bez map, znaků a koláží.
 // Bez oceněné fotky zůstane úvodní obrázek článku (není-li to koláž nebo SVG), jinak karta bez fotky.
+// Licence Commons (CC BY, CC BY-SA) chtějí u každé fotky autora a licenci: z Commons se k fotce bere autor (Artist –
+// jen text, bez HTML), zkratka a odkaz licence a stránka souboru; fotka bez jasného autora nebo s licencí, která
+// nedovoluje komerční užití (NC, GFDL, „fair use“ z Wikipedie mimo Commons), se nepoužije.
 // S klíčem PEXELS_API_KEY (zdarma) mají přednost profesionální fotky z Pexels na výšku – jen ty, v jejichž popisu
 // nebo adrese je jméno města (náhodná fotka „Rumunska“ místo Oradey ne); s klíčem UNSPLASH_ACCESS_KEY totéž
 // z Unsplash (co Pexels nemá nebo bez klíče Pexels); jinak Wikimedia jako dřív. U fotky z Pexels a Unsplash autor
@@ -26,6 +29,34 @@ const BAD = /\.(svg|png|gif|tiff?|webm|ogv|ogg|pdf|djvu)$|map|karte|mapa|flag|vl
 const NICE = /panoram|skyline|cityscape|aerial|overview|view|vista|old[ _]town|altstadt|stare[ _]miasto|staré[ _]město|centro[ _]storico|from[ _]|sunset|dusk|night|harbou?r|bay|riverside|waterfront/i;
 const noSvg = (s) => (s && !/\.svg/i.test(s) ? s : '');
 const safeDecode = (s) => { try { return decodeURIComponent(s); } catch { return s; } };
+
+// licence Commons, které dovolují komerční užití s uvedením autora (CC BY, CC BY-SA ve všech verzích a zemích, CC0,
+// volné dílo); cokoliv jiného (NC, ND, GFDL, „Attribution“ s vlastními podmínkami) ne
+const LIC_OK = /^(CC0( 1\.0)?|CC[ -]BY(-SA)?([ -][\d.,]+)?([ -][a-z]{2,3})?|Public domain)$/i;
+const NO_AUTHOR = /^(unknown|anonymous|anonym|unbekannt|inconnu|desconocido|not provided|see (below|above|source)|author unknown)\b/i;
+const ENT = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' };
+const fromCode = (n) => (n > 31 && n < 0x110000 && !(n >= 0xd800 && n < 0xe000) ? String.fromCodePoint(n) : ' ');
+/** HTML z extmetadata (Artist) → čistý text: bez značek, entity dekódované, mezery sloučené, nejvýš 80 znaků. */
+export function plainText(html) {
+  const t = String(html || '').replace(/<[^>]*>/g, ' ')
+    .replace(/&(?:#x([0-9a-f]+)|#(\d+)|([a-z]+));/gi, (m, hex, dec, name) => (hex ? fromCode(parseInt(hex, 16)) : dec ? fromCode(Number(dec)) : ENT[name.toLowerCase()] ?? m))
+    .replace(/[<>\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim();
+  return t.length > 80 ? `${t.slice(0, 79).trim()}…` : t;
+}
+
+/**
+ * imageinfo souboru z Commons (iiprop url + extmetadata) → { by: autor, lic: zkratka licence, lu: odkaz na licenci,
+ * pg: stránka souboru na Commons }, nebo null – bez autora, s licencí bez komerčního užití nebo bez stránky souboru.
+ */
+export function commonsCredit(ii) {
+  const m = (ii && ii.extmetadata) || {};
+  const v = (k) => (m[k] && typeof m[k].value === 'string' ? m[k].value : '');
+  const by = plainText(v('Artist')), lic = plainText(v('LicenseShortName'));
+  const pg = ii && typeof ii.descriptionurl === 'string' && /^https:\/\/commons\.wikimedia\.org\/wiki\/File:[^\s"'<>]+$/.test(ii.descriptionurl) ? ii.descriptionurl : '';
+  if (!by || NO_AUTHOR.test(by) || !LIC_OK.test(lic) || !pg) return null;
+  const lu = v('LicenseUrl').trim().replace(/^(https?:)?\/\//, 'https://');
+  return { by, lic, lu: /^https:\/\/creativecommons\.org\/[^\s"'<>]*$/.test(lu) ? lu : '', pg };
+}
 
 async function wikiApi(host, params) {
   const qs = new URLSearchParams({ action: 'query', format: 'json', formatversion: '2', ...params });
@@ -156,27 +187,31 @@ export function unsplashPick(results, names) {
 
 /**
  * Fotky pro názvy měst (bez mezipaměti) – { photos: { název: adresa | '' }, by: { název: autor }, bu: { název: profil
- * autora }, partial, retry }. Výpadek české Wikipedie vyhodí chybu; výpadek anglické nebo Commons vrátí úvodní obrázky
- * s partial: true; retry = názvy, u kterých Unsplash narazil na limit dotazů (fotka z Wikimedie jen na chvíli).
+ * autora (Pexels, Unsplash) nebo stránka souboru (Commons) }, lic / lu: { název: licence / její odkaz } (Commons),
+ * partial, retry }. Výpadek české Wikipedie vyhodí chybu; výpadek anglické nebo Commons vrátí karty bez fotky
+ * (bez autora a licence fotku použít nejde) s partial: true; retry = názvy, u kterých Unsplash narazil na limit
+ * dotazů (fotka z Wikimedie jen na chvíli).
  */
 export async function pickPhotos(titles, api = wikiApi, pexels = config.pexelsKey ? (q) => pexelsApi(config.pexelsKey, q) : null,
   unsplash = config.unsplashKey ? (q) => unsplashApi()(q) : null) {
   // 1) česká Wikipedie: článek, úvodní obrázek, anglický název; cíl po letišti → město před pomlčkou
   const alt = new Map(titles.map((t) => [t, t.split(/\s*[-–]\s*/)[0]]).filter(([t, a]) => a && a !== t));
   const ask = [...new Set([...titles, ...alt.values()])];
-  const cs = (await api('cs.wikipedia.org', { titles: ask.join('|'), redirects: '1', prop: 'pageimages|langlinks', piprop: 'thumbnail', pithumbsize: '960', lllang: 'en', lllimit: 'max' })).query || {};
+  const cs = (await api('cs.wikipedia.org', { titles: ask.join('|'), redirects: '1', prop: 'pageimages|langlinks', piprop: 'thumbnail|name', pithumbsize: '960', lllang: 'en', lllimit: 'max' })).query || {};
   const csFin = finalTitles(cs, ask);
   const csPage = new Map((cs.pages || []).filter((p) => !p.missing).map((p) => [p.title, p]));
   const page = (t) => csPage.get(csFin.get(t)) || (alt.has(t) ? csPage.get(csFin.get(alt.get(t))) : null);
-  const lead = {}, enOf = {};
+  const lead = {}, leadFile = {}, enOf = {};
   for (const t of titles) {
     const p = page(t);
-    lead[t] = noSvg(p && p.thumbnail && p.thumbnail.source);
+    // úvodní obrázek i s názvem souboru – autora a licenci dohledá Commons (bez nich se nepoužije)
+    lead[t] = p && p.pageimage ? noSvg(p.thumbnail && p.thumbnail.source) : '';
+    if (lead[t]) leadFile[t] = 'File:' + p.pageimage.replace(/_/g, ' ');
     const ll = p && (p.langlinks || []).find((l) => l.lang === 'en');
     enOf[t] = ll ? ll.title : p ? '' : t; // bez českého článku zkus anglický pod stejným názvem
   }
   // Pexels, pak Unsplash (s klíčem): profesionální fotka města; co nenajdou, dohledá Wikimedia
-  const photos = {}, by = {}, bu = {}, retry = [];
+  const photos = {}, by = {}, bu = {}, lic = {}, lu = {}, retry = [];
   for (const [src, pickIt] of [[pexels, pexelsPick], [unsplash, unsplashPick]]) {
     if (!src) continue;
     await Promise.all(titles.filter((t) => !photos[t]).map(async (t) => {
@@ -188,19 +223,27 @@ export async function pickPhotos(titles, api = wikiApi, pexels = config.pexelsKe
     }));
   }
   const rest = titles.filter((t) => !photos[t]);
-  if (!rest.length) return { photos, by, bu, partial: false, retry };
-  // 2–3) výpadek anglické Wikipedie nebo Commons: zatím úvodní obrázky (bez koláží), jen na krátko (partial)
+  if (!rest.length) return { photos, by, bu, lic, lu, partial: false, retry };
+  // 2–3) výpadek anglické Wikipedie nebo Commons: bez autora a licence fotku použít nejde – zatím karta bez fotky,
+  // jen na krátko (partial)
   try {
-    return { photos: { ...photos, ...(await bestPhotos(rest, api, lead, enOf)) }, by, bu, partial: false, retry };
+    const got = await bestPhotos(rest, api, lead, leadFile, enOf);
+    for (const t of rest) {
+      const c = got[t];
+      photos[t] = c ? c.u : '';
+      if (c) { by[t] = c.by; bu[t] = c.pg; lic[t] = c.lic; if (c.lu) lu[t] = c.lu; }
+    }
+    return { photos, by, bu, lic, lu, partial: false, retry };
   } catch {
-    for (const t of rest) photos[t] = leadOk(lead[t]) ? lead[t] : '';
-    return { photos, by, bu, partial: true, retry };
+    for (const t of rest) photos[t] = '';
+    return { photos, by, bu, lic, lu, partial: true, retry };
   }
 }
 
 const leadOk = (u) => Boolean(u) && !BAD.test(safeDecode(u.split('?')[0].split('/').pop() || ''));
 
-async function bestPhotos(titles, api, lead, enOf) {
+/** Fotky z Wikimedie → { název: { u: adresa, by, lic, lu, pg } }; jen fotky s autorem a licencí pro komerční užití. */
+async function bestPhotos(titles, api, lead, leadFile, enOf) {
   // 2) anglická Wikipedie: obrázky v článku (až 3 stránky odpovědi)
   const enTitles = [...new Set(Object.values(enOf).filter(Boolean))];
   const imgs = new Map(), enLead = new Map();
@@ -227,11 +270,12 @@ async function bestPhotos(titles, api, lead, enOf) {
     const ld = enLead.get(enOf[t]);
     cand[t] = [...new Set([...(ld && !BAD.test(ld) ? [ld] : []), ...(imgs.get(enOf[t]) || []).filter((f) => !BAD.test(f)).map((f, i) => [f, rank(f), i]).sort((a, b) => b[1] - a[1] || a[2] - b[2]).map((x) => x[0])])].slice(0, 20);
   }
-  // 3) Commons: ocenění a rozměry (po 50 souborech)
-  const files = [...new Set(Object.values(cand).flat())], info = new Map();
+  // 3) Commons: ocenění, rozměry, autor a licence (po 50 souborech; i úvodní obrázky českých článků)
+  const files = [...new Set([...Object.values(cand).flat(), ...Object.values(leadFile)])], info = new Map();
   for (let i = 0; i < files.length; i += 50) {
     const q = (await api('commons.wikimedia.org', {
-      titles: files.slice(i, i + 50).join('|'), prop: 'categories|imageinfo', clcategories: `${FP}|${QI}`, cllimit: 'max', iiprop: 'url|size', iiurlwidth: '960',
+      titles: files.slice(i, i + 50).join('|'), prop: 'categories|imageinfo', clcategories: `${FP}|${QI}`, cllimit: 'max', iiprop: 'url|size|extmetadata', iiurlwidth: '960',
+      iiextmetadatafilter: 'Artist|LicenseShortName|LicenseUrl',
     })).query || {};
     const fin = finalTitles(q, files.slice(i, i + 50));
     const byTitle = new Map((q.pages || []).filter((p) => !p.missing && p.imageinfo).map((p) => [p.title, p]));
@@ -239,7 +283,8 @@ async function bestPhotos(titles, api, lead, enOf) {
       const p = byTitle.get(ft);
       if (!p) continue;
       const ii = p.imageinfo[0];
-      info.set(f, { title: f, cats: (p.categories || []).map((c) => c.title), width: ii.width, height: ii.height, url: ii.thumburl || ii.url });
+      const cr = commonsCredit(ii);
+      if (cr) info.set(f, { title: f, cats: (p.categories || []).map((c) => c.title), width: ii.width, height: ii.height, url: ii.thumburl || ii.url, cr });
     }
   }
   const out = {};
@@ -250,7 +295,10 @@ async function bestPhotos(titles, api, lead, enOf) {
     // jinak nejlepší oceněná; jinak úvodní obrázek českého článku, není-li koláž; jinak aspoň slušná fotka na šířku
     const li = ld && ranked.find((x) => x.title === ld), lr = li && li.width / li.height;
     const top = li && lr >= 0.9 && lr <= 2.8 ? li : ranked.find((x) => x.cats.includes(FP) || x.cats.includes(QI)), best = ranked[0];
-    out[t] = top ? top.url : leadOk(lead[t]) ? lead[t] : best && best.s >= 6 ? best.url : lead[t] || '';
+    // úvodní obrázek českého článku jen s autorem a licencí z Commons
+    const lc = lead[t] && info.get(leadFile[t]), lp = lc && { url: lead[t], cr: lc.cr };
+    const pick = top || (lp && leadOk(lead[t]) ? lp : best && best.s >= 6 ? best : lp);
+    if (pick) out[t] = { u: pick.url, ...pick.cr };
   }
   return out;
 }
@@ -260,23 +308,30 @@ const defaultProv = () => (config.pexelsKey ? 'pexels' : config.unsplashKey ? 'u
 const wanted = (titles) => [...new Set(titles.map((t) => String(t || '').trim()).filter((t) => t && t.length <= 80 && !t.includes('|')))].slice(0, MAX);
 
 /** Má server fotky (nebo „fotka není“) ke všem názvům v mezipaměti? Pak dotaz nic nestojí a do limitu se nepočítá. */
-export const photosCached = (titles, prov = defaultProv()) => wanted(titles).every((t) => cache.get(`ph6:${prov}:${t}`) !== undefined);
+// ph7: fotky z Wikimedie uložené dřív (bez autora a licence) se znovu nepoužijí
+export const photosCached = (titles, prov = defaultProv()) => wanted(titles).every((t) => cache.get(`ph7:${prov}:${t}`) !== undefined);
 
 /**
- * { photos: { název: adresa fotky | '' (fotka není) }, by: { název: autor fotky z Pexels/Unsplash }, bu: { název:
- * profil autora }, partial, prov }. Výpadek Wikimedie (chyba, 429): nic se neuloží a nenalezené názvy v odpovědi
+ * { photos: { název: adresa fotky | '' (fotka není) }, by: { název: autor fotky }, bu: { název: profil autora
+ * (Pexels, Unsplash) nebo stránka souboru (Commons) }, lic / lu: { název: licence / její odkaz } (Commons), partial,
+ * prov }. Výpadek Wikimedie (chyba, 429): nic se neuloží a nenalezené názvy v odpovědi
  * chybí – příště znovu. Náhradní výběr (partial, u Unsplash po limitu dotazů retry) se uloží jen na hodinu – partial
  * pak má i odpověď, ať se prohlížeč brzy zeptá znovu. prov: 'pexels' / 'unsplash' s klíčem, jinak
  * 'wiki' (prohlížeč wiki fotky drží kratší dobu, aby po přidání klíče brzy přešel na hezčí fotky).
  */
 export async function cityPhotos(titles, { pick = pickPhotos, prov = defaultProv() } = {}) {
   const want = wanted(titles);
-  const photos = {}, by = {}, bu = {}, miss = [];
+  const photos = {}, by = {}, bu = {}, lic = {}, lu = {}, miss = [];
+  const credit = { by, bu, lic, lu };
   let partial = false;
   for (const t of want) {
-    const c = cache.get(`ph6:${prov}:${t}`);
+    const c = cache.get(`ph7:${prov}:${t}`);
     // náhradní výběr z paměti (s: do hodiny) je pořád jen na chvíli – partial, ať ho prohlížeč nedrží 30 dní
-    if (c !== undefined) { photos[t] = c.u; if (c.by) by[t] = c.by; if (c.bu) bu[t] = c.bu; if (c.s) partial = true; } else miss.push(t);
+    if (c !== undefined) {
+      photos[t] = c.u;
+      for (const k in credit) if (c[k]) credit[k][t] = c[k];
+      if (c.s) partial = true;
+    } else miss.push(t);
   }
   if (miss.length) {
     try {
@@ -285,12 +340,12 @@ export async function cityPhotos(titles, { pick = pickPhotos, prov = defaultProv
       partial = partial || Boolean(got.partial) || soon.size > 0;
       for (const t of miss) {
         photos[t] = got.photos[t] || '';
-        if (got.by && got.by[t]) by[t] = got.by[t];
-        if (got.bu && got.bu[t]) bu[t] = got.bu[t];
+        const keep = { u: photos[t], by: '' };
+        for (const k in credit) if (got[k] && got[k][t]) keep[k] = credit[k][t] = got[k][t];
         const short = Boolean(got.partial || soon.has(t));
-        cache.set(`ph6:${prov}:${t}`, { u: photos[t], by: by[t] || '', ...(bu[t] ? { bu: bu[t] } : {}), ...(short ? { s: 1 } : {}) }, short ? 36e5 : TTL);
+        cache.set(`ph7:${prov}:${t}`, short ? { ...keep, s: 1 } : keep, short ? 36e5 : TTL);
       }
     } catch { /* výpadek – příště znovu */ }
   }
-  return { photos, by, bu, partial, prov };
+  return { photos, by, bu, lic, lu, partial, prov };
 }

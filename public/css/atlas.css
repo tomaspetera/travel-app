@@ -401,7 +401,7 @@ html:not(.booted) #view-dashboard>.hero~*{visibility:hidden;animation:boot-show 
   background:radial-gradient(120% 90% at 20% 10%,hsl(var(--h,215) 42% 46%),transparent 60%),linear-gradient(160deg,hsl(var(--h,215) 38% 34%),hsl(calc(var(--h,215) + 25) 45% 14%));
   box-shadow:0 16px 34px -18px rgba(0,0,0,.6)}
 .dest[data-photo].ph{background:#0b1226 var(--ph) center/cover no-repeat}
-/* autor fotky z Pexels/Unsplash: drobné ⓘ dole vpravo, popisek s odkazy až po klepnutí (na počítači i po najetí myší);
+/* autor fotky z Pexels/Unsplash/Commons: drobné ⓘ dole vpravo, popisek s odkazy až po klepnutí (na počítači i po najetí myší);
    klepnutí mimo ⓘ a odkazy patří kartě */
 .ph-cr{position:absolute;right:8px;bottom:7px;z-index:3;display:flex;flex-direction:row-reverse;align-items:center;gap:6px;max-width:calc(100% - 16px);
   font:500 10.5px/1.3 Inter,system-ui,sans-serif;color:#fff;pointer-events:none}
@@ -415,6 +415,7 @@ html:not(.booted) #view-dashboard>.hero~*{visibility:hidden;animation:boot-show 
 @media (hover:hover){.ph-cr:hover .ph-pop{display:flex;pointer-events:auto}}
 .ph-pop>*{flex:none}
 .ph-pop>.ph-by{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis} /* dlouhé jméno autora zkrátit, zdroj ne */
+.ph-pop>.ph-c{margin-left:-.3em} /* „Foto: autor, licence“ (Commons) – čárka hned za jménem */
 .ph-cr .ph-a{pointer-events:auto;cursor:pointer;text-decoration:underline;text-decoration-color:rgba(255,255,255,.45);text-underline-offset:1.5px}
 .dest[data-photo]::before{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(180deg,rgba(0,0,0,.28) 0%,rgba(0,0,0,0) 30%,rgba(0,0,0,0) 50%,rgba(0,0,0,.3) 100%)}
 .dest[data-photo]:hover{border-color:transparent}
