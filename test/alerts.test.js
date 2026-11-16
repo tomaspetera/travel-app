@@ -474,6 +474,19 @@ test('news: řádek „Od minula“ – pod cílovou cenou, zlevněná od posled
   assert.equal(A.news([past], null).hits.length, 1, 'bez dneška jako dřív');
 });
 
+test('news: 🎯 pod cílem jen do prohlédnutí (seen) – pak ne, ani po obnovení; znovu až po dalším zlevnění', () => {
+  const w = { id: 'a', label: 'a', best: { czk: 800 }, target: 1000, notified: 800 };
+  assert.equal(A.news([w]).hits.length, 1, 'ještě neviděná (kontrola ji ohlásila – notified – a karta se ukáže)');
+  assert.equal(A.news([{ ...w, seen: 1200 }]).hits.length, 1, 'viděná dřív za vyšší cenu');
+  // prohlédnutý seznam / „Zobrazit lety“ / cíl psaný u seznamu (markSeen) → seen = současná cena
+  const seen = { ...w, seen: 800 };
+  assert.equal(A.news([seen]).hits.length, 0);
+  assert.equal(A.news(JSON.parse(JSON.stringify([seen]))).hits.length, 0, 'po obnovení stránky (localStorage) taky ne');
+  assert.equal(A.news([{ ...seen, best: { czk: 850 } }]).hits.length, 0, 'zdražení pod cílem ne');
+  assert.deepEqual(plain(A.news([{ ...seen, best: { czk: 780 } }]).hits.map((x) => x.czk)), [780], 'další zlevnění zase ano');
+  assert.equal(A.news([seen]).watch.length, 0, 'ani jako 📉 zlevnění');
+});
+
 test('bestGone: 📉 karta, „Od minula“ ani odznak neukážou nabídku, která už odletěla (termín hledání ještě trvá)', () => {
   // návrat po týdnech: hlídání Lisabonu 1.–31. 12. má z poslední kontroly nabídku 5.–9. 12., dnes je 22. 12.
   const f = { dateMode: 'flex', dFrom: '2026-12-01', dTo: '2026-12-31' };
@@ -645,7 +658,7 @@ test('isPast: klouzavý termín nikdy neproběhne; přesná data a víc měst z�
   // kontroly i „Od minula“ s ním počítají dál
   const list = [{ id: 'r', form: { ...old, roll: { off: 3, span: 28 } } }, { id: 'p', form: old }];
   assert.deepEqual(plain(R.dueWatches(list, { now: NOW, today: TODAY }).map((w) => w.id)), ['r']);
-  assert.equal(R.news([{ id: 'r', label: 'r', best: { czk: 900 }, seen: 900, target: 1000, form: list[0].form }], null, TODAY).hits.length, 1);
+  assert.equal(R.news([{ id: 'r', label: 'r', best: { czk: 900 }, seen: 1100, target: 1000, form: list[0].form }], null, TODAY).hits.length, 1);
 });
 
 test('searchKey s roll: klíč klouzavého hlídání se den ode dne nemění, pevná hledání mají klíč jako dřív', () => {

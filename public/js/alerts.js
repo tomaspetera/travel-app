@@ -416,7 +416,10 @@
     // dvě hlídání stejné trasy (Praha → Řím v listopadu a v prosinci): k názvu den odletu nabídky, jinak vypadají jako duplikát
     const twice = new Set(ws.map(w => w.label).filter((l, i, a) => a.indexOf(l) !== i));
     const lbl = w => (twice.has(w.label) && isYmd(w.best.dep) ? `${w.label} (${+w.best.dep.slice(8, 10)}. ${+w.best.dep.slice(5, 7)}.)` : w.label);
-    const hits = ws.filter(w => num(w.target) && w.best.czk <= w.target).map(w => ({ id: w.id, label: lbl(w), czk: w.best.czk }));
+    // pod cílem jen dosud neviděná cena: prohlédnutý seznam nebo „Zobrazit lety“ (seen) ji odbyly – jinak by velká 🎯
+    // karta visela nad hledáním napořád (i při psaní cíle u seznamu); znovu až po dalším zlevnění. notified ne – ten
+    // zapíše už kontrola, která cíl splnila, a karta by se neukázala vůbec
+    const hits = ws.filter(w => num(w.target) && w.best.czk <= w.target && !(num(w.seen) && w.best.czk >= w.seen)).map(w => ({ id: w.id, label: lbl(w), czk: w.best.czk }));
     const hit = new Set(hits.map(x => x.id));
     const watch = ws.filter(w => !hit.has(w.id) && isDropped(w)).map(w => ({ id: w.id, label: lbl(w), d: num(w.seen) - w.best.czk })).sort((a, b) => b.d - a.d);
     const items = radar && Array.isArray(radar.items) ? radar.items.filter(Boolean) : [];
