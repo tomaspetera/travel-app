@@ -490,16 +490,34 @@ export async function geocodeExplore(query, { mapy = true, regions = false } = {
   // stejné místo z obou zdrojů jednou; v rámci Mapy.com ne (hrad Karlštejn a obec Karlštejn jsou dvě místa)
   const dup = (a, b) => normalize(a.label) === normalize(b.label) && haversineKm(a.lat, a.lon, b.lat, b.lon) < 10;
   let list = base; // bez Mapy.com přesně jako geocodePlaces
+  const towns = new Set(); // obce z Mapy.com (GeoNames je pozná podle fc PPL…)
   if (extra.length) {
-    const conv = extra.map((x) => ({
-      id: `geo:${x.lat.toFixed(4)},${x.lon.toFixed(4)}|${x.name.replace(/\|/g, ' ')}`, type: 'place', label: x.name, flag: flag(x.cc),
-      sub: [x.label, x.location].filter(Boolean).join(' · '), ...(x.cc ? { cc: x.cc } : {}), lat: x.lat, lon: x.lon, pop: 0, src: 'mapy',
-    }));
+    const conv = extra.map((x) => {
+      const p = { id: `geo:${x.lat.toFixed(4)},${x.lon.toFixed(4)}|${x.name.replace(/\|/g, ' ')}`, type: 'place', label: x.name, flag: flag(x.cc),
+        sub: [x.label, x.location].filter(Boolean).join(' · '), ...(x.cc ? { cc: x.cc } : {}), lat: x.lat, lon: x.lon, pop: 0, src: 'mapy' };
+      if (String(x.type || '').startsWith('regional.municipality')) towns.add(p);
+      return p;
+    });
     const strong = base.filter((x) => x.fuzzy || x.region || x.pop >= 1000);
     list = [...strong, ...conv.filter((x) => !strong.some((y) => dup(x, y))),
       ...base.filter((y) => !strong.includes(y) && !conv.some((x) => dup(x, y)))].slice(0, 10);
   }
+  if (rg.value) list = townBeforeRegion(list, q, (x) => /^PPL/.test(x.fc || '') || towns.has(x));
   return nat.length ? withNature(list, nat) : list;
+}
+
+/**
+ * Obec přesně toho jména, jaké má oblast, ve stejné zemi a do 100 km od místa oblasti, jde před oblast: „Amalfi“ je
+ * městečko Amalfi, ne Neapol (město letiště oblasti Amalfinské pobřeží). Ostrov nebo kraj stejného jména (Kréta,
+ * Sardinie) obec není a vesnice stejného jména v jiné zemi oblast nepřebije. isTown(x) = místo je obec.
+ */
+export function townBeforeRegion(list, query, isTown) {
+  const i = list.findIndex((x) => x.region);
+  if (i < 0) return list;
+  const rg = list[i], q = normalize(query);
+  const j = list.findIndex((x, k) => k > i && !x.region && isTown(x) && x.cc === rg.cc && normalize(x.label) === q
+    && haversineKm(rg.lat, rg.lon, x.lat, x.lon) <= 100);
+  return j < 0 ? list : [...list.slice(0, i), list[j], ...list.slice(i, j), ...list.slice(j + 1)];
 }
 
 /**
