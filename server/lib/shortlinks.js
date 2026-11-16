@@ -188,6 +188,12 @@ export function invitePage(data, m, base, fallbackImg, { bot = false } = {}) {
   return previewPage({ url: `${base}/j/${data}`, to: `/#jed=${data}`, title: m.title, desc: m.desc, img: m.img, wait: 'Otevírám pozvánku v ATLASu…' }, fallbackImg, { bot });
 }
 
+/**
+ * CSP náhledových stránek /c/ a /j/: žádný skript ani obrázek, jen vložený styl. Přesměrování do aplikace je
+ * <meta http-equiv="refresh"> a odkaz, na které CSP nesahá – text ze sdíleného odkazu tak na stránce nic nespustí.
+ */
+export const PREVIEW_CSP = "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
+
 function previewPage({ url, to, title, desc = '', img = null, wait }, fallbackImg, { bot = false } = {}) {
   const meta = (k, v, a = 'property') => `<meta ${a}="${k}" content="${esc(v)}">`;
   return `<!doctype html>

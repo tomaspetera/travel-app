@@ -1087,3 +1087,103 @@ test('Objevuj okruh 50/100 km a celá země (DEMO): /api/poi/trips a /api/poi/co
   assert.equal((await get('/api/poi/country?cc=CZ&cat=castle')).j.items[0].distanceKm, undefined);
   for (const bad of ['?cc=IT&cat=bad', '?cc=IT&cat=', '?cc=IT&cat=constructor', '?cc=XX&cat=mountain']) assert.equal((await get(`/api/poi/country${bad}`)).status, 400, bad);
 });
+
+test('stránka aplikace jen přes serveIndex: i /%69ndex.html a //index.html mají CSP a dosazenou verzi', async () => {
+  for (const p of ['/%69ndex.html', '//index.html', '/./index.html', '/js/../index.html', '/%2findex.html']) {
+    const r = await new Promise((resolve, reject) => {
+      http.get({ host: '127.0.0.1', port: server.address().port, path: p }, (res) => {
+        let body = '';
+        res.on('data', (c) => { body += c; });
+        res.on('end', () => resolve({ status: res.statusCode, headers: res.headers, body }));
+      }).on('error', reject);
+    });
+    if (r.status !== 200) { assert.ok([400, 404].includes(r.status), `${p}: ${r.status}`); continue; }
+    assert.match(r.headers['content-security-policy'] || '', /script-src 'self'/, `${p}: bez CSP`);
+    assert.match(r.body, /<meta name="atlas-build" content="[0-9a-f]{12}">/, `${p}: syrový index.html`);
+    assert.doesNotMatch(r.body, /<!-- brand\b/, `${p}: nedosazené štítky`);
+  }
+  assert.equal((await rawGet('/index.html/')).status, 404);
+});
+
+test('zájmy, kola a cíle „__proto__“ / „constructor“: 200 nebo 400 česky, nikdy 500', async () => {
+  const post = (p, b) => fetch(`${base}${p}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(b) });
+  const r = await post('/api/roadtrip', { lat: 50.08, lon: 14.42, start: ymdPlus(30), days: 2, interests: ['__proto__', 'constructor', 'toString', 'hasOwnProperty'] });
+  assert.equal(r.status, 200);
+  const { planTrips } = await import('../server/lib/roadtrip.js');
+  assert.doesNotThrow(() => planTrips([], { base: { lat: 50, lon: 14 }, start: ymdPlus(30), days: 1, interests: ['__proto__', 'constructor', 'toString'] }));
+  for (const bike of ['__proto__', 'constructor', 'toString']) {
+    assert.notEqual((await post('/api/bike', { lat: 50.08, lon: 14.42, km: 20, bike })).status, 500, bike);
+  }
+  const { hubsOf } = await import('../server/lib/longhaul.js');
+  for (const cc of ['__proto__', 'constructor', 'toString']) assert.deepEqual(hubsOf(cc), [], cc);
+  assert.ok(hubsOf('US').length);
+  const { resolveDestinations } = await import('../server/lib/places.js');
+  const { UserError } = await import('../server/lib/search.js');
+  for (const id of ['cc:__proto__', 'cc:constructor', 'cc:XX']) {
+    assert.throws(() => resolveDestinations([id]), (e) => e instanceof UserError && e.status === 400 && /Neznámá země/.test(e.message), id);
+  }
+  assert.deepEqual(resolveDestinations(['cc:IT']).countries, ['IT']);
+});
+
+test('chybějící nebo prázdná poloha není bod 0,0: 400 česky', async () => {
+  for (const ep of ['/api/poi', '/api/poi/trips', '/api/nearby', '/api/nature']) {
+    for (const q of ['', '?lat=&lon=', '?lat=50', '?lat=%20&lon=14', '?lon=14']) {
+      const r = await fetch(`${base}${ep}${q}`);
+      assert.equal(r.status, 400, `${ep}${q}`);
+      assert.match((await r.json()).error, /lat|poloh/i, `${ep}${q}`);
+    }
+  }
+  assert.equal((await fetch(`${base}/api/nature?lat=0&lon=0`)).status, 200, 'skutečný bod 0,0 dál projde');
+});
+
+test('neexistující datum (30. 2.) v programu, túrách a výletech: 400, ne tiše posunuté', async () => {
+  const post = (p, b) => fetch(`${base}${p}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(b) });
+  const at = { lat: 50.08, lon: 14.42 };
+  assert.equal((await post('/api/itinerary', { ...at, start: '2027-02-30', end: '2027-03-02' })).status, 400);
+  assert.equal((await post('/api/itinerary', { ...at, start: '2027-02-27', end: '2027-02-29' })).status, 400);
+  assert.equal((await post('/api/hikeplan', { ...at, start: '2027-13-01', end: '2027-13-02' })).status, 400);
+  assert.equal((await post('/api/roadtrip', { ...at, start: '2027-02-30' })).status, 400);
+  const { realYmd } = await import('../server/index.js');
+  assert.deepEqual(['2028-02-29', '2027-02-29', '2027-04-31', '2027-12-31', 'x'].map(realYmd), [true, false, false, true, false]);
+});
+
+test('POST endpointy jinou metodou: 405 s Allow: POST, ne 404', async () => {
+  for (const p of ['/api/itinerary', '/api/hikeplan', '/api/roadtrip', '/api/stayplan', '/api/bike', '/api/hike', '/api/search']) {
+    const r = await fetch(`${base}${p}`);
+    assert.deepEqual([r.status, r.headers.get('allow')], [405, 'POST'], p);
+  }
+  assert.equal((await fetch(`${base}/api/place?id=cc:IT`)).status, 404, '/api/place je pryč');
+});
+
+test('chyby mimo API česky s Content-Type; komprimované JSON s Vary: Accept-Encoding', async () => {
+  const bad = await rawGet('/%E0%A4%A');
+  assert.equal(bad.status, 400);
+  assert.equal(bad.body, 'Neplatná adresa.');
+  const r = await fetch(`${base}/api/fuel`, { headers: { 'accept-encoding': 'br' } });
+  assert.equal(r.headers.get('content-encoding'), 'br');
+  assert.match(r.headers.get('cache-control'), /^public/);
+  assert.equal(r.headers.get('vary'), 'Accept-Encoding');
+});
+
+test('slabý ETag od Cloudflare (W/"…") dá 304 u stránky, sw.js i vygenerovaných souborů', async () => {
+  for (const p of ['/', '/sw.js', '/robots.txt', '/manifest.webmanifest']) {
+    const etag = (await fetch(`${base}${p}`)).headers.get('etag');
+    assert.ok(etag, p);
+    const r = await fetch(`${base}${p}`, { headers: { 'if-none-match': `W/${etag}` } });
+    assert.equal(r.status, 304, p);
+  }
+});
+
+test('písma Inter a Sora jsou v sadě pro offline (service worker)', async () => {
+  const sw = await (await fetch(`${base}/sw.js`)).text();
+  const list = JSON.parse(sw.match(/const PRECACHE = (\[[^\]\n]*\]);/)[1]);
+  for (const f of ['inter-v20-latin', 'inter-v20-latin-ext', 'sora-v17-latin', 'sora-v17-latin-ext']) assert.ok(list.includes(`vendor/fonts/${f}.woff2`), f);
+  const css = readFileSync(new URL('../public/css/atlas.css', import.meta.url), 'utf8');
+  for (const u of new Set([...css.matchAll(/url\(\.\.\/(vendor\/fonts\/(?:inter|sora)[^)]+)\)/g)].map((m) => m[1]))) assert.ok(list.includes(u), `css/atlas.css bere ${u}`);
+});
+
+test('server odpojí pomalého klienta podle limitů (kontrola spojení po 5 s)', () => {
+  assert.equal(server.connectionsCheckingInterval, 5e3);
+  assert.equal(server.headersTimeout, 20e3);
+  assert.equal(server.requestTimeout, 30e3);
+});

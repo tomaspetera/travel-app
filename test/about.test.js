@@ -70,7 +70,13 @@ test('okno: zdroje dat, ukládání jen v prohlížeči, řazení, orientační 
   const windows = [...read('server/index.js').matchAll(/new RateLimiter\(\{[^}]*windowMs: ([\d. *e]+)/g)].map((m) => Number(eval(m[1])));
   assert.ok(windows.length && windows.every((w) => w <= 3600e3), `okna limitů ${windows}`);
   assert.match(html, /id="abBk"/, '💾 Přenos a záloha');
-  assert.match(html, /Verze 2026-10-22/);
+  assert.match(html, /Verze 2026-10-22<\/p>/, 'bez sestavení jen verze');
+  // sestavení z <meta name="atlas-build"> (WN_ID se mění jen s novinkami), escapované
+  assert.match(A.html({ version: '2026-10-22', build: '3f9a0c1b2d4e' }), /Verze 2026-10-22 · sestavení 3f9a0c1b2d4e<\/p>/);
+  assert.match(A.html({ version: 'v', build: '<b>' }), /sestavení &lt;b&gt;/);
+  assert.match(read('public/js/about.js'), /const buildNow = \(\) => \{ const m = document\.querySelector\('meta\[name="atlas-build"\]'\);/);
+  // „ATLAS není spojen…“ s mezerou pod drobným textem o licencích (odstavce v okně mají margin 0)
+  assert.match(html, /<p style="font-size:14px;margin-top:10px">ATLAS není spojen/);
   assert.doesNotMatch(html, /mailto:|abMail/, 'bez adresy žádné 💬 Napsat nám');
   assert.doesNotMatch(A.html({ version: 'x', backup: false }), /abBk/, 'bez backup.js bez tlačítka zálohy');
 });

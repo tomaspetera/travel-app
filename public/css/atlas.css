@@ -60,8 +60,9 @@
   --surface-solid:#ffffff; --card:rgba(255,255,255,.8);
   --border:rgba(13,22,48,.1); --border-2:rgba(13,22,48,.18);
   /* --faint: popisky a poznámky (trasa a termín u výsledku, „cena z …“, nápovědy) – na pozadí, kartě i v okně aspoň
-     4,5 : 1 (ve dne na slunci); dřívější #8a96b8 měl jen 2,6–2,9 : 1. Pořád slabší než --muted. */
-  --text:#0f1830; --muted:#56638a; --faint:#606d92; --accent-ink:#2f5fd0;
+     4,5 : 1 (ve dne na slunci), i na tónovaném přechodu pozadí; dřívější #8a96b8 měl jen 2,6–2,9 : 1, #606d92 na
+     přechodu 4–4,2 : 1. Pořád o kousek slabší než --muted. */
+  --text:#0f1830; --muted:#56638a; --faint:#57648b; --accent-ink:#2f5fd0;
   /* stavové barvy jako text aspoň 4,5 : 1 na pozadí, kartě i v okně (stejné odstíny jako dřívější ruční úpravy níž) */
   --good-ink:#047857; --warn-ink:#8a5a00; --bad-ink:#be123c; --info-ink:#075985;
   /* spodní lišta bílá (tmavá kapsle na světlé stránce byla nejtěžší věc na obrazovce), aktivní sekce tmavá – obráceně

@@ -177,7 +177,7 @@ test('neznámá adresa mimo API: česká stránka 404 s odkazem do aplikace; str
   assert.equal((await fetch(`${base}/js/app.js`)).status, 200);
   // „//“ (roboti, překlep) URL nepřečte: 400 jako poškozená adresa, ne chyba serveru 500 s výpisem do logu
   const slashes = await fetch(`${base}//`);
-  assert.deepEqual([slashes.status, await slashes.text()], [400, 'Bad request']);
+  assert.deepEqual([slashes.status, slashes.headers.get('content-type'), await slashes.text()], [400, 'text/plain; charset=utf-8', 'Neplatná adresa.']);
 });
 
 test('manifest: název a popis z brand.js (v souboru nejsou – jedno místo), instalace: ikony, start, rozsah, jazyk', async () => {

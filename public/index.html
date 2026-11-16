@@ -147,9 +147,9 @@ if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configur
     <nav class="nav" id="nav" aria-label="Sekce"></nav>
     <div class="side-foot">
       <div class="src-box" id="srcBox"></div>
-      <div class="theme-toggle" id="themeToggle" role="button" tabindex="0">
-        <span id="themeLabel">Tmavý režim</span>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+      <div class="theme-toggle" id="themeToggle" role="button" tabindex="0" aria-pressed="false">
+        <span>🌗 Tmavý režim</span>
+        <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
       </div>
     </div>
   </aside>
@@ -165,14 +165,15 @@ if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configur
       <div class="topbar-spacer"></div>
       <button class="home-chip" id="homeChip" title="Odkud obvykle létáš"></button>
       <button class="icon-btn" id="refreshBtn" title="Aktualizovat data" aria-label="Aktualizovat data">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.5 9a9 9 0 0 1 14.9-3.4L23 10M1 14l4.6 4.4A9 9 0 0 0 20.5 15"/></svg>
+        <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.5 9a9 9 0 0 1 14.9-3.4L23 10M1 14l4.6 4.4A9 9 0 0 0 20.5 15"/></svg>
       </button>
       <button class="icon-btn menu-btn" id="menuBtn" title="Menu" aria-label="Menu – doporučení, záloha, vzhled">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+        <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
       </button>
     </header>
 
-    <div class="content">
+    <!-- hlavní obsah jako <main>: čtečka na něj skočí (orientační bod) přes lištu nahoře -->
+    <main class="content">
       <!-- DASHBOARD -->
       <section class="view active" id="view-dashboard">
         <!-- 📍 Dnes na cestě: od 2 dnů před odjezdem do konce uložené cesty (app.js renderNow) -->
@@ -251,7 +252,7 @@ if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configur
               <div class="origin-pills" id="originPills"></div>
             </div>
             <div class="field sf-to">
-              <button type="button" class="sf-swap" id="swapBtn" title="Prohodit Odkud a Kam" aria-label="Prohodit Odkud a Kam"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3v18M3 7l4-4 4 4M17 21V3M21 17l-4 4-4-4"/></svg></button>
+              <button type="button" class="sf-swap" id="swapBtn" title="Prohodit Odkud a Kam" aria-label="Prohodit Odkud a Kam"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3v18M3 7l4-4 4 4M17 21V3M21 17l-4 4-4-4"/></svg></button>
               <span class="sf-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 22h20M3.77 10.77 2 9l2-4.5 1.1.55c.55.28.9.84.9 1.45s.35 1.17.9 1.45L8 8.5l3-6 1.05.53a2 2 0 0 1 1.09 1.52l.72 5.4a2 2 0 0 0 1.09 1.52l4.4 2.2c.42.22.78.55 1.01.96l.6 1.03c.49.88-.06 1.98-1.06 2.1l-1.18.15c-.47.06-.95-.02-1.37-.24L4.29 11.15a2 2 0 0 1-.52-.38Z"/></svg></span>
               <label>Kam <span class="lab-hint">nech prázdné = kamkoliv</span></label>
               <div class="place-input" id="toInput"></div>
@@ -473,7 +474,7 @@ if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configur
         <div class="seg world-tabs" role="group" aria-label="Svět"><button type="button" data-w="map">🗺️ Mapa</button><button type="button" data-w="countries">🌍 Země</button></div>
         <div class="toolbar">
           <div class="search-wide">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.3-4.3"/></svg>
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.3-4.3"/></svg>
             <input class="input" id="cSearch" placeholder="Hledat zemi…" aria-label="Hledat zemi" autocomplete="off">
           </div>
           <button type="button" class="btn ghost c-filt-btn" id="cFiltBtn" aria-expanded="false">⚙️ Filtry<span id="cFiltN"></span></button>
@@ -501,7 +502,7 @@ if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configur
         <div class="dest-grid" id="recGrid"></div>
         <div class="rec-foot faint" id="recFoot"></div>
       </section>
-    </div>
+    </main>
   </div>
 </div>
 
@@ -519,7 +520,7 @@ if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configur
 <div class="toast" id="toast" role="status"></div>
 <div class="sr-only" id="srSay" role="status"></div>
 
-<svg width="0" height="0" style="position:absolute"><defs>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
   <linearGradient id="vg" x1="0" y1="0" x2="1" y2="1">
     <stop offset="0" stop-color="#22d3ee"/><stop offset="0.5" stop-color="#5b8cff"/><stop offset="1" stop-color="#a855f7"/>
   </linearGradient>
