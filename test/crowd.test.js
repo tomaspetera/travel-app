@@ -58,6 +58,24 @@ test('RateLimiter: omezená paměť – neaktivní adresy pryč, aktivní limit 
   assert.ok(rl.size <= 100, `adres ${rl.size}`);
 });
 
+test('RateLimiter: adresa po uplynutí okna zmizí sama, i bez dalšího požadavku z ní (slib v O aplikaci)', async () => {
+  const rl = new RateLimiter({ windowMs: 60e3 });
+  const t0 = 1_000_000;
+  rl.hit('a', 5, t0);
+  rl.hit('b', 5, t0 + 45e3);
+  rl.sweep(t0 + 29e3);
+  assert.equal(rl.size, 2, 'v okně zůstane');
+  rl.sweep(t0 + 30e3); // další úklid (za 30 s) by byl až po okně → smaže už teď
+  assert.deepEqual([...rl.map.keys()], ['b']);
+  assert.equal(rl.hit('b', 1, t0 + 46e3) > 0, true, 'aktivní adresa limit neztratí');
+  // skutečný časovač (unref – test na něm nevisí): krátké okno, bez jediného dalšího volání
+  const fast = new RateLimiter({ windowMs: 40, sweepMs: 10 });
+  fast.hit('c', 5);
+  assert.equal(fast.size, 1);
+  await sleep(80);
+  assert.equal(fast.size, 0);
+});
+
 test('TTLCache: prošlé záznamy se jednou za minutu uklidí, i když se na ně nikdo neptá', async () => {
   const c = new TTLCache(100, { softBytes: 0 });
   c.set('kratky', 1, 1);

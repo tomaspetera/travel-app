@@ -57,6 +57,10 @@ test('okno: zdroje dat, ukládání jen v prohlížeči, řazení, orientační 
   assert.match(html, /žádné cookies, analytika ani měření návštěvnosti/);
   assert.match(html, /žádná aerolinka ani partner si za lepší pozici neplatí/);
   assert.match(html, /vždy ji ověř u partnera/);
+  // RateLimiter (server/lib/ratelimit.js) maže adresu nejpozději po okně; nejdelší okno je hodina (hlášení chyb, odkazy)
+  assert.match(html, /IP adresu si kvůli limitům požadavků pamatuje nejdél hodinu od posledního/);
+  const windows = [...read('server/index.js').matchAll(/new RateLimiter\(\{[^}]*windowMs: ([\d. *e]+)/g)].map((m) => Number(eval(m[1])));
+  assert.ok(windows.length && windows.every((w) => w <= 3600e3), `okna limitů ${windows}`);
   assert.match(html, /id="abBk"/, '💾 Přenos a záloha');
   assert.match(html, /Verze 2026-10-22/);
   assert.doesNotMatch(html, /mailto:|abMail/, 'bez adresy žádné 💬 Napsat nám');
