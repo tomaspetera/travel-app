@@ -256,7 +256,7 @@ test('seznam pro offline: stránka, vše z index.html a data – každý soubor 
   assert.ok(list.filter((u) => /\?/.test(u)).every((u) => /^[\w/.-]+\.(?:js|css)\?v=[0-9a-f]{10}$/.test(u)), 'otisk jen u skriptů a stylů');
   assert.equal(new Set(list).size, list.length);
   const page = await (await fetch(`${base}/`)).text();
-  const type = { css: /text\/css/, js: /javascript/, json: /application\/json/, png: /image\/png/, webmanifest: /manifest\+json/ };
+  const type = { css: /text\/css/, js: /javascript/, json: /application\/json/, png: /image\/png/, webmanifest: /manifest\+json/, woff2: /font\/woff2/ };
   for (const u of list.slice(1)) {
     const res = await fetch(`${base}/${u}`);
     assert.equal(res.status, 200, u);

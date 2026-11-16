@@ -201,7 +201,8 @@ export function planTrips(candidates, opts) {
   // Jen dosažitelné cíle (tam a zpět v rámci dne pro jednodenní výlety), seřazené podle skóre.
   const valid = candidates.filter((c) => Number.isFinite(c.lat) && Number.isFinite(c.lon) && c.score > 0);
   // Zájmy: když je odpovídajících cílů dost, plánuje se jen z nich; jinak mají přednost a zbytek doplní.
-  const interests = (opts.interests || []).filter((i) => INTERESTS[i]);
+  // hasOwn: zájem „__proto__“ nebo „constructor“ z požadavku by jinak našel vlastnost Object.prototype (chyba serveru)
+  const interests = (opts.interests || []).filter((i) => Object.hasOwn(INTERESTS, i));
   const matches = (c) => interests.some((i) => INTERESTS[i](c));
   let cands = valid;
   let fewForInterests = false;

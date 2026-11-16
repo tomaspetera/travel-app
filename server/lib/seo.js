@@ -7,6 +7,7 @@ import { createHash } from 'node:crypto';
 import { readFileSync, statSync } from 'node:fs';
 import { BRAND } from '../brand.js';
 import { inlineScriptHashes } from './security.js';
+import { etagMatches } from './pwa.js';
 
 /** Text do atributu i obsahu HTML a XML (& < > " escapované). */
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -134,7 +135,7 @@ export function sendGenerated(req, res, status, body, headers) {
   const buf = Buffer.isBuffer(body) ? body : Buffer.from(body);
   const etag = `"g-${createHash('sha256').update(buf).digest('base64url').slice(0, 22)}"`;
   const h = { ...headers, ETag: etag };
-  if (status === 200 && (req.headers['if-none-match'] || '').split(/\s*,\s*/).includes(etag)) {
+  if (status === 200 && etagMatches(req.headers['if-none-match'], etag)) {
     res.writeHead(304, h);
     return res.end();
   }
