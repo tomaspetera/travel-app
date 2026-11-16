@@ -183,7 +183,7 @@ let lastWorld = 'map';
    Okno zavřené jinak (✕, klepnutí vedle, stažení dolů, Escape) svůj krok vrátí přes history.back() – ten je
    asynchronní: zápisy do historie, které přijdou mezitím (go() hned po modalClose(), další okno), počkají na jeho
    popstate, jinak by návrat skončil na staré adrese a hashchange přepnul pohled zpátky. */
-const hist = { modal: false, mq: null, step: false, trail: [], backs: 0, queue: [], t: 0 };
+const hist = { modal: false, mq: null, step: false, trail: [], sub: null, backs: 0, queue: [], t: 0 };
 // Posun stránky po Zpět řídí aplikace (sekce tam, kde uživatel byl – viewStep, okno a náhled stránkou nehýbou):
 // automatická obnova prohlížeče by skočila na posun z dřívějška i ve chvíli, kdy se mezitím přepnula sekce (okno
 // zavřené a hned jiná sekce) a nová sekce by začala uprostřed. Nové kroky ruční obnovu přebírají od aktuálního.
@@ -216,7 +216,7 @@ function viewHist(v, st, hash, drill = false) {
 function viewStep(v, drill, y = null) {
   const { back, how } = viewHist(v, history.state, location.hash, drill);
   const at = st => ({ ...st, y: y == null ? undefined : y }); // bez posunu ani starý – patřil jiné sekci
-  if (back) { hist.step = false; hist.trail = []; histBack(back); } // odchod z Cesty: kroky průvodce začnou znovu
+  if (back) { hist.step = false; hist.trail = []; hist.sub = null; histBack(back); } // odchod z Cesty: kroky průvodce začnou znovu
   if (how) histDo(() => {
     const st = history.state;
     if (how === 'replace') { if (location.hash.slice(1) !== v) history.replaceState(st, '', '#' + v); return; }
@@ -252,6 +252,23 @@ function tripEntry(on) {
     history.pushState({ atlasV: histDepth(st) + 1, atlasT: 1 }, '', '#trip');
   });
 }
+/**
+ * Krok uvnitř sekce (Objevuj: 🔎 Prozkoumat z přehledu země): Zpět telefonu zavolá back() a sekce se vrátí, odkud
+ * uživatel přišel (přehled země), místo odchodu na Přehled. back() → false = návrat už nemá smysl (mezitím jiné
+ * místo), Zpět pak pokračuje o krok dál. Nový krok nahradí předchozí – Zpět vrací jen o jeden.
+ */
+function histSub(back) {
+  if (hist.modal || typeof back !== 'function') return;
+  const had = Boolean(hist.sub);
+  hist.sub = back;
+  if (had) return;
+  histDo(() => {
+    let st = history.state;
+    // sekce bez kroku (aplikace otevřená rovnou v ní): Přehled pod ní jako u sekce z lišty
+    if (!histDepth(st)) { history.replaceState(st, '', '#dashboard'); history.pushState(st = { atlasV: 1 }, '', '#' + activeView); }
+    history.pushState({ atlasV: histDepth(st) + 1, atlasS: 1 }, '', '#' + activeView);
+  });
+}
 function histPop() {
   if (hist.backs) { // návrat, který si aplikace sama vyžádala
     if (--hist.backs > 0) return;
@@ -272,10 +289,17 @@ function histPop() {
     if (moved) tripEntry(hist.trail.length > 0); else histBack();
     return;
   }
+  // Zpět z kroku uvnitř sekce (histSub): sekce se vrátí sama, jinak o krok dál
+  if (hist.sub && !(st && st.atlasS)) {
+    const back = hist.sub;
+    hist.sub = null;
+    if (!back()) histBack();
+    return;
+  }
   // krok okna, které už otevřené není (Zpět z náhledu otevřeného nad oknem, náhled po přepnutí pohledu z něj, Vpřed
   // v prohlížeči), a krok průvodce, ke kterému už cesta kroků není (stránka se mezitím obnovila – Zpět z plánovače,
   // kam cestu uložilo Shrnutí): přeskočit – jinak by další Zpět „nic neudělal“
-  if (st && ((st.atlasM || st.atlasDp) && !$('#modalBg').classList.contains('show') || st.atlasT && !hist.step)) histBack();
+  if (st && ((st.atlasM || st.atlasDp) && !$('#modalBg').classList.contains('show') || st.atlasT && !hist.step || st.atlasS && !hist.sub)) histBack();
 }
 window.addEventListener('popstate', histPop);
 /** Adresa se změnila (Zpět, Vpřed, odkaz na sekci): přepnout na její sekci. */
