@@ -1919,8 +1919,10 @@
   const leaveOf = t => { if (!t.back) return null; if (!leaveMemo.has(t)) leaveMemo.set(t, SearchHelp.leaveDays(t.out, t.back)); return leaveMemo.get(t); };
   // řazení „i s cestou na letiště“ a doporučené pořadí (počítá s ním): pod cenou letenky i odhad s cestou na letiště
   // a do města
-  const tripLine = (t, cls = 'cmp-tkt') => ((view.sort === 'trip' || view.sort === 'best') && t.tripCzk != null && Math.round(t.tripCzk) !== Math.round(t.perPersonCzk)
-    ? `<small class="${cls}" title="Letenka + odhad dopravy na letiště a z letiště do města na osobu – ${view.sort === 'trip' ? 'podle toho se teď řadí' : 'doporučené pořadí s ním počítá'}">i s cestou ~${czk(t.tripCzk)}</small>` : '');
+  const tripOn = t => (view.sort === 'trip' || view.sort === 'best') && t.tripCzk != null && Math.round(t.tripCzk) !== Math.round(t.perPersonCzk);
+  // vždy s jednotkou: vedle „1 009 Kč/os.“ stálo „i s cestou ~2 019 Kč“ bez ní a nebylo poznat, že je taky na osobu
+  const tripLine = (t, cls = 'cmp-tkt') => (tripOn(t)
+    ? `<small class="${cls}" title="Letenka + odhad dopravy na letiště a z letiště do města na osobu – ${view.sort === 'trip' ? 'podle toho se teď řadí' : 'doporučené pořadí s ním počítá'}">i s cestou ~${czk(t.tripCzk)}/os.</small>` : '');
   // Doporučené pořadí (rank.js): kontext jednou na výsledek – srovnávací cenu každé nabídky si pamatuje (řazení ji volá
   // při každém porovnání). Úroveň ceny i u cest složených v prohlížeči (levelFor).
   let rankFor = null, rankC = null;
@@ -2415,10 +2417,12 @@
   const sameRound = t => (!t.bookUrl && t.back && (t.out.siteCur || '') === (t.back.siteCur || '') ? SearchHelp.roundBookUrl(t) : null);
   function bookButtons(t) {
     const btn = (url, label, prov) => url ? `<a class="btn sm book" style="--pc:${provColor(prov)}" href="${esc(safeUrl(url))}" target="_blank" rel="noopener">${label}</a>` : `<span class="btn sm ghost" title="Demo data nemají rezervační odkaz" style="opacity:.55">${label}</span>`;
-    if (t.bookUrl) return btn(t.bookUrl, `Koupit ${t.provider === 'travelpayouts' ? 'na Aviasales' : 'u ' + esc(shopName(t.provider))} ↗`, t.provider);
+    // orientační cena (z mezipaměti) není nabídka ke koupi – skutečnou cenu ukáže až prodejce, proto „Otevřít“
+    const verb = SearchHelp.isCached(t) ? 'Otevřít' : 'Koupit';
+    if (t.bookUrl) return btn(t.bookUrl, `${verb} ${t.provider === 'travelpayouts' ? 'na Aviasales' : 'u ' + esc(shopName(t.provider))} ↗`, t.provider);
     const rt = sameRound(t);
-    if (rt) return btn(rt, `Koupit u ${esc(shopName(t.out.provider))} ↗`, t.out.provider);
-    if (!t.back) return btn(t.out.bookUrl, `Koupit u ${esc(shopName(t.out.provider))} ↗`, t.out.provider);
+    if (rt) return btn(rt, `${verb} u ${esc(shopName(t.out.provider))} ↗`, t.out.provider);
+    if (!t.back) return btn(t.out.bookUrl, `${verb} u ${esc(shopName(t.out.provider))} ↗`, t.out.provider);
     return btn(t.out.bookUrl, `Tam: ${esc(shopName(t.out.provider))} ↗`, t.out.provider) + btn(t.back.bookUrl, `Zpět: ${esc(shopName(t.back.provider))} ↗`, t.back.provider);
   }
 
@@ -2455,27 +2459,53 @@
   }
   const buyProvs = t => (t.bookUrl ? [t.provider] : [t.out, t.back].filter(l => l && l.bookUrl).map(l => l.provider));
 
-  // pax = počet dospělých nabídky (📌 Porovnat jde otevřít i bez výsledků na obrazovce); děti Google Flights ani
-  // Skyscanner v adrese nedostanou (zápis ověřený nemáme) – říká to kidsNote
-  function verifyLinks(t, pax = lastResult.query.adults) {
+  /* ---------- zápis ceny v kartě nabídky a ověření ceny (čisté funkce – test/lety-cena-overit.test.js) ---------- */
+  // Kam jít cenu ověřit: jen tam nebo zpět stejnou trasou jeden dotaz na Google Lety a Skyscanner; s návratem z jiného
+  // letiště dva jednosměrné dotazy na Google (takovou cestu jedním odkazem neotevřeme). pax = počet dospělých nabídky –
+  // děti Google Lety ani Skyscanner v adrese nedostanou (zápis ověřený nemáme), říká to kidsNote. → [{ k, leg, url }]
+  function verifyTargets(t, pax) {
     const sameAp = t.back && t.back.from === t.out.to && t.back.to === t.out.from;
     const gq = (a, b, d1, d2) => `https://www.google.com/travel/flights?hl=cs&curr=CZK&q=${enc(d2 ? `Flights to ${b} from ${a} on ${d1} through ${d2}` : `Flights from ${a} to ${b} on ${d1} one way`)}`;
     const sk = (a, b, d1, d2) => `https://www.skyscanner.cz/transport/flights/${a.toLowerCase()}/${b.toLowerCase()}/${yymmdd(d1)}/${d2 ? yymmdd(d2) + '/' : ''}?adults=${pax}&rtn=${d2 ? 1 : 0}`;
     if (!t.back || sameAp) {
       const d2 = t.back ? t.back.date : null;
-      return `<a href="${gq(t.out.from, t.out.to, t.out.date, d2)}" target="_blank" rel="noopener">Google Flights</a> · <a href="${sk(t.out.from, t.out.to, t.out.date, d2)}" target="_blank" rel="noopener">Skyscanner</a>`;
+      return [{ k: 'g', url: gq(t.out.from, t.out.to, t.out.date, d2) }, { k: 's', url: sk(t.out.from, t.out.to, t.out.date, d2) }];
     }
-    return `<a href="${gq(t.out.from, t.out.to, t.out.date)}" target="_blank" rel="noopener">tam (Google)</a> · <a href="${gq(t.back.from, t.back.to, t.back.date)}" target="_blank" rel="noopener">zpět (Google)</a>`;
+    return [{ k: 'g', leg: 'tam', url: gq(t.out.from, t.out.to, t.out.date) }, { k: 'g', leg: 'zpět', url: gq(t.back.from, t.back.to, t.back.date) }];
+  }
+  const verA = (x, txt, cls) => `<a${cls ? ` class="${cls}"` : ''} href="${x.url}" target="_blank" rel="noopener">${txt}</a>`;
+  // drobné odkazy v řádku „Ověřit:“ u živé ceny a v 📌 Porovnat (jde otevřít i bez výsledků na obrazovce – pax z nabídky)
+  function verifyLinks(t, pax = lastResult.query.adults) {
+    return verifyTargets(t, pax).map(x => verA(x, x.leg ? `${x.leg} (Google)` : x.k === 'g' ? 'Google Flights' : 'Skyscanner')).join(' · ');
+  }
+  // Orientační cena (z mezipaměti, let má live === false) se před nákupem musí ověřit – dřív to byl drobný odkaz mezi
+  // „Info o zemi“ a „Sdílet“. Teď vlastní řádek hned pod cenou: tlačítko na prst (44 px) a vedle menší druhý odkaz.
+  // U živé ceny nic (odkazy zůstávají v řádku „Ověřit:“).
+  function verifyRow(t, pax) {
+    if (!SearchHelp.isCached(t)) return '';
+    const [g, alt] = verifyTargets(t, pax);
+    return `<div class="tr-ver"><div class="tv-acts">${verA(g, g.leg ? 'Ověřit let tam v Google Letech ↗' : 'Ověřit cenu v Google Letech ↗', 'btn sm')}${verA(alt, alt.leg ? 'Let zpět ↗' : 'Skyscanner ↗', 'tv-alt')}</div><div class="tv-note">Aktuální cenu a volná místa uvidíš až u prodejce.</div></div>`;
+  }
+  // Jeden zápis ceny: dva řádky se stejnou stavbou, každá částka s jednotkou („/os.“) a u víc cestujících hned vedle
+  // částka za všechny. Dřív stály vedle sebe tři částky s jiným základem a bez jednotky: „1 009 Kč na osobu“, „i s cestou
+  // ~2 019 Kč“ (na osobu, s dopravou) a „celkem 2 os.: 2 018 Kč“ (dva lidé, jen letenky).
+  // per = cena na osobu (velká částka), total = za všechny, ret = tam i zpět, q = cestující (dotaz nabídky),
+  // door = cena i s cestou na letiště a do města na osobu (null = řádek se nekreslí), mark = označení za částkou (html)
+  function priceRows({ per, total, ret, q, door = null, mark = '' }) {
+    const p = SearchHelp.paxOf(q);
+    // s dětmi delší popisek (miminko platí jen poplatek aerolinky – paxTotalLbl), jinak krátké „pro 2 celkem“
+    const all = SearchHelp.paxTotalOn(q) ? `<span>· ${SearchHelp.paxNote(q) ? esc(SearchHelp.paxTotalLbl(q)) : `pro ${p.seats} celkem`} <b>${czk(total)}</b></span>` : '';
+    return `<div class="pl pr-row"><span>${ret ? 'Letenky' : 'Letenka'}</span><span><b class="pp">${czk(per)}</b>/os.</span>${all}${mark}</div>`
+      + (door != null ? `<div class="pd pt pr-row"><span>S cestou na letiště a do města ~${czk(door)}/os.${p.seats > 1 ? `</span><span>· pro ${p.seats} ~${czk(door * p.seats)}` : ''} (odhad)</span></div>` : '');
   }
 
   // res = výsledek, ze kterého nabídka je (📌 Porovnat: složený z odložené nabídky – pinRes); idx = řádek výpisu, jinak null
-  // ex = false: bez dopravy na letiště a do města pod cenou ani „i s cestou“ (řazení výpisu) – 📌 Porovnat ji má v řádku
-  // „Celkem i s cestou“, jinak by tam byla dvakrát
+  // ex = false: bez dopravy na letiště a do města pod cenou ani řádku „S cestou…“ (řazení výpisu) – 📌 Porovnat ji má
+  // v řádku „Celkem i s cestou“, jinak by tam byla dvakrát
   function priceBox(t, idx, res = lastResult, ex = true) {
     const q = res.query, note = SearchHelp.paxNote(q);
-    return `<div class="pbox"><div class="pp">${czk(t.perPersonCzk)}</div>${cacheMark(SearchHelp.isCached(t))}<div class="pl">${t.back ? 'letenky tam i zpět' : 'letenka'} na osobu</div>${ex ? tripLine(t, 'pd pt') : ''}
+    return `<div class="pbox">${priceRows({ per: t.perPersonCzk, total: t.totalCzk, ret: t.back, q, door: ex && tripOn(t) ? t.tripCzk : null, mark: cacheMark(SearchHelp.isCached(t)) })}
       ${t.bagCzk ? `<div class="pd">${t.back ? 'letenky' : 'letenka'} ${czk(t.flightCzk)} + <span title="Odhad příplatku za ${BAG_LBL[res.query.bags] || 'zavazadlo'}${t.bagEst ? ' – hrubý, dopravce se nepodařilo ověřit' : ' – typická cena u dopravce'}">zavazadla ~${czk(t.bagCzk)}</span></div>` : ''}
-      ${SearchHelp.paxTotalOn(q) ? `<div class="pd">${SearchHelp.paxTotalLbl(q)}: <b>${czk(t.totalCzk)}</b></div>` : ''}
       ${note ? `<div class="pd pax-note">👶 ${esc(note)}</div>` : ''}
       ${ex ? extrasHtml(t, res) : ''}
       ${idx != null && levelFor(t) ? `<button type="button" class="linkbtn pc-ask" data-pc="${idx}">Je to dobrá cena?</button>` : ''}</div>`;
@@ -2484,13 +2514,15 @@
   // tlačítko do průvodce cestou u nabídky: dřív „Vybrat a pokračovat“ – nebylo poznat, že k letu poskládá celou dovolenou
   const PLAN_BTN = 'Naplánovat celou cestu →', PLAN_TIP = 'K letu ubytování, auto, program po dnech a cena celkem';
   function tripRow(t, g, idx) {
+    // drobnosti pod tlačítky; u orientační ceny bez „Ověřit:“ a odkazů – ověření má vlastní řádek pod cenou (verifyRow)
+    const more = `${SearchHelp.isCached(t) && liveOn() ? ` · <button type="button" class="linkbtn" data-live="${idx}">⚡ Ověřit cenu živě</button>` : ''}${g && byIso[g.dest.cc] ? ` · <button type="button" class="linkbtn" data-country="${g.dest.cc}">Info o zemi</button>${window.Entry && Entry.idNote(g.dest.cc) ? ' · ' + Entry.idNote(g.dest.cc) : ''}` : ''} · <button type="button" class="linkbtn pin-l" data-pin="${idx}">${pinOn(t) ? '📌 Odloženo ✓' : '📌 Odložit'}</button> · <button type="button" class="linkbtn" data-oshare="${idx}" title="Poslat odkaz na tuhle nabídku">📤 Sdílet</button>`;
     return `<div class="trip-row" data-tid="${esc(t.id)}">
       <div class="tr-legs">${legHtml(t.out)}${t.back ? legHtml(t.back, true) : ''}<div class="tr-badges">${badges(t, g, idx)}</div>${scalSlot(t, idx)}</div>
       ${priceBox(t, idx)}
       <div class="tr-act"><button type="button" class="btn sm primary" data-pick="${idx}" title="${PLAN_TIP}">${PLAN_BTN}</button>
         <div class="tr-buy">${bookButtons(t)}</div>${buyNote(t)}${kidsNote(lastResult.query, buyProvs(t))}
-        <div class="tr-more"><span class="faint">Ověřit:</span> ${verifyLinks(t)}${SearchHelp.isCached(t) && liveOn() ? ` · <button type="button" class="linkbtn" data-live="${idx}">⚡ Ověřit cenu živě</button>` : ''}${g && byIso[g.dest.cc] ? ` · <button type="button" class="linkbtn" data-country="${g.dest.cc}">Info o zemi</button>${window.Entry && Entry.idNote(g.dest.cc) ? ' · ' + Entry.idNote(g.dest.cc) : ''}` : ''} · <button type="button" class="linkbtn pin-l" data-pin="${idx}">${pinOn(t) ? '📌 Odloženo ✓' : '📌 Odložit'}</button> · <button type="button" class="linkbtn" data-oshare="${idx}" title="Poslat odkaz na tuhle nabídku">📤 Sdílet</button></div>
-      </div></div>`;
+        <div class="tr-more">${SearchHelp.isCached(t) ? more.slice(3) : `<span class="faint">Ověřit:</span> ${verifyLinks(t)}${more}`}</div>
+      </div>${verifyRow(t, lastResult.query.adults)}</div>`;
   }
 
   /* ---------- 📅 termín nabídky v kalendáři (SearchHelp.spanCal) ---------- */
@@ -5552,7 +5584,7 @@
       const r = p.r, pax = SearchHelp.paxOf(p.q).seats;
       const buy = (r.buy || []).filter(b => /^https?:\/\//i.test(String(b[0] || ''))).map(([u, pv, leg]) => `<a class="btn sm book" style="--pc:${provColor(pv)}" href="${esc(safeUrl(u))}" target="_blank" rel="noopener">${leg === 'out' ? `Tam: ${esc(shopName(pv))}` : leg === 'back' ? `Zpět: ${esc(shopName(pv))}` : `Koupit ${pv === 'travelpayouts' ? 'na Aviasales' : 'u ' + esc(shopName(pv))}`} ↗</a>`).join('');
       return `<div class="card pin-card" data-pk="${esc(p.k)}">${pinHead(p)}
-        <div class="pin-pr"><div class="pbox"><div class="pp">${czk(r.czk)}</div><div class="pl">na osobu</div><div class="pd">${r.d2 ? 'zpáteční letenka' : 'letenka'}</div>${pax > 1 ? `<div class="pd">celkem ${pax} os.: <b>${czk(r.czk * pax)}</b></div>` : ''}</div>${rel}</div>
+        <div class="pin-pr"><div class="pbox">${priceRows({ per: r.czk, total: r.czk * pax, ret: r.d2, q: { adults: pax } })}</div>${rel}</div>
         ${pinDoor(p, x.d)}
         <div class="pin-ln">✈︎ ${esc(SearchHelp.radarRoute(r))} · ${day(r.d1)}${r.d2 ? ` – ${day(r.d2)} · ${nightsTxt(SearchHelp.diffDays(r.d1, r.d2))}` : ' · jen tam'}${radarLeave(r)}</div>
         <div class="pin-ln faint">z radaru – rozpis ceny a lety ukáže hledání</div>${tail}
