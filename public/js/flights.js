@@ -60,9 +60,39 @@
   // let pod hodinu bez „0 h“ (Vídeň–Salcburk „50 min“)
   const dur = m => m && m < 60 ? `${m} min` : m ? `${Math.floor(m / 60)}\u00a0h ${pad(m % 60)}\u00a0min` : ''; // jednotka se neodtrhne od čísla
   // Let z cache (Travelpayouts / Aviasales): cena z hledání jiných uživatelů; u přestupu bez věrohodné délky i přílet neznámý.
-  const CACHE_TIP = 'Cena z vyhledávání jiných uživatelů Aviasales za posledních ~48 h – let i cenu před nákupem ověř.';
-  const UNK_TIP = 'Přílet neznám: cache u letu s přestupem neuvádí věrohodnou délku cesty (nejspíš jen čas ve vzduchu bez přestupu) – ověř v rezervaci.';
-  const cacheTag = l => (l && l.live === false ? `<span class="b warn cache-tag" title="${esc(l.arrUnknown ? `${CACHE_TIP} ${UNK_TIP}` : CACHE_TIP)}">⏱ z cache – ověř</span>` : '');
+  // Uživatel čte „orientační“, ne „z cache“; stáří jednotlivé ceny data nemají – proto jen „v posledních 48 hodinách“.
+  const CACHE_TIP = 'Cena je orientační: našli ji jiní cestující na Aviasales v posledních 48 hodinách. Let i cenu před nákupem ověř.';
+  const UNK_TIP = 'Přílet neznám: u letu s přestupem zdroj neuvádí věrohodnou délku cesty (nejspíš jen čas ve vzduchu bez přestupu) – ověř v rezervaci.';
+  const cacheTag = l => (l && l.live === false ? `<span class="b warn cache-tag" title="${esc(l.arrUnknown ? `${CACHE_TIP} ${UNK_TIP}` : CACHE_TIP)}">orientační – ověř</span>` : '');
+  // Malé „orientační“ přímo pod částkou (karta nabídky, řádek výpisu, karta radaru) – mezi štítky se na telefonu
+  // schovalo pod „+N další“.
+  const cacheMark = cached => (cached ? `<div class="cache-mark" title="${esc(CACHE_TIP)}">orientační</div>` : '');
+  // Jedna věta nad výsledky, radarem a kalendářem, když je vidět aspoň jedna cena z mezipaměti.
+  const CACHE_NOTE = 'Orientační nejnižší ceny za 1 dospělého. Našli je jiní cestující v posledních 48 hodinách – cena se mohla změnit.';
+  const cacheNote = any => (any ? `<div class="faint cache-note">${CACHE_NOTE}</div>` : '');
+  // karta radaru: příznak oc (od téhle verze), starší uložené karty jen podle zdroje letu tam
+  const radarOrient = x => Boolean(x && (x.oc || x.prov === 'travelpayouts'));
+
+  /* ---------- čistý režim: co ze zdrojů letů server opravdu má zapnuté (/api/health) ---------- */
+  const provOn = (h, id) => Boolean(h && (h.providers || []).some(p => p.id === id && p.enabled));
+  /** Jde živé ověření ceny (Kiwi.com)? Dokud /api/health není načtené, ano – jako dřív (vypnuté skončí hláškou). */
+  function liveOn(h = health) { return !h || !Array.isArray(h.providers) ? true : provOn(h, 'kiwi'); }
+  // aerolinky hledané živě přímo u nich (Ryanair, Wizz Air), které server má zapnuté
+  const directOn = h => [['ryanair', 'Ryanair'], ['wizzair', 'Wizz Air']].filter(([id]) => provOn(h, id)).map(([, n]) => n);
+  /** Věta o ověření cen v patičce výsledků podle zapnutých zdrojů (bez /api/health jako dřív). */
+  function liveFoot(h = health) {
+    if (!h || !Array.isArray(h.providers)) return 'Živé ceny (Ryanair, Wizz Air) se mohou do rezervace změnit; orientační ceny ověř.';
+    const d = directOn(h);
+    if (!d.length) return 'Ceny jsou orientační – před nákupem je ověř u prodejce.';
+    return `Živé ceny (${d.join(', ')}) se mohou do rezervace změnit${provOn(h, 'travelpayouts') ? '; orientační ceny ověř' : ''}.`;
+  }
+  /** Potvrzení „✓ …“ v návodu Zdroje cen (Travelpayouts zapnutý) – jen se zdroji, které server opravdu hledá. */
+  function srcOkHtml(h = health) {
+    const d = directOn(h), kiwi = provOn(h, 'kiwi');
+    if (!d.length && !kiwi) return 'Ceny letů jsou z hledání na Aviasales (Travelpayouts) za posledních 48 hodin. U každé nabídky je odkaz na ověření.';
+    const parts = [d.length ? `${d.join(' a ')} živě` : '', `${d.length ? 'ostatní' : 'aerolinky'} přes Travelpayouts / Aviasales`, kiwi ? 'živé ceny k vybranému letu přes Kiwi.com' : ''].filter(Boolean);
+    return `<b>Všechny aerolinky jsou zapnuté</b> – ${parts.join(', ')}. Tady není co nastavovat.`;
+  }
 
   /* ---------- živé ověření cen z mezipaměti (Aviasales) přes /api/verify (Kiwi.com) ---------- */
   // Po hledání „kamkoliv“ se v pozadí ověří nejvýš 3 ceny z mezipaměti mezi prvními 10 cíli – po jedné (Kiwi má
@@ -80,27 +110,28 @@
   const liveWhen = x => new Date(x.at).toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' });
   // živá cena na osobu na stejném základu jako cena řádku (letenka + zavazadla)
   const liveTotal = (t, x) => t.perPersonCzk - t.flightCzk + x.min;
-  /** Stav ověření pod cenou v Přehledu: „⏱ z cache“, „ověřuji živě…“, „✓ cena platí“, „⚠ živě 2 488 Kč“… */
+  /** Stav ověření pod cenou v Přehledu: „orientační“, „ověřuji živě…“, „✓ cena platí“, „⚠ živě 2 488 Kč“… */
+  // bez živého ověření (Kiwi vypnuté) jen „orientační“ – žádné „ověřuji živě…“ ani starší výsledky ověření
   function liveHtml(t) {
     if (!SearchHelp.isCached(t)) return '';
-    const k = SearchHelp.liveKey(t, liveAdults()), x = liveGet(k), st = liveSt(t, x);
+    const k = SearchHelp.liveKey(t, liveAdults()), x = liveOn() ? liveGet(k) : null, st = liveSt(t, x);
     liveTrips.set(t.id, t);
-    let cls = 'faint', txt = '⏱ z cache', title = CACHE_TIP;
+    let cls = 'faint', txt = 'orientační', title = CACHE_TIP;
     if (st === 'run') { txt = '<span class="spin dark"></span> ověřuji živě…'; title = ''; }
     else if (st === 'ok') { cls = 'good'; txt = `✓ živě od ${czk(liveTotal(t, x))}`; title = `Nejlevnější živá nabídka na stejné dny: ${czk(liveTotal(t, x))}/os. (Kiwi.com, ověřeno ${liveWhen(x)})`; }
     else if (st === 'dearer') { cls = 'warn'; txt = `⚠ živě ${czk(liveTotal(t, x))}`; title = `Cena ${czk(t.perPersonCzk)} je z mezipaměti Aviasales (až 2 dny stará) a živě ji teď nikdo nenabízí – nejlevnější živá nabídka na stejné dny je ${czk(liveTotal(t, x))}/os. (Kiwi.com, ověřeno ${liveWhen(x)})`; }
     else if (st === 'none') { txt = 'živě nenalezeno'; title = 'Kiwi.com na tyhle dny živou nabídku nenašlo – cenu ověř u aerolinky nebo na Aviasales.'; }
     return `<span class="cmp-live ${cls}" data-lk="${esc(k)}" data-ltid="${esc(t.id)}"${title ? ` title="${esc(title)}"` : ''}>${txt}</span>`;
   }
-  /** Štítek v kartě nabídky: bez ověření „⏱ z cache – ověř“, po ověření výsledek. */
+  /** Štítek v kartě nabídky: bez ověření „orientační – ověř“, po ověření výsledek. */
   function liveBadge(t) {
-    const k = SearchHelp.liveKey(t, liveAdults()), x = liveGet(k), st = liveSt(t, x);
+    const k = SearchHelp.liveKey(t, liveAdults()), x = liveOn() ? liveGet(k) : null, st = liveSt(t, x);
     liveTrips.set(t.id, t);
     const lk = `data-lk="${esc(k)}" data-ltid="${esc(t.id)}"`;
     if (!x) return cacheTag([t.out, t.back].find(l => l && l.arrUnknown) || (t.out.live === false ? t.out : t.back)).replace('class="b warn cache-tag"', `class="b warn cache-tag live-b" ${lk}`);
     if (st === 'run') return `<span class="b live-b" ${lk}><span class="spin dark"></span> ověřuji živě…</span>`;
-    if (st === 'dearer') return `<span class="b warn live-b" ${lk} title="${esc(`Nejlevnější živá nabídka na stejné dny (Kiwi.com, ověřeno ${liveWhen(x)})`)}">⚠ z cache – živě od ${czk(liveTotal(t, x))}/os.</span>`;
-    if (st === 'none') return `<span class="b warn live-b" ${lk}>⏱ z cache – živě nenalezeno</span>`;
+    if (st === 'dearer') return `<span class="b warn live-b" ${lk} title="${esc(`Nejlevnější živá nabídka na stejné dny (Kiwi.com, ověřeno ${liveWhen(x)})`)}">⚠ orientační – živě od ${czk(liveTotal(t, x))}/os.</span>`;
+    if (st === 'none') return `<span class="b warn live-b" ${lk}>orientační – živě nenalezeno</span>`;
     return `<span class="b good live-b" ${lk} title="${esc(`Nejlevnější živá nabídka na stejné dny (Kiwi.com, ověřeno ${liveWhen(x)})`)}">✓ ověřeno živě: od ${czk(liveTotal(t, x))}/os.</span>`;
   }
   /** Přepsat stav ověření u nabídky klíče k na místě (bez nového vykreslení – posun stránky ani otevřená karta se nemění). */
@@ -154,7 +185,7 @@
   /** Po hledání „kamkoliv“ / do zemí: v pozadí ověřit nejvýš 3 ceny z mezipaměti mezi prvními 10 cíli. */
   async function autoVerify(res) {
     const gen = ++liveGen;
-    if (!res || res.partial || res.mode !== 'explore' || res.demo || document.hidden || SearchHelp.kiwiOutage(res.providers)) return;
+    if (!res || res.partial || res.mode !== 'explore' || res.demo || document.hidden || !liveOn() || SearchHelp.kiwiOutage(res.providers)) return;
     const todo = SearchHelp.livePick(computeGroups(), { rows: 10, max: 3, adults: liveAdults(), done: k => Boolean(liveGet(k)) });
     await new Promise(r => setTimeout(r, 1000)); // ať nejde v jedné dávce s posledními dotazy hledání
     while (todo.length && gen === liveGen) {
@@ -1710,7 +1741,7 @@
   }
   /**
    * Výsledky na obrazovce stárnou (Android drží aplikaci otevřenou, vrátíš se za pár hodin): po hodině místo řádku
-   * „✓ Prohledáno … ceny z 9:12“ poznámka 🕘 jako u obnovených výsledků (u nich jen aktuální „před …“) a výpis trochu
+   * „✓ Prohledáno … hledáno 9:12“ poznámka 🕘 jako u obnovených výsledků (u nich jen aktuální „před …“) a výpis trochu
    * ztlumený. Náhled nedokončeného hledání (chyba po průběžných výsledcích) stárne od svého času a poznámka nahradí
    * chybu. Při návratu do aplikace, přepnutí na Lety a každých 5 min – jen na viditelných Letech, když nic nehledá.
    * keep = výpis nechat na místě (ne po přepnutí na Lety – stránka tam jede nahoru).
@@ -1823,7 +1854,7 @@
     const disabled = (health?.providers || []).filter(p => !p.enabled && p.hint && p.kind !== 'stays').map(p => `<div class="prow off"><span class="pdot" style="background:${p.color}"></span><b>${esc(p.name)}</b><span class="pst">vypnuto</span><div class="pnote">${esc(p.hint)}</div></div>`).join('');
     const multi = res ? res.mode === 'multi' : Boolean(ev.legs);
     // „za 0,0 s“ = totéž hledání nedávno na serveru (i cizí – výsledek z mezipaměti serveru) – to se neříká v sekundách;
-    // „z nedávného hledání“ by v novém prohlížeči mátlo (stáří cen ukazuje „ceny z 14:32“)
+    // „z nedávného hledání“ by v novém prohlížeči mátlo (čas hledání ukazuje „hledáno 14:32“)
     const sec = ms => (ms >= 50 ? ` za ${(ms / 1000).toFixed(1).replace('.', ',')} s` : ' – hned');
     const head = res ? (multi ? `Prohledáno ${plural(res.legs.length, 'let', 'lety', 'letů')}${sec(res.stats.ms)}` : `Prohledáno ${plural(res.origins.length, 'letiště', 'letiště', 'letišť')}${sec(res.stats.ms)}`)
       : multi ? '<span class="spin"></span> Hledám lety pro celou cestu (nejvýš dva lety najednou)…'
@@ -1839,9 +1870,10 @@
       const found = (ev.providers || []).filter(p => p.found).map(p => `${esc(shopName(p.id))} ${p.found}${cov(p)}`).join(' · ');
       const bad = (ev.providers || []).some(p => p.state === 'error');
       const more = (ev.providers || []).find(p => p.coverage && p.coverage.skipped > 0);
-      // kdy jsou ceny konečného výsledku („ceny z 14:32 · podrobnosti ▾“ vpravo – na telefonu i se širokým řádkem obchodů
-      // se tam vejde a řádek nezvýší); po hodině ho nahradí poznámka 🕘 (ageCheck)
-      const age = SearchHelp.resultAge(lastResultAt, Date.now()), at = age ? `<span class="ps-at">ceny ${age.z} ${esc(age.when)}</span>` : '';
+      // kdy hledání proběhlo („hledáno 14:32 · podrobnosti ▾“ vpravo – na telefonu i se širokým řádkem obchodů se tam
+      // vejde a řádek nezvýší); po hodině ho nahradí poznámka 🕘 (ageCheck). Ne „ceny z 14:32“ – ceny z mezipaměti
+      // můžou být starší než hledání.
+      const age = SearchHelp.resultAge(lastResultAt, Date.now()), at = age ? `<span class="ps-at">hledáno ${esc(age.when)}</span>` : '';
       host.innerHTML = `<details class="card progress-card done"${bad ? ' open' : ''}><summary class="ph">✓ ${head}${found ? `<span class="faint ps-found"> · ${found}</span>` : ''}<span class="ps-more faint">${at}<span class="ps-pd">${at ? ' · ' : ''}podrobnosti</span></span></summary>${rows}${disabled}</details>`
         + (more ? `<div class="more-routes"><button type="button" class="btn sm" id="moreRoutes" title="Na jedno hledání smí ATLAS na ${esc(shopName(more.id))} jen omezený počet dotazů – další hledání vezme nejdřív trasy, na které nedošlo">Prohledat zbylé trasy ${esc(shopName(more.id))} (${more.coverage.skipped})</button></div>` : '');
       const mr = $('#moreRoutes', host); if (mr) mr.onclick = () => rerun();
@@ -2210,7 +2242,8 @@
     const thinVis = !res.partial && th.any > 0 && (isRoute ? flat.length : groups.length) < 3;
     if (thin || thinVis) body += smartHelp(res, false, { chips: chips.filter(c => c.time), any: th.any, onlyClear: !thin });
     // patička: co cena je, vidět hned; z čeho je odhad dopravy, kurz a teplota až po rozbalení (na telefonu 16–20 řádků)
-    host.innerHTML = summary + body + `<div class="res-foot faint">Ceny jsou za letenky na osobu ${bagFoot(res.query.bags)}. Doprava na letiště a z letiště do města je u nabídek zvlášť – do ceny se nepočítá.${footMore(`Doprava je jen pro představu (průměrná cena)${view.sort === 'trip' ? ' a počítá se jen do řazení „i s cestou na letiště“' : view.sort === 'best' ? ' a počítá se jen do doporučeného pořadí' : view.sort === 'fast' ? ' a počítá se jen do řazení „Cena + délka cesty“' : ' a nepočítá se ani do pořadí'}: ${esc(groundFoot(res))}; ${esc(arrivalFoot(res))}. Živé ceny (Ryanair, Wizz Air) se mohou do rezervace změnit; ceny „z cache“ ověř. Kurz: ${fxFoot(res)}. 🌡️ Teplota u cíle je dlouhodobý průměr denních maxim v měsíci odletu (meteostanice u letiště, průměr 1991–2020; kde stanice není, NASA POWER 2001–2020) – ne předpověď počasí; u cest do 9 dní je u nabídky předpověď MET Norway.`)}</div>`;
+    // věta o orientačních cenách jednou nad výpisem, kalendářem i mřížkou termínů (jen když je některá vidět)
+    host.innerHTML = summary + cacheNote((isRoute ? (view.mode === 'cal' ? flat.concat(base) : flat) : all).some(t => SearchHelp.isCached(t))) + body + `<div class="res-foot faint">Ceny jsou za letenky na osobu ${bagFoot(res.query.bags)}. Doprava na letiště a z letiště do města je u nabídek zvlášť – do ceny se nepočítá.${footMore(`Doprava je jen pro představu (průměrná cena)${view.sort === 'trip' ? ' a počítá se jen do řazení „i s cestou na letiště“' : view.sort === 'best' ? ' a počítá se jen do doporučeného pořadí' : view.sort === 'fast' ? ' a počítá se jen do řazení „Cena + délka cesty“' : ' a nepočítá se ani do pořadí'}: ${esc(groundFoot(res))}; ${esc(arrivalFoot(res))}. ${liveFoot()} Kurz: ${fxFoot(res)}. 🌡️ Teplota u cíle je dlouhodobý průměr denních maxim v měsíci odletu (meteostanice u letiště, průměr 1991–2020; kde stanice není, NASA POWER 2001–2020) – ne předpověď počasí; u cest do 9 dní je u nabídky předpověď MET Norway.`)}</div>`;
     wireResults();
     if (window.Photos) Photos.paint(host); // fotky měst v řádcích výsledků (jen viditelné)
     wxFill();
@@ -2440,7 +2473,7 @@
   // „Celkem i s cestou“, jinak by tam byla dvakrát
   function priceBox(t, idx, res = lastResult, ex = true) {
     const q = res.query, note = SearchHelp.paxNote(q);
-    return `<div class="pbox"><div class="pp">${czk(t.perPersonCzk)}</div><div class="pl">${t.back ? 'letenky tam i zpět' : 'letenka'} na osobu</div>${ex ? tripLine(t, 'pd pt') : ''}
+    return `<div class="pbox"><div class="pp">${czk(t.perPersonCzk)}</div>${cacheMark(SearchHelp.isCached(t))}<div class="pl">${t.back ? 'letenky tam i zpět' : 'letenka'} na osobu</div>${ex ? tripLine(t, 'pd pt') : ''}
       ${t.bagCzk ? `<div class="pd">${t.back ? 'letenky' : 'letenka'} ${czk(t.flightCzk)} + <span title="Odhad příplatku za ${BAG_LBL[res.query.bags] || 'zavazadlo'}${t.bagEst ? ' – hrubý, dopravce se nepodařilo ověřit' : ' – typická cena u dopravce'}">zavazadla ~${czk(t.bagCzk)}</span></div>` : ''}
       ${SearchHelp.paxTotalOn(q) ? `<div class="pd">${SearchHelp.paxTotalLbl(q)}: <b>${czk(t.totalCzk)}</b></div>` : ''}
       ${note ? `<div class="pd pax-note">👶 ${esc(note)}</div>` : ''}
@@ -2456,7 +2489,7 @@
       ${priceBox(t, idx)}
       <div class="tr-act"><button type="button" class="btn sm primary" data-pick="${idx}" title="${PLAN_TIP}">${PLAN_BTN}</button>
         <div class="tr-buy">${bookButtons(t)}</div>${buyNote(t)}${kidsNote(lastResult.query, buyProvs(t))}
-        <div class="tr-more"><span class="faint">Ověřit:</span> ${verifyLinks(t)}${SearchHelp.isCached(t) ? ` · <button type="button" class="linkbtn" data-live="${idx}">⚡ Ověřit cenu živě</button>` : ''}${g && byIso[g.dest.cc] ? ` · <button type="button" class="linkbtn" data-country="${g.dest.cc}">Info o zemi</button>${window.Entry && Entry.idNote(g.dest.cc) ? ' · ' + Entry.idNote(g.dest.cc) : ''}` : ''} · <button type="button" class="linkbtn pin-l" data-pin="${idx}">${pinOn(t) ? '📌 Odloženo ✓' : '📌 Odložit'}</button> · <button type="button" class="linkbtn" data-oshare="${idx}" title="Poslat odkaz na tuhle nabídku">📤 Sdílet</button></div>
+        <div class="tr-more"><span class="faint">Ověřit:</span> ${verifyLinks(t)}${SearchHelp.isCached(t) && liveOn() ? ` · <button type="button" class="linkbtn" data-live="${idx}">⚡ Ověřit cenu živě</button>` : ''}${g && byIso[g.dest.cc] ? ` · <button type="button" class="linkbtn" data-country="${g.dest.cc}">Info o zemi</button>${window.Entry && Entry.idNote(g.dest.cc) ? ' · ' + Entry.idNote(g.dest.cc) : ''}` : ''} · <button type="button" class="linkbtn pin-l" data-pin="${idx}">${pinOn(t) ? '📌 Odloženo ✓' : '📌 Odložit'}</button> · <button type="button" class="linkbtn" data-oshare="${idx}" title="Poslat odkaz na tuhle nabídku">📤 Sdílet</button></div>
       </div></div>`;
   }
 
@@ -2759,7 +2792,7 @@
     const title = full ? 'Vybraná cesta' : any ? 'Nejlevnější cesta s vybranými lety' : 'Nejlevnější celá cesta';
     const body = `<div class="section-head legs-pick" id="mcPick"><h2>${title}</h2></div>`
       + (plan.best ? mCard(res, plan.best.picks) : `<div class="empty">${any ? 'Vybrané lety spolu nejdou spojit – vyber jiný let nebo zruš výběr.' : esc(mEmptyTxt(res))}</div>`);
-    const foot = `<div class="res-foot faint">Ceny jsou za letenky na osobu ${bagFoot(res.query.bags)}. Doprava na letiště a z letišť do měst je u cesty zvlášť a přejezdy mezi městy se nepočítají.${footMore(`Doprava je jen pro představu (průměrná cena): ${esc(groundFoot(res, true))}; ${esc(arrivalFoot(res, true))}. Živé ceny se mohou do rezervace změnit. Kurz: ${fxFoot(res)}.`)}</div>`;
+    const foot = `<div class="res-foot faint">Ceny jsou za letenky na osobu ${bagFoot(res.query.bags)}. Doprava na letiště a z letišť do měst je u cesty zvlášť a přejezdy mezi městy se nepočítají.${footMore(`Doprava je jen pro představu (průměrná cena): ${esc(groundFoot(res, true))}; ${esc(arrivalFoot(res, true))}. ${liveFoot()} Kurz: ${fxFoot(res)}.`)}</div>`;
     host.innerHTML = head + steps + body + (res.combos.length > 1 ? mCombos(res, picks) : '') + foot;
     wireMulti(host, res);
     wireHelp(host);
@@ -3894,11 +3927,13 @@
     return (t && t.priceLevel) || null;
   }
   const goodPrice = t => ['super', 'good'].includes(t.deal.level) || (levelFor(t) || {}).level === 'low';
-  // 🔥 Super cena je silnější „dobrá cena“ – na nabídce je vždy jen jeden cenový štítek.
-  const tagOf = (t, pl) => (t.deal && t.deal.level === 'super' && pl.level === 'low' ? ['hot', '🔥 Super cena'] : PL_BADGE[pl.level] || PL_BADGE.normal);
+  // 🔥 Super cena je silnější „dobrá cena“ – na nabídce je vždy jen jeden cenový štítek. U orientační ceny (z mezipaměti)
+  // jen „nejlevnější v tomto hledání“: jestli platí, se ukáže až u prodejce.
+  const superTxt = t => (SearchHelp.isCached(t) ? 'nejlevnější v tomto hledání' : '🔥 Super cena');
+  const tagOf = (t, pl) => (t.deal && t.deal.level === 'super' && pl.level === 'low' ? ['hot', superTxt(t)] : PL_BADGE[pl.level] || PL_BADGE.normal);
   /** Cenový štítek: ve výpisu tlačítko (idx = řádek v rowRegistry) otevře panel, jinde jen štítek. */
   function priceTag(t, idx = null, pl = levelFor(t)) {
-    if (!pl) return t.deal && t.deal.level === 'super' ? '<span class="b hot">🔥 Super cena</span>' : '';
+    if (!pl) return t.deal && t.deal.level === 'super' ? `<span class="b hot">${superTxt(t)}</span>` : '';
     const [cls, txt] = tagOf(t, pl);
     return idx == null ? `<span class="b ${cls}" title="${esc(pl.reason)}">${txt}</span>`
       : `<button type="button" class="b pc-b ${cls}" data-pc="${idx}" title="${esc(pl.reason + ' – klikni: Je to dobrá cena?')}">${txt}</button>`;
@@ -3933,6 +3968,8 @@
       <i class="pc-tick" style="left:${at(st.p25)}%"></i><i class="pc-tick med" style="left:${at(st.median)}%"></i><i class="pc-me" style="left:${at(v)}%"></i></div>
       <div class="pc-scale"><span>${czk(st.min)}</span><span>${czk(hi)}${hi < st.max ? ' a víc' : ''}</span></div>`;
   }
+  // rada u orientační ceny: „není moc důvod čekat“ platí, jen když cena po ověření opravdu je
+  const advFor = (adv, cache) => (adv && cache ? { ...adv, text: `Pokud cena po ověření platí: ${adv.text.charAt(0).toLowerCase()}${adv.text.slice(1)}` } : adv);
   function priceCheckHtml(t, x, { label, inResults }) {
     const { pl, stats: st, mem, days } = x;
     const [cls, txt] = tagOf(t, pl);
@@ -3978,8 +4015,8 @@
     // 4) čas do odletu
     const left = days == null ? '' : days <= 0 ? 'Odlet je dnes.' : days === 1 ? 'Odlet je zítra.'
       : `Do odletu zbývá ${plural(days, 'den', 'dny', 'dní')}${days >= 14 ? ` (asi ${plural(Math.round(days / 7), 'týden', 'týdny', 'týdnů')})` : ''}.`;
-    const adv = x.advice;
     const cache = !t.out.live || (t.back && !t.back.live);
+    const adv = advFor(x.advice, cache);
     return `<div class="modal-hero"><div class="mh-bg"></div><button class="modal-close" data-close aria-label="Zavřít">${ico('M18 6L6 18M6 6l12 12')}</button>
       <div class="modal-hero-inner"><h2 style="font-size:23px">Je to dobrá cena?</h2><div style="opacity:.85;font-size:13px">${esc(t.out.from)} → ${esc(label)} · ${fmtDate(t.out.date)}${t.back ? '–' + fmtDate(t.back.date) : ''} · letenky ${czk(t.flightCzk)}/os.</div></div></div>
       <div class="modal-body pc-body">
@@ -3989,7 +4026,7 @@
         ${sec('🧠', 'Co ATLAS na této trase viděl <small class="faint">(v tomto prohlížeči)</small>', memo)}
         ${left ? sec('📅', 'Do odletu', `<p>${left}</p>`) : ''}
         ${adv ? `<div class="note info pc-advice">💡<div><b>Co s tím?</b> ${esc(adv.text)}</div></div>` : ''}
-        ${cache ? '<div class="note warn pc-advice">⏱<div>Cena je z cache (z hledání jiných uživatelů za posledních ~48 h) – před nákupem ji ověř.</div></div>' : ''}
+        ${cache ? '<div class="note warn pc-advice">⏱<div>Cena je orientační: našli ji jiní cestující v posledních 48 hodinách. Před nákupem ji ověř.</div></div>' : ''}
         <div class="row wrap pc-act">${!inResults ? '' : isWatched(lastForm || getForm()) ? '<button type="button" class="btn" id="pcWatch" disabled title="Hledání už je v hlídaných cenách na Přehledu">✓ Tohle hledání už hlídáš</button>' : '<button type="button" class="btn primary" id="pcWatch">♡ Hlídat cenu tohoto hledání</button>'}<button type="button" class="btn ghost" data-close>Zavřít</button></div>
         <p class="faint pc-foot">Je to odhad, ne předpověď. ATLAS porovnává cenu letenek na osobu (bez dopravy na letiště a zavazadel) s ostatními nabídkami tohoto hledání, s hrubou průměrnou cenou na vzdálenost a s cenami, které viděl v tomto prohlížeči. Jak se cena dál vyvine, dopředu nikdo neví.</p>
       </div>`;
@@ -4881,7 +4918,7 @@
         // zpět z jiného letiště / na jiné letiště (kombinace z Kamkoliv) – na kartě „JCL → POZ ↩ PED“ (SearchHelp.radarRoute)
         ...(t.back && (t.back.from !== t.out.to || t.back.to !== t.out.from) ? { bf: t.back.from, bt: t.back.to } : {}),
         // čas odletu a přílet zpět kvůli dnům dovolené na kartě (SearchHelp.leaveDays)
-        t1: t.out.hasTime ? String(t.out.dep).slice(11, 16) : '', a2: t.back && t.back.hasTime && t.back.arr ? String(t.back.arr).slice(0, 16) : '', deal: t.deal.level, score: t.deal.score, prov: t.out.provider,
+        t1: t.out.hasTime ? String(t.out.dep).slice(11, 16) : '', a2: t.back && t.back.hasTime && t.back.arr ? String(t.back.arr).slice(0, 16) : '', deal: t.deal.level, score: t.deal.score, prov: t.out.provider, ...(SearchHelp.isCached(t) ? { oc: 1 } : {}), // oc = orientační cena (z mezipaměti)
         ...(wxGeo(g.dest) ? { lat: +g.dest.lat.toFixed(3), lon: +g.dest.lon.toFixed(3) } : {}), // předpověď na kartě
         // dlouhodobý průměr teplot v měsíci odletu – štítek karet mimo dosah předpovědi (dál než 9 dní)
         ...(t.tempHi != null ? { th: Math.round(t.tempHi) } : {}),
@@ -4929,7 +4966,7 @@
     const lt = SearchHelp.leaveTxt(lv);
     return `<span class="rc-lv" title="${esc(lt.title)}">${esc(lt.text)}</span>`;
   }
-  // stáří cen radaru za časem v patičce, jen když už nejsou čerstvé: „Aktualizováno 14:02 (před 12 min)“ – starší hotový
+  // stáří výsledku radaru za časem v patičce, jen když už není čerstvý: „Načteno 14:02 (před 12 min)“ – starší hotový
   // výsledek od serveru bývá starý až 30 min, uložený radar taky; za otevřené aplikace se dopočítává (radarAgoTick)
   const radarAgo = at => (at > 0 && Date.now() - at >= 2 * 60e3 ? ` (${Alerts.agoTxt(Date.now() - at)})` : '');
   // jen text na obrazovce (žádné hledání): po minutě a po návratu do aplikace
@@ -4955,13 +4992,13 @@
     // čas výsledku, u staršího než dnešního i den (8.10. 9:12)
     const at = new Date(r.at), when = (at.toDateString() === new Date().toDateString() ? '' : `${at.getDate()}.${at.getMonth() + 1}. `) + at.toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' });
     // nové ceny se nenačetly: proč (přetížený server: „hledá pro hodně lidí – zkus to za minutu“) a ↻ s odpočtem do Retry-After
-    const stale = !st ? '' : st.error ? `<div class="note warn kiwi-note radar-stale">⚠️ <div>Aktuální ceny se nepodařilo načíst: ${esc(String(st.error).replace(/[.\s]+$/, ''))}. Zatím ukazuji ceny z ${when}.</div>${retryBtn('radarRetry', st.until)}</div>`
-      : `<div class="faint radar-stale"><span class="spin"></span> Ukazuji ceny z ${when}, hledám aktuální…<span class="rp"></span></div>`;
+    const stale = !st ? '' : st.error ? `<div class="note warn kiwi-note radar-stale">⚠️ <div>Aktuální ceny se nepodařilo načíst: ${esc(String(st.error).replace(/[.\s]+$/, ''))}. Zatím ukazuji výsledek z ${when}.</div>${retryBtn('radarRetry', st.until)}</div>`
+      : `<div class="faint radar-stale"><span class="spin"></span> Ukazuji výsledek z ${when}, hledám znovu…<span class="rp"></span></div>`;
     // 🔥 jen u 3 karet nejvýhodnějších vůči běžné ceně na tu vzdálenost – u 12 nejlevnějších cílů má „super cenu“ skoro každý
     const hot = new Set(shown.filter(({ x }) => x.deal === 'super').sort((a, b) => (b.x.score || 0) - (a.x.score || 0)).slice(0, 3).map(({ i }) => i));
     // 📌 karta, jejíž nabídku má uživatel odloženou (z radaru, nebo celou z hledání se stejným nastavením)
     const pins = pinList(), pinned = x => Pins.has(pins, Pins.fromRadar(x, { at: r.at, adults: q.payload?.adults }));
-    host.innerHTML = `${r.demo ? '<div class="faint" style="font-size:12px;margin-bottom:8px">⚠️ demo data</div>' : ''}<div class="faint radar-what">Za osobu${q.payload?.adults > 1 ? ` (cestujete ${q.payload.adults})` : ''}: cena zpáteční letenky (doprava na letiště je u nabídky zvlášť) · <span title="Pořadí počítá s cenou i s cestou na letiště a do města, časem na cestě, nočními odjezdy, časem na místě a cenou pod obvyklou; další cíl ze stejné země o kus níž. Proč je karta nad levnější letenkou, řekne štítek ✓ (celá věta v detailu karty).">pořadí i s cestou a časy letů</span></div>${stale}<div class="radar-grid${st ? ' stale' : ''}">${shown.map(({ x, i }) => {
+    host.innerHTML = `${r.demo ? '<div class="faint" style="font-size:12px;margin-bottom:8px">⚠️ demo data</div>' : ''}<div class="faint radar-what">Za osobu${q.payload?.adults > 1 ? ` (cestujete ${q.payload.adults})` : ''}: cena zpáteční letenky (doprava na letiště je u nabídky zvlášť) · <span title="Pořadí počítá s cenou i s cestou na letiště a do města, časem na cestě, nočními odjezdy, časem na místě a cenou pod obvyklou; další cíl ze stejné země o kus níž. Proč je karta nad levnější letenkou, řekne štítek ✓ (celá věta v detailu karty).">pořadí i s cestou a časy letů</span></div>${cacheNote(shown.some(({ x }) => radarOrient(x)))}${stale}<div class="radar-grid${st ? ' stale' : ''}">${shown.map(({ x, i }) => {
       const cn = (byIso[x.cc] && byIso[x.cc].cs) || '';
       // počasí: do 9 dní předpověď (radarWx doplní), dál dlouhodobý průměr „🌡️ ~8°“ – ať má štítek každá karta
       const clim = x.th != null && !wxWin(x.d1) ? `<span class="b wxb clim" title="Dlouhodobý průměr denních maxim v ${MNS_IN[+x.d1.slice(5, 7) - 1]} – předpověď počasí bude asi 9 dní před odletem">🌡️ ~${x.th}°</span>` : '';
@@ -4973,10 +5010,10 @@
         <div class="rc-city">${rcName(x.label, `<button type="button" class="rc-info" data-rinfo="${i}" aria-label="Co tam je – ${esc(x.label)}" title="🔎 Co tam je: místa k vidění, z letiště do města, počasí, vstup">i</button>`)}</div>
         <div class="rc-meta"><span class="rcf">${flag(x.cc)}</span>${cn ? `<span class="rc-cn">${esc(cn)}</span>` : ''}<span class="rc-dt">${cn ? '\u00a0·\u00a0' : ''}${day(x.d1)}${x.d2 ? '–' + day(x.d2) : ''}</span></div>
         <div class="rc-sub"${x.bt ? ' title="Zpět z jiného letiště nebo na jiné letiště než odlet"' : ''}>${esc(SearchHelp.radarRoute(x))}${radarLeave(x)}</div>
-        <div class="rc-foot"><div class="rc-price">${czk(x.czk)}<small>/os.</small></div><span class="rc-go" aria-hidden="true">›</span></div>
+        <div class="rc-foot"><div class="rc-price">${czk(x.czk)}<small>/os.</small>${cacheMark(radarOrient(x))}</div><span class="rc-go" aria-hidden="true">›</span></div>
       </div>
     </div>`;
-    }).join('')}</div><div class="faint" style="font-size:11.5px;margin-top:8px">Aktualizováno ${when}<span data-rago="${+r.at || 0}">${radarAgo(r.at)}</span>${r.partial ? ' · ⚠️ část aerolinek neodpověděla – ceny můžou být vyšší' : ''} · klepni na kartu: detail, koupit let nebo všechny termíny · fotky měst z <a href="https://unsplash.com/?utm_source=atlas_letenky&utm_medium=referral" target="_blank" rel="noopener">Unsplash</a>, <a href="https://www.pexels.com" target="_blank" rel="noopener">Pexels</a> a Wikimedia Commons (autor, u Commons i licence, pod ⓘ na fotce)</div>`;
+    }).join('')}</div><div class="faint" style="font-size:11.5px;margin-top:8px">Načteno ${when}<span data-rago="${+r.at || 0}">${radarAgo(r.at)}</span>${r.partial ? ' · ⚠️ část aerolinek neodpověděla – ceny můžou být vyšší' : ''} · klepni na kartu: detail, koupit let nebo všechny termíny · fotky měst z <a href="https://unsplash.com/?utm_source=atlas_letenky&utm_medium=referral" target="_blank" rel="noopener">Unsplash</a>, <a href="https://www.pexels.com" target="_blank" rel="noopener">Pexels</a> a Wikimedia Commons (autor, u Commons i licence, pod ⓘ na fotce)</div>`;
     // telefon: nejdřív 6 karet, zbytek tlačítkem (CSS skryje 7.+ jen na úzké obrazovce; rozbalené zůstane do zavření aplikace)
     const rg = $('.radar-grid', host), rcN = rg ? rg.children.length : 0;
     if (rg && rcN > 6) {
@@ -5467,7 +5504,7 @@
   const pinLeg = (l, back) => `<div class="pin-ln">${back ? '🛬' : '🛫'} ${[`${esc(timeOf(l))} ${esc(l.from)} → ${esc(l.to)} ${esc(arrTime(l))}${arrUnk(l) ? ' ' + arrUnk(l) : ''}`.trim(), l.stops ? esc(stopsTxt(l)) : l.provider === 'travelpayouts' ? '' : 'přímý', esc(l.carrierName || provName(l.provider))].filter(Boolean).join(' · ')}${l.live === false ? ' ' + cacheTag(l) : ''}</div>`;
   // ⚡ ověření přes Kiwi.com: u ceny z cache verdikt jako ve výpisu, u živé ceny jen neutrálně (Kiwi bývá dráž než aerolinka)
   function pinLive(p) {
-    const x = liveGet(SearchHelp.liveKey(p.t, p.q.adults));
+    const x = liveOn() ? liveGet(SearchHelp.liveKey(p.t, p.q.adults)) : null;
     if (!x) return '';
     if (x.st === 'run') return '<div class="pin-ln faint"><span class="spin dark"></span> ověřuji živě…</div>';
     if (x.st === 'none') return '<div class="pin-ln faint">Kiwi.com tyhle dny živě nenabízí</div>';
@@ -5531,9 +5568,10 @@
       ${dw ? `<div class="pin-ln ${dw < 0 ? 'good' : 'pin-warn'}" title="Při odložení ${czk(p.was.czk)}/os.">${dw < 0 ? '↓' : '↑'} o ${czk(Math.abs(dw))} od odložení</div>` : ''}${pinLive(p)}
       <div class="pin-act"><button type="button" class="btn sm primary" data-pgo="${esc(p.k)}" title="${PLAN_TIP}">${PLAN_BTN}</button><div class="tr-buy">${bookButtons(t)}</div>${buyNote(t)}${kidsNote(p.q, buyProvs(t))}<div class="tr-more">${verifyLinks(t, p.q.adults)}</div></div></div>`;
   }
-  // ⚡ Ověřit ceny: plné nabídky (ne demo) bez čerstvého ověření, nejstarší ceny první, nejvýš 3 na klepnutí
+  // ⚡ Ověřit ceny: plné nabídky (ne demo) bez čerstvého ověření, nejstarší ceny první, nejvýš 3 na klepnutí;
+  // bez živého ověření (Kiwi vypnuté na serveru) žádné – tlačítko se nekreslí
   let pinBusy = false;
-  const pinTodo = () => pinList().filter(p => p.kind === 'f' && !p.demo && !liveGet(SearchHelp.liveKey(p.t, p.q.adults))).sort((a, b) => a.at - b.at).slice(0, 3);
+  const pinTodo = () => !liveOn() ? [] : pinList().filter(p => p.kind === 'f' && !p.demo && !liveGet(SearchHelp.liveKey(p.t, p.q.adults))).sort((a, b) => a.at - b.at).slice(0, 3);
   /** 📌 Porovnat (okno): karty podle ceny na osobu – na telefonu pruh do strany, na počítači mřížka. focus = klíč nabídky. */
   function openPins({ focus = null, keep = false } = {}) {
     const rk = Pins.rank(pinList()), list = rk.rows.map(x => x.p), now = Date.now(), m = $('#modal');
@@ -5728,7 +5766,7 @@
     // hotely: stačí jeden zapnutý zdroj (LiteAPI s ostrým klíčem, jinak TripAdvisor přes Xotelo)
     const tpOff = health.providers.some(p => p.id === 'travelpayouts' && !p.enabled);
     const staysOff = health.providers.some(p => p.kind === 'stays') && !health.providers.some(p => p.kind === 'stays' && p.enabled);
-    box.innerHTML = `<div class="src-t">Zdroje cen</div>` + health.providers.map(p => `<div class="src ${p.enabled ? 'on' : ''}" title="${esc(p.note || '')}${p.hint ? ' – ' + esc(p.hint) : ''}"><i style="background:${p.color}"></i>${esc(p.name)}<span>${p.enabled ? (p.blocked ? 'blokováno' : p.tag ? esc(p.tag) : p.kind === 'cached' ? 'cache' : p.kind === 'demo' ? 'demo' : 'živě') : p.kind === 'stays' && !staysOff ? 'nepoužito' : 'vypnuto'}</span></div>`).join('')
+    box.innerHTML = `<div class="src-t">Zdroje cen</div>` + health.providers.map(p => `<div class="src ${p.enabled ? 'on' : ''}" title="${esc(p.note || '')}${p.hint ? ' – ' + esc(p.hint) : ''}"><i style="background:${p.color}"></i>${esc(p.name)}<span>${p.enabled ? (p.blocked ? 'blokováno' : p.tag ? esc(p.tag) : p.kind === 'cached' ? 'orientačně' : p.kind === 'demo' ? 'demo' : 'živě') : p.kind === 'stays' && !staysOff ? 'nepoužito' : 'vypnuto'}</span></div>`).join('')
       + (tpOff || staysOff
         ? `<button type="button" class="linkbtn" id="tpHelp" style="margin-top:6px">➕ Zapnout ${tpOff ? 'všechny aerolinky' : 'hotely s cenami'}</button>` : '');
     const h = $('#tpHelp'); if (h) h.onclick = () => window.showSetupGuide(tpOff ? null : 'guideStays');
@@ -5754,14 +5792,14 @@
     modalOpen(`<div class="modal-hero"><div class="mh-bg"></div><button class="modal-close" data-close aria-label="Zavřít">${ico('M18 6L6 18M6 6l12 12')}</button>
       <div class="modal-hero-inner"><h2 style="font-size:23px">${title}</h2><div style="opacity:.85;font-size:13px">${sub}</div></div></div>
       <div class="modal-body">
-        ${tpOn ? '<div class="note good" style="margin-bottom:12px">✓ <div><b>Všechny aerolinky jsou zapnuté</b> – Ryanair a Wizz Air živě, ostatní přes Travelpayouts / Aviasales, živé ceny k vybranému letu přes Kiwi.com. Tady není co nastavovat.</div></div>' : `<p class="muted" style="font-size:14px;margin-bottom:12px">Ryanair a Wizz Air ATLAS hledá přímo. Ostatní aerolinky (nízkonákladové i dálkové lety s přestupy) přidá bezplatný přístup k datům <b>Travelpayouts / Aviasales</b>:</p>
+        ${tpOn ? `<div class="note good" style="margin-bottom:12px">✓ <div>${srcOkHtml()}</div></div>` : `<p class="muted" style="font-size:14px;margin-bottom:12px">Ryanair a Wizz Air ATLAS hledá přímo. Ostatní aerolinky (nízkonákladové i dálkové lety s přestupy) přidá bezplatný přístup k datům <b>Travelpayouts / Aviasales</b>:</p>
         <ol class="guide">
           <li>Zaregistruj se zdarma na <a href="https://www.travelpayouts.com/" target="_blank" rel="noopener">travelpayouts.com</a> (stačí e-mail).</li>
           <li>V profilu otevři <b>Profile → API token</b> (nebo Tools → API) a zkopíruj <b>API token</b>.</li>
           <li>Na <a href="https://dashboard.render.com/" target="_blank" rel="noopener">dashboard.render.com</a> otevři službu <b>atlas-letenky</b> → <b>Environment</b> → <b>Add Environment Variable</b>.</li>
           <li>Key: <code>TRAVELPAYOUTS_TOKEN</code>, Value: tvůj token → <b>Save Changes</b>. Render aplikaci za minutu sám restartuje.</li>
         </ol>
-        <div class="note info" style="margin-top:12px">ℹ️ <div>Ceny z Travelpayouts pocházejí z hledání ostatních uživatelů za poslední dny – u výsledků jsou označené „z cache“ a před nákupem je ověř. Pokud budeš chtít z odkazů provize, doplň i <code>TRAVELPAYOUTS_MARKER</code> (tvoje partnerské ID).</div></div>
+        <div class="note info" style="margin-top:12px">ℹ️ <div>Ceny z Travelpayouts pocházejí z hledání ostatních uživatelů za poslední dny – u výsledků jsou označené jako „orientační“ a před nákupem je ověř. Pokud budeš chtít z odkazů provize, doplň i <code>TRAVELPAYOUTS_MARKER</code> (tvoje partnerské ID).</div></div>
         <p class="muted" style="font-size:14px;margin:12px 0 8px"><b>Živé ceny všech aerolinek k vybranému letu</b> (Kiwi.com) jsou zapnuté samy – klíč nepotřebují.</p>`}
         <h3 id="guideStays" style="font-size:16px;margin:18px 0 8px">🏨 Hotely s cenou a hodnocením</h3>
         ${liteOn ? '<div class="note good">✓ <div><b>Zapnuté</b> – u ubytování ATLAS ukazuje hotely s cenou a hodnocením přímo (LiteAPI).</div></div>'
