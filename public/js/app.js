@@ -1044,6 +1044,7 @@ function renderWhatsNew() {
   const homeRow = window.Flights && Flights.homeFromChip && Flights.PlaceInput && !S.home?.from?.length
     ? `<div class="wc-home"><b id="wcHomeL">Odkud letíš?</b><div class="wc-chips">${SearchHelp.HOME_CITIES.map(c => `<button type="button" class="fchip" data-wch="${esc(c[0])}">${esc(c[0])}</button>`).join('')}<button type="button" class="fchip" data-wch="geo">📍 Moje poloha</button></div><div class="place-input wc-from" id="wcFrom"></div></div>` : '';
   el.innerHTML = `<h3 class="wc-h">👋 Vítej! Najdu levné letenky a poskládám z nich celou cestu.</h3>
+    <p class="faint wc-how" style="font-size:12.5px;margin:-6px 0 12px">Ceny porovnávám, letenku koupíš u aerolinky nebo prodejce. Zdarma a bez reklam.</p>
     ${homeRow}
     <ol class="wc-steps">
       <li><span class="wc-n">1</span><div><b>Napiš, kam chceš</b><small>město, „kamkoliv“, nebo celou větu – třeba „k moři v květnu do 5000“</small></div></li>
