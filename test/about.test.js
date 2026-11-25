@@ -47,7 +47,8 @@ test('FEEDBACK_EMAIL: jen jedna obyčejná adresa (nic, co by v mailto přidalo 
 
 test('okno: zdroje dat, ukládání jen v prohlížeči, řazení, orientační ceny, záloha a verze', () => {
   const html = A.html({ version: '2026-10-22', screen: 'Lety' });
-  for (const s of ['Ryanair', 'Wizz Air', 'Kiwi.com', 'Travelpayouts / Aviasales', 'Xotelo', 'GeoNames (CC BY 4.0)', 'MET Norway', 'OpenFreeMap', 'OpenStreetMap', 'Mapy.com', 'Wikidata', 'Wikipedie', 'Wikivoyage', 'Unsplash', 'Pexels', 'Wikimedia', 'BRouter', 'RegioJet']) {
+  // bez /api/health jen zdroje, které platí vždy (vypínatelné podle health – test/o-aplikaci-zdroje.test.js)
+  for (const s of ['GeoNames (CC BY 4.0)', 'MET Norway', 'OpenFreeMap', 'OpenStreetMap', 'Wikidata', 'Wikipedie', 'Wikivoyage', 'Unsplash', 'Pexels', 'Wikimedia', 'BRouter', 'RegioJet']) {
     assert.ok(html.includes(s), `zdroj ${s}`);
   }
   assert.doesNotMatch(html, /Open-Meteo/, 'hledání míst z vlastního seznamu (GeoNames), ne Open-Meteo');
@@ -63,7 +64,7 @@ test('okno: zdroje dat, ukládání jen v prohlížeči, řazení, orientační 
   assert.match(html, /ATLAS není spojen s žádnou leteckou společností ani prodejcem; ceny a odkazy jsou z veřejných a partnerských zdrojů\./);
   assert.match(html, /localStorage/);
   assert.match(html, /žádné cookies, analytika ani měření návštěvnosti/);
-  assert.match(html, /žádná aerolinka ani partner si za lepší pozici neplatí/);
+  assert.equal(html.match(/[Žž]ádná aerolinka ani partner si za lepší pozici neplatí/g).length, 1, 'věta jednou');
   assert.match(html, /vždy ji ověř u partnera/);
   // RateLimiter (server/lib/ratelimit.js) maže adresu nejpozději po okně; nejdelší okno je hodina (hlášení chyb, odkazy)
   assert.match(html, /IP adresu si kvůli limitům požadavků pamatuje nejdéle hodinu od posledního požadavku/);

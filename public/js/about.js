@@ -12,19 +12,55 @@
   // 💛 Podpořit ATLAS: jen platební odkaz Stripe (config.js cleanPayUrl) – u tlačítka stojí, že platbu zpracovává Stripe
   const okPay = v => typeof v === 'string' && /^https:\/\/buy\.stripe\.com\/[A-Za-z0-9_-]{4,80}$/.test(v);
 
-  // Odkud jsou data – podle server/providers, server/lib a README (Odkud bere ceny, Data a licence).
+  // Odkud jsou data – podle server/providers, server/lib a README (Odkud bere ceny, Data a licence). Tady jen zdroje,
+  // které běží vždy; letenky, ubytování, vlak a Mapy.com jdou na serveru vypnout – ty skládá sources() z /api/health.
   const SOURCES = [
-    ['✈️', 'Letenky', 'Ryanair a Wizz Air (přímo z jejich webů), Kiwi.com, Travelpayouts / Aviasales (ceny z vyhledávání za posledních ~48 h)'],
-    ['🏨', 'Ubytování', 'TripAdvisor přes Xotelo (orientační ceny), LiteAPI, když je na serveru zapnuté, penziony z OpenStreetMap (bez ceny); odkazy na Booking.com, Airbnb, Trip.com, Agodu a Hostelworld'],
-    ['🚆', 'Vlak a bus', 'RegioJet (spoje a ceny na vyžádání); FlixBus a IDOS jen jako odkazy'],
     ['🌤️', 'Počasí a podnebí', 'MET Norway (předpověď, CC BY 4.0), dlouhodobé průměry NOAA a NASA POWER'],
-    ['🗺️', 'Mapy a trasy', 'OpenFreeMap a OpenStreetMap, Mapy.com, BRouter (trasy na kole, pěšky a autem), chaty u túr z OpenStreetMap (Overpass); hledání míst GeoNames (CC BY 4.0)'],
     ['🏛️', 'Místa a program', 'Wikidata, Wikipedie a Wikivoyage'],
     ['📷', 'Fotky', 'Unsplash, Pexels a Wikimedia Commons'],
     ['⛽', 'Palivo a kurzy', 'ČSÚ a Weekly Oil Bulletin EU (CC BY 4.0, upraveno); kurzy ECB a open.er-api.com'],
     ['🛂', 'Vstup a letiště', 'MZV ČR a oficiální weby e-víz; letiště z OurAirports a OpenFlights (ODbL)'],
     ['🏳️', 'Vlajky', 'písmo Twemoji (CC BY 4.0) tam, kde systém vlajky neumí (Windows)'],
   ];
+
+  /** Seznam zdrojů (čistá funkce – test/o-aplikaci-zdroje.test.js): vypnutý zdroj (providers[].enabled, maps[].enabled
+      z /api/health) se neukáže. Bez health (načítá se, server neodpovídá) jen to, co platí vždy – okno nesmí slibovat
+      zdroj, který na serveru neběží. */
+  function sources(health) {
+    const list = health && Array.isArray(health.providers) ? health.providers : null;
+    const on = (id, from = list) => Boolean(from && from.some(p => p && p.id === id && p.enabled === true));
+    const air = ['ryanair', 'wizzair'].filter(id => on(id)).map(id => (id === 'ryanair' ? 'Ryanair' : 'Wizz Air'));
+    const fly = [
+      air.length ? `${air.join(' a ')} (přímo z ${air.length > 1 ? 'jejich webů' : 'jeho webu'})` : '',
+      on('kiwi') ? 'Kiwi.com' : '',
+      on('travelpayouts') ? 'Travelpayouts / Aviasales (ceny z vyhledávání za posledních ~48 h)' : '',
+      health && health.demo === true ? 'vymyšlená ukázková data (DEMO)' : '',
+    ].filter(Boolean);
+    const stay = [
+      on('xotelo') ? 'TripAdvisor přes Xotelo (orientační ceny)' : '',
+      on('liteapi') ? 'LiteAPI' : '',
+      on('osm') ? 'penziony z OpenStreetMap (bez ceny)' : '',
+    ].filter(Boolean);
+    const mapy = on('mapy', health && Array.isArray(health.maps) ? health.maps : null);
+    return [
+      // bez health nevíme, které letenky běží – obecná věta místo starého pevného seznamu
+      fly.length ? ['✈️', 'Letenky', fly.join(', ')] : list ? null : ['✈️', 'Letenky', 'Zdroje se načítají…'],
+      ['🏨', 'Ubytování', `${stay.length ? `${stay.join(', ')}; ` : ''}odkazy na Booking.com, Airbnb, Trip.com, Agodu a Hostelworld`],
+      // RegioJet živě jen, když ho health hlásí zapnutý; odkaz na jeho web je vždy (server/lib/ground.js)
+      ['🚆', 'Vlak a bus', on('regiojet') ? 'RegioJet (spoje a ceny na vyžádání); FlixBus a IDOS jen jako odkazy' : 'RegioJet, FlixBus a IDOS jen jako odkazy'],
+      SOURCES[0],
+      ['🗺️', 'Mapy a trasy', `OpenFreeMap a OpenStreetMap, ${mapy ? 'Mapy.com, ' : ''}BRouter (trasy na kole, pěšky a autem), chaty u túr z OpenStreetMap (Overpass); hledání míst GeoNames (CC BY 4.0)`],
+      ...SOURCES.slice(1),
+    ].filter(Boolean);
+  }
+
+  /** Věta o provizi podle /api/health affiliate (partnerské odkazy Travelpayouts); bez health žádná. */
+  function earnings(health) {
+    if (!health || typeof health.affiliate !== 'boolean') return '';
+    return health.affiliate
+      ? 'Z některých odkazů na prodejce můžu dostat provizi. Cenu ani pořadí výsledků to nemění. Takové odkazy jsou označené <span class="ad-tag">reklama</span>.'
+      : 'Odkazy na prodejce jsou obyčejné odkazy, provizi z nich nemám.';
+  }
 
   /** Předmět e-mailu: verze a obrazovka, ze které uživatel píše (ať je jasné, o čem je řeč). */
   const subject = (version, screen) => `ATLAS – zpětná vazba (verze ${version || '?'}${screen ? `, obrazovka: ${screen}` : ''})`;
@@ -36,15 +72,17 @@
 
   /** Obsah okna (čistá funkce – test/about.test.js). email = feedback.email z /api/health (jinak bez tlačítka),
       support = support.url (💛 Podpořit ATLAS), operator = provozovatel – obojí z /api/health, jinak se neukáže;
-      backup = je k dispozici 💾 Přenos a záloha. */
-  function html({ version = '', build = '', email = null, screen = '', backup = true, support = null, operator = '' } = {}) {
-    const mail = mailto(email, version, screen), pay = okPay(support) ? support : null;
+      backup = je k dispozici 💾 Přenos a záloha; health = celé /api/health (zdroje, provize), null = ještě není. */
+  function html({ version = '', build = '', email = null, screen = '', backup = true, support = null, operator = '', health = null } = {}) {
+    const mail = mailto(email, version, screen), pay = okPay(support) ? support : null, earn = earnings(health);
     const op = typeof operator === 'string' ? operator.trim().slice(0, 200) : '';
     return `<div class="modal-body about-modal">
       <h3 style="margin-bottom:8px">ℹ️ O aplikaci a soukromí</h3>
       <p style="font-size:14px">ATLAS najde levné letenky ze všech letišť ve tvém okolí a poskládá z nich celou cestu – ubytování, dopravu na letiště i na místě, program a shrnutí s odkazy k rezervaci. Je zdarma, bez účtu a bez registrace. Letenky ani hotely sám neprodává: rezervuješ vždy přímo u aerolinky nebo partnera.</p>
+      <h4 class="ab-h">Jak to funguje a z čeho žiju</h4>
+      <p style="font-size:14px">Ceny porovnávám, letenku i ubytování koupíš vždy přímo u aerolinky nebo prodejce. Hledání a plánování je zdarma a bez reklam. <b>Žádná aerolinka ani partner si za lepší pozici neplatí.</b>${earn ? ` ${earn}` : ''}</p>
       <h4 class="ab-h">Odkud jsou data</h4>
-      <ul class="ab-list">${SOURCES.map(([i, t, d]) => `<li><span aria-hidden="true">${i}</span> <b>${h(t)}</b> – ${h(d)}</li>`).join('')}</ul>
+      <ul class="ab-list">${sources(health).map(([i, t, d]) => `<li><span aria-hidden="true">${i}</span> <b>${h(t)}</b> – ${h(d)}</li>`).join('')}</ul>
       <p class="faint" style="font-size:12px">Předpověď <a href="https://www.met.no/en" target="_blank" rel="noopener">MET Norway</a> a seznam míst <a href="https://www.geonames.org/" target="_blank" rel="noopener">GeoNames</a> jsou pod licencí <a href="https://creativecommons.org/licenses/by/4.0/deed.cs" target="_blank" rel="noopener">CC BY 4.0</a>, v aplikaci upravené (denní souhrny, výběr míst). Stejně ceny paliva z <a href="https://data.csu.gov.cz/datastat/info/SADA/CENPHMT" target="_blank" rel="noopener">ČSÚ</a> a <a href="https://energy.ec.europa.eu/data-and-analysis/weekly-oil-bulletin_en" target="_blank" rel="noopener">Weekly Oil Bulletin</a> (© Evropská unie; upraveno – přepočet na Kč/l) a vlajky <a href="https://twitter.github.io/twemoji" target="_blank" rel="noopener">Twemoji</a>. Letiště obsahují data © <a href="https://openflights.org/data" target="_blank" rel="noopener">OpenFlights</a> pod licencí <a href="https://opendatacommons.org/licenses/odbl/1-0/" target="_blank" rel="noopener">ODbL</a>. Fotky měst dodávají <a href="https://www.pexels.com" target="_blank" rel="noopener">Pexels</a>, Unsplash a Wikimedia Commons – autor je u každé fotky pod ⓘ. Kurzy: <a href="https://www.exchangerate-api.com" target="_blank" rel="noopener">Rates By Exchange Rate API</a>.</p>
       <p style="font-size:14px;margin-top:10px">ATLAS není spojen s žádnou leteckou společností ani prodejcem; ceny a odkazy jsou z veřejných a partnerských zdrojů.</p>
       <h4 class="ab-h">Co se ukládá a kam</h4>
@@ -58,7 +96,7 @@
       </ul>
       ${backup ? '<button type="button" class="btn ghost" id="abBk">💾 Přenos a záloha <span class="faint">PC ↔ telefon</span></button>' : ''}
       <h4 class="ab-h">Jak se řadí výsledky</h4>
-      <p style="font-size:14px">Pořadí určuje jen zvolené řazení (cena, termín, vzdálenost, dny dovolené…) – <b>žádná aerolinka ani partner si za lepší pozici neplatí</b>. Některé odkazy (Aviasales, Booking.com, DiscoverCars) můžou být partnerské a jsou označené <span class="ad-tag">reklama</span>: při nákupu přes ně může ATLAS dostat provizi, cenu ani pořadí to nemění.</p>
+      <p style="font-size:14px">Pořadí určuje jen zvolené řazení (cena, termín, vzdálenost, dny dovolené…), placené pozice nejsou.</p>
       <h4 class="ab-h">Ceny jsou orientační</h4>
       <p style="font-size:14px">Aerolinky a hotely ceny mění i během minut a ceny z mezipaměti (⏱) můžou být starší. Platí cena, kterou ukáže web prodejce před zaplacením – <b>vždy ji ověř u partnera</b>.</p>
       ${pay ? `<h4 class="ab-h">Podpoř ATLAS</h4>
@@ -89,18 +127,19 @@
     };
     paint();
     document.querySelector('#modal').scrollTop = 0; // z ⋯ Další (okno už otevřené) začít nahoře
-    // adresa pro 💬, odkaz 💛 a provozovatel z /api/health (stejný dotaz, který app.js stahuje při startu) – okno se
-    // překreslí, jen když je pořád otevřené a aspoň něco z toho opravdu je
+    // zdroje, provize, adresa pro 💬, odkaz 💛 a provozovatel z /api/health (stejný dotaz, který app.js stahuje při
+    // startu) – okno se překreslí, jen když je pořád otevřené
     if (!window.Flights || !Flights.warm) return;
     Flights.warm().then(hl => {
-      const o = { email: hl && hl.feedback && hl.feedback.email, support: hl && hl.support && hl.support.url, operator: hl && typeof hl.operator === 'string' ? hl.operator : '' };
+      if (!hl || typeof hl !== 'object') return;
+      const o = { health: hl, email: hl.feedback && hl.feedback.email, support: hl.support && hl.support.url, operator: typeof hl.operator === 'string' ? hl.operator : '' };
       const box = document.querySelector('#modal .about-modal');
-      if ((okEmail(o.email) || okPay(o.support) || o.operator.trim()) && box && document.querySelector('#modalBg.show')) {
+      if (box && document.querySelector('#modalBg.show')) {
         const top = document.querySelector('#modal').scrollTop;
         paint(o);
         document.querySelector('#modal').scrollTop = top;
       }
-    }, () => { /* bez serveru zůstane okno bez tlačítek */ });
+    }, () => { /* bez serveru zůstane okno bez tlačítek a jen se zdroji, které platí vždy */ });
   }
 
   /** Položka v ⋯ Další (app.js openMore). */
@@ -118,5 +157,5 @@
     }
   }
 
-  window.About = { open, html, mailto, subject, addToMenu, okPay, SOURCES };
+  window.About = { open, html, mailto, subject, addToMenu, okPay, SOURCES, sources, earnings };
 })();
