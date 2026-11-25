@@ -27,6 +27,12 @@
 .tf-age .linkbtn{font-size:12.5px}
 .cost .tf-age{font-size:12px;margin-top:2px}
 .cost .tf-age .linkbtn{font-size:12px}
+/* bez živého ověření na serveru: věta místo tlačítek „Ověřit“; „orientační“ pod částkou letenek z mezipaměti */
+.tf-seller{font-size:12.5px;margin-top:4px}
+.cost .tf-seller{font-size:12px;margin-top:2px}
+.tf-costs .tf-ori,.cost .tf-ori{display:block;font-size:11px;font-weight:500;color:var(--muted);text-align:right;white-space:nowrap}
+/* vybrané ubytování bez ceny (Vyber za mě bez cen hotelů) */
+.st-noprice{color:var(--muted)}
 /* dlouhé tlačítko („Ověřit živou cenu a porovnat aerolinky“) na úzkém displeji zalomit, ne vytlačit z karty */
 .step-card .row .btn{max-width:100%;white-space:normal;text-align:center}
 .tl-leg{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:6px 0;font-size:14px}
@@ -647,21 +653,44 @@ table.cost tr.entry-tot td{font-weight:800;border-bottom:none}
 @media (max-width:560px){.auto-pick{flex-direction:column;align-items:stretch}.auto-pick .btn{width:100%}}
 .auto-pick.ok{background:rgba(52,211,153,.10);border-color:rgba(52,211,153,.32)}
 /* „⚡ Poskládej celou cestu za mě“ v kroku Let – výrazné, ale pod hlavním „Pokračovat“ */
-.auto-trip{display:flex;flex-direction:column;align-items:flex-start;gap:4px;margin-top:12px;padding:10px 12px;border-radius:14px;border:1px dashed rgba(99,102,241,.38);background:linear-gradient(135deg,rgba(99,102,241,.07),rgba(52,211,153,.07))}
-.auto-trip .btn{font-weight:700;border-color:rgba(99,102,241,.45);color:var(--accent-ink)}
+/* ⚡ je hlavní volba kroku Let hned pod vybraným letem, vedle ní vedlejší „krok za krokem“ (na telefonu pod sebou) */
+.auto-trip{display:flex;flex-direction:column;gap:6px;margin-top:14px}
+.at-btns{display:flex;flex-wrap:wrap;gap:8px}
+.at-btns .btn{justify-content:center;min-height:48px;border-radius:16px;white-space:normal;text-align:center}
+.at-btns .btn.primary{min-height:52px;border-radius:18px;font-size:15.5px;padding-left:22px;padding-right:22px}
 .auto-trip .btn .spin{width:14px;height:14px;vertical-align:-2px}
 .auto-trip small{color:var(--muted);font-size:12.5px;line-height:1.35}
-@media (max-width:560px){.auto-trip .btn{width:100%;justify-content:center}}
+@media (max-width:560px){.at-btns .btn{width:100%}}
 /* hláška ⚡ v kroku; ve Shrnutí na počítači nad průběhem cesty (ten má order:-1) */
 .auto-note{margin-bottom:12px;order:-2}
 .auto-note .spin{flex:none;margin-top:2px}
 /* Objevuj – Inspirace: místa tvé rozpracované cesty první */
 .ex-insp .dest.ex-mine{outline:2px solid var(--accent);outline-offset:-2px}
-/* Shrnutí: dlouhý průběh cesty sbalený */
-.tl-more>summary{cursor:pointer;color:var(--accent-ink);font-size:13px;font-weight:600;padding:10px 0 2px;list-style:none}
-.tl-more>summary::-webkit-details-marker{display:none}
-.tl-more>summary::after{content:' ▾'}
-.tl-more[open]>summary{display:none}
+/* Shrnutí: průběh cesty po dnech – nadpis dne a pod ním jeho řádky (den v řádku je schovaný, nese ho nadpis) */
+.tl-g+.tl-g{margin-top:10px}
+.tl-gh{margin:0;padding:6px 0 4px;font-size:13.5px;font-weight:800;color:var(--text);border-bottom:1px solid var(--border)}
+.tl-g .tl-d{display:none}
+/* dva sloupce i na počítači (desktop-trip.css dává řádku průběhu tři – proto silnější selektor) */
+#tripStep .timeline .tl-g .tl-row{grid-template-columns:26px minmax(0,1fr)}
+.tl-g .tl-row:last-child{border-bottom:none}
+/* dlouhý průběh zkrácený jen na obrazovce telefonu; počítač a tisk mají vždy celý */
+.linkbtn.tl-all{display:none;color:var(--accent-ink);font-size:13px;font-weight:600;padding:10px 0 2px}
+@media screen and (max-width:860px){.tl-cut .tl-x{display:none}.linkbtn.tl-all{display:block}}
+/* ============ tisk Shrnutí (Ctrl+P / Uložit jako PDF) ============
+   Obyčejný tisk nesmí být rozbitý: bez tlačítek a pole rozpočtu, průběh cesty celý a pod cenou, ke kdy ceny jsou.
+   Navigaci, lištu kroků a barvy pro papír řeší @media print v pretrip.css. */
+.sum-print{display:none}
+@media print{
+  #view-trip .btn,#view-trip button,#view-trip .trip-next,#view-trip .trip-aside,#view-trip .mt-back,#view-trip .sum-acts,#view-trip .sum-support,
+  #view-trip .sum-go,#view-trip .ad-tag,#view-trip .bud-in,#view-trip #budgetOut>.faint,#view-trip input:not([type=checkbox]){display:none !important}
+  .sum-print{display:block;font-size:12px;margin-top:6px}
+  /* hlavička cesty má bílé písmo na fotce – na bílém papíře by nebylo vidět */
+  #view-trip .trip-head,#view-trip .trip-head *{color:#000 !important;text-shadow:none !important}
+  /* dlouhý průběh se smí zalomit mezi stránkami (karty jinak ne – pretrip.css), den zůstane pohromadě */
+  .sum-tl{break-inside:auto !important}
+  .tl-g{break-inside:avoid}
+  .tl-gh{break-after:avoid}
+}
 @media (max-width:560px){
   .sum-acts{display:grid !important;grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:stretch} /* tlačítka v řádku stejně vysoká (.row centruje) */
   .sum-acts>#sumSave{grid-column:1/-1}

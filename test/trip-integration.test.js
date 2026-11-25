@@ -74,18 +74,24 @@ function render(ctx, t) {
   return sp(ctx.__els['#tripStep'].innerHTML);
 }
 
-test('Shrnutí: „Zobrazit celý průběh (ještě 1 řádek)“ – číslo se slovem ve správném tvaru (dřív „1 řádky“)', () => {
+test('Shrnutí: „Zobrazit celý průběh (ještě 4 řádky)“ – až od 12 řádků a po celých dnech; číslo se slovem ve správném tvaru', () => {
   const c = load();
-  // jedno místo, let tam 10. 11. a zpět 17. 11.; program po dnech přidá do průběhu po řádku
-  const t = trip({ overland: null, route: null, flight: { ...trip().flight, back: leg('VIE', 'PRG', '2026-11-17', '19:00', '20:00', 'Europe/Vienna', 'Europe/Prague') } });
+  // jedno místo, let tam 10. 11. a zpět 19. 11.; program po dnech přidá do průběhu po řádku
+  const t = trip({ overland: null, route: null, flight: { ...trip().flight, back: leg('VIE', 'PRG', '2026-11-19', '19:00', '20:00', 'Europe/Vienna', 'Europe/Prague') } });
   const base = c.window.Trip.timeline(t).length;
   const withDays = (n) => ({ ...t, plan: { days: Array.from({ length: n }, (_, i) => ({ date: `2026-11-1${i}`, items: [{ name: `Místo ${i}`, lat: 48.2, lon: 16.37 }] })) } });
   const more = (n) => render(c, withDays(n)).match(/Zobrazit celý průběh \(ještě ([^)]*)\)/)?.[1];
-  // průběh ukáže prvních 8 řádků, zbytek pod „Zobrazit celý průběh“
-  assert.ok(base < 9 && 10 - base <= 8, `průběh bez programu má ${base} řádků`);
-  assert.equal(c.window.Trip.timeline(withDays(9 - base)).length, 9);
-  assert.equal(more(9 - base), '1 řádek');
-  assert.equal(more(10 - base), '2 řádky');
+  assert.equal(base, 2, 'průběh bez programu: let tam a zpět');
+  assert.equal(c.window.Trip.timeline(withDays(10)).length, 12);
+  // do 11 řádků celý (dřív se krátilo už od 9. řádku)
+  assert.equal(more(7), undefined);
+  assert.equal(more(9), undefined);
+  // 12 řádků: 10. 11. (2 řádky) až 16. 11. = 8 řádků vidět, 17.–19. 11. (1 + 1 + 2) schované
+  assert.equal(more(10), '4 řádky');
+  const h = render(c, withDays(10));
+  assert.equal(h.split('<section class="tl-g">').length - 1, 7);
+  assert.equal(h.split('<section class="tl-g tl-x">').length - 1, 3);
+  assert.match(h, /<section class="tl-g tl-x"><h4 class="tl-gh">čt 19\. 11\.<\/h4><div class="tl-row"><span class="tl-d">čt 19\. 11\.<\/span><span class="tl-i">📍<\/span>/);
 });
 
 test('průvodce: vlak/bus + víc míst – přejezd z posledního místa zpět k vlaku/busu v trase i ve shrnutí, ne „na letiště“', () => {
@@ -200,7 +206,7 @@ test('sanitizeTrip: „Je to dobrá cena?“ ze sdíleného odkazu – statistik
   }
 });
 
-test('cena letu v průvodci: „cena z …“ z času výsledku v kroku Let i ve Shrnutí, po dni u nezakoupeného letu „↻ Ověř cenu“ jen na klepnutí; odkaz čas nese, nesmysl zahodí', async () => {
+test('cena letu v průvodci: „hledáno …“ z času výsledku v kroku Let i ve Shrnutí, po dni u nezakoupeného letu „↻ Ověř cenu“ jen na klepnutí; odkaz čas nese, nesmysl zahodí', async () => {
   const c = load();
   vm.runInContext(src('searchhelp.js'), c, { filename: 'searchhelp.js' });
   c.SearchHelp = c.window.SearchHelp;
@@ -210,7 +216,7 @@ test('cena letu v průvodci: „cena z …“ z času výsledku v kroku Let i ve
   const day = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return ymd(d); }; // dnešek i s posunutým datem (SHIFT_DAYS)
   const fl = { id: 'x1', out: leg('PRG', 'VIE', day(30), '07:00', '08:00', 'Europe/Prague', 'Europe/Vienna'), back: leg('VIE', 'PRG', day(34), '19:00', '20:00', 'Europe/Vienna', 'Europe/Prague'), flightCzk: 1170, groundCzk: 0, bagCzk: 0 };
   const res = { query: { adults: 2, bags: 'none' }, origins: [], groups: [] };
-  const ageTxt = (t) => { const a = H.resultAge(t.flight.pricedAt, Date.now()); return `cena ${a.z} ${a.txt}`; };
+  const ageTxt = (t) => { const a = H.resultAge(t.flight.pricedAt, Date.now()); return `hledáno ${a.txt}`; };
   // čas výsledku hledání (i obnoveného před 2 h) → cena z něj; nabídka ve výpisu se nemění
   const at = Date.now() - 2 * 36e5;
   Trip.start({ t: fl, g: null, result: res, at });
@@ -223,7 +229,7 @@ test('cena letu v průvodci: „cena z …“ z času výsledku v kroku Let i ve
   c.fetch = async (u) => { calls.push(String(u)); return { ok: true, json: async () => ({ available: true, items: [alt] }) }; };
   let h = render(c, t);
   assert.ok(h.includes(`<div class="faint tf-age">${ageTxt(t)}</div>`), h.slice(h.indexOf('Letenky'), h.indexOf('Letenky') + 400));
-  assert.match(ageTxt(t), /^cena ze? (včera )?\d{1,2}:\d\d \(před 2 h\)$/);
+  assert.match(ageTxt(t), /^hledáno (včera )?\d{1,2}:\d\d \(před 2 h\)$/);
   assert.ok(!h.includes('Ověř cenu'), 'mladší než den: jen čas');
   // bez času z výsledku od teď; čas z budoucnosti se nebere
   for (const x of [undefined, 0, Date.now() + 864e5]) {
@@ -302,7 +308,7 @@ test('cena letu v průvodci: „cena z …“ z času výsledku v kroku Let i ve
   assert.ok(c.S.trip.flight.pricedAt >= t1 && c.S.trip.flight.pricedAt <= Date.now());
 });
 
-test('cena letu v průvodci: cena z paměti tras (memAgeMin, „⏱ cena před 5 h“) je o své stáří starší; otevřený průvodce „cena z …“ obnoví (Trip.ageRefresh), odškrtnutá letenka hned bez „↻ Ověř cenu“', async () => {
+test('cena letu v průvodci: cena z paměti tras (memAgeMin, „⏱ cena před 5 h“) je o své stáří starší; otevřený průvodce „hledáno …“ obnoví (Trip.ageRefresh), odškrtnutá letenka hned bez „↻ Ověř cenu“', async () => {
   const c = load();
   vm.runInContext(src('searchhelp.js'), c, { filename: 'searchhelp.js' });
   c.SearchHelp = c.window.SearchHelp;
@@ -313,13 +319,13 @@ test('cena letu v průvodci: cena z paměti tras (memAgeMin, „⏱ cena před 5
   const wz = (o, b) => ({ id: 'w1', out: { ...leg('BUD', 'LTN', day(30), '07:00', '08:40', 'Europe/Budapest', 'Europe/London'), provider: 'wizzair', ...(o !== undefined ? { memAgeMin: o } : {}) },
     back: { ...leg('LTN', 'BUD', day(34), '19:00', '22:30', 'Europe/London', 'Europe/Budapest'), provider: 'wizzair', ...(b !== undefined ? { memAgeMin: b } : {}) }, flightCzk: 990, groundCzk: 0, bagCzk: 0 });
   const res = { query: { adults: 1, bags: 'none' }, origins: [], groups: [] };
-  const ageTxt = (t) => { const a = H.resultAge(t.flight.pricedAt, Date.now()); return `cena ${a.z} ${a.txt}`; };
+  const ageTxt = (t) => { const a = H.resultAge(t.flight.pricedAt, Date.now()); return `hledáno ${a.txt}`; };
   // výsledek hledání před 10 min, cena letu tam z paměti tras 5 h stará (zpět 2 h): cena je stará 5 h 10 min
   const at = Date.now() - 10 * 6e4;
   Trip.start({ t: wz(300, 120), g: null, result: res, at });
   const t = c.S.trip;
   assert.equal(t.flight.pricedAt, at - 300 * 6e4, 'nejstarší z letu tam a zpět');
-  assert.match(ageTxt(t), /^cena ze? (včera )?\d{1,2}:\d\d \(před 5 h\)$/);
+  assert.match(ageTxt(t), /^hledáno (včera )?\d{1,2}:\d\d \(před 5 h\)$/);
   // jen let zpět z paměti; bez času výsledku od teď minus stáří; nesmysl jako čerstvá cena
   for (const [o, b, min, x] of [[undefined, 90, 90, at], ['45', undefined, 45, at], ['abc', -5, 0, at], [Infinity, null, 0, at], [300, 120, 300, 0], [300, 120, 300, Date.now() + 864e5]]) {
     c.S.trip = null;
@@ -827,7 +833,7 @@ test('v noci taxi: Atény – noční cena jen 0–5 h (přílet ve 23:30 denní
     assert.equal(cc.arrival, Math.round((adults > 4 ? 2 : 1) * 1580 * 2), `${adults} os.: dvakrát noční taxi za auto`);
     const tab = render(c, x).match(/<table class="cost">([\s\S]*?)<\/table>/)[1];
     const nums = [...tab.matchAll(/<tr><td>[^<]*<\/td><td>[\s\S]*?<\/td><td>([^<]*)<\/td><\/tr>/g)].map((m) => Number(m[1].replace(/\D/g, '')));
-    const tot = Number(tab.match(/<tr class="tot"><td><\/td><td>Celkem<\/td><td>([^<]*)</)[1].replace(/\D/g, ''));
+    const tot = Number(tab.match(/<tr class="tot"><td><\/td><td>Celkem bez ubytování<\/td><td>([^<]*)</)[1].replace(/\D/g, ''));
     assert.equal(nums.reduce((s, n) => s + n, 0), tot, `${adults} os.: ${nums.join(' + ')} = ${tot}`);
     assert.equal(tot, cc.total);
   }
