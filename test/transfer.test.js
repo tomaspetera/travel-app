@@ -108,7 +108,7 @@ function wizardTrip() {
   return { ...t, genName: t.name, genNotes: t.notes, genBudget: t.budget, genDays: plain(t.days), genChecklist: t.checklist.map((x) => x.t) };
 }
 
-test('jedna typická cesta z průvodce se vejde do QR kódu (štíhle) a po příjmu má průvodce i „Sbaleno“; soubor zálohy zůstane celý', async () => {
+test('kratší cesta z průvodce se štíhle vejde do QR kódu a po příjmu má průvodce i „Sbaleno“; soubor zálohy zůstane celý', async () => {
   const t = wizardTrip();
   const full = B.pack({ trips: [t] }, {}, NOW), slim = B.packSlim({ trips: [t] }, {}, NOW);
   const urlOf = async (json) => `${ORIGIN}/#${T.KIND}=${await ShareLink.pack(json)}`;
@@ -129,6 +129,32 @@ test('jedna typická cesta z průvodce se vejde do QR kódu (štíhle) a po př�
   assert.deepEqual([r.genName, r.genNotes, r.genBudget], [t.name, t.notes, t.budget]);
   // stejná cesta v zařízení (celá) není „změněná“ jen kvůli vynechaným popisům
   assert.deepEqual(plain(B.match({ trips: [t] }, inc, { txt: ctx.PlanShare.txt, ...deps }).map((m) => m.st)), ['same']);
+});
+
+test('📲 okno přenosu: štíhle jen tehdy, když se díky tomu vejde QR kód – jinak celá data odkazem (i s popisy programu)', async () => {
+  const els = {}, sent = [];
+  const el = (id) => els[id] || (els[id] = { innerHTML: '', hidden: false, classList: { add() {} }, remove() { delete els[id]; }, querySelector: () => ({ style: {} }), clientWidth: 300 });
+  const keep = { $: ctx.$, modalOpen: ctx.modalOpen, snapshot: B.snapshot, countsNow: B.countsNow, isEmpty: B.isEmpty, send: ShareLink.send, native: ShareLink.native };
+  Object.assign(ctx, { $: el, modalOpen: () => { for (const k of Object.keys(els)) delete els[k]; } });
+  Object.assign(B, { countsNow: () => ({ trips: 1 }), isEmpty: () => false });
+  Object.assign(ShareLink, { native: () => false, send: (k, json) => { sent.push(json); return Promise.resolve({ aborted: true }); } });
+  try {
+    // [zařízení, QR kód?, posílá se štíhle?]: malá data celá do QR; cesta z průvodce (fixture) štíhle do QR;
+    // víc cest z průvodce se do QR nevejde ani štíhle → bez QR, odkazem celá (druhé zařízení má popisy i fotky programu)
+    for (const [dev, qr, thin] of [[light(), true, false], [device({ trips: [wizardTrip()] }), true, true], [device({ trips: [wizardTrip(), saved(lisbon()), saved(italy())] }), false, false]]) {
+      B.snapshot = ({ slim = false } = {}) => (slim ? B.packSlim : B.pack)(dev, {}, NOW);
+      T.open();
+      for (let k = 0; k < 300 && !els['#tfLead']; k++) await new Promise((r) => setTimeout(r, 10)); // odkazy zabalené, okno hotové
+      assert.equal(Boolean(els['#tfBox'] && els['#tfBox'].innerHTML.includes('tf-qr')), qr, 'QR kód (bez něj se okénko vůbec neukáže)');
+      if (!qr) assert.equal(els['#tfBox'], undefined);
+      await els['#tfSend'].onclick();
+      assert.equal(sent.pop(), B.snapshot({ slim: thin }));
+    }
+  } finally {
+    Object.assign(ctx, { $: keep.$, modalOpen: keep.modalOpen });
+    Object.assign(B, { snapshot: keep.snapshot, countsNow: keep.countsNow, isEmpty: keep.isEmpty });
+    Object.assign(ShareLink, { send: keep.send, native: keep.native });
+  }
 });
 
 test('štíhlý přenos: co uživatel v plánovači změnil, jde celé (gen* jen u nezměněných jako 1)', () => {

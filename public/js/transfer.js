@@ -9,8 +9,9 @@
    nezůstanou v historii ani v záložce. Druhé zařízení ukáže, co přibude, a nechá vybrat Sloučit nebo Nahradit
    (s potvrzením a Vrátit) – nikdy nic nepřepíše potichu.
    QR kód: bajtový režim, oprava M, a když se nevejde, L; verze 1–40 podle délky – tedy odkaz nejvýš 2 331 bajtů s M,
-   2 953 s L. Aby se tam vešly i cesty z průvodce, jdou štíhle (Backup.packSlim: program bez popisů a „dalších míst“,
-   nezměněné gen* jen jako 1) – druhé zařízení je doplní samo. Větší data jen odkazem (sdílení, schránka; nejvýš
+   2 953 s L. Když se tam celá data nevejdou, zkusí se štíhle (Backup.packSlim: program bez popisů a „dalších míst“,
+   nezměněné gen* jen jako 1 – druhé zařízení je doplní samo); typická cesta z průvodce se nevejde ani tak a jde celá
+   odkazem. Větší data jen odkazem (sdílení, schránka; nejvýš
    MAX_LINK znaků jako ShareLink) nebo souborem zálohy – QR kód se pak vůbec nenabízí. */
 (function () {
   const KIND = 'sync';
@@ -128,7 +129,9 @@
       wirePaste();
       return;
     }
-    const json = Backup.snapshot(), my = ++token, send = native() ? '📤 Poslat odkaz' : '🔗 Kopírovat odkaz';
+    // celá data, nebo štíhlá (Backup.packSlim) – ta jen tehdy, když se díky nim vejdou do QR kódu (nebo vůbec do odkazu);
+    // typická cesta z průvodce se do QR nevejde ani štíhle a odkazem pak jde celá, i s popisy a fotkami programu
+    const full = Backup.snapshot(), slim = Backup.snapshot({ slim: true }), my = ++token, send = native() ? '📤 Poslat odkaz' : '🔗 Kopírovat odkaz';
     modalOpen(`<div class="modal-body tf-modal">
       <h3>📲 Přenést do jiného zařízení</h3>
       <p class="muted tf-lead" id="tfLead">Naskenuj QR kód fotoaparátem druhého telefonu – Letsi se tam otevře, ukáže, co přibude, a nabídne <b>Sloučit</b> nebo <b>Nahradit</b>. Bez účtu, data jdou jen v odkazu (na server ne).</p>
@@ -138,15 +141,18 @@
       <p class="faint tf-note">Odkaz nese tvoje cesty i kódy rezervací – posílej ho jen sobě. Je to stav z této chvíle: co pak změníš, přeneseš novým odkazem.</p>
       ${PASTE}</div>`);
     // připravený odkaz (komprese je asynchronní) – klepnutí na Kopírovat pak zapíše do schránky hned (Safari)
-    const e = ShareLink.prepare(KIND, json);
+    let json = full;
+    const e = ShareLink.prepare(KIND, full), es = ShareLink.prepare(KIND, slim);
     $('#tfSend').onclick = () => ShareLink.send(KIND, json, { title: 'Letsi – moje data', text: '📲 Moje data z Letsi – otevři na druhém zařízení:' })
       .then(r => (r.shared || r.aborted ? null : r.copied ? toast('Odkaz zkopírován – otevři ho na druhém zařízení (e-mail nebo chat sám sobě)') : prompt('Zkopíruj odkaz a otevři ho na druhém zařízení:', r.url)));
     $('#tfFile').onclick = () => Backup.open();
     wirePaste();
-    Promise.resolve(e.url || e.done).then(url => {
+    Promise.all([e.url || e.done, es.url || es.done]).then(([url, sUrl]) => {
       const box = $('#tfBox');
       if (my !== token || !box) return; // okno mezitím zavřené nebo otevřené znovu
-      const f = fit(url, { json }), lead = $('#tfLead');
+      const ff = fit(url, { json: full }), fs = fit(sUrl, { json: slim }), thin = (!ff.qr && fs.qr) || (!ff.link && fs.link);
+      const f = thin ? fs : ff, lead = $('#tfLead');
+      if (thin) json = slim;
       // bez QR kódu: úvod o odkazu (ne „naskenuj“)
       if ((!f.link || !f.qr) && lead) lead.innerHTML = `${f.link ? 'Pošli si odkaz do druhého zařízení – AirDropem, Quick Share, e-mailem nebo do chatu sám sobě – a otevři ho tam' : 'Přenes data souborem zálohy'} – Letsi ukáže, co přibude, a nabídne <b>Sloučit</b> nebo <b>Nahradit</b>. Bez účtu, nic se neukládá na server.`;
       if (!f.link) {

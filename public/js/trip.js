@@ -4129,14 +4129,9 @@
     const f = t.flight, dest = t.dest.label;
     const { checkin, checkout, nights } = stayDates(t);
     const ov = ovOn(t) ? t.overland : null;
-    // vlastní let bez letiště domova: „✈️ let do LIS“ a bez LOCATION („Letiště “ by nikam nevedlo)
-    const flightEv = (l, o) => {
-      const e = Ics.flightEvent(legBrief(l), o);
-      return l.from && l.to ? e : { ...e, title: `✈️ let ${legPair(l.from, l.to)}${e.title.slice(`✈️ ${l.from} → ${l.to}`.length)}`, ...(l.from ? {} : { location: '' }) };
-    };
     const ev = ov ? groundBriefs(ov).map((g, i) => Ics.groundEvent(g, { url: gUrl(i ? ov.back : ov.out, ov.links && (i ? ov.links.back : ov.links.out)), note: `${i ? 'Cesta zpět' : 'Cesta'}: ${dest} · ${paxTxt(t)}` }))
-      : [flightEv(f.out, { url: f.out.bookUrl || f.bookUrl, note: `Cesta: ${dest} · ${paxTxt(t)}` })];
-    if (!ov && f.back) ev.push(flightEv(f.back, { url: f.back.bookUrl || f.bookUrl, note: `Zpáteční let · ${dest}` }));
+      : [Ics.flightEvent(legBrief(f.out), { url: f.out.bookUrl || f.bookUrl, note: `Cesta: ${dest} · ${paxTxt(t)}` })];
+    if (!ov && f.back) ev.push(Ics.flightEvent(legBrief(f.back), { url: f.back.bookUrl || f.bookUrl, note: `Zpáteční let · ${dest}` }));
     // cesta přes víc měst: lety mezi místy (každý samostatná letenka)
     const fly = isFly(t), mid = midLegs(t);
     // počet letů: s letem zpět i bez něj (cesta přes víc měst jen tam)

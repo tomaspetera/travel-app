@@ -759,8 +759,9 @@
   }
 
   // 📲 přenos odkazem (transfer.js): stav zařízení k zabalení (cesty bez tripId dostanou pid jako u zálohy – bez razítka
-  // „poslední záloha“: odkaz není soubor, který si uživatel schová; cesty štíhle – packSlim) a jeho počty
-  const snapshot = () => { if (ensurePids(S.trips)) save(); return packSlim(S, doneNow()); };
+  // „poslední záloha“: odkaz není soubor, který si uživatel schová) a jeho počty; slim = cesty štíhle (packSlim) – jen
+  // když díky tomu projde QR kód (transfer.js), jinak celé (popisy a fotky programu by druhé zařízení nemělo)
+  const snapshot = ({ slim = false } = {}) => { if (ensurePids(S.trips)) save(); return (slim ? packSlim : pack)(S, doneNow()); };
   const countsNow = () => counts(current());
 
   window.Backup = { V, pack, packSlim, slimTrip, parse, diff, merge, mergeDests, match, ensurePids, cleanForm, cleanRefs, summaryHtml, open, download, plannerTools, counts, countsTxt, isEmpty, replace, lost, incoming, snapshot, countsNow, WATCH_CAP, REFS_MAX, REF_LEN };
