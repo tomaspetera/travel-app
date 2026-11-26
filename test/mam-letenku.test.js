@@ -169,7 +169,8 @@ test('Přehled: „Letenku už mám“ vedle „Naplánovat celou dovolenou“ o
   const html = readFileSync(new URL('../public/index.html', import.meta.url), 'utf8'), app = src('app.js');
   assert.match(html, /<div class="hero-plans">\s*<button type="button" class="hero-plan" id="heroPlan">[^\n]*\n\s*<button type="button" class="hero-plan" id="heroOwn">✈️ Letenku už mám – doplň zbytek cesty <span aria-hidden="true">→<\/span><\/button>\s*<\/div>/);
   assert.match(app, /const ho = \$\('#heroOwn'\); if \(ho\) ho\.onclick = \(\) => \{ go\('trip'\); if \(window\.Lazy\) Lazy\.run\('trip', \(\) => Trip\.haveTicket\(\)\);/);
-  assert.match(app, /const WHATS_NEW = \[\s*\['✈️', 'Letenku už máš\?', 'na <b>Přehledu<\/b> doplníš zbytek cesty – trasu, ubytování i program\.'\],/);
+  // nahoře ⭐ ATLAS Plus (stejná vlna), hned pod ním tahle novinka
+  assert.match(app, /const WHATS_NEW = \[\s*\['⭐', 'ATLAS Plus',[^\n]*\],\s*\['✈️', 'Letenku už máš\?', 'na <b>Přehledu<\/b> doplníš zbytek cesty – trasu, ubytování i program\.'\],/);
   // formulář: cíl, tam, zpět (nepovinné), cestující, cena (nepovinné), odkud (nepovinné); počítadlo při otevření
   const ht = src('trip.js').match(/function haveTicket\(\) \{[\s\S]*?\n {2}\}/)[0];
   for (const id of ['ownTo', 'ownOut', 'ownBack', 'ownPax', 'ownPrice', 'ownFrom']) assert.match(ht, new RegExp(`id="${id}"`));
