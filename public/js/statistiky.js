@@ -176,7 +176,7 @@
       : '<p>Za toto období nejsou žádné dny.</p>';
     root.innerHTML = section(`Hlavní čísla za ${days} dní`, main)
       + section('Trychtýř', fun, 'Počty jsou události, ne lidé – jeden člověk hledá i víckrát, procento proto může přesáhnout 100.')
-      + section('Kde to drhne', snags, `Počty si dělá server sám ze svých odpovědí, procento je z jejich základu: hledání = dokončená hledání, sdílené odkazy = všechna otevření, chyby = otevření aplikace. Hledání bez nabídek počítá server za každou odpověď a dokončená hledání aplikace, poměr je proto přibližný. Pod ${FEW} v základu šedě (málo dat).`)
+      + section('Kde to drhne', snags, `Počty si dělá server sám ze svých odpovědí, procento je z jejich základu: hledání = dokončená hledání, sdílené odkazy = všechna otevření, chyby = otevření aplikace. Hledání bez nabídek počítá server (jen nově spočítaná, ne hotový výsledek z mezipaměti) a dokončená hledání aplikace, poměr je proto přibližný a spíš nižší. Pod ${FEW} v základu šedě (málo dat).`)
       + section('Kolik by dali za Plus', svBody)
       + section('Zájem o Plus', doorBody, 'Procento = klepnutí ze zobrazení.')
       + section('Návštěvy sekcí', views)

@@ -522,12 +522,13 @@ async function streamSearch(req, res, body, shareKey = JSON.stringify(body), { r
 
 /**
  * Serverový počet k doběhlému hledání: bez nabídek 'search_empty', a když přitom žádný zdroj neodpověděl (všechny
- * skončily chybou nebo výpadkem) 'search_error'; s nabídkami null. Cesta přes víc měst nemá skupiny, ale kombinace.
+ * skončily chybou, výpadkem 'down' nebo byly vynechány 'blocked') 'search_error'; s nabídkami null. Cesta přes víc měst
+ * nemá skupiny, ale kombinace. Výpadek 'partial' (část dotazů prošla a nic nenašla) je prázdný výsledek, ne chyba.
  */
 export function searchEvent(r) {
   if (!r || (r.mode === 'multi' ? r.combos : r.groups)?.length) return null;
   const ps = Array.isArray(r.providers) ? r.providers : [];
-  return ps.length && ps.every((s) => s && (s.error || s.outage)) ? 'search_error' : 'search_empty';
+  return ps.length && ps.every((s) => s && (s.state === 'error' || s.outage === 'down' || s.outage === 'blocked')) ? 'search_error' : 'search_empty';
 }
 
 /**

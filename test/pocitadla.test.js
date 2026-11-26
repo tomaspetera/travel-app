@@ -251,8 +251,11 @@ const totalNow = async () => (await (await fetch(`${base}/api/stats?days=2`)).js
 test('searchEvent: bez nabídek search_empty, když přitom neodpověděl žádný zdroj search_error, jinak nic', () => {
   const ok = { state: 'done', error: null, outage: null };
   assert.equal(searchEvent({ groups: [{}], providers: [ok] }), null);
-  assert.equal(searchEvent({ groups: [], providers: [ok, { error: 'Kiwi: 500' }] }), 'search_empty', 'aspoň jeden zdroj odpověděl');
-  assert.equal(searchEvent({ groups: [], providers: [{ error: 'x' }, { outage: { until: 1 } }] }), 'search_error');
+  assert.equal(searchEvent({ groups: [], providers: [ok, { state: 'error', error: 'Kiwi: 500', outage: 'down' }] }), 'search_empty', 'aspoň jeden zdroj odpověděl');
+  // tvar stavu zdroje ze server/lib/search.js (outageOf): část dotazů selhala = 'partial', zdroj ale odpověděl
+  assert.equal(searchEvent({ groups: [], providers: [{ state: 'partial', error: 'chyba HTTP 500', outage: 'partial' }, { state: 'error', error: 'x', outage: 'down' }] }), 'search_empty', 'částečný výpadek není chyba');
+  assert.equal(searchEvent({ groups: [], providers: [{ state: 'error', error: 'x', outage: 'down' }, { state: 'error', error: 'y', outage: 'blocked' }] }), 'search_error');
+  assert.equal(searchEvent({ mode: 'multi', combos: [], providers: [{ state: 'partial', error: '1. let: x', outage: 'down' }] }), 'search_error', 'cesta přes víc měst: výpadek ve všech úsecích');
   assert.equal(searchEvent({ groups: [], providers: [] }), 'search_empty');
   assert.equal(searchEvent({ mode: 'multi', groups: [], combos: [{}], providers: [ok] }), null, 'cesta přes víc měst má kombinace, ne skupiny');
   assert.equal(searchEvent({ mode: 'multi', groups: [], combos: [], providers: [ok] }), 'search_empty');
