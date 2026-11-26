@@ -42,13 +42,14 @@ tedy prvních 64 bitů) a časy posledních požadavků z ní.
 - **Jak dlouho:** započítávají se požadavky za posledních 10 minut (u hlášení chyb, u vytváření krátkých odkazů a u
   špatného klíče ke statistikám za posledních 60 minut). U souhrnného počítání (bod 3.6) se navíc počítá, kolikrát
   přišla z jedné adresy stejná událost (nejvýš 30 za 10 minut); adresa se k tomu drží jen v paměti limitu spolu
-  s názvem události, k počtům se neukládá. Starší časy se už nepoužívají; záznam adresy z paměti zmizí při dalším požadavku z ní, při
-  úklidu po překročení 5 000 adres nebo nejpozději při restartu serveru. Server se na bezplatném tarifu hostingu uspí
-  po 15 minutách bez návštěvy a paměť se tím vymaže. [ověřit – viz Otázky, bod 1]
+  s názvem události, k počtům se neukládá. Starší časy se už nepoužívají; záznam adresy server z paměti sám smaže
+  nejpozději po uplynutí okna od posledního započteného požadavku z ní (tedy do 10, resp. 60 minut; úklid běží každých
+  30 sekund), dřív při úklidu po překročení 5 000 adres nebo při restartu serveru. [ověřit – viz Otázky, bod 1]
 - **Účel a právní základ:** ochrana služby a zdrojů dat před zahlcením a zneužitím – oprávněný zájem (čl. 6 odst. 1
   písm. f) GDPR).
 
-> Kde v kódu: `server/lib/ratelimit.js` (třída `RateLimiter`, okno 10 min, strop 5 000 adres, `prune`),
+> Kde v kódu: `server/lib/ratelimit.js` (třída `RateLimiter`, okno 10 min, strop 5 000 adres, `prune`, `sweep` každých
+> `sweepMs` = 30 s – smaže adresy, jejichž poslední požadavek vypadne z okna),
 > `server/index.js` funkce `rateLimited()` a seznam limitů (`clientErrs`, `shareHits` a `statsFails` s oknem 60 min,
 > `countPairs` s klíčem adresa|událost),
 > `server/lib/security.js` funkce `clientIp()` a `ipKey()` (IPv6 → /64, adresa z hlavičky `CF-Connecting-IP`),
@@ -104,7 +105,8 @@ Když klepneš na **Poslat kamarádům** nebo **Sdílet plán**, aplikace nejdř
 - čas vytvoření.
 
 Neukládá se tvoje IP adresa, jméno ani nic, co by odkaz spojilo s tebou. Z cesty se před sdílením vynechá odškrtnutí
-rezervací a čas založení. [ověřit kódy rezervací – viz Otázky, bod 3]
+rezervací, čas založení, 🔖 kódy rezervací a kód jízdenky. Sdílí se ale vlastní název cesty a poznámky, které napíšeš.
+[ověřit – viz Otázky, bod 3]
 
 - **Kde:** databáze Upstash Redis (Upstash, Inc.), region [doplnit region]; kopii nejvýš 300 nedávno otevřených
   odkazů drží server Letsi v paměti do restartu. Prohlížeč a síť doručení obsahu mohou otevřenou cestu
@@ -163,7 +165,8 @@ nebo vypršel, a přijaté hlášení chyby aplikace (bod 3.3).
   jsou součty veřejné]
 - **Krátké otázky:** na pár místech se aplikace zeptá jednou krátkou otázkou. Odpověď je dobrovolná a pošle se, jen
   když sám klepneš na některou možnost; ✕ otázku zavře a nic se nepošle. Počítá se jen zvolená možnost (jako jiné
-  události výš) a v zařízení se nic neukládá.
+  události výš) a v zařízení se nic neukládá – jen nabídka Letsi Plus si pamatuje den, kdy se naposledy zeptala na
+  cenu (`atlas_price_q`, bod 4), aby se znovu zeptala nejdřív za 30 dní.
 - **Právní základ:** souhrnné počty nejsou osobní údaje – nevztahují se k určené ani určitelné osobě. Samotné
   přijetí požadavku (IP adresa) viz bod 3.1. [ověřit – viz Otázky, bod 13]
 
@@ -216,9 +219,12 @@ se neposílají (kromě případů v bodě 3, kdy je sám odešleš). **Nejsou t
 | `atlas_explore_v…` | stav Objevuj (místo, plán) |
 | `atlas_pretrip_v…` | „Co zařídit a co sbalit“ (odškrtnutí) |
 | `atlas_budget`, `atlas_plancard` | rozpočet a karta plánu v průvodci Cestou |
-| `atlas_ph` | mezipaměť adres fotek měst |
+| `atlas_ph…` | mezipaměť adres fotek měst (starší verze klíče aplikace sama smaže) |
 | `atlas_nowwx` | předpověď pro kartu Dnes na cestě (i bez signálu) |
 | `atlas_wn`, `atlas_wn_top`, `atlas_since`, `atlas_tip`, `atlas_flags` | co už jsi viděl v Novinkách a tipech, technické příznaky zobrazení |
+| `atlas_price_q` | den, kdy se nabídka Letsi Plus naposledy zeptala na cenu (za 30 dní se zeptá znovu) |
+| `atlas_sesit_card` | karty Sešitu, které jsi skryl |
+| `atlas_look` | volba vzhledu (`atlas` po otevření adresy s `?vzhled=atlas`, `?vzhled=letsi` ji smaže) |
 | `atlas_help` | tvoje volba u Pomáhat se zlepšováním (`1` zapnuto, `0` vypnuto) – zapíše se až po klepnutí, nic dalšího (číslo návštěvy ne) |
 
 Pro práci bez internetu si aplikace (service worker) ukládá v mezipaměti prohlížeče **soubory aplikace** a čas
@@ -232,7 +238,8 @@ adresy za `#` a obsahují i kódy rezervací – posílej ho jen sobě).
   o elektronických komunikacích). [ověřit – viz Otázky, bod 6]
 
 > Kde v kódu: `public/js/app.js` (`LS = 'atlas_v1'`, `defState()`, `save()`), klíče `atlas_*` v `public/js/*.js`
-> (`flights.js`, `pricecheck.js`, `places.js`, `pretrip.js`, `trip.js`, `since.js`, `flags.js`), `public/js/backup.js`,
+> (`flights.js`, `pricecheck.js`, `places.js`, `pretrip.js`, `trip.js`, `since.js`, `flags.js`, `plus.js`),
+> `public/index.html` (`atlas_look`), `public/js/backup.js`,
 > `public/js/transfer.js`, `public/sw.js` (do `/api/*` a cizích webů se nemíchá). `document.cookie` ani `indexedDB`
 > aplikace nepoužívá.
 
@@ -345,23 +352,19 @@ Zásady můžeme upravit, když se změní aplikace nebo předpisy. Aktuální z
 
 ## Otázky pro advokáta
 
-1. **Doba uchování IP adresy.** Okno aplikace „O aplikaci a soukromí“ dnes říká „IP adresu si pamatuje 10 minut“.
-   V kódu je okno 10 minut, u hlášení chyb a krátkých odkazů 60 minut, a záznam se z paměti fyzicky odstraní až při
-   dalším požadavku ze stejné adresy, při přesažení 5 000 adres nebo restartu (`server/lib/ratelimit.js` – `prune`
-   běží jen nad stropem). Na bezplatném Renderu se server po 15 minutách bez návštěvy uspí, na placeném tarifu ale
-   adresa může v paměti zůstat dny. Stačí formulace „nejpozději do restartu serveru“, nebo má provozovatel zajistit
-   pravidelné mazání po uplynutí okna (malá úprava kódu) a sjednotit text v aplikaci?
+1. **Doba uchování IP adresy.** V kódu vyřešeno: úklid (`RateLimiter.sweep` v `server/lib/ratelimit.js`, každých
+   30 s) smaže adresu nejpozději po uplynutí okna od posledního požadavku – 10 minut, u hlášení chyb, nových krátkých
+   odkazů a špatného klíče ke statistikám 60 minut. Okno „O aplikaci a soukromí“ říká „nejdéle hodinu od posledního
+   požadavku (u hledání 10 minut)“. Stačí to takto?
 2. **Hlášení chyb bez souhlasu.** Odesílá se automaticky hned při načtení (`errlog.js` v `<head>`). Obsah je očištěný,
    ale požadavek nese IP adresu a v logu Renderu se dá spojit s řádkem hlášení podle času. Stačí oprávněný zájem
    a informace v zásadách, nebo je třeba hlášení vypnout do souhlasu? Text chyby se čistí jen od e-mailů a čísel –
    jména nebo jiné texty, které uživatel napsal, by v chybové zprávě teoreticky zůstat mohly.
-3. **Co přesně obsahuje sdílená cesta.** `shareJson()` v `public/js/trip.js` je seznam *vynechaných* polí (odškrtnutí
-   rezervací, čas založení), ne povolených. Kódy rezervací (`refs`) se zapisují k cestám v Moje cestách
-   (`public/js/app.js` `refsHtml`) a sdílí se cesta z průvodce, kde podle kódu nejsou – výslovně se ale nevynechávají.
-   Plánovač má u vlaku „místo a kód jízdenky“ (`public/js/planshare.js`) a není jasné, zda se s plánem neodesílají.
-   Okno v aplikaci slibuje „bez jména a kódů rezervací“. Doporučuji technicky ověřit (a případně přepnout na seznam
-   povolených polí) dříve, než se tento slib objeví v zásadách. Sdílená cesta může obsahovat i vlastní název cesty
-   a poznámky, které uživatel napsal (může tam být jméno).
+3. **Co přesně obsahuje sdílená cesta.** Kódy rezervací a kód jízdenky `shareJson()` v `public/js/trip.js` dnes
+   výslovně vynechává (`refs`, `rides`, `kod`); kód jízdenky z plánovače jde jen do vlastní zálohy
+   (`public/js/planshare.js`). Jde ale o seznam *vynechaných* polí, ne povolených – pole nové funkce se do odkazu
+   dostane, dokud ho někdo nevynechá. Sdílená cesta nese i vlastní název cesty a poznámky, které uživatel napsal
+   (může tam být jméno). Stačí na to upozornit v bodě 3.4?
 4. **Smazání krátkého odkazu.** Aplikace nemá žádný způsob, jak uložený odkaz smazat před uplynutím 400 dní (Upstash
    umí jen `SET` a `GET`, `server/lib/shortlinks.js`). Výmaz na žádost by provozovatel musel udělat ručně v konzoli
    Upstash. Je to přijatelné, nebo je třeba tlačítko „Zrušit odkaz“? Je 400 dní přiměřená doba? Odpověď
