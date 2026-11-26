@@ -24,7 +24,7 @@
   // Odkazy ve sdílené cestě (#trip=, krátký odkaz /c/, záloha – Trip.sanitizeTrip) smí vést jen tam, kam vedou odkazy
   // aplikace: prodejci letenek, ubytování a aut (server/providers, server/lib/links.js), mapy, jízdenky, Wikipedie.
   // Google jen mapy a hotely – google.com/url?q= by přesměroval kamkoli.
-  const LINK_SITES = [...SHOPS.map(([d]) => [d]), ['travelpayouts.com'], ['booking.com'], ['trip.com'], ['hotels.com'], ['expedia.com'],
+  const LINK_SITES = [...SHOPS.map(([d]) => [d]), ['booking.com'], ['trip.com'], ['hotels.com'], ['expedia.com'],
     ['airbnb.cz'], ['airbnb.com'], ['hostelworld.com'], ['agoda.com'], ['kayak.com'], ['rentalcars.com'], ['discovercars.com'],
     ['google.com', /^\/(maps|travel)([/?#]|$)/], ['mapy.com'], ['mapy.cz'], ['waze.com'], ['regiojet.cz'], ['idos.cz'], ['flixbus.cz'],
     ['wikipedia.org'], ['wikivoyage.org'], ['wikidata.org'], ['openstreetmap.org']];
@@ -34,14 +34,27 @@
     return m ? [m[1].toLowerCase(), m[2]] : null;
   };
   const under = (h, d) => h === d || h.endsWith('.' + d);
-  function shop(u) {
-    const p = parts(u, 2000), s = p && SHOPS.find(([d]) => under(p[0], d));
-    return s ? s[1] : null;
+  // Prohlížeč z /maps/../url, /maps/%2e%2e/url i /maps\..\url udělá /url – cesta s tečkami nebo \ omezení obejde.
+  const dots = rest => /\\|%2e|\/\.\.?(?:\/|$)/i.test(rest.split(/[?#]/)[0]);
+  // Partnerský odkaz tp.media přesměruje na adresu v u= (server/lib/links.js affiliate) – i ta musí vést na povolený
+  // web, a jen jednou: s dvěma u= nevíme, kterou tp.media vezme.
+  const TP_KEYS = new Set(['campaign_id', 'marker', 'p', 'trs', 'sub_id', 'u']);
+  function tpTarget(rest) {
+    const q = rest.match(/^\/r\?([^#]*)$/), kv = q ? q[1].split('&').map(x => x.split('=')) : [];
+    const names = kv.map(([k]) => k), u = kv.find(([k]) => k === 'u');
+    if (!u || u.length !== 2 || !names.every(k => TP_KEYS.has(k)) || new Set(names).size !== names.length) return null;
+    try { return decodeURIComponent(u[1]); } catch (e) { return null; }
   }
   /** Odkaz z cizích dat → týž odkaz, vede-li přes https na povolený web (LINK_SITES), jinak null. */
-  function safeLink(u) {
+  function safeLink(u, tp = true) {
     const p = parts(u, 4000);
-    return p && LINK_SITES.some(([d, path]) => under(p[0], d) && (!path || path.test(p[1]))) ? u : null;
+    if (!p || !LINK_SITES.some(([d, path]) => under(p[0], d) && (!path || (path.test(p[1]) && !dots(p[1]))))) return null;
+    if (!under(p[0], 'tp.media')) return u;
+    return tp && safeLink(tpTarget(p[1]), false) ? u : null;
+  }
+  function shop(u) {
+    const p = parts(u, 2000), s = p && safeLink(u) && SHOPS.find(([d]) => under(p[0], d));
+    return s ? s[1] : null;
   }
   const BAGS = ['none', 'cabin', 'checked'];
 
