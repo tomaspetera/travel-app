@@ -1169,6 +1169,7 @@ Zkopíruj `.env.example` na `.env`:
 | `XOTELO` | zapnuto | ceny hotelů z TripAdvisoru přes neoficiální bezplatné API Xotelo (bez klíče, bez provizí), když není ostrý klíč LiteAPI – viz [Ceny hotelů](#ceny-hotelů); `off` = vypnout (zůstanou odkazy na partnery). Na místo a termín 1 + nejvýš 12 dotazů, v mezipaměti |
 | `PEXELS_API_KEY` | – | krásné fotky měst na kartách (radar, tipy, detail cíle) z Pexels – zdarma klíč na pexels.com/api (200 dotazů/h, fotky se drží 7 dní na serveru a 30 dní v prohlížeči; **Pexels teď nové klíče nevydává** – stávající klíč funguje dál). Bez klíče fotky z Unsplash (klíč níž), jinak z Wikimedia Commons (oceněné fotky z článku o městě) |
 | `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` | – | **krátké odkazy na sdílenou cestu** (`/c/Ab3kQ9xZ` místo `#trip=…` s tisíci znaky) s náhledem ve WhatsAppu (cíl, termín, fotka): cesta se uloží jen při sdílení, na 400 dní, v Redis od Upstash (zdarma 500 000 příkazů a 256 MB; console.upstash.com → Create database → REST API). Bez nich aplikace posílá dlouhý odkaz jako dřív (`/api/health` → `shortLinks`) |
+| `STATS_KEY` | – | klíč ke **statistikám pro majitele**: s ním `/api/stats` (a stránka `statistiky.html`, která se na klíč zeptá) odpoví jen s hlavičkou `Authorization: Bearer <klíč>`, bez něj jsou souhrnné počty veřejné. Dlouhý náhodný text, např. `openssl rand -hex 32` |
 | `UNSPLASH_ACCESS_KEY` | – | totéž z Unsplash, když Pexels klíč chybí nebo fotku nenajde. Zdarma: účet na [unsplash.com/developers](https://unsplash.com/developers) → *Your apps* → *New Application* (souhlas s podmínkami, název ATLAS) → do Renderu se vkládá **Access Key** (ne Secret key). Nová aplikace je v ukázkovém režimu (50 dotazů/h) – stačí, fotka města se drží 7 dní na serveru a 30 v prohlížeči; při vyčerpání limitu se Unsplash na 15 min vynechá a karta má zatím fotku z Wikimedie. Bere se jen fotka, v jejímž popisu, adrese nebo štítcích je jméno města; podle podmínek Unsplash se fotky vkládají přímo z jeho serveru a u každé je drobně „Foto: autor / Unsplash“ s odkazy (u Pexels „/ Pexels“) |
 | `LITEAPI_KEY` | – | hotely s cenou na tvoje data a hodnocením hostů (zdarma klíč na dashboard.liteapi.travel; `sand_…` = testovací data, pak se použije Xotelo). Ostrý klíč má přednost před Xotelem a umožňuje provize |
 | `LITEAPI_WHITELABEL` | – | doména white-label rezervační stránky LiteAPI – tlačítko „detail“ pak vede tam místo na Booking.com |
@@ -1443,7 +1444,9 @@ serveru (`public/vendor/fonts/letsi/`, licence SIL OFL) a stáhnou se, jen když
 
 Souhrnné počty z `GET /api/stats` čitelně na telefonu: `…/statistiky.html` (období 7 / 30 / 90 dní, `?dni=7`) – hlavní
 čísla, trychtýř od otevření po uloženou cestu, průzkum ceny Plus, zájem o Plus a tabulka po dnech. Z aplikace na ni nic
-nevede, vyhledávače ji nemají (noindex) a do offline sady aplikace nepatří; ukazuje jen veřejné souhrnné počty.
+nevede, vyhledávače ji nemají (noindex) a do offline sady aplikace nepatří; ukazuje jen souhrnné počty. Oddíl Kde to
+drhne ukazuje poměry počtů, které si server dělá sám (hledání bez výsledku, limit, chyby, nefunkční sdílený odkaz).
+S nastaveným `STATS_KEY` se stránka zeptá na klíč a drží ho jen v paměti otevřené stránky.
 
 ## Odkazy do aplikací v telefonu
 

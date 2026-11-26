@@ -1,13 +1,20 @@
 // Souhrnné počty bez sledování lidí: kolikrát se za den otevřela aplikace, proběhlo hledání, vznikla cesta… Jen
 // denní součet na událost z pevného seznamu (EVENTS) – žádné cookies, identifikátor, IP adresa ani údaj o zařízení,
-// z počtů nejde poznat, kdo co dělal (public/js/count.js → POST /api/count; čtení GET /api/stats).
+// z počtů nejde poznat, kdo co dělal (public/js/count.js → POST /api/count; čtení GET /api/stats). Část počtů („kde to
+// drhne“: hledání bez výsledku, limit, chyba…) si server dělá sám ze svých odpovědí – prohlížeč k tomu nic neposílá.
 // Úložiště jako krátké odkazy (shortlinks.js): Upstash Redis přes REST, klíč cnt:<den UTC>:<událost>, 400 dní; bez klíčů
 // paměť procesu (demo, testy – po restartu prázdné). Do Upstash se nepíše při každé události: počty se sčítají
-// v paměti a jednou za 10 minut odejdou najednou (INCRBY). Strop zdarma je 500 000 příkazů měsíčně a dělí se o něj
+// v paměti a jednou za 30 minut odejdou najednou (INCRBY). Strop zdarma je 500 000 příkazů měsíčně a dělí se o něj
 // krátké odkazy – zápis při každém klepnutí by ho při návalu (nebo schválně z jedné adresy) vyčerpal a odkazy by do
-// konce měsíce nešly otevřít. Takhle je to nejvýš 33 příkazů za 10 minut, ať přijde událostí kolik chce.
+// konce měsíce nešly otevřít. Takhle je to nejvýš EVENTS.length příkazů INCRBY za 30 minut, ať přijde událostí kolik
+// chce (rozpočet hlídá test/pocitadla.test.js). Pád serveru bez SIGTERM ztratí nejvýš posledních 30 minut počtů.
+import { timingSafeEqual } from 'node:crypto';
 import { request } from './http.js';
 
+// Počty „kde to drhne“, které si server dělá sám ze svých odpovědí (server/index.js): chyba v prohlížeči, hledání bez
+// nabídek / nad limitem / při plném serveru / s chybou, ubytování bez nabídek, otevřený a nefunkční sdílený odkaz.
+// Z prohlížeče (/api/count) se nepřijmou – kdokoli by je jinak mohl nafouknout.
+export const SERVER_EVENTS = ['js_error', 'search_empty', 'search_limit', 'search_busy', 'search_error', 'stay_empty', 'shared_open', 'shared_broken'];
 export const EVENTS = [
   'app_open', 'view_dashboard', 'view_flights', 'view_trip', 'view_trips', 'view_explore', 'view_world',
   'search_done', 'search_anywhere', 'verify_click', 'buy_click',
@@ -15,13 +22,34 @@ export const EVENTS = [
   'limit_shown', 'limit_plus', 'limit_download', 'limit_replace',
   'plus_page', 'plus_offer_shown', 'plus_offer_click', 'sesit_shown', 'sesit_click',
   'price_0', 'price_199', 'price_399', 'price_599', 'price_799', 'look_letsi',
+  ...SERVER_EVENTS,
+  // odpovědi na krátké otázky (public/js/count.js Count.ask) – jen klepnutá volba, zobrazení otázky se nepočítá
+  'mq_empty_place', 'mq_empty_dates', 'mq_empty_lost', 'mq_empty_try',
+  'mq_price_same', 'mq_price_higher', 'mq_price_gone',
+  'mq_restart_date', 'mq_restart_price', 'mq_restart_lost', 'mq_restart_try',
+  'mq_trip_good', 'mq_trip_missing', 'mq_trip_lost',
+  'mq_ex_city', 'mq_ex_nature', 'mq_ex_region', 'mq_ex_other',
 ];
+// Strop seznamu: s každým názvem roste nejhorší počet zápisů do Upstash (rozpočet v test/pocitadla.test.js)
+export const MAX_EVENTS = 150;
+export const FLUSH_MS = 30 * 60e3;
 export const TTL_DAYS = 400;
 export const MAX_BODY = 256; // {"e":"plus_offer_shown"} má 24 bajtů – víc je něco jiného než count.js
 export const MAX_DAYS = 90;
 const KEY = 'cnt:';
 const DAY_MS = 86400e3;
 const dayOf = (ms) => new Date(ms).toISOString().slice(0, 10); // den UTC
+
+/**
+ * Hlavička Authorization: Bearer <klíč> k /api/stats → true, sedí-li klíč. Porovnání v konstantním čase
+ * (timingSafeEqual), ať se klíč nedá uhodnout po znacích podle doby odpovědi; jiná délka = nerovnost.
+ */
+export function statsKeyOk(header, key) {
+  const m = /^Bearer (.+)$/.exec(String(header || ''));
+  if (!m || !key) return false;
+  const a = Buffer.from(m[1]), b = Buffer.from(String(key));
+  return a.length === b.length && timingSafeEqual(a, b);
+}
 
 /** ?days= → 1–90, bez hodnoty nebo nesmysl 30. */
 export const clampDays = (v) => Math.min(MAX_DAYS, Math.max(1, Math.trunc(Number(v)) || 30));
@@ -44,7 +72,7 @@ export function upstashCounts(url, token, req = request) {
   };
 }
 
-/** Úložiště v paměti (demo, testy, server bez Upstash): po restartu prázdné; 33 čísel za den běhu, nemaže se. */
+/** Úložiště v paměti (demo, testy, server bez Upstash): po restartu prázdné; EVENTS.length čísel za den běhu, nemaže se. */
 export function memoryCounts() {
   const m = new Map();
   return {
@@ -57,12 +85,12 @@ export function memoryCounts() {
 /**
  * Počítadlo nad úložištěm. hit(událost) → true / false (neznámá událost); nic jiného než název události nedostane,
  * takže adresu ani zařízení uložit nemůže. Úložiště se volá až ve flush() – jeho výpadek požadavek nezdrží ani
- * neshodí, nezapsané počty zůstanou v paměti na příště. stats(dní) → { days: [{ day, counts }], total }.
+ * neshodí; když zápis selže, dávka se zahodí (viz flush). stats(dní) → { days: [{ day, counts }], total }.
  */
-export function makeCounter(store, { now = Date.now, flushMs = 10 * 60e3, cacheMs = 5 * 60e3 } = {}) {
+export function makeCounter(store, { now = Date.now, flushMs = FLUSH_MS, cacheMs = 5 * 60e3 } = {}) {
   let pend = new Map(); // '<den>:<událost>' → počet od posledního zápisu
   let timer = null;
-  let cached = null; // { at, m } – uložené součty za 90 dní: /api/stats je veřejné a nesmí jít každým dotazem do Upstash
+  let cached = null; // { at, m } – uložené součty za 90 dní: /api/stats (bez STATS_KEY veřejné) nesmí jít každým dotazem do Upstash
   let writes = 0; // počet zápisů: čtení, které zápis předběhl, se neuloží – 5 minut by v něm chyběla zapsaná dávka
   const arm = () => {
     if (timer || !pend.size) return;
@@ -80,8 +108,8 @@ export function makeCounter(store, { now = Date.now, flushMs = 10 * 60e3, cacheM
       cached = null;
       writes++;
     } catch (e) {
-      for (const [k, n] of batch) pend.set(k, (pend.get(k) || 0) + n);
-      arm();
+      // Dávku zahodit, ne vracet do pend: chyba může přijít až po tom, co Upstash INCRBY provedl (ztracená odpověď,
+      // časový limit) – vrácená dávka by se pak přičetla podruhé. Chybějící počty jsou menší zlo než zdvojené.
     }
   }
   return {

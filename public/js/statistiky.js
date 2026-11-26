@@ -1,5 +1,6 @@
 /* ATLAS – stránka Statistiky pro majitele (public/statistiky.html): čitelný přehled souhrnných počtů z GET api/stats
-   (server/lib/counts.js) na telefonu místo syrového JSON. Jen čte veřejné denní součty – nic neposílá ani neukládá.
+   (server/lib/counts.js) na telefonu místo syrového JSON. Jen čte denní součty – nic neukládá. Když je na serveru
+   STATS_KEY (odpověď 401), zeptá se na klíč a drží ho jen v paměti stránky (posílá v hlavičce Authorization).
    Výpočty jsou čisté funkce ve window.Stats (test/statistiky.test.js přes node:vm); vykreslení běží jen ve stránce
    s #stats, takže se soubor dá načíst i bez prohlížeče. */
 (function () {
@@ -28,6 +29,26 @@
   ];
   const VIEWS = [['view_dashboard', 'Přehled'], ['view_flights', 'Lety'], ['view_trip', 'Průvodce cestou'], ['view_trips', 'Moje cesty'], ['view_explore', 'Objevuj'], ['view_world', 'Svět (mapa a země)']];
   const TABLE = [['app_open', 'Otevř.'], ['search_done', 'Hled.'], ['verify_click', 'Ověř.'], ['buy_click', 'Prokl.'], ['trip_started', 'Prův.'], ['trip_saved', 'Ulož.']];
+  // Kde to drhne (počty dělá server sám ze svých odpovědí): [událost, základ = události, jejichž součet je 100, popisek].
+  // Bez základu (ještě ho nikdo nepočítá) jen počet.
+  const SNAGS = [
+    ['search_empty', ['search_done'], 'Hledání bez nabídek'],
+    ['search_limit', ['search_done'], 'Hledání nad limitem'],
+    ['search_busy', ['search_done'], 'Hledání odmítnuté – server plný'],
+    ['search_error', ['search_done'], 'Hledání s chybou'],
+    ['shared_broken', ['shared_open', 'shared_broken'], 'Nefunkční sdílený odkaz'],
+    ['js_error', ['app_open'], 'Chyba aplikace v prohlížeči'],
+    ['stay_empty', [], 'Ubytování bez nabídek'],
+  ];
+  // Krátké otázky (Count.ask v count.js): přesné znění a volby jako v aplikaci. Počítá se jen klepnutá odpověď –
+  // zobrazení ne, takže podíl odpovědí ze zobrazení spočítat nejde.
+  const QUESTIONS = [
+    { q: 'Prázdný výsledek letů: Co by ti teď pomohlo nejvíc?', opts: [['mq_empty_place', 'Jiné letiště poblíž'], ['mq_empty_dates', 'Volnější termíny'], ['mq_empty_lost', 'Nevím, co zkusit'], ['mq_empty_try', 'Jen zkouším']] },
+    { q: 'Po návratu od prodejce: Seděla cena u prodejce?', opts: [['mq_price_same', 'Ano'], ['mq_price_higher', 'Byla vyšší'], ['mq_price_gone', 'Let už nebyl']] },
+    { q: 'Po ↺ Začít znovu: Proč začínáš znovu?', opts: [['mq_restart_date', 'Jiný let nebo termín'], ['mq_restart_price', 'Moc draho'], ['mq_restart_lost', 'Nevyznal/a jsem se'], ['mq_restart_try', 'Jen zkouším']] },
+    { q: 'Shrnutí cesty: Pomohl ti průvodce naplánovat cestu?', opts: [['mq_trip_good', 'Ano, hodně'], ['mq_trip_missing', 'Něco chybělo'], ['mq_trip_lost', 'Nevyznal/a jsem se']] },
+    { q: 'Objevuj bez výsledku: Co jsi hledal/a?', opts: [['mq_ex_city', 'Město'], ['mq_ex_nature', 'Vesnici nebo přírodu'], ['mq_ex_region', 'Oblast nebo zemi'], ['mq_ex_other', 'Něco jiného']] },
+  ];
   const PERIODS = [7, 30, 90];
   const FEW = 30; // pod 30 odpověďmi rozložení ještě hodně skáče s každou další
 
@@ -95,11 +116,31 @@
     };
   }
 
+  /**
+   * Poměry „kde to drhne“: kolik událostí na 100 v základu, seřazené od nejčastější; bez základu nebo se základem 0
+   * per100 null (řádek na konci, jen počet). few = základ pod FEW – poměr ještě hodně skáče, na stránce šedě.
+   */
+  function rates(total, rows = SNAGS) {
+    return rows.map(([e, bases, label]) => {
+      const base = bases.reduce((s, b) => s + num(total, b), 0);
+      const n = num(total, e);
+      return { e, label, n, base, per100: bases.length && base > 0 ? Math.round((n / base) * 1000) / 10 : null, few: base < FEW };
+    }).sort((a, b) => (b.per100 ?? -1) - (a.per100 ?? -1));
+  }
+
   /** Falešné dveře: zobrazení a klepnutí na každou volbu s procentem ze zobrazení. */
   const doors = (total) => DOORS.map((d) => {
     const shown = num(total, d.shown);
     return { label: d.label, shown, clicks: d.clicks.map(([e, label]) => ({ label, n: num(total, e), pct: pct(num(total, e), shown) })) };
   });
+
+  /** Rozložení odpovědí na jednu otázku z QUESTIONS: každá volba s procentem ze všech odpovědí a zda je jich málo. */
+  function dist(total, question) {
+    const options = question.opts.map(([e, label]) => ({ e, label, n: num(total, e) }));
+    const answers = options.reduce((s, o) => s + o.n, 0);
+    for (const o of options) o.pct = pct(o.n, answers);
+    return { q: question.q, options, answers, few: answers < FEW };
+  }
 
   /** Řádky tabulky po dnech: nejnovější nahoře (server posílá od nejstaršího), chybějící událost 0. */
   function dayRows(days, events = TABLE.map(([e]) => e)) {
@@ -122,7 +163,8 @@
     return `${['ne', 'po', 'út', 'st', 'čt', 'pá', 'so'][new Date(Date.UTC(y, m - 1, d)).getUTCDay()]} ${d}. ${m}.`;
   };
 
-  window.Stats = { MAIN, PRICES, DOORS, VIEWS, TABLE, PERIODS, FEW, num, pct, totals, funnel, median, survey, doors, dayRows, period, fmtNum, fmtPct, fmtKc, fmtDay };
+  window.Stats = { MAIN, PRICES, DOORS, VIEWS, TABLE, SNAGS, PERIODS, FEW, num, pct, totals, funnel, rates, median, survey, doors, dayRows, period, fmtNum, fmtPct, fmtKc, fmtDay };
+  Object.assign(window.Stats, { QUESTIONS, dist });
 
   /* ---------- vykreslení (jen ve stránce) ---------- */
   const root = typeof document !== 'undefined' && document.getElementById('stats');
@@ -143,33 +185,63 @@
     const doorBody = doors(total).map((d) => `<h3>${esc(d.label)}</h3>`
       + table([row('Zobrazeno', fmtNum(d.shown), ''), ...d.clicks.map((c) => row(c.label, fmtNum(c.n), fmtPct(c.pct)))])).join('')
       + table([row('Stránka Plus otevřená', fmtNum(num(total, 'plus_page')), '')]);
+    const answers = QUESTIONS.map((x) => dist(total, x)).map((d) => `<h3>${esc(d.q)}</h3>`
+      + table(d.options.map((o) => row(o.label, fmtNum(o.n), fmtPct(o.pct))))
+      + `<p>Odpovědí: <b>${fmtNum(d.answers)}</b>.</p>` + (d.few ? `<p class="warn">Málo odpovědí (méně než ${FEW}) – na závěr to nestačí.</p>` : '')).join('');
     const views = table([...VIEWS.map(([e, label]) => row(label, fmtNum(num(total, e)), null)), row('Vzhled Letsi zapnutý', fmtNum(num(total, 'look_letsi')), null)]);
+    const snags = table(rates(total).map((r) => row(r.label, r.per100 === null ? fmtNum(r.n) : `${String(r.per100).replace('.', ',')} %`,
+      r.per100 === null ? `${fmtNum(r.n)}×` : `${fmtNum(r.n)} z ${fmtNum(r.base)}${r.few ? ' · málo dat' : ''}`, r.few && r.per100 !== null ? 'few' : '')));
     const rows = dayRows(stats && stats.days);
     const daily = rows.length
       ? `<div class="scroll"><table class="days"><thead><tr><th scope="col">Den</th>${TABLE.map(([, l]) => `<th scope="col">${esc(l)}</th>`).join('')}</tr></thead><tbody>${rows.map((r) => `<tr><th scope="row">${esc(fmtDay(r.day))}</th>${r.values.map((v) => `<td>${fmtNum(v)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`
       : '<p>Za toto období nejsou žádné dny.</p>';
     root.innerHTML = section(`Hlavní čísla za ${days} dní`, main)
       + section('Trychtýř', fun, 'Počty jsou události, ne lidé – jeden člověk hledá i víckrát, procento proto může přesáhnout 100.')
+      + section('Kde to drhne', snags, `Počty si dělá server sám ze svých odpovědí, procento je z jejich základu: hledání = dokončená hledání, sdílené odkazy = všechna otevření, chyby = otevření aplikace. Hledání bez nabídek počítá server (jen nově spočítaná, ne hotový výsledek z mezipaměti) a dokončená hledání aplikace, poměr je proto přibližný a spíš nižší. Pod ${FEW} v základu šedě (málo dat).`)
       + section('Kolik by dali za Plus', svBody)
       + section('Zájem o Plus', doorBody, 'Procento = klepnutí ze zobrazení.')
       + section('Návštěvy sekcí', views)
+      + section('Odpovědi na otázky', answers, 'Krátké otázky v aplikaci (odpověď jedním klepnutím). Kolikrát se otázka ukázala, se nepočítá – procento je ze všech odpovědí.')
       + section('Po dnech', daily, 'Dny podle UTC, nejnovější nahoře. Otevř. = otevření, Hled. = hledání, Ověř. = ověření ceny, Prokl. = proklik k prodejci, Prův. = průvodce, Ulož. = uložená cesta.');
   }
 
   const buttons = document.querySelectorAll('[data-days]');
   let asked = 0; // pořadí dotazu: pomalá starší odpověď nepřepíše novější období
+  let key = ''; // klíč ke statistikám jen v paměti stránky – po zavření zmizí, pamatuje si ho správce hesel
+  let shown = 30;
+
+  /** Server chce klíč (401): pole hesla, napodruhé (klíč byl, ale nesedí) s větou „Klíč nesedí.“. */
+  function askKey(wrong) {
+    root.innerHTML = `<form id="statsKeyForm" class="key"><label for="statsKey">Klíč ke statistikám</label>
+      <input id="statsKey" name="password" type="password" autocomplete="current-password" required>
+      <button type="submit">Ukázat statistiky</button>${wrong ? '<p class="warn" role="alert">Klíč nesedí.</p>' : ''}</form>`;
+    const form = document.getElementById('statsKeyForm');
+    if (!form) return;
+    form.addEventListener('submit', (ev) => {
+      ev.preventDefault();
+      key = document.getElementById('statsKey').value.trim();
+      if (key) load(shown);
+    });
+    if (!wrong) document.getElementById('statsKey').focus();
+  }
+
   async function load(days) {
     const id = ++asked;
+    shown = days;
     for (const b of buttons) b.setAttribute('aria-pressed', String(Number(b.dataset.days) === days));
     root.setAttribute('aria-busy', 'true');
-    let stats = null;
+    let stats = null, locked = false;
     try {
-      const r = await fetch(`api/stats?days=${days}`, { credentials: 'omit' });
-      if (r.ok) stats = await r.json();
+      const r = await fetch(`api/stats?days=${days}`, { credentials: 'omit', headers: key ? { Authorization: `Bearer ${key}` } : {} });
+      if (r.status === 401) locked = true;
+      else if (r.ok) stats = await r.json();
     } catch (e) { /* bez sítě stejně jako 503 */ }
     if (id !== asked) return;
     root.removeAttribute('aria-busy');
-    if (stats && typeof stats === 'object') render(stats, days);
+    if (locked) {
+      askKey(Boolean(key));
+      key = '';
+    } else if (stats && typeof stats === 'object') render(stats, days);
     else root.innerHTML = '<p class="warn">Počty teď nejsou dostupné.</p>';
   }
   for (const b of buttons) {

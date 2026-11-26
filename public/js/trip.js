@@ -1182,6 +1182,10 @@
       save(); toast('Cesta je zpátky'); go('trip');
     } });
     go('flights');
+    // otázka 3: proč zahodil rozpracovanou cestu (bez postupu se nic neztratilo, tam se neptá) – úplně nahoře v Letech,
+    // kde vybírá nový let. Ne za #searchSum: úvodní fotka nad ním má záporný okraj a řádek by překryla (počítač, nový člověk)
+    if (done.length && window.Count && Count.ask) Count.ask($('#view-flights'), { id: 'restart', q: 'Proč začínáš znovu?', rate: 1, at: 'afterbegin',
+      opts: [['mq_restart_date', 'Jiný let nebo termín'], ['mq_restart_price', 'Moc draho'], ['mq_restart_lost', 'Nevyznal/a jsem se'], ['mq_restart_try', 'Jen zkouším']] });
   }
 
   // Hlavička cesty: termín, trasa přes víc míst, cena celkem (při úpravě trasy se přepíše jen ona).
@@ -3822,11 +3826,24 @@
   // poprvé klíč k → true (a zapamatovat); znovu, nebo bez klíče → false
   const seenOnce = (seen, k) => k != null && !seen.has(k) && Boolean(seen.add(k));
   const sumSeen = new Set();
+  // Otázka 4 u prvního Shrnutí vlastní cesty. „Něco chybělo“: volný text se neposílá – jen odkaz na e-mail
+  // (FEEDBACK_EMAIL z /api/health), a to jen když je nastavený. Count.ask se kontroluje zvlášť: trip.js se načítá až
+  // později a v záložce otevřené před nasazením může běžet starší count.js bez ask
+  const TRIP_ASK = { id: 'trip', q: 'Pomohl ti průvodce naplánovat cestu?',
+    opts: [['mq_trip_good', 'Ano, hodně'], ['mq_trip_missing', 'Něco chybělo'], ['mq_trip_lost', 'Nevyznal/a jsem se']],
+    done: (e, row) => {
+      if (e !== 'mq_trip_missing' || !window.Flights || !Flights.warm || !window.About) return;
+      Flights.warm().then(hl => {
+        const href = hl && hl.feedback && About.mailto(hl.feedback.email, typeof WN_ID !== 'undefined' ? WN_ID : '', 'Shrnutí cesty – co chybělo');
+        if (href) row.insertAdjacentHTML('beforeend', ` <a href="${esc(href)}">Napiš mi, co</a>`);
+      }, () => { /* bez serveru bez odkazu */ });
+    } };
   function summaryStep() {
     const t = T();
     const host = $('#tripStep');
     // Shrnutí se překresluje (ceny, rozpočet, stav serveru) – počítá se jednou za cestu a otevření stránky
-    if (window.Count && seenOnce(sumSeen, t.created)) Count.hit('trip_summary');
+    const first = seenOnce(sumSeen, t.created);
+    if (window.Count && first) Count.hit('trip_summary');
     const c = costs(t);
     const { checkin, checkout, nights } = stayDates(t);
     const f = t.flight;
@@ -3953,6 +3970,8 @@
       el.innerHTML = `ATLAS je zdarma. Jestli ti pomohl naplánovat cestu, můžeš přispět částkou podle sebe: <a href="${esc(url)}" target="_blank" rel="noopener">💛 Podpořit ATLAS ↗</a>`;
       el.hidden = false;
     }, () => { /* bez serveru bez věty */ });
+    // při překreslení (rate 0) se jen vrátí už položená otázka, nová se nelosuje; sdílená cesta není jeho plán
+    if (window.Count && Count.ask && !t.shared) Count.ask($('#sumSupport'), { ...TRIP_ASK, rate: first ? 0.5 : 0 });
     // okno Sdílet: celá cesta kamarádům (share – jako dřív) nebo karta „Jede někdo se mnou?“ na sítě (sharecard.js)
     // prime: krátký odkaz se začne ukládat při dotyku Poslat kamarádům – sdílení pak skoro nečeká
     $('#sumShare').onclick = () => (window.Count && Count.hit('share'), window.ShareCard ? ShareCard.open(cardData(t), { send: share, prime: () => ShareLink.short('trip', linkJson(t)) }) : share());

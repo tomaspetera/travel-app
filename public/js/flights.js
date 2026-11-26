@@ -1478,6 +1478,7 @@
     const f = getForm();
     nudge = null;
     kidsAsk = Boolean(opts.kids);
+    clearTimeout(emptyAskT); // otázka 1 jen k výsledku, se kterým člověk nic nedělal
     if (!f.from.length) { toast('Zadej, odkud chceš letět', 'err'); fromInput.input.focus(); return; }
     if (f.trip === 'multi') {
       const bad = mlProblem(f.legs);
@@ -1787,7 +1788,7 @@
     if (!k) return;
     if (window.Count) Count.hit(k === 'buy' ? 'buy_click' : 'verify_click');
     const row = a.closest('.trip-row'), p = $('[data-pick]', row), r = p && rowRegistry[+p.dataset.pick];
-    if (a.dataset.live == null && r) boughtAt = { tid: row.dataset.tid, r, res: shownRes || lastResult };
+    if (a.dataset.live == null && r) boughtAt = { tid: row.dataset.tid, r, res: shownRes || lastResult, k };
   }
   // Návrat z webu prodejce: u té nabídky tichý řádek do průvodce (jako „Naplánovat celou cestu“) – žádné okno
   function boughtShow() {
@@ -1798,6 +1799,24 @@
     if (!row || !seenOnce(boughtSeen, b.tid)) return;
     row.insertAdjacentHTML('beforeend', '<div class="tr-bought">Koupeno? <button type="button" class="linkbtn" data-bought>Doplň si k letence zbytek cesty →</button></div>');
     $('[data-bought]', row).onclick = () => pickTrip(b.r.t, b.r.g, b.res);
+    // otázka 2 (jen po odchodu k prodejci, ne po ověření ceny v Google Letech): sedí orientační cena s tou u prodejce?
+    // Soustavné „Byla vyšší“ = upravit upozornění na ceny (čl. 23 nař. 1008/2008)
+    if (b.k === 'buy' && window.Count && Count.ask) Count.ask($('[data-bought]', row), { id: 'price', q: 'Seděla cena u prodejce?', rate: 0.5,
+      opts: [['mq_price_same', 'Ano'], ['mq_price_higher', 'Byla vyšší'], ['mq_price_gone', 'Let už nebyl']] });
+  }
+  // Otázka 1: konečný prázdný výsledek, se kterým člověk 20 s nic neudělal – nehledal znovu a neodešel. Překreslení
+  // téhož výsledku časovač znovu nespouští; nové hledání ho ruší (startSearch), odchod ze sekce nebo z aplikace taky.
+  const EMPTY_ASK = { id: 'empty', q: 'Co by ti teď pomohlo nejvíc?',
+    opts: [['mq_empty_place', 'Jiné letiště poblíž'], ['mq_empty_dates', 'Volnější termíny'], ['mq_empty_lost', 'Nevím, co zkusit'], ['mq_empty_try', 'Jen zkouším']] };
+  let emptyAskRes = null, emptyAskT = 0;
+  function emptyAsk(res) {
+    if (!(window.Count && Count.ask) || res.partial || emptyAskRes === res) return;
+    emptyAskRes = res;
+    clearTimeout(emptyAskT);
+    emptyAskT = setTimeout(() => {
+      const help = lastResult === res && !running && !document.hidden && $('#results .empty-res .smart-help');
+      if (help && help.offsetParent) Count.ask(help, { ...EMPTY_ASK, rate: 0.25 }); // offsetParent: sekce Lety je vidět
+    }, 20000);
   }
   function ageBuy(e) {
     const a = e.target.closest && e.target.closest('a.book');
@@ -2198,6 +2217,8 @@
 
     if (!res.groups.length) {
       host.innerHTML = emptyState(res);
+      emptyAsk(res);
+      if (window.Count && Count.ask) Count.ask($('.empty-res .smart-help', host), { ...EMPTY_ASK, rate: 0 }); // překreslení: už položená otázka zpět, nová ne
       $$('[data-mt]', host).forEach(b => b.onclick = () => { setMinTemp(b.dataset.mt); startSearch({ noScroll: true }); });
       wireHelp(host);
       if (view.gndOpen) showGround(true, false);
@@ -6007,6 +6028,7 @@
     $('#results').addEventListener('click', ageBuy);
     $('#results').addEventListener('click', offerClick); // až po ageBuy – zadržený odkaz se nepočítá
     document.addEventListener('visibilitychange', boughtShow);
+    document.addEventListener('visibilitychange', () => { if (document.hidden) clearTimeout(emptyAskT); }); // odešel z aplikace
     setInterval(ageTick, 5 * 60e3); // stáří výsledků a ceny letu v průvodci – jinde nebo se schovanou aplikací nic nedělá
   }
 

@@ -63,7 +63,7 @@ test('okno: zdroje dat, ukládání jen v prohlížeči, řazení, orientační 
   assert.match(html, /Twemoji \(CC BY 4\.0\)/);
   assert.match(html, /ATLAS není spojen s žádnou leteckou společností ani prodejcem; ceny a odkazy jsou z veřejných a partnerských zdrojů\./);
   assert.match(html, /localStorage/);
-  assert.match(html, /<b>Žádné cookies ani sledování jednotlivců\.<\/b> Počítám jen souhrnné denní počty \(kolikrát se otevřela aplikace, kolik proběhlo hledání, kolik cest vzniklo\) – bez osobních údajů a bez vazby na tebe nebo tvoje zařízení\./);
+  assert.match(html, /<b>Žádné cookies ani sledování jednotlivců\.<\/b> Počítám jen souhrnné denní počty \(kolikrát se otevřela aplikace, kolik proběhlo hledání, kolik cest vzniklo, kde aplikace nic nenašla nebo selhala a které možnosti lidé volí v krátkých otázkách\) – bez osobních údajů a bez vazby na tebe nebo tvoje zařízení\./);
   assert.equal(html.match(/[Žž]ádná aerolinka ani partner si za lepší pozici neplatí/g).length, 1, 'věta jednou');
   assert.match(html, /vždy ji ověř u partnera/);
   // RateLimiter (server/lib/ratelimit.js) maže adresu nejpozději po okně; nejdelší okno je hodina (hlášení chyb, odkazy)

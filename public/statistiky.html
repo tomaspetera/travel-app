@@ -3,7 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<!-- stránka pro majitele: vyhledávače ji nemají a z aplikace na ni nic nevede; čísla jsou ale veřejná (GET /api/stats) -->
+<!-- stránka pro majitele: vyhledávače ji nemají a z aplikace na ni nic nevede; s STATS_KEY na serveru čísla ukáže jen
+     se správným klíčem (bez něj je GET /api/stats veřejné) -->
 <meta name="robots" content="noindex">
 <meta name="color-scheme" content="light dark">
 <title>Statistiky – ATLAS</title>
@@ -35,6 +36,11 @@
   .days { font-size: .9rem; }
   .days thead th { background: var(--head); font-weight: 600; }
   .days th[scope="row"] { white-space: nowrap; }
+  .list .few th, .list .few td { color: var(--muted); }
+  .key { display: flex; flex-direction: column; gap: 8px; margin: 24px 0 0; }
+  .key label { font-weight: 600; }
+  .key input, .key button { min-height: 44px; font: inherit; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 0 12px; }
+  .key button { background: var(--on); color: var(--on-fg); border-color: var(--on); font-weight: 600; }
 </style>
 </head>
 <body>
