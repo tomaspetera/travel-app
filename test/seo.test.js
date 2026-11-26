@@ -269,8 +269,10 @@ test('stará adresa Renderu: stránky trvale na vlastní doménu, API, soubory a
   assert.equal(go({}), 'https://letsi.cz/');
   assert.equal(go({ path: '/c/Ab3kQ9xZ', search: '?fbclid=1' }), 'https://letsi.cz/c/Ab3kQ9xZ?fbclid=1', 'sdílený odkaz i s parametry');
   assert.equal(go({ host: `${R}:443`, dest: 'document', method: 'HEAD' }), 'https://letsi.cz/', 'port, navigace, HEAD');
+  assert.equal(go({ path: '/statistiky.html' }), 'https://letsi.cz/statistiky.html', 'stránka .html i bez Sec-Fetch-Dest');
   for (const o of [{ path: '/api/health' }, { path: '/healthz' }, { path: '/sw.js' }, { method: 'POST' },
     { path: '/js/app.js', dest: 'script' }, { path: '/manifest.webmanifest', dest: 'manifest' }, { host: 'letsi.cz' },
+    { path: '/js/app.js' }, { path: '/css/atlas.css' }, { path: '/manifest.webmanifest' }, // bez Sec-Fetch-Dest (starý Safari)
     { host: 'localhost:3000' }, { host: '127.0.0.1' }]) assert.equal(go(o), null, JSON.stringify(o));
   assert.equal(go({}, `https://${R}`), null, 'bez vlastní domény se nikam nepřesměrovává');
   assert.equal(go({}, 'není adresa'), null);
