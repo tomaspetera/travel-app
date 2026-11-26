@@ -51,6 +51,43 @@
   ];
   // Opakované klepnutí podle sekce (count.js, jen se souhlasem Pomáhat se zlepšováním)
   const RAGE = [['rage_dashboard', 'Přehled'], ['rage_flights', 'Lety'], ['rage_trip', 'Průvodce a Moje cesty'], ['rage_explore', 'Objevuj'], ['rage_world', 'Svět']];
+  // Podrobné počty v Letech (Count.deep): posílají je jen lidé se zapnutou pomocí „Pomáhat se zlepšováním“, základ
+  // (otevření Letů, dokončená hledání, hledání bez nabídek) ale počítají všichni – poměr je proto spodní odhad a víc
+  // říká pořadí řádků a jejich změna v čase než samotné číslo. Výjimka: věty a rozložení pořadí mají základ jen z nich.
+  const SENTENCES = ['sentence_ok', 'sentence_miss', 'sentence_nofrom'];
+  const FL_SNAGS = [
+    ['form_err_from', ['view_flights'], 'Formulář odmítl: chybí Odkud'],
+    ['form_err_range', ['view_flights'], 'Formulář odmítl: rozsah dat'],
+    ['form_err_date', ['view_flights'], 'Formulář odmítl: datum'],
+    ['form_err_multi', ['view_flights'], 'Formulář odmítl: cesta přes víc měst'],
+    ['place_none_from', ['view_flights'], 'Odkud: místo nenalezeno'],
+    ['place_none_to', ['view_flights'], 'Kam: místo nenalezeno'],
+    ['res_all_hidden', ['search_done'], 'Filtry skryly všechny nabídky'],
+    ['search_slow', ['search_done'], 'Hledání vypršelo (pomalý server)'],
+    ['api_fail_down', ['app_open'], 'Server neodpovídá'],
+    ['sentence_miss', SENTENCES, 'Hledání větou: neznámé místo'],
+    ['sentence_nofrom', SENTENCES, 'Hledání větou: chybí odkud'],
+  ];
+  // Prázdné výsledky a co pak: na co lidi u hledání bez nabídek klepli (na 100 search_empty)
+  const FL_FIX = [
+    ['fix_date', ['search_empty'], 'Jiné termíny'],
+    ['fix_place', ['search_empty'], 'Jiné místo (letiště, země, světadíl)'],
+    ['fix_filter', ['search_empty'], 'Zrušit filtr'],
+    ['fix_warm', ['search_empty'], 'Snížit teplotu'],
+    ['fix_ground', ['search_empty'], 'Vlakem nebo busem'],
+  ];
+  // Co lidi ve výsledcích zaujalo (na 100 search_done); search_redo = hledání přepsané jiným, ještě než doběhlo
+  const FL_RES = [
+    ['res_filters', ['search_done'], '⚙️ Filtry otevřené'],
+    ['res_sort', ['search_done'], 'Změna řazení'],
+    ['res_view_map', ['search_done'], 'Přepnutí na mapu'],
+    ['res_view_cal', ['search_done'], 'Přepnutí na kalendář'],
+    ['res_best_jump', ['search_done'], 'Skok na nejlevnější'],
+    ['search_redo', ['search_done'], 'Nové hledání během hledání'],
+    ['sentence_ok', SENTENCES, 'Hledání větou bez potíží'],
+    ['buy_age_warn', ['buy_click'], 'Nákup zastavený kvůli staré ceně'],
+  ];
+  const FL_RANK = { q: 'Kolikátou nabídku v seznamu otevřeli u prodejce (u Kamkoliv a zemí kolikátý cíl)', opts: [['buy_rank_1', '1.'], ['buy_rank_2_5', '2.–5.'], ['buy_rank_6p', '6. a dál']] };
   const PERIODS = [7, 30, 90];
   const FEW = 30; // pod 30 odpověďmi rozložení ještě hodně skáče s každou další
 
@@ -201,6 +238,7 @@
   window.Stats = { MAIN, PRICES, DOORS, VIEWS, TABLE, SNAGS, PERIODS, FEW, num, pct, totals, funnel, rates, median, survey, doors, dayRows, period, fmtNum, fmtPct, fmtKc, fmtDay };
   Object.assign(window.Stats, { QUESTIONS, dist });
   Object.assign(window.Stats, { RAGE, names, top, exits, lastSteps, topPaths, after, visitStats });
+  Object.assign(window.Stats, { FL_SNAGS, FL_FIX, FL_RES, FL_RANK });
 
   /* ---------- vykreslení (jen ve stránce) ---------- */
   const root = typeof document !== 'undefined' && document.getElementById('stats');
@@ -227,13 +265,24 @@
     const views = table([...VIEWS.map(([e, label]) => row(label, fmtNum(num(total, e)), null)), row('Vzhled Letsi zapnutý', fmtNum(num(total, 'look_letsi')), null)]);
     const snags = table(rates(total).map((r) => row(r.label, r.per100 === null ? fmtNum(r.n) : `${String(r.per100).replace('.', ',')} %`,
       r.per100 === null ? `${fmtNum(r.n)}×` : `${fmtNum(r.n)} z ${fmtNum(r.base)}${r.few ? ' · málo dat' : ''}`, r.few && r.per100 !== null ? 'few' : '')));
+    // podrobné počty v Letech: stejné řádky jako Kde to drhne (šedě pod FEW v základu)
+    const rateTable = (list) => table(rates(total, list).map((r) => row(r.label, r.per100 === null ? fmtNum(r.n) : `${String(r.per100).replace('.', ',')} %`,
+      `${fmtNum(r.n)} z ${fmtNum(r.base)}${r.few ? ' · málo dat' : ''}`, r.few ? 'few' : '')));
+    const helpOnly = 'Jen od lidí se zapnutou pomocí „Pomáhat se zlepšováním“ – základ (otevření Letů, hledání) počítají všichni, procento je proto spodní odhad; víc řekne pořadí řádků a změna v čase.';
+    const rank = dist(total, FL_RANK);
+    const flSnags = `<h3>Lety podrobně</h3><p class="hint">${helpOnly}</p>` + rateTable(FL_SNAGS);
+    const flFix = `<h3>Lety</h3>${table([row('Hledání bez nabídek', fmtNum(num(total, 'search_empty')), '')])}` + rateTable(FL_FIX);
+    const flRes = `<h3>Lety: výsledky</h3>` + rateTable(FL_RES) + `<h3>${esc(rank.q)}</h3>`
+      + table(rank.options.map((o) => row(o.label, fmtNum(o.n), fmtPct(o.pct)))) + (rank.few ? `<p class="warn">Málo nákupů (méně než ${FEW}) – na závěr to nestačí.</p>` : '');
     const rows = dayRows(stats && stats.days);
     const daily = rows.length
       ? `<div class="scroll"><table class="days"><thead><tr><th scope="col">Den</th>${TABLE.map(([, l]) => `<th scope="col">${esc(l)}</th>`).join('')}</tr></thead><tbody>${rows.map((r) => `<tr><th scope="row">${esc(fmtDay(r.day))}</th>${r.values.map((v) => `<td>${fmtNum(v)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`
       : '<p>Za toto období nejsou žádné dny.</p>';
     root.innerHTML = section(`Hlavní čísla za ${days} dní`, main)
       + section('Trychtýř', fun, 'Počty jsou události, ne lidé – jeden člověk hledá i víckrát, procento proto může přesáhnout 100.')
-      + section('Kde to drhne', snags, `Počty si dělá server sám ze svých odpovědí, procento je z jejich základu: hledání = dokončená hledání, sdílené odkazy = všechna otevření, chyby = otevření aplikace. Hledání bez nabídek počítá server (jen nově spočítaná, ne hotový výsledek z mezipaměti) a dokončená hledání aplikace, poměr je proto přibližný a spíš nižší. Pod ${FEW} v základu šedě (málo dat).`)
+      + section('Kde to drhne', snags + flSnags, `Počty si dělá server sám ze svých odpovědí, procento je z jejich základu: hledání = dokončená hledání, sdílené odkazy = všechna otevření, chyby = otevření aplikace. Hledání bez nabídek počítá server (jen nově spočítaná, ne hotový výsledek z mezipaměti) a dokončená hledání aplikace, poměr je proto přibližný a spíš nižší. Pod ${FEW} v základu šedě (málo dat).`)
+      + section('Prázdné výsledky a co pak', flFix, `Na co lidi u hledání bez nabídek klepli, na 100 takových hledání. ${helpOnly}`)
+      + section('Co lidi zaujalo', flRes, `Na 100 dokončených hledání. ${helpOnly}`)
       + section('Kolik by dali za Plus', svBody)
       + section('Zájem o Plus', doorBody, 'Procento = klepnutí ze zobrazení.')
       + section('Návštěvy sekcí', views)

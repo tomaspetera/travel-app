@@ -469,6 +469,12 @@
         const r = await this.lookup(q, signal);
         done = true;
         show(r);
+        // místo nenalezeno (podrobný počet jen se zapnutou pomocí): 1× za psaní v poli – další písmena téhož pokusu ne,
+        // znovu až po zavření nabídky (výběr, Esc, odchod z pole)
+        if (!r.hit && !r.items.length && q === this.input.value.trim() && !this.noneSent) {
+          this.noneSent = true;
+          if (window.Count && Count.deep) Count.deep(this.origin ? 'place_none_from' : 'place_none_to');
+        }
       } catch (e) { if (e.name !== 'AbortError') { this.hit = null; this.sugs = []; this.open(e.offline ? 'offline' : true); } } // offline: pwa.js netError
     }
     open(err) {
@@ -505,7 +511,7 @@
       if (!rows.length) say($('.pi-empty', this.dd).textContent); // „Nic nenalezeno…“ – v nabídce není co vybrat
       $$('.pi-opt', this.dd).forEach(o => o.onmousedown = e => { e.preventDefault(); this.choose(rows[+o.dataset.i]); });
     }
-    close() { this.dd.hidden = true; this.input.setAttribute('aria-expanded', 'false'); this.input.removeAttribute('aria-activedescendant'); }
+    close() { this.noneSent = false; this.dd.hidden = true; this.input.setAttribute('aria-expanded', 'false'); this.input.removeAttribute('aria-activedescendant'); }
     /**
      * Text napsaný v poli, ale nevybraný z nabídky, a formulář odeslaný tlačítkem: věta → ✨ jako Enter ('run'),
      * název → první návrh ('pick'); nic → false (a hláška). Prázdné pole → 'none'.
@@ -1479,6 +1485,9 @@
     nudge = null;
     kidsAsk = Boolean(opts.kids);
     clearTimeout(emptyAskT); // otázka 1 jen k výsledku, se kterým člověk nic nedělal
+    // proč formulář hledání odmítne (kontroly hned pod tím) – podrobný počet jen se zapnutou pomocí
+    const formErr = window.Count && Count.deep ? SearchHelp.formErrKind(f, today(), f.trip === 'multi' && mlProblem(f.legs)) : null;
+    if (formErr) Count.deep(formErr);
     if (!f.from.length) { toast('Zadej, odkud chceš letět', 'err'); fromInput.input.focus(); return; }
     if (f.trip === 'multi') {
       const bad = mlProblem(f.legs);
@@ -1509,7 +1518,7 @@
     if (view.mode === 'cal' && !opts.cal && JSON.stringify((lastPayload || {}).to || null) !== JSON.stringify(payload.to || null)) view.mode = 'list';
     lastPayload = payload; lastForm = f;
     // jiné hledání (uživatel změnil formulář): předchozí zrušit (i živé ověřování jeho cen)
-    if (running) running.ctl.abort();
+    if (running) { running.ctl.abort(); if (window.Count && Count.deep) Count.deep('search_redo'); }
     paintDrop(); // odložené překreslení předchozího hledání (průběžné výsledky) už neplatí
     liveGen++;
     const ctl = new AbortController();
@@ -1558,6 +1567,8 @@
       // „Je to dobrá cena?“ aspoň z průběžného výsledku
       if (s.query && window.Trip && Trip.statsGiveUp) Trip.statsGiveUp(s.query);
       if (e.name === 'AbortError') return;
+      // vypršelo (pwa.js slowError) – typicky probouzení uspaného serveru nebo slabý signál
+      if (e.timeout && window.Count && Count.deep) Count.deep('search_slow');
       expandForm(); // chyba hledání: formulář zase vidět (hláška radí ho upravit)
       paintDrop();
       const msg = failMsg(e);
@@ -1788,6 +1799,14 @@
     if (!k) return;
     if (window.Count) Count.hit(k === 'buy' ? 'buy_click' : 'verify_click');
     const row = a.closest('.trip-row'), p = $('[data-pick]', row), r = p && rowRegistry[+p.dataset.pick];
+    // kolikátou nabídku výpisu člověk koupil – jen v Seznamu, jinde (karty, mapa, lety) pořadí znamená něco jiného
+    if (k === 'buy' && view.mode === 'list' && window.Count && Count.deep) {
+      // Přehled cílů (Kamkoliv, země): nabídky jsou jen v rozbalené kartě (.cmp-card hned za řádkem .cmp-row) – index
+      // mezi .trip-row by byl skoro vždy 0, proto pořadí cíle v přehledu
+      const card = row && row.closest('.cmp-card'), list = $('#results');
+      const ev = SearchHelp.buyRank(card ? $$('.cmp-row', list).indexOf(card.previousElementSibling) : $$('.trip-row, .trip-mini', list).indexOf(row));
+      if (ev) Count.deep(ev);
+    }
     if (a.dataset.live == null && r) boughtAt = { tid: row.dataset.tid, r, res: shownRes || lastResult, k };
   }
   // Návrat z webu prodejce: u té nabídky tichý řádek do průvodce (jako „Naplánovat celou cestu“) – žádné okno
@@ -1825,6 +1844,7 @@
     if (!x || !x.old || ageWarned === at) return;
     e.preventDefault();
     ageWarned = at;
+    if (window.Count && Count.deep) Count.deep('buy_age_warn');
     toast(`Ceny jsou ${x.z} ${x.txt} – mohly se změnit. Pro nákup klepni znovu.`, 'err', 6000);
   }
   /**
@@ -2219,7 +2239,7 @@
       host.innerHTML = emptyState(res);
       emptyAsk(res);
       if (window.Count && Count.ask) Count.ask($('.empty-res .smart-help', host), { ...EMPTY_ASK, rate: 0 }); // překreslení: už položená otázka zpět, nová ne
-      $$('[data-mt]', host).forEach(b => b.onclick = () => { setMinTemp(b.dataset.mt); startSearch({ noScroll: true }); });
+      $$('[data-mt]', host).forEach(b => b.onclick = () => { fixHit('warm'); setMinTemp(b.dataset.mt); startSearch({ noScroll: true }); });
       wireHelp(host);
       if (view.gndOpen) showGround(true, false);
       return;
@@ -2295,6 +2315,8 @@
     // patička: co cena je, vidět hned; z čeho je odhad dopravy, kurz a teplota až po rozbalení (na telefonu 16–20 řádků)
     // věta o orientačních cenách jednou nad výpisem, kalendářem i mřížkou termínů (jen když je některá vidět)
     host.innerHTML = summary + cacheNote((isRoute ? (view.mode === 'cal' ? flat.concat(base) : flat) : all).some(t => SearchHelp.isCached(t))) + body + `<div class="res-foot faint">Ceny jsou za letenky na osobu ${bagFoot(res.query.bags)}. Doprava na letiště a z letiště do města je u nabídek zvlášť – do ceny se nepočítá.${footMore(`Doprava je jen pro představu (průměrná cena)${view.sort === 'trip' ? ' a počítá se jen do řazení „i s cestou na letiště“' : view.sort === 'best' ? ' a počítá se jen do doporučeného pořadí' : view.sort === 'fast' ? ' a počítá se jen do řazení „Cena + délka cesty“' : ' a nepočítá se ani do pořadí'}: ${esc(groundFoot(res))}; ${esc(arrivalFoot(res))}. ${liveFoot()} Kurz: ${fxFoot(res)}. 🌡️ Teplota u cíle je dlouhodobý průměr denních maxim v měsíci odletu (meteostanice u letiště, průměr 1991–2020; kde stanice není, NASA POWER 2001–2020) – ne předpověď počasí; u cest do 9 dní je u nabídky předpověď MET Norway.`)}</div>`;
+    // všechno skryly filtry („Filtrům nic neodpovídá“) – 1× za výsledek, překreslení (další filtr, pohled) už ne
+    if (!res.partial && !(isRoute ? flat.length : groups.length) && window.Count && Count.deep) Count.deep('res_all_hidden', String(lastResultAt));
     wireResults();
     if (window.Photos) Photos.paint(host); // fotky měst v řádcích výsledků (jen viditelné)
     wxFill();
@@ -3655,14 +3677,19 @@
     if (!$('#gndPanel') && (view.mode === 'map' || view.mode === 'cal')) { view.mode = legsOk(lastResult) && legsPref ? 'legs' : 'list'; rerender(); }
     showGround(true);
   }
+  // co člověk zkusil u prázdného výsledku (SearchHelp.fixKind) – podrobný počet jen se zapnutou pomocí; u neprázdného nic
+  function fixHit(key) {
+    const ev = window.Count && Count.deep ? SearchHelp.fixKind(key, lastResult) : null;
+    if (ev) Count.deep(ev);
+  }
   // Ovládání nápovědy, nejbližších dnů, filtrů a pohledu „Lety“ (výsledky i prázdný stav).
   function wireHelp(host) {
     // akce s clear zruší filtr výpisu hned, ostatní upraví formulář a hledají znovu
-    $$('[data-act]', host).forEach(b => b.onclick = () => { const a = actReg[+b.dataset.act]; if (a) a.ground ? groundAct() : a.clear ? clearFilter(a.clear) : rerun(a.patch); });
+    $$('[data-act]', host).forEach(b => b.onclick = () => { const a = actReg[+b.dataset.act]; if (!a) return; fixHit(a.key); a.ground ? groundAct() : a.clear ? clearFilter(a.clear) : rerun(a.patch); });
     $$('[data-gshow]', host).forEach(b => b.onclick = () => showGround(!view.gndOpen));
     $$('[data-guide]', host).forEach(b => b.onclick = openGuide);
     $$('[data-nb]', host).forEach(b => b.onclick = () => { const [w, d] = b.dataset.nb.split(':'); pickNearDay(w, d); });
-    $$('[data-af]', host).forEach(b => b.onclick = () => clearFilter(b.dataset.af));
+    $$('[data-af]', host).forEach(b => b.onclick = () => { fixHit('clear:' + b.dataset.af); clearFilter(b.dataset.af); });
     // ↻ Zkusit znovu: u zdroje vynechaného po výpadku (blocked) až po odpočtu
     clearInterval(kiwiTimer);
     const tick = $$('#lcRetry, #kiwiRetry', host).filter(b => { b.onclick = () => rerun(); return b.dataset.until; });
@@ -3835,9 +3862,12 @@
     const host = $('#results');
     const nw = $('#nudgeWatch', host); if (nw) nw.onclick = async () => { const f = nudge && nudge.form; nudge = null; await addWatch(f || undefined); rerender(true); };
     const kp = $('#kidsPax', host); if (kp) kp.onclick = () => { expandForm(); paxSheet(); };
-    $('#sortSel', host).onchange = e => { view.sort = e.target.value; rerender(); };
+    // co lidi ve výsledcích zaujalo (res_*): podrobné počty jen se zapnutou pomocí
+    const deep = e => { if (window.Count && Count.deep) Count.deep(e); };
+    $('#sortSel', host).onchange = e => { view.sort = e.target.value; deep('res_sort'); rerender(); };
     const bj = $('#bestJump', host);
     if (bj) bj.onclick = () => {
+      deep('res_best_jump');
       const show = () => {
         // plná karta, na telefonu i zkrácený řádek výpisu (.trip-mini)
         const id = CSS.escape(bj.dataset.tid), el = $(`.trip-row[data-tid="${id}"]`, $('#results')) || $(`.trip-mini[data-tmini="${id}"]`, $('#results'));
@@ -3852,8 +3882,9 @@
       rerender(); show();
     };
     const mb = $('#resMoreBtn', host);
-    if (mb) mb.onclick = () => { const open = !$('#resMore', host).classList.contains('open'); view.moreOpen = open; if (!open) view.timeOpen = false; rerender(true); };
+    if (mb) mb.onclick = () => { const open = !$('#resMore', host).classList.contains('open'); view.moreOpen = open; if (!open) view.timeOpen = false; else deep('res_filters'); rerender(true); };
     $$('#viewSeg button', host).forEach(b => b.onclick = () => {
+      if (b.dataset.v !== view.mode) { if (b.dataset.v === 'map') deep('res_view_map'); else if (b.dataset.v === 'cal') deep('res_view_cal'); }
       view.mode = b.dataset.v;
       if (legsOk(lastResult) && (view.mode === 'legs' || view.mode === 'list')) legsPref = view.mode === 'legs';
       rerender();
@@ -5254,6 +5285,10 @@
     startSearch();
   }
   function smartRun(hit, from) {
+    // jak dopadlo hledání větou (podrobný počet jen se zapnutou pomocí): bez místa odletu se ptá askFrom(), věta
+    // s víc šipkami odkud má vždy
+    const nofrom = !(hit.chain && hit.chain.length >= 3) && !(hit.from.length || (from && from.length) || (S.home?.from || []).length);
+    if (window.Count && Count.deep) Count.deep(nofrom ? 'sentence_nofrom' : hit.miss && hit.miss.length ? 'sentence_miss' : 'sentence_ok');
     if (hit.chain && hit.chain.length >= 3) return smartChainRun(hit);
     if ((hit.back || hit.backTo) && hit.to.length === 1) return smartBackRun(hit, from);
     const p = hit.sm.patch, to = (hit.to.length ? hit.to : hit.sm.items || []).slice(0, 5);

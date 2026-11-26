@@ -138,7 +138,13 @@
     return ios && !/FBAN|FBAV|Instagram/.test(ua) ? 'ios' : null;
   }
 
-  const api = { netError, installMode, isApi, slowError, withDeadline, readOrStall, whenOnline, flushOnline, retryAfterS, statusMsg, httpError, waitTxt, OFFLINE_MSG, DOWN_MSG, SLOW_MSG, API_WAIT, THEME, THEME_LETSI, addToMenu() {} };
+  /** Hlídač „nejvýš jednou za ms“: první volání true, další do uplynutí ms false (počet výpadku serveru, ne každý dotaz). */
+  function every(ms) {
+    let at = -Infinity;
+    return (now = Date.now()) => (now - at >= ms ? ((at = now), true) : false);
+  }
+
+  const api = { every, netError, installMode, isApi, slowError, withDeadline, readOrStall, whenOnline, flushOnline, retryAfterS, statusMsg, httpError, waitTxt, OFFLINE_MSG, DOWN_MSG, SLOW_MSG, API_WAIT, THEME, THEME_LETSI, addToMenu() {} };
   window.Pwa = api;
   if (typeof document === 'undefined' || !document.documentElement) return; // testy v node:vm – jen funkce výše
 
@@ -148,13 +154,17 @@
   /* 1) Srozumitelná chyba místo „Failed to fetch“ ve všech hláškách aplikace (hledání, radar, cesta, ubytování,
         program…): jen u API ATLASu a jen při chybě sítě – odpovědi serveru i zrušená hledání beze změny. API navíc
         s limitem na odpověď (API_WAIT), ať slabý signál nenechá spinner točit donekonečna. */
+  const downDue = every(60e3);
   if (nativeFetch) {
     window.fetch = function (input, init) {
       const p = isApi(input, document.baseURI)
         ? withDeadline((i, o) => nativeFetch.call(window, i, o), input, init)
         : nativeFetch.apply(window, arguments);
       return p.catch((e) => {
-        throw netError(e, input, { online: navigator.onLine !== false, base: document.baseURI });
+        const err = netError(e, input, { online: navigator.onLine !== false, base: document.baseURI });
+        // server neodpovídá (ne offline): podrobný počet jen se zapnutou pomocí, výpadek = desítky dotazů → 1× za minutu
+        if (err !== e && !err.offline && window.Count && Count.deep && downDue()) Count.deep('api_fail_down');
+        throw err;
       });
     };
   }

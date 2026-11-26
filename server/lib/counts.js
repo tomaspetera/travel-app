@@ -32,6 +32,11 @@ export const EVENTS = [
   // opakované klepnutí (3× do 1 s na totéž místo – něco nereaguje) podle sekce; jen se souhlasem „Pomáhat se
   // zlepšováním“ (public/js/count.js), jako i záznam návštěvy (server/lib/traces.js)
   'rage_dashboard', 'rage_flights', 'rage_trip', 'rage_explore', 'rage_world',
+  // podrobné počty v Letech – jen od lidí se zapnutou pomocí „Pomáhat se zlepšováním“ (Count.deep v count.js)
+  'fix_date', 'fix_place', 'fix_filter', 'fix_warm', 'fix_ground', 'buy_age_warn', 'place_none_from', 'place_none_to',
+  'sentence_ok', 'sentence_miss', 'sentence_nofrom', 'form_err_from', 'form_err_range', 'form_err_date', 'form_err_multi',
+  'search_redo', 'search_slow', 'api_fail_down', 'res_all_hidden', 'res_filters', 'res_sort', 'res_view_map', 'res_view_cal',
+  'res_best_jump', 'buy_rank_1', 'buy_rank_2_5', 'buy_rank_6p',
 ];
 // Strop seznamu: s každým názvem roste nejhorší počet zápisů do Upstash (rozpočet v test/pocitadla.test.js)
 export const MAX_EVENTS = 150;
