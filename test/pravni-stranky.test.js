@@ -81,6 +81,8 @@ test('GET /soukromi a /podminky: 200, česká stránka, CSP bez cizích zdrojů 
       assert.equal(r.status, 200, p);
       assert.equal(r.headers.get('content-type'), 'text/html; charset=utf-8');
       assert.equal(r.headers.get('cache-control'), 'no-cache');
+      // verze, kterou žádný service worker nemá: už nainstalovaný ji neuloží místo stránky aplikace (sw.js remember)
+      assert.equal(r.headers.get('x-atlas-build'), 'pravni', `${p}: X-Atlas-Build`);
       const csp = r.headers.get('content-security-policy');
       assert.match(csp, /default-src 'none'/);
       assert.doesNotMatch(csp, /https?:|script-src|\*/, `${p}: nic cizího, žádné skripty`);

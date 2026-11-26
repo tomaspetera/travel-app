@@ -183,7 +183,9 @@ export function serveLegal(req, res, p, docsDir, { operator = '', email = '' } =
   const key = `${st.size}|${st.mtimeMs}|${operator}|${email}`;
   let m = memo.get(p);
   if (!m || m.key !== key) memo.set(p, m = { key, body: legalPage(readFileSync(file, 'utf8'), { operator, email }, OTHER[p]) });
-  // no-cache: text se mění s nasazením, ověření přes ETag je levné
-  sendGenerated(req, res, 200, m.body, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache', 'Content-Security-Policy': LEGAL_CSP });
+  // no-cache: text se mění s nasazením, ověření přes ETag je levné. X-Atlas-Build: verze, kterou žádný service worker
+  // nemá – už nainstalovaný (bez výjimky pro /soukromi v sw.js) by stránku jinak uložil místo stránky aplikace
+  // (sw.js remember ukládá stránku bez verze) a offline či při spícím serveru by se místo aplikace otevřely zásady
+  sendGenerated(req, res, 200, m.body, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache', 'Content-Security-Policy': LEGAL_CSP, 'X-Atlas-Build': 'pravni' });
   return true;
 }

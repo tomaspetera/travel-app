@@ -83,8 +83,9 @@
   }
 
   /** Obsah okna (čistá funkce – test/about.test.js). email = feedback.email z /api/health (jinak bez tlačítka),
-      support = support.url (💛 Podpořit ATLAS), operator = provozovatel – obojí z /api/health, jinak se neukáže;
-      backup = je k dispozici 💾 Přenos a záloha; health = celé /api/health (zdroje, provize), null = ještě není;
+      support = support.url (💛 Podpořit ATLAS; jinak se neukáže), operator = provozovatel (jinak zástupný text
+      v legal()) – obojí z /api/health; backup = je k dispozici 💾 Přenos a záloha; health = celé /api/health
+      (zdroje, provize), null = ještě není;
       help = stav přepínače Pomáhat se zlepšováním (true / false), null = bez přepínače (count.js ho neumí). */
   function html({ version = '', build = '', email = null, screen = '', backup = true, support = null, operator = '', health = null, help = null } = {}) {
     const mail = mailto(email, version, screen), pay = okPay(support) ? support : null, earn = earnings(health);
