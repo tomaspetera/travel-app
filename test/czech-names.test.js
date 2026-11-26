@@ -137,8 +137,8 @@ test('Objevuj: oblast přesným názvem → město jejího největšího letišt
   config.mock = true;
   try {
     const first = async (q, regions = true) => (await geocodeExplore(q, { mapy: false, regions }))[0];
-    for (const [q, label, region] of [['Toskánsko', 'Florencie', 'toskansko'], ['Kanáry', 'Tenerife', 'kanary'], ['Mallorka', 'Mallorca', 'mallorca'],
-      ['Kréta', 'Heraklion', 'kreta'], ['Korsika', 'Ajaccio', 'korsika'], ['Bavorsko', 'Mnichov', 'bavorsko'], ['Tyrolsko', 'Innsbruck', 'tyrolsko'],
+    for (const [q, label, region] of [['Toskánsko', 'Florencie', 'toskansko'], ['Kanáry', 'Santa Cruz de Tenerife', 'kanary'], ['Mallorka', 'Palma de Mallorca', 'mallorca'],
+      ['Kréta', 'Herákleion', 'kreta'], ['Rhodos', 'Rhodes', 'rhodos'], ['Korsika', 'Ajaccio', 'korsika'], ['Bavorsko', 'Mnichov', 'bavorsko'], ['Tyrolsko', 'Innsbruck', 'tyrolsko'],
       ['Sicílie', 'Palermo', 'sicilie'], ['Sardinie', 'Cagliari', 'sardinie'], ['Provence', 'Marseille', 'provence'], ['Normandie', 'Caen', 'normandie'],
       ['Lofoty', 'Leknes', 'lofoty'], ['Goa', 'Goa', 'goa']]) {
       const s = await first(q);
