@@ -12,15 +12,17 @@ import zlib from 'node:zlib';
 import { pageCsp } from './security.js';
 
 // Data, která aplikace stahuje až za běhu (ne přes <script>/<link> v index.html) a bez kterých by offline chyběly
-// země (přehled, plánovač), vstupní podmínky, karta „Co zařídit a co sbalit“ a mapa navštívených zemí. data/…
-// jako server: ze složky data/ (countries.json, entry.json), a když tam soubor není, z public/data/ (pretrip.json).
-// Písma Inter a Sora (styly v css/ je berou přes @font-face, ne přes <link> v index.html) – bez nich by offline hned
-// po první návštěvě aplikace měla náhradní písmo (vzhled ATLASu, karty ke sdílení). Kukátko vzhledu Letsi (výchozí):
-// kukatko.js načte vložený skript v index.html a ten si přidá kukatko.css – shellAssets je ve stránce nevidí.
-// Písma a obrázky, které styly berou přes url() (Unbounded, Onest, ikony a logo Letsi), přidá cssAssets.
-export const RUNTIME_ASSETS = ['data/countries.json', 'data/entry.json', 'data/pretrip.json', 'vendor/countries-110m.json',
-  'vendor/fonts/inter-v20-latin.woff2', 'vendor/fonts/inter-v20-latin-ext.woff2', 'vendor/fonts/sora-v17-latin.woff2', 'vendor/fonts/sora-v17-latin-ext.woff2',
-  'js/kukatko.js', 'css/kukatko.css'];
+// země (přehled, plánovač), vstupní podmínky a karta „Co zařídit a co sbalit“. data/… jako server: ze složky data/
+// (countries.json, entry.json), a když tam soubor není, z public/data/ (pretrip.json). Mapa světa
+// (vendor/countries-110m.json) ne: bez knihoven map (d3, MapLibre – záměrně neukládané, ~1,3 MB) by offline stejně
+// nebyla k ničemu. Kukátko vzhledu Letsi (výchozí): kukatko.js načte vložený skript v index.html a ten si přidá
+// kukatko.css – shellAssets je ve stránce nevidí. Písma a obrázky, které styly berou přes url() (Unbounded, Onest,
+// Caveat pro kartu ke sdílení, ikony a logo Letsi), přidá cssAssets – kromě OLD_FONTS.
+export const RUNTIME_ASSETS = ['data/countries.json', 'data/entry.json', 'data/pretrip.json', 'js/kukatko.js', 'css/kukatko.css'];
+// Inter a Sora (~170 kB) patří jen ke starému vzhledu ATLAS – výchozí Letsi má Onest a Unbounded, takže by se při
+// instalaci stahovaly zbytečně. Kdo starý vzhled používá, má je offline taky: service worker si uloží každý soubor,
+// který stránka stáhla (sw.js remember).
+const OLD_FONTS = /^vendor\/fonts\/(?:inter|sora)-/;
 const LINK_RELS = /^(?:stylesheet|manifest|icon|shortcut icon|apple-touch-icon)$/i;
 
 /** Hodnota atributu ze značky (v uvozovkách, apostrofech i bez nich), nebo undefined. */
@@ -194,7 +196,7 @@ export function serviceWorker({ publicDir, dataDir, salt = '' }) {
   const icons = shell.filter((u) => u.endsWith('.webmanifest') && fileFor(u, dirs))
     .flatMap((u) => manifestIcons(readFileSync(fileFor(u, dirs).abs, 'utf8'), u));
   const fromCss = shell.filter((u) => /\.css(?:\?|$)/.test(u) && fileFor(u, dirs))
-    .flatMap((u) => cssAssets(readFileSync(fileFor(u, dirs).abs, 'utf8'), u));
+    .flatMap((u) => cssAssets(readFileSync(fileFor(u, dirs).abs, 'utf8'), u)).filter((u) => !OLD_FONTS.test(u));
   const precache = ['./', ...[...shell, ...icons, ...RUNTIME_ASSETS, ...fromCss].filter((u, i, all) => all.indexOf(u) === i && fileFor(u, dirs))];
   const tpl = readFileSync(path.join(publicDir, 'sw.js'), 'utf8');
   if (!BUILD_RE.test(tpl) || !PRECACHE_RE.test(tpl)) throw new Error('public/sw.js: chybí řádek „const BUILD = …;“ nebo „const PRECACHE = […];“');

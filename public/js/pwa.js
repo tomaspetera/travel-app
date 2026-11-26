@@ -313,6 +313,9 @@
    * když server odpoví hned a nic rozdělaného by nezmizelo; jinak (a v prohlížeči vždy) nabídne „Obnovit“.
    */
   async function checkVersion(force, resumed = false) {
+    // schovaná karta se neptá (časovač po 30 min by jinak budil uspaný server, i když stránku nikdo nevidí) – po návratu
+    // na stránku verzi ověří visibilitychange
+    if (!force && document.hidden) return;
     if (!mine || !nativeFetch || navigator.onLine === false || (!force && Date.now() - lastCheck < 15e3)) return;
     lastCheck = Date.now();
     const t0 = Date.now();
