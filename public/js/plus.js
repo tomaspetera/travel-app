@@ -143,7 +143,7 @@
     ['Hledání letenek a orientační ceny', 'ano', 'ano'],
     ['Ověření ceny u prodejce', 'ano', 'ano'],
     ['Informace o zemích a Objevuj', 'ano', 'ano'],
-    ['Plánovaná cesta celá (i ⚡ Poskládej celou cestu)', 'jedna', 'neomezeně'],
+    ['Naplánované cesty (i\u00a0z\u00a0⚡\u00a0Poskládej)', 'jedna', 'neomezeně'], // pevné mezery: závorka se zalomí celá, ne „⚡“ zvlášť
     ['Záloha do souboru', 'ano', 'ano'],
     ['Sdílení cesty', 'ano', 'ano'],
     ['Archiv minulých cest', 'ne', 'ano'],
@@ -157,7 +157,7 @@
       <table class="plus-table"><thead><tr><th scope="col">Co</th><th scope="col">Zdarma</th><th scope="col">Plus <small>${SOON}</small></th></tr></thead>
         <tbody>${FREE.map(([what, a, b]) => `<tr><th scope="row">${h(what)}</th><td>${cell(a)}</td><td>${cell(b)}</td></tr>`).join('')}</tbody></table>
       <p class="plus-small">Plus: ${kc(YEAR_CZK)} na rok, nebo ${kc(MONTH_CZK)} na měsíc.</p>
-      <p class="faint plus-small">Z čeho Letsi žije: z provizí partnerů, z předplatného Plus a z dobrovolných příspěvků. Reklamu neprodáváme a pořadí výsledků si nikdo nekoupí.</p>
+      <p class="faint plus-small">Z čeho Letsi žije: z provizí partnerů (takové odkazy jsou označené reklama) a z dobrovolných příspěvků, později i z předplatného Plus. Pořadí výsledků si nikdo nekoupí.</p>
       <div id="plusAfter"><button type="button" class="btn primary block" id="plusWant">Chci Plus</button></div>
     </div>`;
   }

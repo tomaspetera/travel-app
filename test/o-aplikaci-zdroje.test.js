@@ -67,7 +67,7 @@ test('Jak to funguje a z čeho žiju: nad zdroji, věta o provizi podle affiliat
   const head = '<h4 class="ab-h">Jak to funguje a z čeho žiju</h4>';
   const on = A.html({ version: 'v', health: ALL });
   assert.ok(on.indexOf(head) > 0 && on.indexOf(head) < on.indexOf('Odkud jsou data'), 'oddíl nad Odkud jsou data');
-  assert.match(on, /Ceny porovnávám, letenku i ubytování koupíš vždy přímo u aerolinky nebo prodejce\. Hledání a plánování je zdarma a bez reklam\./);
+  assert.match(on, /Ceny porovnávám, letenku i ubytování koupíš vždy přímo u aerolinky nebo prodejce\. Hledání a plánování je zdarma a bez reklamních bannerů\./);
   assert.match(on, /Z některých odkazů na prodejce můžu dostat provizi\. Cenu ani pořadí výsledků to nemění\./);
   assert.doesNotMatch(on, /provizi z nich nemám/);
   const off = A.html({ version: 'v', health: TP_ONLY });
@@ -83,7 +83,7 @@ test('Jak to funguje a z čeho žiju: nad zdroji, věta o provizi podle affiliat
 });
 
 test('uvítání nového uživatele: pod úvodní větou řádek o tom, kde se kupuje', () => {
-  assert.match(read('public/js/app.js'), /<h3 class="wc-h">👋 Vítej! Najdu levné letenky a poskládám z nich celou cestu\.<\/h3>\n\s*<p class="faint wc-how" style="font-size:12\.5px;[^"]*">Ceny porovnávám, letenku koupíš u aerolinky nebo prodejce\. Zdarma a bez reklam\.<\/p>/);
+  assert.match(read('public/js/app.js'), /<h3 class="wc-h">👋 Vítej! Najdu levné letenky a poskládám z nich celou cestu\.<\/h3>\n\s*<p class="faint wc-how" style="font-size:12\.5px;[^"]*">Ceny porovnávám, letenku koupíš u aerolinky nebo prodejce\. Zdarma, bez placených pozic\.<\/p>/);
   // výsledky se ve výchozím stavu řadí „👍 Doporučené“ (rank.js: cena i s cestou na letiště, přestupy, časy), ne od nejlevnější
   assert.match(read('public/js/flights.js'), /let view = \{ mode: 'list', sort: 'best',/);
   assert.match(read('public/js/app.js'), /<b>Vyber let<\/b><small>nahoře doporučené podle ceny, cesty a časů, doprava na letiště zvlášť pod cenou<\/small>/);
