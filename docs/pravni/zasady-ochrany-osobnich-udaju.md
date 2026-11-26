@@ -256,7 +256,7 @@ Tyto služby dostanou tvou **IP adresu** a identifikaci prohlížeče, jako u ka
 | weby hotelů a jejich obrázkové servery (přes LiteAPI, TripAdvisor) | fotky ubytování | v nabídce ubytování |
 
 Mapy.com (turistická mapa, návrhy míst, trasy), předpověď počasí a směnné kurzy (ExchangeRate-API) jdou **přes server
-Letsi** – tyto služby tvou IP adresu nevidí; i logo Mapy.com je uložené na serveru Letsi. Písma (Inter, Sora, Caveat) jsou na serveru Letsi, Google Fonts se nepoužívá.
+Letsi** – tyto služby tvou IP adresu nevidí; i logo Mapy.com je uložené na serveru Letsi. Písma (Onest a Unbounded vzhledu Letsi, Caveat na kartě ke sdílení, Inter a Sora staršího vzhledu) jsou na serveru Letsi, Google Fonts se nepoužívá.
 
 > Kde v kódu: `public/css/atlas.css` (písma z `public/vendor/fonts`), `public/js/app.js` (kurzy z `/api/fx`, zdroje
 > fotek), `public/js/places.js` (`tiles.openfreemap.org`; logo Mapy.com `MAPY_LOGO` z `public/vendor/mapy-logo.svg`), `server/lib/photos.js` (Wikimedia, Pexels, Unsplash – fotky se vkládají přímo z jejich serverů),
