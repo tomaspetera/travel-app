@@ -333,7 +333,7 @@
       updBar = document.createElement('div');
       updBar.className = 'pwa-update';
       updBar.setAttribute('role', 'status');
-      updBar.innerHTML = '<span>✨ Je k dispozici nová verze Letsi</span><button type="button" class="btn sm primary">Obnovit</button><button type="button" class="pwa-x" aria-label="Zavřít" title="Později">×</button>';
+      updBar.innerHTML = '<span>Je k dispozici nová verze Letsi</span><button type="button" class="btn sm primary">Obnovit</button><button type="button" class="pwa-x" aria-label="Zavřít" title="Později">×</button>';
       updBar.querySelector('.btn').onclick = () => reloadFresh();
       updBar.querySelector('.pwa-x').onclick = () => { updBar.hidden = true; dismissed = updBar.dataset.build; };
       document.body.append(updBar);

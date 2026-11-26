@@ -86,6 +86,6 @@ test('uvítání nového uživatele: pod úvodní větou řádek o tom, kde se k
   assert.match(read('public/js/app.js'), /<h3 class="wc-h">👋 Vítej! Najdu levné letenky a poskládám z nich celou cestu\.<\/h3>\n\s*<p class="faint wc-how" style="font-size:12\.5px;[^"]*">Ceny porovnávám, letenku koupíš u aerolinky nebo prodejce\. Zdarma, bez placených pozic\.<\/p>/);
   // výsledky se ve výchozím stavu řadí „👍 Doporučené“ (rank.js: cena i s cestou na letiště, přestupy, časy), ne od nejlevnější
   assert.match(read('public/js/flights.js'), /let view = \{ mode: 'list', sort: 'best',/);
-  assert.match(read('public/js/app.js'), /<b>Vyber let<\/b><small>nahoře doporučené podle ceny, cesty a časů, doprava na letiště zvlášť pod cenou<\/small>/);
+  assert.match(read('public/js/app.js'), /<b>Vyber let<\/b><small>nahoře jsou nejvýhodnější podle ceny a časů, cestu na letiště ukážu zvlášť<\/small>/);
   assert.doesNotMatch(read('public/js/app.js'), /nejlevnější letenky nahoře/);
 });

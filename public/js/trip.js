@@ -1082,7 +1082,7 @@
         <div class="trip-intro-act"><button type="button" class="btn ghost" id="tripGoExplore">${ikona('kompas')} Jen objevovat místa</button>${window.newTrip ? '<button type="button" class="btn ghost" id="tripOwn">' + ikona('plus') + ' Vlastní cesta bez letu</button>' : ''}</div>
         <div class="trip-steps-h">Jak to funguje</div>
         <ol class="trip-steps">
-          <li><span>✈️</span><div><b>Let</b><small>Napiš výš, kam chceš (nebo hledej v Letech či radaru), a u nabídky klikni na <b>Naplánovat celou cestu</b>.</small></div></li>
+          <li><span>✈️</span><div><b>Let</b><small>Napiš výš, kam chceš (nebo hledej v Letech či v Kam letět levně na Přehledu), a u nabídky klikni na <b>Naplánovat celou cestu</b>.</small></div></li>
           <li><span>🏨</span><div><b>Ubytování</b><small>Hotely s cenou na tvoje dny a odkazy na Booking, Airbnb a další.</small></div></li>
           <li><span>🚗</span><div><b>Auto</b><small>Půjčení auta na místě – nebo jen veřejná doprava.</small></div></li>
           <li><span>🗺️</span><div><b>Program</b><small>Co vidět den po dni, výlety, kolo i pěšky.</small></div></li>
@@ -2359,7 +2359,7 @@
       <div class="sc-head"><div><h3>${ikona('ubytovani')} Ubytování na trase</h3><div class="muted">${n} ${n <= 4 ? 'místa' : 'míst'} · ${nightsTxt(total)} · ${guestsTxt(t)} · vybráno ${r.bases.filter(x => x.stay).length} z ${n}</div>${stayKidsNote(t)}</div></div>
       ${autoNoteHtml(t, 'stay')}
       ${allDone ? `<div class="auto-pick ok"><div class="ap-t"><b>✓ Ubytování máš ve všech místech</b><small>${sumStay ? `Celkem ${czk(sumStay)} · ` : ''}změnit ho můžeš v záložkách níž.</small></div><button type="button" class="btn primary" id="stayDone">Pokračovat k autu →</button></div>` : ''}
-      ${left ? `<div class="auto-pick"><div class="ap-t"><b>✨ Nechceš vybírat?</b><small>V ${left === n ? `každém místě` : `${left} ${left === 1 ? 'zbývajícím místě' : 'zbývajících místech'}`} ${stayPricesOn() ? 'vyberu hotel s nejlepším poměrem ceny a hodnocení blízko centra' : 'vyberu ubytování blízko centra – cenu doplníš podle nabídky u prodejce'}. Změnit ho můžeš kdykoliv v záložkách.</small></div><button type="button" class="btn primary" id="stayAuto"${autoBusy ? ' disabled' : ''}>${autoBusy ? '<span class="spin"></span> Vybírám…' : 'Vyber za mě'}</button></div>` : ''}
+      ${left ? `<div class="auto-pick"><div class="ap-t"><b>Nechceš vybírat?</b><small>V ${left === n ? `každém místě` : `${left} ${left === 1 ? 'zbývajícím místě' : 'zbývajících místech'}`} ${stayPricesOn() ? 'vyberu hotel s nejlepším poměrem ceny a hodnocení blízko centra' : 'vyberu ubytování blízko centra – cenu doplníš podle nabídky u prodejce'}. Změnit ho můžeš kdykoliv v záložkách.</small></div><button type="button" class="btn primary" id="stayAuto"${autoBusy ? ' disabled' : ''}>${autoBusy ? '<span class="spin"></span> Vybírám…' : 'Vyber za mě'}</button></div>` : ''}
       ${baseTabs(r, i, x => Boolean(x.stay), 'data-bt')}
       <div class="sc-head" style="margin-top:14px"><div><h3 style="font-size:15.5px">${i + 1}. ${esc(b.name)}</h3><div class="muted">${dayLbl(d.checkin)} – ${dayLbl(d.checkout)} · ${nightsTxt(d.nights)}${bq && bq.from ? ' · ubytování od dnes' : ''}</div></div>
         ${b.stay ? `<div class="chosen">Vybráno: <b>${esc(stayState(b.stay))}</b>${stayCzk(b.stay) ? ` · ${czk(stayCzk(b.stay))}${b.stay.est ? ' <span class="faint">(odhad)</span>' : ''}` : noPricePick(b.stay) ? noPriceHtml(b.stay) : ''}</div>` : ''}</div>

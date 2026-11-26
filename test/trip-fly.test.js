@@ -265,7 +265,7 @@ test('cesta přes víc měst: „✨ Vyber za mě“ vybere v každém místě b
   };
   const tick = () => new Promise((r) => setImmediate(r));
   const s = render(c, 'stay');
-  assert.match(s, /✨ Nechceš vybírat\?/);
+  assert.match(s, /<b>Nechceš vybírat\?<\/b>/);
   assert.match(s, /V každém místě vyberu hotel s nejlepším poměrem/);
   await tick();
   await c.__els['#stayAuto'].onclick();
