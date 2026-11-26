@@ -145,6 +145,7 @@ Navigační mapa repozitáře: kde co je a jak to spolu souvisí, aby se kód da
 - 💬 Napsat nám / 💛 Podpořit / provozovatel → `server/config.js`: `cleanEmail()`, `cleanPayUrl()`, `cleanOperator()`; `public/js/about.js`: `okEmail()`, `okPay()`
 - Chyby z prohlížeče v logu Renderu → `public/js/errlog.js`: `report()`, `makeReport()`; `server/lib/clienterr.js`: `cleanReport()`, `recordClientError()`
 - Souhrnné denní počty bez sledování lidí (co lidé v aplikaci dělají) → `public/js/count.js`: `hit()`, `view()`; `server/lib/counts.js`: `EVENTS`, `makeCounter()`; zapojení `go()` a `boot()` v `public/js/app.js`; čtení GET `/api/stats`
+- Statistiky pro majitele (čitelný přehled `/api/stats` na telefonu) → `public/statistiky.html` + `public/js/statistiky.js`: `funnel()`, `survey()`, `median()`, `doors()`, `dayRows()`
 
 ## Tok dat
 - **Start serveru**: `npm start` → `server/index.js` (listen jen jako vstupní skript) → `createServer()` → `server.listen(config.port, config.host)` → `warmUp()`: `loadRates()` → `loadPlaces()` → mimo DEMO `refreshFuel()` + sítě aerolinek → SIGTERM/SIGINT: `server.close()`, po 10 s exit.
@@ -305,6 +306,7 @@ Tabulka odpovídá pořadí větví v `route()` (`server/index.js`). Limity jsou
 - `public/js/pricecheck.js` – „Je to dobrá cena?“: úroveň ceny (zrcadlo serveru), paměť cen s trendem, rada. Klíčové: `levelOf()`, `assess()`, `statsOf()`, `remember()`, `memoryOf()`, `advice()`, `explain()`, `CFG`.
 - `public/js/pwa.js` – obal fetch (české chyby, limit 2 min), offline pruh, barva lišty, instalace, registrace `public/sw.js`, lišta nové verze (defer). Klíčové: `readOrStall()`, `httpError()`, `statusMsg()`, `whenOnline()`, `install()`, `syncTheme()`, `checkVersion()`, `quietToReload()`, `askSw()`. API: HEAD/GET `sw.js`.
 - `public/js/qr.js` – vlastní QR kodér (úrovně M a L) pro 📲 přenos. Klíčové: `encode()`, `svg()`, `capacity()`, `rs()`.
+- `public/js/statistiky.js` – stránka `public/statistiky.html` (Statistiky pro majitele, noindex, z aplikace na ni nic nevede, mimo offline sadu – `public/sw.js` `route()`): hlavní čísla, trychtýř, průzkum ceny Plus, falešné dveře, sekce, tabulka po dnech; čisté výpočty ve `window.Stats`, test `test/statistiky.test.js`. Klíčové: `totals()`, `funnel()`, `survey()`, `median()`, `doors()`, `dayRows()`, `pct()`. API: `api/stats?days=` (7/30/90).
 - `public/js/rank.js` – doporučené pořadí: srovnávací cena = cena + přirážky − sleva; čistá logika. Klíčové: `W`, `score()`, `explain()`, `order()`, `pick()`, `reasons()`, `ctxOf()`, `radar()`.
 - `public/js/recs.js` – doporučení „Kam vyrazit“ pro měsíc s body a důvody; čistá logika. Klíčové: `W`, `rank()`, `profile()`, `radarBest()`, `seaWeather()`, `defaultMonth()`, `monthRange()`.
 - `public/js/searchhelp.js` – čistá logika Letů bez DOM a sítě (`window.SearchHelp`): cestující, filtry, lety po letech, radar, svátky, doprava na letiště, uložené výsledky. Klíčové: `paxOf()`, `timeOk()`, `distinctLegs()`, `radarQuery()`, `holidayList()`, `carTrip()`, `arrivalLine()`, `gridTrips()`, `lastPack()`, `draftLoad()`, `liveVerdict()`, `multiPlan()`.
