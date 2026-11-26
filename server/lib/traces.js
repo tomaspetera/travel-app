@@ -94,8 +94,12 @@ export function makeTraces(store, { cap = CAP, hourCap = HOUR_CAP, flushMs = FLU
   let fresh = []; // časy nových ID za poslední hodinu (hourCap)
   let timer = null;
   let cached = null; // { at, maps } – 30 dní najednou: jiné ?days= není další dotaz do Upstash
-  let seen = { day: '', ids: new Set() }; // ID už zapsaná dnes – pozdější kroky téže návštěvy se do stropu nepočítají znovu
-  const has = (id) => pend.has(id) || seen.ids.has(id);
+  // den → ID už zapsaná ten den: pozdější kroky téže návštěvy se do stropu nepočítají znovu a jdou do hashe dne, kdy
+  // návštěva začala – po půlnoci by jinak byla podruhé v novém dni a v prvním useknutá (falešný odchod). Stačí poslední
+  // dva dny: návštěva trvá nejvýš den (cleanTrace).
+  const seen = new Map();
+  const seenDay = (id) => { for (const [d, ids] of seen) if (ids.has(id)) return d; return null; };
+  const has = (id) => pend.has(id) || seenDay(id) !== null;
   const arm = () => {
     if (timer || (!pend.size && !delIds.size)) return;
     timer = setTimeout(flush, flushMs);
@@ -119,13 +123,14 @@ export function makeTraces(store, { cap = CAP, hourCap = HOUR_CAP, flushMs = FLU
     for (const [id, x] of batch) { if (!byDay.has(x.day)) byDay.set(x.day, []); byDay.get(x.day).push([id, JSON.stringify(x.steps)]); }
     for (const [day, pairs] of byDay) {
       try {
-        const known = seen.day === day ? seen.ids : new Set();
+        const known = seen.get(day) || new Set();
         let room = cap - (await store.hlen(KEY + day));
         const ok = pairs.filter(([id]) => known.has(id) || room-- > 0);
         if (!ok.length) continue;
         await store.write(KEY + day, ok, TTL_SEC);
         for (const [id] of ok) known.add(id);
-        seen = { day, ids: known }; // stačí poslední den – včerejší ID už nepřijdou
+        seen.set(day, known);
+        for (const d of [...seen.keys()].sort().slice(0, -2)) seen.delete(d);
         cached = null;
       } catch (e) { /* dávku zahodit (viz výše) */ }
     }
@@ -139,7 +144,7 @@ export function makeTraces(store, { cap = CAP, hourCap = HOUR_CAP, flushMs = FLU
         // půlnocí). Neznámých ID (jiná instance, po restartu) jen do stropu – jinak by zkoušení zabralo paměť.
         const mine = has(t.id);
         pend.delete(t.id);
-        seen.ids.delete(t.id);
+        for (const ids of seen.values()) ids.delete(t.id);
         if (!mine && delIds.size >= cap) return true;
         delIds.add(t.id);
         const d = now();
@@ -157,7 +162,7 @@ export function makeTraces(store, { cap = CAP, hourCap = HOUR_CAP, flushMs = FLU
         if (fresh.length >= hourCap) return false;
         fresh.push(now());
       }
-      pend.set(t.id, { day: (pend.get(t.id) || {}).day || dayOf(now()), steps: t.steps });
+      pend.set(t.id, { day: (pend.get(t.id) || {}).day || seenDay(t.id) || dayOf(now()), steps: t.steps });
       arm();
       return true;
     },
