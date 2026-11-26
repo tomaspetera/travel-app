@@ -117,12 +117,23 @@
   #heroBox p{margin-top:6px;max-width:760px;font-size:15px}
   #heroBox .hero-search2{margin-top:18px}
   #heroBox .smart-try{margin-top:12px}
-  /* 🧳 Naplánovat celou dovolenou: od 1280 px vpravo nahoře vedle nadpisu – pod příklady vět by úvod zvýšil o řádek
-     a první řada radaru by na 1366 × 768 spadla pod ohyb; užší počítač ho má pod příklady jako telefon */
+  /* 🧳 Naplánovat celou dovolenou a ✈️ Letenku už mám: od 1280 px vpravo nahoře vedle nadpisu – pod příklady vět by
+     úvod zvýšil o řádek a první řada radaru by na 1366 × 768 spadla pod ohyb; užší počítač je má pod příklady jako telefon.
+     Flex se zalomením místo pevné rezervy šířky: tlačítka (~600 px) jsou vedle nadpisu, jen když se tam celý nadpis
+     vejde na jeden řádek, jinak spadnou pod něj. Pevná rezerva (calc(100% - 620px)) nechávala nadpisu mezi 1280
+     a ~1340 px méně než jeho šířku a „Kam poletíme?“ se lámal; skutečná šířka písma (Sora / Unbounded) a posuvníku
+     ve Windows se předem spočítat nedá, zalomení flexu ji měří samo. */
   @media (min-width:1280px){
-    #heroBox .hero-plans{position:absolute;top:0;right:0;margin-top:0;flex-direction:row}
-    #heroBox h1,#heroBox p{max-width:min(760px,calc(100% - 270px))}
-    #heroBox h1{max-width:calc(100% - 620px)} /* vedle obou tlačítek (🧳 a ✈️ Letenku už mám) v jedné řadě */
+    #heroBox .hero-inner{display:flex;flex-wrap:wrap;align-items:flex-start;gap:10px 16px}
+    #heroBox .hero-inner>*{flex:0 0 100%}
+    /* nadpis do první řady v celé své šířce (flex-basis auto = text na jednom řádku), zbytek řady vyplní a tlačítka
+       odsune doprava; když se vedle něj nevejdou, zůstane v řadě sám */
+    #heroBox h1{order:-2;flex:1 0 auto;max-width:none}
+    #heroBox .hero-plans{order:-1;flex:0 0 auto;margin-top:0;flex-direction:row}
+    /* mezera flexu (10 px) se přičítá k odsazením – stejné rozestupy jako bez flexu (6 / 18 / 12 px) */
+    #heroBox p{margin-top:-4px}
+    #heroBox .hero-search2{margin-top:8px}
+    #heroBox .smart-try{margin-top:2px}
   }
   /* klávesa „/“ skočí do pole Kam (app.js) – nenápadná nápověda u popisku Kam */
   .hero-search2 .hs-field:nth-child(2) .hs-lab::after{content:"/";display:inline-grid;place-items:center;min-width:16px;height:16px;

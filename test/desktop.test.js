@@ -77,7 +77,21 @@ test('desktop-flights.css (průchod uživatele): nabídky nad ohybem, nižší k
   // nízký notebook: úvod bez vysvětlující věty; srovnání 📌 se dvěma kartami 800 px
   assert.match(src, /@media \(min-width:1024px\) and \(max-height:820px\)\{\s*#heroBox p\{display:none\}/);
   assert.match(src, /\.modal:has\(\.pin-modal \.pin-cards>:nth-child\(2\):last-child\)\{width:min\(800px,100%\)\}/);
-  const app = readFileSync(new URL('../public/js/app.js', import.meta.url), 'utf8');
+  // úvod od 1280 px: tlačítka 🧳 a ✈️ vedle nadpisu jen když se vejdou (flex se zalomením), jinak pod ním – nadpis
+  // „Kam poletíme?“ se mezi 1280 a ~1340 px lámal na dva řádky kvůli pevné rezervě calc(100% - 620px)
+  const at = src.indexOf('@media (min-width:1280px){');
+  assert.ok(at > 0);
+  const wide = src.slice(at, src.indexOf('\n  }\n', at));
+  assert.match(wide, /#heroBox \.hero-inner\{display:flex;flex-wrap:wrap;align-items:flex-start;gap:10px 16px\}/);
+  assert.match(wide, /#heroBox \.hero-inner>\*\{flex:0 0 100%\}/);
+  assert.match(wide, /#heroBox h1\{order:-2;flex:1 0 auto;max-width:none\}/);
+  assert.match(wide, /#heroBox \.hero-plans\{order:-1;flex:0 0 auto;margin-top:0;flex-direction:row\}/);
+  assert.doesNotMatch(src.replace(/\/\*[\s\S]*?\*\//g, ''), /position:absolute;top:0;right:0;margin-top:0;flex-direction:row|calc\(100% - (620|270)px\)/);
+  // rozestupy s mezerou flexu 10 px stejné jako bez flexu: věta 6 px, hledání 18 px, příklady 12 px
+  const gap = 10;
+  const mt = (sel) => Number(wide.match(new RegExp(`${sel}\\{margin-top:(-?\\d+)px\\}`))[1]);
+  assert.deepEqual([mt('#heroBox p'), mt('#heroBox \\.hero-search2'), mt('#heroBox \\.smart-try')].map((m) => m + gap), [6, 18, 12]);
+  const app =readFileSync(new URL('../public/js/app.js', import.meta.url), 'utf8');
   assert.match(app, /const SLASH = \{ dashboard: '#heroTo input', flights: '#toInput input', explore: '#exQ', countries: '#cSearch' \}/);
   assert.match(app, /e\.key !== '\/'.*\|\| !SLASH\[activeView\]/);
 });
