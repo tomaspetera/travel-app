@@ -257,7 +257,7 @@
       + '<h3>Jak návštěvy začínají</h3>' + list(topPaths(visits, 4))
       + '<h3>Co následovalo po opakovaném klepnutí</h3>' + list(after(visits, (e) => e.startsWith('rage_')))
       + '<h3>Opakované klepnutí podle sekce</h3>' + rage,
-    `Jen od lidí, kteří v aplikaci sami zapnuli Pomáhat se zlepšováním, za posledních ${data && data.days ? data.days : '–'} dní (záznamy se mažou do 31 dnů). Jen souhrny – jednotlivé návštěvy se neukazují. Procento je ze všech návštěv.`);
+    `Jen od lidí, kteří v aplikaci sami zapnuli Pomáhat se zlepšováním, za posledních ${data && data.days ? data.days : '–'} dní (záznamy se mažou do 31 dnů). Jen souhrny – jednotlivé návštěvy se neukazují. Procento je ze všech návštěv, po opakovaném klepnutí ze všech opakovaných klepnutí.`);
   }
   /** Cesty návštěv pod statistikami: stejný klíč, období 7–30 dní (déle se záznamy nedrží). */
   async function loadTraces(days, total, id) {

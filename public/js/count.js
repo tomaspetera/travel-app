@@ -42,8 +42,9 @@
   // už odešlo) }. Nová návštěva po 30 minutách nečinnosti – PWA žije na telefonu i dny a jinak by z „návštěvy“ byl
   // vícedenní záznam.
   const IDLE = 30 * 60e3, MAX_STEPS = 120;
-  // ochota platit a odpovědi na otázky do záznamu nesmí (zásady 3.7), stejně jako server/lib/traces.js traceExcluded
-  const skipStep = (e) => /^(price_|plus_|limit_|mq_)/.test(e) || e === 'look_letsi';
+  // ochota platit (i 📒 Sešit – nabídka Plus) a odpovědi na otázky do záznamu nesmí (zásady 3.7), stejně jako
+  // server/lib/traces.js traceExcluded
+  const skipStep = (e) => /^(price_|plus_|limit_|sesit_|mq_)/.test(e) || e === 'look_letsi';
   let tr = null;
   const newId = () => Array.from(crypto.getRandomValues(new Uint8Array(8)), (b) => '0123456789abcdefghijklmnopqrstuvwxyz'[b % 36]).join('');
   function send() {

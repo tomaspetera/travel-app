@@ -20,7 +20,8 @@ const dayOf = (ms) => new Date(ms).toISOString().slice(0, 10);
 
 // Do záznamu nesmí ochota platit a odpovědi na otázky (zásady 3.7): spojené s chováním jedné návštěvy by řekly víc,
 // než slibuje karta souhlasu. Serverové počty prohlížeč neposílá, tak nemají co dělat ani tady.
-export const traceExcluded = (e) => /^(price_|plus_|limit_|mq_)/.test(e) || e === 'look_letsi' || SERVER_EVENTS.includes(e);
+// 📒 Sešit cesty je taky nabídka Plus (plus.js), proto i sesit_*.
+export const traceExcluded = (e) => /^(price_|plus_|limit_|sesit_|mq_)/.test(e) || e === 'look_letsi' || SERVER_EVENTS.includes(e);
 export const TRACE_EVENTS = EVENTS.filter((e) => !traceExcluded(e));
 
 /**

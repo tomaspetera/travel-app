@@ -32,7 +32,7 @@ test('cleanTrace: jen id [a-z0-9]{8}, neklesající celé sekundy a názvy bez P
   const bad = [
     null, 'x', {}, { id: 'AB12CD34', s: [[0, 'app_open']] }, { id: 'ab12cd3', s: [[0, 'app_open']] }, { id: ID, s: [] },
     { id: ID, s: [[0, 'price_199']] }, { id: ID, s: [[0, 'mq_empty_lost']] }, { id: ID, s: [[0, 'plus_offer_click']] },
-    { id: ID, s: [[0, 'limit_shown']] }, { id: ID, s: [[0, 'look_letsi']] }, { id: ID, s: [[0, 'search_empty']] },
+    { id: ID, s: [[0, 'limit_shown']] }, { id: ID, s: [[0, 'sesit_click']] }, { id: ID, s: [[0, 'sesit_shown']] }, { id: ID, s: [[0, 'look_letsi']] }, { id: ID, s: [[0, 'search_empty']] },
     { id: ID, s: [[0, 'Praha → Řím']] }, { id: ID, s: [[0, 'app_open', 'navíc']] }, { id: ID, s: [[5, 'app_open'], [4, 'search_done']] },
     { id: ID, s: [[1.5, 'app_open']] }, { id: ID, s: [[-1, 'app_open']] }, { id: ID, s: [[86401, 'app_open']] },
     { id: ID, s: Array.from({ length: MAX_STEPS + 1 }, () => [0, 'app_open']) }, { id: ID, del: true },
@@ -40,7 +40,7 @@ test('cleanTrace: jen id [a-z0-9]{8}, neklesající celé sekundy a názvy bez P
   for (const b of bad) assert.equal(cleanTrace(b), null, JSON.stringify(b).slice(0, 80));
   // povolená podmnožina: view_*, hlavní akce a rage_*, nic z ochoty platit a odpovědí
   assert.ok(TRACE_EVENTS.includes('view_flights') && TRACE_EVENTS.includes('rage_world') && TRACE_EVENTS.includes('trip_saved'));
-  assert.ok(TRACE_EVENTS.every((e) => EVENTS.includes(e) && !/^(price_|plus_|limit_|mq_)/.test(e)));
+  assert.ok(TRACE_EVENTS.every((e) => EVENTS.includes(e) && !/^(price_|plus_|limit_|sesit_|mq_)/.test(e)));
 });
 
 /** Upstash ve falešné síti: zapamatuje si každý pipeline dotaz, HLEN vrátí hlen. */
@@ -216,8 +216,9 @@ test('count.js souhlas: atlas_help až po klepnutí, deep pošle počet a přid�
   assert.equal(b.C.deep('flt_sort', 's2'), true);
   b.C.hit('plus_offer_click'); // nabídka Plus se počítá jako dřív, ale do záznamu nesmí
   b.C.hit('mq_trip_good');
+  b.C.hit('sesit_click'); // 📒 Sešit je taky nabídka Plus
   b.C.view('flights');
-  assert.deepEqual(b.counts(), ['view_dashboard', 'dash_search', 'flt_sort', 'flt_sort', 'plus_offer_click', 'mq_trip_good', 'view_flights']);
+  assert.deepEqual(b.counts(), ['view_dashboard', 'dash_search', 'flt_sort', 'flt_sort', 'plus_offer_click', 'mq_trip_good', 'sesit_click', 'view_flights']);
   assert.deepEqual(b.traces(), [], 'odesílá se až při odchodu');
   b.hide();
   const [t] = b.traces();
@@ -312,6 +313,9 @@ test('aplikace: karta souhlasu až od další návštěvy, obě tlačítka stejn
   for (const f of ['app.js', 'flights.js', 'trip.js', 'places.js']) {
     const src = read(`public/js/${f}`);
     assert.deepEqual([...src.matchAll(/[^\n]{0,40}Count\.deep\(/g)].filter((m) => !/Count && Count\.deep && Count\.deep\($/.test(m[0])).map((m) => m[0]), [], f);
+    // název mimo povolený seznam by server zahodil i s celým záznamem návštěvy (cleanTrace), ne jen ten krok
+    const out = [...src.matchAll(/Count\.deep\('([^']+)'/g)].map((m) => m[1]).filter((e) => !TRACE_EVENTS.includes(e));
+    assert.deepEqual(out, [], `${f}: Count.deep s názvem mimo EVENTS nebo vyjmutým ze záznamu`);
   }
 });
 
