@@ -78,7 +78,10 @@ if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configur
     if (v === 'letsi') localStorage.setItem('atlas_look', 'letsi');
     else if (v === 'atlas') localStorage.removeItem('atlas_look');
     if (v !== null) { u.searchParams.delete('vzhled'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }
-    if (localStorage.getItem('atlas_look') === 'letsi') root.setAttribute('data-brand', 'letsi');
+    if (localStorage.getItem('atlas_look') === 'letsi') {
+      root.setAttribute('data-brand', 'letsi');
+      for (i = 0; i < m.length; i++) m[i].setAttribute('content', light ? '#F3F4F0' : '#14161F'); // lišta Vápno / Noc (jako pwa.js)
+    }
   } catch (e) { }
   window.atlasLaunchAt = performance.now(); // úvodní obrazovka se začne kreslit teď (vzlet vlaštovky – app.js launchDone)
 })();
