@@ -20,3 +20,4 @@ THIS SOFTWARE.
 - maplibre/ — MapLibre GL JS 5.24.0 (https://maplibre.org) © MapLibre contributors, BSD-3-Clause; full text in maplibre/LICENSE.txt
 - flags/TwemojiCountryFlags.woff2 — country-flag-emoji-polyfill 0.1.10 (TalkJS, code MIT); flag artwork from Twemoji, CC BY 4.0; full text in flags/LICENSE.md
 - fonts/ — Inter (© The Inter Project Authors), Sora (© The Sora Project Authors), Caveat (© The Caveat Project Authors), woff2 subsets latin + latin-ext as served by Google Fonts; SIL Open Font License 1.1, full texts in fonts/OFL-Inter.txt, fonts/OFL-Sora.txt, fonts/OFL-Caveat.txt
+- fonts/letsi/ — Onest 2.001 (© 2021 The Onest Project Authors) and Unbounded 1.701 (© 2022 The Unbounded Project Authors), full character set from the Letsi 2.1 identity package; used only by css/letsi.css (look switch ?vzhled=letsi); SIL Open Font License 1.1, full texts in fonts/letsi/OFL-Onest.txt, fonts/letsi/OFL-Unbounded.txt

@@ -317,12 +317,13 @@ Tabulka odpovídá pořadí větví v `route()` (`server/index.js`). Limity jsou
 - `public/css/flights.css` – Lety: našeptávač `.pi`, výsledky `.res-*`, kalendář, hlídání, radar `.radar-*`, víc měst `.mc-*`, `.wake-bar`, 📌 `.pin-*`, 🔎 `.dp-*`, Sdílet cestu `.jed-*`; druhá polovina přepisuje starší pravidla.
 - `public/css/trip.css` – průvodce `.trip-*`, ubytování, Shrnutí, Objevuj `.ex-*`, místa `.poi`, trasa, auto, MapLibre, Moje cesty `.mt-*`, štítek reklama `.ad-tag`.
 - `public/css/pretrip.css` – Před cestou `.pt-*` a tisk jen karty (`@media print`).
+- `public/css/letsi.css` – vzhled značky Letsi, krok 1 (barvy a písma Onest + Unbounded): vše jen pod `:root[data-brand="letsi"]`, zapíná `?vzhled=letsi` (úvodní skript v `public/index.html`, klíč `atlas_look`), vypíná `?vzhled=atlas`; písma `public/vendor/fonts/letsi/` (OFL). Test `test/vzhled-letsi.test.js`.
 - `public/css/pwa.css` – offline pruh `.pwa-bar`, instalace, lišta nové verze `.pwa-update`, lišta Novinky `.wn-pop`.
 - `public/css/desktop.css` – společný desktop od 1024 px: kontejner `--content-max`, mřížka `.d-grid`, nadpisy, karty.
 - `public/css/desktop-flights.css` – desktop Lety, Přehled a Země (výsledky ve dvou sloupcích od 1200 px, radar, filtry Zemí).
 - `public/css/desktop-explore.css` – desktop Objevuj (seznam a přilepená mapa), plánovač, Doporučení, Mapa, okna ve dvou sloupcích.
 - `public/css/desktop-trip.css` – desktop průvodce: lišta kroků, od 1280 px krok a Přehled cesty vpravo (`#tripAside`), Shrnutí ve dvou sloupcích.
-- `public/vendor/` – knihovny bez npm: `maplibre/` (MapLibre GL 5.24.0), `d3.min.js` 7.9.0, `topojson-client.min.js`, `countries-110m.json` (mapa světa, v PRECACHE), `flags/` (Twemoji), `fonts/` (Inter, Sora, Caveat, OFL); licence `public/vendor/LICENSES.txt`.
+- `public/vendor/` – knihovny bez npm: `maplibre/` (MapLibre GL 5.24.0), `d3.min.js` 7.9.0, `topojson-client.min.js`, `countries-110m.json` (mapa světa, v PRECACHE), `flags/` (Twemoji), `fonts/` (Inter, Sora, Caveat, OFL; `fonts/letsi/` Onest a Unbounded jen pro `css/letsi.css`); licence `public/vendor/LICENSES.txt`.
 - `public/icons/` – ikony PWA (icon-96/192/512, maskable, apple-touch) a `splash/` (31 obrazovek iOS), generuje `scripts/build-icons.mjs`; vedle `public/og-image.png` (náhled odkazu, `scripts/build-og-image.mjs`).
 - `public/data/pretrip.json` – data Před cestou (EHIC, DROZD, řidičák, zásuvky, telefony; ověřeno 2026-10), čte `public/js/pretrip.js`, v PRECACHE.
 
@@ -377,7 +378,7 @@ Skripty (vše `node scripts/…`; README ## Data a licence má příkazy pro akt
 - Lety v prohlížeči: `test/lety-form.test.js`, `test/drobnosti-lety.test.js`, `test/lety-filters.test.js`, `test/lety-detail.test.js`, `test/searchhelp.test.js` (vzor klienta), `test/holiday.test.js`, `test/daycal.test.js`, `test/spancal.test.js`, `test/rank.test.js`, `test/smart.test.js`, `test/smart-diacritics.test.js`, `test/draft.test.js`, `test/pax-ui.test.js`
 - Přehled, hlídání, uložený stav: `test/alerts.test.js`, `test/buytip.test.js`, `test/pins.test.js`, `test/since.test.js`, `test/tips.test.js`, `test/migrate.test.js`, `test/recs.test.js`, `test/world-trips.test.js`
 - Sdílení, záloha, přenos: `test/sharelink.test.js`, `test/sharecard.test.js`, `test/offershare.test.js`, `test/share-codes.test.js`, `test/backup.test.js`, `test/transfer.test.js`, `test/qr.test.js`
-- Vzhled, přístupnost, telefon a počítač: `test/a11y.test.js`, `test/css-ph.test.js`, `test/dark-visual.test.js`, `test/desktop.test.js`, `test/desktop-trip.test.js`, `test/modal-scroll.test.js`, `test/phone-text.test.js`, `test/phone-visual.test.js`, `test/theme.test.js`, `test/history.test.js`, `test/newcomer.test.js`
+- Vzhled, přístupnost, telefon a počítač: `test/a11y.test.js`, `test/css-ph.test.js`, `test/dark-visual.test.js`, `test/vzhled-letsi.test.js` (přepínač vzhledu Letsi, pravidla letsi.css), `test/desktop.test.js`, `test/desktop-trip.test.js`, `test/modal-scroll.test.js`, `test/phone-text.test.js`, `test/phone-visual.test.js`, `test/theme.test.js`, `test/history.test.js`, `test/newcomer.test.js`
 - Data, skripty a tahle mapa: `test/data.test.js`, `test/climate.test.js`, `test/places-build.test.js`, `test/mapa.test.js`
 
 ## Nasazení a nastavení

@@ -1,0 +1,167 @@
+/* Letsi – vzhled značky, krok 1: barvy a písma za přepínačem (identita Letsi 2.1, paleta „Měkká pistácie v Noci“).
+   Zapíná se adresou ?vzhled=letsi (úvodní skript v index.html → <html data-brand="letsi">), vypíná ?vzhled=atlas.
+   Každé pravidlo je pod :root[data-brand="letsi"], takže bez přepínače se aplikace nezmění ani o pixel (hlídá
+   test/vzhled-letsi.test.js). Přepisuje proměnné z atlas.css a místa, kde je ve stylech natvrdo modrá, fialová nebo
+   přechod. Pravidla palety: Pistácie vždy s Nocí; na Noci jen jako plná plocha nebo tlačítko (žádné tenké linky,
+   obrysy, záře); žádné barevné přechody ani sklo; Rajče tu není vůbec (slunce přijde až s kukátkem); ceny barvou textu.
+   Písma Onest (text) a Unbounded (nadpisy a ceny, v balíku rodina 'Letsi') z vlastního serveru, licence OFL
+   v public/vendor/fonts/letsi/. @font-face se stáhne, až když ho použije pravidlo – tedy jen se zapnutým vzhledem. */
+@font-face{font-family:'Onest';font-style:normal;font-weight:400;font-display:swap;src:url(../vendor/fonts/letsi/onest-400.woff2) format('woff2')}
+@font-face{font-family:'Onest';font-style:normal;font-weight:500;font-display:swap;src:url(../vendor/fonts/letsi/onest-500.woff2) format('woff2')}
+@font-face{font-family:'Onest';font-style:normal;font-weight:600;font-display:swap;src:url(../vendor/fonts/letsi/onest-600.woff2) format('woff2')}
+@font-face{font-family:'Onest';font-style:normal;font-weight:700 900;font-display:swap;src:url(../vendor/fonts/letsi/onest-700.woff2) format('woff2')}
+@font-face{font-family:'Letsi';font-style:normal;font-weight:600;font-display:swap;src:url(../vendor/fonts/letsi/unbounded-600.woff2) format('woff2')}
+@font-face{font-family:'Letsi';font-style:normal;font-weight:700 900;font-display:swap;src:url(../vendor/fonts/letsi/unbounded-700.woff2) format('woff2')}
+
+/* ============ PROMĚNNÉ: role z tokenů Letsi 2.1 (tokeny/tokeny.css) ============ */
+:root[data-brand="letsi"]{
+  --letsi-pistacie:#D6DE82; --letsi-noc:#14161F; --letsi-vapno:#F3F4F0;
+  --letsi-pismo-text:'Onest',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  --letsi-pismo-titulky:'Letsi','Onest',system-ui,sans-serif;
+  --letsi-text-2-na-znacce:#474F22;   /* olivový text na Pistácii 6,07 : 1 */
+  --letsi-ton-na-znacce:#C6CF6E;      /* tón v tónu: čip na Pistácii */
+  --radius:20px; --radius-sm:14px;
+}
+:root[data-brand="letsi"][data-theme="light"]{
+  /* Vápno bez přechodů, karty bílé s linkou místo stínu */
+  --bg:#F3F4F0; --bg2:#FFFFFF; --bg-grad:#F3F4F0;
+  --surface:rgba(20,22,31,.04); --surface-2:#EDEFD6; --surface-solid:#FFFFFF; --card:#FFFFFF;
+  --border:#DFE2DA; --border-2:#C9CDC2;
+  --text:#14161F; --muted:#585D56; --faint:#62675F;
+  /* modrá a fialová (výběr, obrysy, odkazy) → Noc; --grad (aktivní kroky, puntíky, okna) plná Noc */
+  --accent:#14161F; --accent2:#14161F; --accent3:#14161F; --accent-ink:#14161F;
+  --grad:#14161F; --grad-warm:#14161F;
+  --letsi-tlacitko:#14161F; --letsi-tlacitko-text:#F3F4F0;
+  --letsi-na-grad:#F3F4F0;   /* text a ikony na ploše --grad */
+  --letsi-dlazdice:#14161F;  /* dlaždice bez fotky (dřív barevný přechod podle země) */
+  --nav-bg:#F3F4F0; --nav-line:#DFE2DA; --nav-ico:#585D56;
+  --nav-shadow:0 2px 10px rgba(20,22,31,.08);
+  --shadow:0 1px 2px rgba(20,22,31,.04);
+  --shadow-lg:0 20px 50px rgba(20,22,31,.18);
+  --btn-bg:#FFFFFF; --btn-sh:none; --input-bg:#FFFFFF; --input-line:#C9CDC2;
+}
+:root[data-brand="letsi"][data-theme="dark"]{
+  --bg:#14161F; --bg2:#1D2029; --bg-grad:#14161F;
+  --surface:rgba(243,244,240,.04); --surface-2:#2A2E3A; --surface-solid:#1D2029; --card:#1D2029;
+  --border:#2A2E3A; --border-2:#3A3F4D;
+  --text:#F3F4F0; --muted:#A6ACB6; --faint:#8E949E;
+  /* na Noci výběr a obrysy Vápnem – tenká pistáciová linka by byla neonová limetka */
+  --accent:#F3F4F0; --accent2:#F3F4F0; --accent3:#F3F4F0; --accent-ink:#F3F4F0;
+  --grad:#D6DE82; --grad-warm:#D6DE82;
+  --letsi-tlacitko:#D6DE82; --letsi-tlacitko-text:#14161F;
+  --letsi-na-grad:#14161F;
+  --letsi-dlazdice:#262A36;
+  --nav-bg:#14161F; --nav-line:#2A2E3A; --nav-ico:#A6ACB6;
+  --nav-shadow:0 2px 10px rgba(0,0,0,.3);
+  --shadow:none; --shadow-lg:0 20px 50px rgba(0,0,0,.45);
+  --btn-bg:#1D2029; --btn-sh:none; --input-bg:#1D2029; --input-line:#3A3F4D;
+}
+
+/* ============ PÍSMA ============ */
+:root[data-brand="letsi"] body{font-family:var(--letsi-pismo-text)}
+/* místa, která měla natvrdo Inter (zkratka font: … Inter) → Onest */
+:root[data-brand="letsi"] :is(.nw-h .faint,.nw-copy,.trip-live .live-h,.ph-cr,.vc-list .pill,.map-trips .pill,.map-add-hits .pill,.trip-edit,.sc-h .faint,.sc-row,.home-chip,.pi-input,.opill,.qd,.quick-range button,.dow button,.fchip,.oc-row,.linkbtn,.more-btn,.nb-d,.rm-lbl,.dg-sum,.dg-c,.w-p span,.radar-card .rc-info,.rc-go,#radarSub,.ml-home,.ml-flex,.gnd-chip,.pax-step button,.dm-btn,.pin-x,.op-more,.drop-chip,.drop-price s,.drop-tg,.ap-sum,.scal-btn,.scal-mt,.radar-card .rc-price .cache-mark,.ex-cats button,.pm-label,.toast-act,.ex-ccats-l,.ex-cc-tile,.dp-links,.ex-back,.mk.num,.ex-map .maplibregl-popup-content,.mapy-c,.hk-diff,.wx,.rb-n,.bt-n,.rb-nights button,.rb-acts button,.stepbar .st,.pt-prog,.pt-grp h5){font-family:var(--letsi-pismo-text)}
+/* nadpisy a ceny (dřív Sora) → Unbounded; je široké, proto o kousek užší prostrkání a menší stupeň níž */
+:root[data-brand="letsi"] :is(h1,h2,h3,.brand-name,.stat .val,.nw-h,.dest[data-photo] .cname,.map-chip b,.weather-now .temp,.mh-name,.sc-h,.pp,.lr-p b,.w-p,.cmp-price b,.radar-card .rc-city,.radar-card .rc-price,.ml-n,.mc-cp b,.gb-col b,.fav-p b,.drop-price,.fl-hero h1,.res-top-c .rt-price,.jed-top h3,.jed-hero h2,.st-rate-inline b,.st-rating .rt,.st-price .pp,table.cost tr.tot td,.alt-p,.ov-sum b,.th-total .tt,.th-dest h2,.tl-route b,.pp-guess,.pt-sec h4){font-family:var(--letsi-pismo-titulky);letter-spacing:-.03em}
+/* h3 a nadpisy karet v Unbounded 600 (800 by se vysázelo jako 700 a v kartách těžklo) */
+:root[data-brand="letsi"] :is(h3,.sc-h,.nw-h,.mh-name,.jed-top h3,.pt-sec h4){font-weight:600}
+/* ceny: tabulkové číslice, aby částky v seznamu stály pod sebou */
+:root[data-brand="letsi"] :is(.pp,.lr-p b,.w-p,.cmp-price b,.radar-card .rc-price,.mc-cp b,.gb-col b,.fav-p b,.drop-price,.res-top-c .rt-price,.st-price .pp,table.cost tr.tot td,.alt-p,.ov-sum b,.th-total .tt,.pp-guess,.stat .val){font-variant-numeric:tabular-nums}
+/* Unbounded je o ~15 % širší než Sora: velké titulky o stupeň menší, ať se na 412 px nelámou hůř než dnes */
+:root[data-brand="letsi"] .hero h1{font-size:30px;font-weight:600}
+:root[data-brand="letsi"] .fl-hero h1{font-size:26px;font-weight:600}
+:root[data-brand="letsi"] .page-title,:root[data-brand="letsi"] .topbar h1{letter-spacing:-.03em}
+@media(max-width:1023px){
+  :root[data-brand="letsi"] .hero h1{font-size:26px}
+  :root[data-brand="letsi"] .fl-hero h1{font-size:21px}
+}
+
+/* ============ ZÁKLAD ============ */
+:root[data-brand="letsi"] ::selection{background:#D6DE82;color:#14161F}
+/* hlavní tlačítko: Noc s Vápnem, v tmavém Pistácie s Nocí; bez stínu */
+:root[data-brand="letsi"] .btn.primary{background:var(--letsi-tlacitko);color:var(--letsi-tlacitko-text);border-color:transparent;box-shadow:none}
+:root[data-brand="letsi"] .btn.primary:hover{box-shadow:none}
+:root[data-brand="letsi"] .btn.warm{background:var(--letsi-tlacitko);color:var(--letsi-tlacitko-text)}
+/* čipy: Pistáciová pěna s Nocí (v tmavém #2A2E3A s Vápnem) */
+:root[data-brand="letsi"] .chip.accent,:root[data-brand="letsi"] .app-chip{background:var(--surface-2);color:var(--text);border-color:var(--border)}
+/* odkaz = text barvou písma s podtržením (ne modrá) */
+:root[data-brand="letsi"] :is(.linkbtn,.section-head .link,.now-card a,.now-card .linkbtn,.foot-more>summary,.sc-go,.entry-detail a,.entry-card a){color:var(--text);text-decoration:underline;text-underline-offset:2px;text-decoration-thickness:1px}
+:root[data-brand="letsi"] :is(.trip-live .live-h,.day-now,.nw-d,.nw-rows .nw-day){color:var(--text)}
+/* plochy --grad (aktivní krok, den v týdnu, pořadí, skóre): text v protibarvě, bez barevné záře */
+:root[data-brand="letsi"] :is(.pill.on,.score-pill,.dow button.on,.ml-n,.dp-n,.stepbar .st.on span,.tf-n,.poi-acts a.go){color:var(--letsi-na-grad);box-shadow:none}
+:root[data-brand="letsi"] .stepbar .st.on span{background:var(--grad)}
+:root[data-brand="letsi"] .brand-logo{box-shadow:none}
+:root[data-brand="letsi"] .brand-logo path{fill:var(--letsi-na-grad)}
+/* tenké ukazatele průběhu: v tmavém by Pistácie byla tenká limetková linka → barvou textu */
+:root[data-brand="letsi"] :is(.progress>span,.pbar span,.nav-item.active::before){background:var(--text)}
+/* výběr (dřív průsvitná modrá): pěna, obrys barvou textu */
+:root[data-brand="letsi"] :is(.qd.on,.fchip.af,.fchip.tf-toggle.on,.fchip[data-int].on,.fchip[data-tint].on,.tf-parts button.on,.nb-d.on,.lrow.sel,.mc-combo.sel,.gc-row.sel:has(input:checked),.ex-cats button.on,.rc-opt.on,.scal-btn[aria-expanded="true"]){background:var(--surface-2);border-color:var(--text)}
+:root[data-brand="letsi"] :is(.pi-chip,.w-tip.wait,.b.pin-b){background:var(--surface-2);border-color:var(--border);color:var(--text)}
+:root[data-brand="letsi"] .pi-smart,:root[data-brand="letsi"] .pi-smart.on,:root[data-brand="letsi"] .pi-smart:hover{background:var(--surface-2);border-color:var(--border)}
+:root[data-brand="letsi"] .rm-home{fill:var(--text)}
+:root[data-brand="letsi"] .w-lg{background:var(--text)}
+:root[data-brand="letsi"] .more-tile .mt-ico{background:var(--surface-2);color:var(--text)}
+/* karty s modrým nádechem (teď / naposledy / pokračovat): bílá karta s linkou */
+:root[data-brand="letsi"] :is(.now-card,.resume-trip,.since-card,.whats-new.welcome,.auto-pick,.auto-trip){background:var(--card);border-color:var(--border)}
+:root[data-brand="letsi"] .day-block.today{border-color:var(--text)}
+/* lišty nahoře (DEMO, probuzení serveru, instalace): plná pěna místo přechodu */
+:root[data-brand="letsi"] :is(.demo-banner,.wake-bar,.wake-bar.done,.pwa-bar){background:var(--surface-2);border-bottom-color:var(--border)}
+
+/* ============ PLOCHA ZNAČKY: úvod Přehledu a Letů v plné Pistácii s Nocí ============ */
+:root[data-brand="letsi"] .hero{border-color:transparent}
+:root[data-brand="letsi"] .hero .hero-bg,:root[data-brand="letsi"] .hero.ph .hero-bg{background:#D6DE82;opacity:1}
+:root[data-brand="letsi"] .hero .hero-bg::after,:root[data-brand="letsi"] :is(.hero,.fl-hero) .ph-cr,:root[data-brand="letsi"] .hero-aurora,:root[data-brand="letsi"] .hero-grain{display:none}
+:root[data-brand="letsi"] .hero-inner{color:#14161F}
+:root[data-brand="letsi"] .hero h1,:root[data-brand="letsi"] .hero.ph h1,:root[data-brand="letsi"] .hero.ph p{text-shadow:none}
+:root[data-brand="letsi"] .hero p{color:var(--letsi-text-2-na-znacce)}
+:root[data-brand="letsi"] .hero-search2,:root[data-brand="letsi"] .hero.ph .hero-search2{background:var(--card);border-color:transparent;box-shadow:none;-webkit-backdrop-filter:none;backdrop-filter:none}
+:root[data-brand="letsi"] .hero-search2 .hs-lab{color:var(--muted)}
+:root[data-brand="letsi"] .hero-search2 .pi-dark .pi-input{color:var(--text)}
+:root[data-brand="letsi"] .hero-search2 .pi-dark .pi-input::placeholder{color:var(--faint)}
+:root[data-brand="letsi"] .hero-search2 .pi-dark .pi-chip button{color:var(--muted)}
+:root[data-brand="letsi"] .hero-search2 .pi-dark:has(.pi-input:focus-visible){outline-color:var(--text)}
+:root[data-brand="letsi"] .smart-try .st-lab,:root[data-brand="letsi"] .hero.ph .smart-try .st-lab{color:#14161F}
+:root[data-brand="letsi"] .st-chip,:root[data-brand="letsi"] .hero.ph .st-chip{background:var(--letsi-ton-na-znacce);border-color:transparent;color:#14161F}
+:root[data-brand="letsi"] .hero-plan,:root[data-brand="letsi"] .hero.ph .hero-plan{background:transparent;border:1.5px solid #14161F;color:#14161F}
+:root[data-brand="letsi"] .hero-plan:hover,:root[data-brand="letsi"] .hero-plan:focus-visible{background:var(--letsi-ton-na-znacce)}
+:root[data-brand="letsi"] .fl-hero,:root[data-brand="letsi"] .fl-hero.ph{background:#D6DE82;color:#14161F}
+:root[data-brand="letsi"] .fl-hero::before{display:none}
+:root[data-brand="letsi"] .fl-hero h1,:root[data-brand="letsi"] .fl-hero p{text-shadow:none}
+:root[data-brand="letsi"] #view-flights .search-card,:root[data-brand="letsi"] .search-card.on-hero{box-shadow:0 0 0 1px var(--border)}
+/* záhlaví okna bez fotky („Je to dobrá cena?“, podrobnosti): Pistácie s Nocí */
+:root[data-brand="letsi"] .modal-hero:not(.ph){color:#14161F}
+:root[data-brand="letsi"] .modal-hero:not(.ph) .mh-bg{background:#D6DE82;opacity:1;filter:none}
+:root[data-brand="letsi"] .modal-hero:not(.ph) .modal-hero-inner{text-shadow:none}
+:root[data-brand="letsi"] .modal-hero:not(.ph) :is(.faint,.muted,p,small){color:var(--letsi-text-2-na-znacce)}
+/* dlaždice a hlavičky bez fotky: místo barevného přechodu plná tmavá plocha (bílý text na ní zůstává čitelný) */
+:root[data-brand="letsi"] :is(.dest[data-photo],.trip-top,.trip-top[data-photo],.trip-top.warm,.cmp-ph,.radar-card,.dp-hero,.w-ph,.trip-head,.jed-hero):not(.ph){background:var(--letsi-dlazdice)}
+:root[data-brand="letsi"] .trip-top:not(.ph):not([data-photo]){color:#F3F4F0}
+
+/* ============ KALENDÁŘ: tam Noc, zpět Pistácie (v tmavém tam Vápno) ============ */
+:root[data-brand="letsi"] .sc-d.r-night,:root[data-brand="letsi"][data-theme="dark"] .sc-d.r-night{background:var(--surface-2)}
+:root[data-brand="letsi"] .sc-d.r-out,:root[data-brand="letsi"] .sl-out{background:var(--text)}
+:root[data-brand="letsi"] .sc-d.r-back,:root[data-brand="letsi"] .sl-back,:root[data-brand="letsi"] .sc-d.r-both{background:#D6DE82}
+:root[data-brand="letsi"] .sc-d.r-both{box-shadow:inset 0 0 0 2px var(--text)}
+:root[data-brand="letsi"] .sl-night{background:var(--surface-2);box-shadow:inset 0 0 0 1px var(--border-2)}
+:root[data-brand="letsi"] .sc-d.r-out :is(span,small),:root[data-brand="letsi"][data-theme="dark"] .sc-d.r-out span{color:var(--bg)}
+:root[data-brand="letsi"] .sc-d:is(.r-back,.r-both) :is(span,small),:root[data-brand="letsi"][data-theme="dark"] .sc-d:is(.r-back,.r-both) span{color:#14161F}
+:root[data-brand="letsi"] .sc-d.a-out,:root[data-brand="letsi"] .sc-d.a-back{box-shadow:inset 0 0 0 1.5px var(--text)}
+
+/* ============ SPODNÍ LIŠTA: Vápno (v tmavém Noc), aktivní sekce tlačítkem ============ */
+:root[data-brand="letsi"] .mobile-nav{-webkit-backdrop-filter:none;backdrop-filter:none}
+:root[data-brand="letsi"] .mobile-nav .mi.active,:root[data-brand="letsi"][data-theme="light"] .mobile-nav .mi.active{background:var(--letsi-tlacitko);color:var(--letsi-tlacitko-text);box-shadow:none}
+
+/* ============ ÚVODNÍ OBRAZOVKA (aplikace na ploše): Vápno / Noc, dlaždice Pistácie s Nocí ============ */
+:root[data-brand="letsi"] #launch{background:var(--bg);color:var(--text)}
+:root[data-brand="letsi"] #launch .l-sq{fill:#D6DE82}
+:root[data-brand="letsi"] #launch .l-paper path{fill:#14161F}
+:root[data-brand="letsi"] #launch .l-air,:root[data-brand="letsi"] #launch .l-jet path{fill:var(--text)}
+
+/* ============ DROBNOSTI ============ */
+/* informační poznámky a štítky (dřív světle modré): pěna s textem */
+:root[data-brand="letsi"] :is(.note.info,.b.info,.ec-reg,.b.ec-reg,.ec-form,.b.ec-form,.ed-form){background:var(--surface-2);border-color:var(--border);color:var(--text)}
+/* zavírací křížek na pistáciovém záhlaví okna: Noc s Vápnem (průsvitný na Pistácii skoro zmizel) */
+:root[data-brand="letsi"] .modal:has(.modal-hero:not(.ph)) .modal-close{background:#14161F;border-color:transparent;color:#F3F4F0}
+/* ceny vždy barvou textu (zelená zůstává jen u hodnocení ceny, ne na částce v kartě) */
+:root[data-brand="letsi"] :is(.cmp-price b,.fav-p b,.lw-p.best,.nb-d.best b,.alt-p.good){color:var(--text)}
+:root[data-brand="letsi"] .th-total .tt{color:#F3F4F0}
