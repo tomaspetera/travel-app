@@ -88,6 +88,46 @@
     ['buy_age_warn', ['buy_click'], 'Nákup zastavený kvůli staré ceně'],
   ];
   const FL_RANK = { q: 'Kolikátou nabídku v seznamu otevřeli u prodejce (u Kamkoliv a zemí kolikátý cíl)', opts: [['buy_rank_1', '1.'], ['buy_rank_2_5', '2.–5.'], ['buy_rank_6p', '6. a dál']] };
+  // Podrobné počty průvodce a Objevuj (Count.deep) posílá jen kdo má zapnuté „Pomáhat se zlepšováním“ – menší vzorek
+  // než ostatní čísla. Trychtýř průvodce: [krok, začal znovu na tomto kroku (↺), popisek, počítá se u všech].
+  const TRIP_FUNNEL = [
+    ['trip_started', '', 'Otevřený průvodce', true],
+    ['trip_step_route', 'trip_restart_route', 'Trasa'],
+    ['trip_step_stay', 'trip_restart_stay', 'Ubytování'],
+    ['trip_step_car', 'trip_restart_car', 'Auto'],
+    ['trip_step_program', 'trip_restart_program', 'Program'],
+    ['trip_summary', 'trip_restart_summary', 'Shrnutí', true],
+    ['trip_saved', '', 'Uložená cesta', true],
+  ];
+  const TRIP_AUTO = [['trip_auto_done', 'dokončeno'], ['trip_auto_nights', 'skončilo na nocích trasy'], ['trip_auto_stay', 'skončilo na ubytování']];
+  // základ ze stejného vzorku (lidé s pomocí), kde to jde: ubytování na 100 příchodů na krok Ubytování
+  const TRIP_MORE = [
+    ['stay_pick_offer', ['trip_step_stay'], 'Ubytování: Vybrat u nabídky'],
+    ['stay_pick_auto', ['trip_step_stay'], 'Ubytování: ✨ Vyber za mě'],
+    ['stay_pick_manual', ['trip_step_stay'], 'Ubytování: vlastní cena'],
+    ['stay_pick_links', ['trip_step_stay'], 'Ubytování: jen odkazy'],
+    ['stay_pick_skip', ['trip_step_stay'], 'Ubytování: neřeším'],
+    ['stay_empty_filter', ['trip_step_stay'], 'Filtry skryly všechna ubytování'],
+    ['trip_back', ['trip_step_route'], 'Návrat na dřívější krok'],
+    ['trip_gap', ['trip_step_route'], 'Doplnění chybějícího kroku ze Shrnutí'],
+    ['lazy_fail', ['app_open'], 'Část aplikace se nenačetla'],
+  ];
+  const EXPLORE = [
+    ['place_none_explore', ['view_explore'], 'Hledané místo nenalezeno'],
+    ['ex_smart_miss', ['view_explore'], '✨ věta nepochopená'],
+    ['ex_smart_ok', ['view_explore'], '✨ věta pochopená'],
+    ['ex_empty_list', ['view_explore'], 'Prázdný okruh'],
+    ['ex_empty_plan', ['view_explore'], 'Prázdný program'],
+    ['ex_empty_trips', ['view_explore'], 'Výlety bez cílů'],
+    ['ex_empty_country', ['view_explore'], 'Země bez míst'],
+    ['ex_fix', ['view_explore'], 'Náprava prázdného výsledku'],
+    ['ex_open_sug', ['view_explore'], 'Místo z návrhů'],
+    ['ex_open_enter', ['view_explore'], 'Místo Enterem'],
+    ['ex_open_smart', ['view_explore'], 'Místo větou'],
+    ['ex_open_other', ['view_explore'], 'Místo jinak (Inspirace, Naposledy, Tady)'],
+    ['ex_save', ['view_explore'], 'Uložení do Mých cest'],
+    ['ex_fly', ['view_explore'], '✈️ Najít lety sem'],
+  ];
   const PERIODS = [7, 30, 90];
   const FEW = 30; // pod 30 odpověďmi rozložení ještě hodně skáče s každou další
 
@@ -123,6 +163,17 @@
       ['Uložená cesta', num(total, 'trip_saved')],
     ];
     return steps.map(([label, n], i) => ({ label, n, pct: i ? pct(n, steps[i - 1][1]) : null }));
+  }
+
+  /**
+   * Trychtýř průvodce: krok, počet, kolikrát na něm začal znovu (↺) a procento z předchozího kroku – jen mezi kroky ze
+   * stejného vzorku (všichni / se zapnutou pomocí), jinak null: porovnání dvou různých skupin by klamalo.
+   */
+  function tripFunnel(total) {
+    return TRIP_FUNNEL.map(([e, re, label, all], i) => {
+      const prev = TRIP_FUNNEL[i - 1], n = num(total, e);
+      return { e, label, n, all: Boolean(all), restart: re ? num(total, re) : null, pct: prev && Boolean(prev[3]) === Boolean(all) ? pct(n, num(total, prev[0])) : null };
+    });
   }
 
   /**
@@ -239,6 +290,7 @@
   Object.assign(window.Stats, { QUESTIONS, dist });
   Object.assign(window.Stats, { RAGE, names, top, exits, lastSteps, topPaths, after, visitStats });
   Object.assign(window.Stats, { FL_SNAGS, FL_FIX, FL_RES, FL_RANK });
+  Object.assign(window.Stats, { TRIP_FUNNEL, TRIP_AUTO, TRIP_MORE, EXPLORE, tripFunnel });
 
   /* ---------- vykreslení (jen ve stránce) ---------- */
   const root = typeof document !== 'undefined' && document.getElementById('stats');
@@ -274,6 +326,13 @@
     const flFix = `<h3>Lety</h3>${table([row('Hledání bez nabídek', fmtNum(num(total, 'search_empty')), '')])}` + rateTable(FL_FIX);
     const flRes = `<h3>Lety: výsledky</h3>` + rateTable(FL_RES) + `<h3>${esc(rank.q)}</h3>`
       + table(rank.options.map((o) => row(o.label, fmtNum(o.n), fmtPct(o.pct)))) + (rank.few ? `<p class="warn">Málo nákupů (méně než ${FEW}) – na závěr to nestačí.</p>` : '');
+    const rateRows = (list) => table(rates(total, list).map((r) => row(r.label, r.per100 === null ? fmtNum(r.n) : `${String(r.per100).replace('.', ',')} %`,
+      r.per100 === null ? `${fmtNum(r.n)}×` : `${fmtNum(r.n)} z ${fmtNum(r.base)}${r.few ? ' · málo dat' : ''}`, r.few && r.per100 !== null ? 'few' : '')));
+    const autoN = TRIP_AUTO.reduce((a, [e]) => a + num(total, e), 0);
+    const tripFun = table([...tripFunnel(total).map((s) => row(s.label + (s.all ? '' : ' ✓'), fmtNum(s.n),
+      [s.pct === null ? '' : `${fmtPct(s.pct)} z předchozího`, s.restart === null ? '' : `↺ znovu ${fmtNum(s.restart)}×`].filter(Boolean).join(' · '))),
+      row('⚡ Poskládej', fmtNum(autoN), TRIP_AUTO.map(([e, l]) => `${l} ${fmtNum(num(total, e))}`).join(' · '))]);
+    const deepHint = 'Jen lidé, kteří si sami zapnuli „Pomáhat se zlepšováním“ – vzorek je menší než u ostatních čísel.';
     const rows = dayRows(stats && stats.days);
     const daily = rows.length
       ? `<div class="scroll"><table class="days"><thead><tr><th scope="col">Den</th>${TABLE.map(([, l]) => `<th scope="col">${esc(l)}</th>`).join('')}</tr></thead><tbody>${rows.map((r) => `<tr><th scope="row">${esc(fmtDay(r.day))}</th>${r.values.map((v) => `<td>${fmtNum(v)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`
@@ -283,6 +342,9 @@
       + section('Kde to drhne', snags + flSnags, `Počty si dělá server sám ze svých odpovědí, procento je z jejich základu: hledání = dokončená hledání, sdílené odkazy = všechna otevření, chyby = otevření aplikace. Hledání bez nabídek počítá server (jen nově spočítaná, ne hotový výsledek z mezipaměti) a dokončená hledání aplikace, poměr je proto přibližný a spíš nižší. Pod ${FEW} v základu šedě (málo dat).`)
       + section('Prázdné výsledky a co pak', flFix, `Na co lidi u hledání bez nabídek klepli, na 100 takových hledání. ${helpOnly}`)
       + section('Co lidi zaujalo', flRes, `Na 100 dokončených hledání. ${helpOnly}`)
+      + section('Trychtýř průvodce', tripFun, `${deepHint} Kroky s ✓ a ⚡ jsou jen od nich, ostatní od všech – procento proto jen mezi kroky ze stejné skupiny. ↺ znovu = kolikrát na kroku začal znovu (po potvrzení).`)
+      + section('Průvodce – podrobnosti', rateRows(TRIP_MORE), `${deepHint} Ubytování na 100 příchodů na krok Ubytování, návraty na 100 příchodů na Trasu, nenačtení na 100 otevření aplikace (otevření počítáme u všech – poměr je spodní odhad).`)
+      + section('Objevuj', rateRows(EXPLORE), `${deepHint} Na 100 návštěv Objevuj – návštěvy počítáme u všech, poměr je proto spodní odhad. Opuštěné hledání se zatím nepočítá.`)
       + section('Kolik by dali za Plus', svBody)
       + section('Zájem o Plus', doorBody, 'Procento = klepnutí ze zobrazení.')
       + section('Návštěvy sekcí', views)

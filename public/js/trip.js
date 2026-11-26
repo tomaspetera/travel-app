@@ -983,8 +983,23 @@
   }
   function showPriceRow(t) { const el = $('#tfPl'); if (el) { el.innerHTML = priceRow(t); wirePrice(t); } }
 
+  // Podrobné počty průvodce (vrstva 1B) jen u lidí se zapnutým „Pomáhat se zlepšováním“ – Count.deep bez souhlasu nic
+  // nepošle. Starší count.js v otevřené záložce deep mít nemusí. onceKey = nejvýš jednou za načtení stránky.
+  const deep = (e, k) => { if (e && window.Count && Count.deep) Count.deep(e, k); };
+  // ruční posun vpřed na krok (⚡ autoGo ne – to pokrývá trip_auto_*); Shrnutí počítá trip_summary, Let je první krok
+  const STEP_EV = { route: 'trip_step_route', stay: 'trip_step_stay', car: 'trip_step_car', program: 'trip_step_program' };
+  /** Přechod mezi kroky → název počtu: dřívější krok trip_back, pozdější trip_step_*, jinak null (stejný, neznámý). */
+  function stepEvent(from, to) {
+    const i = STEPS.findIndex(s => s[0] === from), j = STEPS.findIndex(s => s[0] === to);
+    if (i < 0 || j < 0 || i === j) return null;
+    return j < i ? 'trip_back' : STEP_EV[to] || null;
+  }
+  // jeden háček pro všechny ruční přechody (lišta kroků, Pokračovat, ← Upravit trasu, Zpět telefonu přes stepTo);
+  // posun vpřed jednou za cestu, i když se člověk na krok vrací
+  const stepCount = (t, to) => { const e = stepEvent(t.step, to); deep(e, e === STEP_EV[to] ? t.created : undefined); };
   function setStep(step) {
     if (!T()) return;
+    stepCount(T(), step);
     if (typeof histTrip === 'function') histTrip(T().step, step); // Zpět telefonu pak vrátí na dosavadní krok (app.js)
     autoNote = null; // uživatel přepíná kroky sám – hláška ⚡ už nepatří
     T().step = step; persist(); render(); window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -993,6 +1008,7 @@
   function stepTo(step) {
     const t = T();
     if (!t || t.step === step || !STEPS.some(s => s[0] === step)) return false;
+    stepCount(t, step);
     autoNote = null;
     t.step = step; persist(); render(); window.scrollTo({ top: 0, behavior: 'smooth' });
     return true;
@@ -1085,7 +1101,8 @@
     if (window.Photos) Photos.paint(root); // fotka cíle v hlavičce
     asideWire();
     $$('.stepbar [data-step]').forEach(b => b.onclick = () => setStep(b.dataset.step));
-    $('#tripRestart').onclick = () => restart();
+    // ↺ Začít znovu jen s postupem a po potvrzení (restart() → true), podle kroku, na kterém vzdal; na kroku Let ne
+    $('#tripRestart').onclick = () => { const at = t.step; if (restart()) deep(RESTART_EV[at]); };
     // seznam cest nad rozpracovanou – ta zůstane, klepnutím na její kartu zpět
     const mb = $('#tripMine'); if (mb) mb.onclick = () => showMine(t);
     // sdílená se stane vlastní: zůstat v průvodci (poznámka zmizí), cesta je v Mých cestách
@@ -1162,6 +1179,8 @@
   /** ↺ Začít znovu: rozpracovanou cestu zahodit (po potvrzení, když v ní něco je) a vybrat let znovu. Sama uložená
    *  zmizí i z Mých cest – jen bez vlastních dat z Mých cest (ownData), jinak tam zůstane jako uložená na přání (💾,
    *  „Začít novou cestu“). ↩ Vrátit v hlášce vrátí rozpracovanou cestu i záznam v Mých cestách. */
+  const RESTART_EV = { route: 'trip_restart_route', stay: 'trip_restart_stay', car: 'trip_restart_car', program: 'trip_restart_program', summary: 'trip_restart_summary' };
+  /** → true, když zahodil cestu s postupem po potvrzení (počet trip_restart_* v obsluze ↺, ne tady – volá to i newAfterPast). */
   function restart() {
     const t = T();
     if (!t) return;
@@ -1186,6 +1205,7 @@
     // kde vybírá nový let. Ne za #searchSum: úvodní fotka nad ním má záporný okraj a řádek by překryla (počítač, nový člověk)
     if (done.length && window.Count && Count.ask) Count.ask($('#view-flights'), { id: 'restart', q: 'Proč začínáš znovu?', rate: 1, at: 'afterbegin',
       opts: [['mq_restart_date', 'Jiný let nebo termín'], ['mq_restart_price', 'Moc draho'], ['mq_restart_lost', 'Nevyznal/a jsem se'], ['mq_restart_try', 'Jen zkouším']] });
+    return done.length > 0;
   }
 
   // Hlavička cesty: termín, trasa přes víc míst, cena celkem (při úpravě trasy se přepíše jen ona).
@@ -2214,6 +2234,10 @@
     if (t.dest.lat != null) Object.assign(params, { lat: t.dest.lat, lon: t.dest.lon });
     return { key: stayKeyOf(t), params };
   }
+  // jak člověk vyřešil ubytování (jedno místo i místa trasy): Vybrat / ruční ✨ Vyber za mě (ne z ⚡) / vlastní cena /
+  // jen odkazy / neřeším – podrobný počet jen se souhlasem (deep)
+  const STAY_PICK = { offer: 'stay_pick_offer', auto: 'stay_pick_auto', manual: 'stay_pick_manual', links: 'stay_pick_links', skip: 'stay_pick_skip' };
+  const stayPick = k => deep(STAY_PICK[k]);
   async function stayStep() {
     const t = T();
     if (isMulti(t)) return stayStepMulti();
@@ -2240,12 +2264,12 @@
       const price = +$('#manPrice').value;
       if (!(price > 0)) return toast('Zadej cenu ubytování', 'err');
       pickSeq++; t.stay = manualStay(t.stay, $('#manName').value.trim(), price); unbook(t, 'stay');
-      persist(); setStep('car');
+      stayPick('manual'); persist(); setStep('car');
     };
-    $('#staySkip').onclick = () => { pickSeq++; t.stay = { mode: 'skip', name: 'bez ubytování', totalCzk: 0 }; persist(); setStep('car'); };
+    $('#staySkip').onclick = () => { pickSeq++; stayPick('skip'); t.stay = { mode: 'skip', name: 'bez ubytování', totalCzk: 0 }; persist(); setStep('car'); };
     // hotel ještě nemá (nováček většinou): ubytování zůstane ve shrnutí a v „Co zarezervovat“ s odkazem na hledání –
     // „neřeším“ by ho z ceny i ze seznamu vyřadilo (jako u cesty přes víc míst, stayStepMulti)
-    const sl = $('#stayLinks'); if (sl) sl.onclick = () => { pickSeq++; t.stay = { mode: 'links', name: '', totalCzk: 0 }; unbook(t, 'stay'); persist(); setStep('car'); };
+    const sl = $('#stayLinks'); if (sl) sl.onclick = () => { pickSeq++; stayPick('links'); t.stay = { mode: 'links', name: '', totalCzk: 0 }; unbook(t, 'stay'); persist(); setStep('car'); };
     // hned nahoře jako „Auto nepotřebuji →“ – dole je až pod hotely a vlastní cenou (na telefonu několik obrazovek)
     const sq = $('#staySkipTop'); if (sq) sq.onclick = $('#staySkip').onclick;
     const nx = $('#stayNext'); if (nx) nx.onclick = () => setStep('car');
@@ -2325,6 +2349,7 @@
       ab.disabled = true;
       const res = await autoPickStays(t, (k, of, name) => { ab.innerHTML = `<span class="spin"></span> ${esc(name)} ${k}/${of}`; });
       if (T() !== t) return;
+      if (res.ok.length) stayPick('auto');
       const vf = res.verified.length === res.ok.length ? ' · volno ověřeno teď' : res.verified.length ? ` · volno ověřeno: ${res.verified.join(', ')}` : '';
       const np = res.noPrice.length ? `${res.noPrice.join(', ')}: ceny hotelů tu nemám – vyber z ubytování v místě a doplň cenu` : '';
       const nc = r.bases.some(x => res.ok.includes(x.name) && noPricePick(x.stay)) ? ` · ${NO_PRICE}` : '';
@@ -2339,9 +2364,9 @@
       const price = +$('#manPrice').value;
       if (!(price > 0)) return toast('Zadej cenu ubytování', 'err');
       pickSeq++; staySlot.set(manualStay(b.stay, $('#manName').value.trim(), price));
-      persist(); staySlot.next();
+      stayPick('manual'); persist(); staySlot.next();
     };
-    $('#stayLinks').onclick = () => { pickSeq++; staySlot.set({ mode: 'links', name: '', totalCzk: 0 }); persist(); staySlot.next(); };
+    $('#stayLinks').onclick = () => { pickSeq++; stayPick('links'); staySlot.set({ mode: 'links', name: '', totalCzk: 0 }); persist(); staySlot.next(); };
     $('#stayNext').onclick = () => (i < n - 1 && !allDone ? goStayBase(i + 1) : setStep('car'));
     const { params, key } = baseStayQuery(t, b, d);
     let data;
@@ -2782,6 +2807,8 @@
       ${errs ? `<div class="faint" style="font-size:12px;margin-top:6px">${errs}${xo ? '' : retryBtn}</div>` : ''}
       <details class="more" style="margin-top:12px"><summary>Další nabídky u partnerů</summary>${links}</details>`;
     wireRetry();
+    // nabídky jsou, ale filtry skryly všechny: jednou za místo a termín (překreslení ani doplnění cen se nepočítá)
+    if (!items.length) deep('stay_empty_filter', d.key);
     // změna řazení nebo filtru: zase od prvních 6
     $('#staySort').onchange = e => { stayView.sort = e.target.value; stayView.n = 0; renderStays(); };
     $$('#stayMin button').forEach(b => b.onclick = () => { stayView.minRating = +b.dataset.v; stayView.n = 0; renderStays(); });
@@ -2806,7 +2833,7 @@
     });
     // fotka, která se nenačte (TripAdvisor ji smazal, výpadek CDN): ikona místo prázdného rámečku
     $$('.st-img img', host).forEach(im => im.onerror = () => { const p = im.parentNode; im.remove(); if (p) p.textContent = '🏨'; });
-    const doPick = h => { pickSeq++; staySlot.set(pickOf(h, d.query && d.query.nights, d.query || d.params)); persist(); staySlot.next(); };
+    const doPick = h => { pickSeq++; stayPick('offer'); staySlot.set(pickOf(h, d.query && d.query.nights, d.query || d.params)); persist(); staySlot.next(); };
     $$('[data-pick]', host).forEach(b => b.onclick = async () => {
       const h = d.items[+b.dataset.pick], cur = staySlot && staySlot.get();
       if (b.dataset.anyway || (cur && cur.mode === 'pick' && cur.id === h.id)) return doPick(h);
@@ -3507,11 +3534,12 @@
     const btn = $('#tfAuto'); if (btn) { btn.disabled = true; btn.innerHTML = AUTO_RUN; }
     try {
       // trasa: postavená přes víc míst zůstane (noci musí sedět – jinak ubytování ani program nejdou), jinak jedno místo
-      if (isMulti(t) && nightsLeft(t) !== 0) return autoGo(t, 'route', 'warn', 'Noci v trase nesedí s délkou pobytu – uprav jejich rozdělení, pak to zkus znovu.');
+      if (isMulti(t) && nightsLeft(t) !== 0) { deep('trip_auto_nights'); return autoGo(t, 'route', 'warn', 'Noci v trase nesedí s délkou pobytu – uprav jejich rozdělení, pak to zkus znovu.'); }
       if (t.route && !isMulti(t)) t.route.mode = 'single';
       const st = await autoStay(t);
       if (T() !== t || st.away) return;
       if (st.stop) {
+        deep('trip_auto_stay'); // ubytování nenašel (i místo bez cen hotelů)
         if (st.idx != null) stayIdx = st.idx;
         return autoGo(t, 'stay', 'warn', st.stop);
       }
@@ -3521,6 +3549,7 @@
       autoSay('run', 'Ubytování mám – skládám program…');
       await autoPrograms(t);
       if (T() !== t || t.step !== at) return;
+      deep('trip_auto_done');
       autoGo(t, 'summary', 'ok', AUTO_DONE);
     } finally {
       tripAuto = false;
@@ -3952,7 +3981,7 @@
 `;
     // zkrácený průběh (jen telefon, CSS) → celý; řádek ubytování bez ceny / nevybraného → krok Ubytování (první místo bez něj)
     const ta = $('#tlAll'); if (ta) ta.onclick = () => { const w = $('#sumTl'); if (w && w.classList) w.classList.remove('tl-cut'); if (ta.remove) ta.remove(); };
-    $$('[data-goto]', host).forEach(b => b.onclick = () => { if (multi) stayIdx = Math.max(0, r.bases.findIndex(x => !x.stay || noPricePick(x.stay))); setStep(b.dataset.goto); });
+    $$('[data-goto]', host).forEach(b => b.onclick = () => { deep('trip_gap'); if (multi) stayIdx = Math.max(0, r.bases.findIndex(x => !x.stay || noPricePick(x.stay))); setStep(b.dataset.goto); });
     // odškrtnutá (i zase zrušená) letenka: „↻ Ověř cenu“ u ceny letenek zmizí (vrátí se) hned
     $$('[data-bk]', host).forEach(cb => cb.onchange = () => { t.booked[cb.dataset.bk] = cb.checked; persist(); if (/^flight\d+$/.test(cb.dataset.bk)) ageRefresh(); });
     wireAge();
@@ -4756,5 +4785,5 @@
 
   window.Trip = { start, ownFlightTrip, haveTicket, progSpan, liveOn, stayPricesOn, flightCached, stepDone, stayGap, totalLbl, tlDays, printNote, noPriceCand, cardData, pastHtml, flyOk, finalStats, statsGiveUp, openSaved, saveToPlanner, unsavedNow, stepTo, render: safeRender, mine, ageRefresh, importFromHash, costs, budgetGroups, budgetLeft, budgetMissing, sanitizeTrip, calendarEvents, leaveBy, baseDates, baseProgram, legBrief, stayDates, tripEvent, tripCountries, tripVia, groundLines, groundApps, timeline, placeOn, placePt, rideLegs, legBack,
     // doprava po úsecích trasy a auto jen na některé dny, tlačítko kroku nad spodní lištou (testy)
-    routeLegs, carRuns, suggestModes, setLegModes, rangeModes, carDays, carRange, carStart, transferParts, phoneNext, splitDoneTxt };
+    routeLegs, carRuns, suggestModes, setLegModes, rangeModes, carDays, carRange, carStart, transferParts, phoneNext, splitDoneTxt, stepEvent };
 })();
