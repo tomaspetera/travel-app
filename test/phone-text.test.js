@@ -132,7 +132,7 @@ test('výsledky do víc cílů („k moři v květnu“): u každé nabídky vla
   const fl = js.slice(js.indexOf('function flatList('), js.indexOf('/* ---------- přesná data'));
   // jen když výpis míchá cíle; u jednoho cíle ho říká nadpis výsledků
   assert.match(fl, /const multi = new Set\(list\.map\(t => t\.destKey\)\)\.size > 1;/);
-  assert.match(fl, /if \(mini && i > 0 && !view\.fopen\.has\(t\.id\)\) return tripMini\(t, dg\);\s*return destTag\(dg, 'tr-dest'\) \+ tripRow\(t, g, reg\(t, g\)\);/);
+  assert.match(fl, /if \(mini && i > 0 && !view\.fopen\.has\(t\.id\)\) return tripMini\(t, dg, twins\.has\(t\.id\)\);\s*return destTag\(dg, 'tr-dest'\) \+ tripRow\(t, g, reg\(t, g\)\);/);
   assert.match(js, /<span class="tm-when">\$\{destTag\(g, 'tm-dest'\)\}<b>/, 'krátký řádek: cíl nad termínem');
   const css = read('css/flights.css');
   assert.match(css, /\.trip-mini \.tm-dest\{[^}]*overflow-wrap:anywhere\}/, 'celý název – na 360 px se zalomí, neuřízne („Kréta (C…“)');

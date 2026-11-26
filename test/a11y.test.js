@@ -138,6 +138,14 @@ test('spodní lišta: sekce jako <button> (Tab, čtečka) a aktivní sekce s ari
   assert.match(atlasCss, /\.mobile-nav \.mi\{[^}]*border:0;padding:0( 2px)?;background:none;font:inherit/);
 });
 
+test('hledání vypne tlačítko „Najít lety“ – fokus, který tím spadl na <body>, dostane průběh hledání (#progress)', () => {
+  const s = flightsJs.slice(flightsJs.indexOf('async function startSearch('), flightsJs.indexOf("say('Hledám lety…')"));
+  const off = s.indexOf('btn.disabled = true'), fix = s.indexOf('document.activeElement === document.body');
+  assert.ok(off > 0 && fix > off, 'až po vypnutí tlačítka');
+  assert.match(s.slice(fix), /^document\.activeElement === document\.body\) \{ const pg = \$\('#progress'\); pg\.tabIndex = -1; pg\.focus\(\{ preventScroll: true \}\); \}/);
+  assert.doesNotMatch(s, /fokus zůstal na tlačítku/, 'starý komentář tvrdil, že fokus zůstane na vypnutém tlačítku');
+});
+
 test('hlášky pro čtečku: toast (role status), začátek a konec hledání v #srSay – stejné hlášení dvakrát po sobě se přečte znovu', () => {
   assert.match(html, /<div class="toast" id="toast" role="status"><\/div>/);
   assert.match(html, /<div class="sr-only" id="srSay" role="status"><\/div>/);
@@ -151,7 +159,7 @@ test('hlášky pro čtečku: toast (role status), začátek a konec hledání v 
   timers.shift()();
   assert.equal(el.textContent, 'Hledám lety…', '…pak hlášení');
   // hledání: start, konec (cíl a nejnižší cena z hlavičky výsledků) i chyba – průběh (až 4× za s) ne
-  assert.match(flightsJs, /btn\.innerHTML = '<span class="spin"><\/span> Hledám…';\n\s*say\('Hledám lety…'\);/);
+  assert.match(flightsJs, /btn\.innerHTML = '<span class="spin"><\/span> Hledám…';\n(\s*(\/\/|if \(document\.activeElement)[^\n]*\n)*\s*say\('Hledám lety…'\);/);
   assert.match(flightsJs, /else renderResults\(\); sayDone\(\); \};/);
   assert.match(flightsJs, /\$\('#searchRetry'\)\.onclick = \(\) => startSearch\(\);\n\s*say\(msg\);/);
   assert.doesNotMatch(flightsJs.match(/function renderProgress\([\s\S]*?\n {2}\}/)[0], /say\(/);
