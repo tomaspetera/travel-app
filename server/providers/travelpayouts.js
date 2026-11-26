@@ -1,7 +1,7 @@
 // Travelpayouts / Aviasales Data API – ceny všech aerolinek (i s přestupy) z cache
 // vyhledávání uživatelů Aviasales za poslední dny. Zdarma s tokenem z travelpayouts.com.
 //   /aviasales/v3/prices_for_dates   bez destinace = nejlevnější lety „kamkoliv“
-import { limiter, request } from '../lib/http.js';
+import { HttpError, limiter, request } from '../lib/http.js';
 import { cache } from '../lib/cache.js';
 import { config } from '../config.js';
 import { affiliate, affiliateOn } from '../lib/links.js';
@@ -84,17 +84,43 @@ export function parsePricesForDates(json, { adults = 1 } = {}) {
 // Trh (market) určuje, z čí mezipaměti hledání se čte – bez něj API bere ruský trh.
 // Kdyby API zvolený trh nepřijalo, zkusí se dotaz bez něj (a trh se pro běh serveru vypne).
 let marketOk = true;
-/** Pro testy: znovu zapne trh (po pokusu, kdy ho API nepřijalo). */
+
+// Pojistka při výpadku: po 429, 5xx nebo timeoutu / chybě sítě (request už jednou zopakoval) se Travelpayouts na chvíli
+// vynechá. Jinak by každý z desítek dotazů hledání (kamkoliv = letiště × měsíce) čekal až 2 × 15 s ve sdílené frontě
+// limit(4) – hledání by trvalo minuty a čekali by i ostatní uživatelé (v čistém režimu jediný zdroj letů). Dotazy ve
+// frontě pak skončí hned, ceny už uložené v mezipaměti (cache.wrap) se ukazují dál. 429 na dobu z Retry-After
+// (nejvýš 15 min), jinak 2 min; výpadek 1 min. Hledání to hlásí jako výpadek s odpočtem (isBlocked/retryAfter níž).
+const block = { until: 0, why: '' };
+const blocked = () => Date.now() < block.until;
+const blockedError = () => Object.assign(new Error(`Aviasales ${block.why} – na chvíli vynecháno, zkus to za chvíli`), { blocked: true });
+
+/** Pro testy: znovu zapne trh (po pokusu, kdy ho API nepřijalo) a zruší pojistku po výpadku. */
 export function resetTravelpayouts() {
   marketOk = true;
+  block.until = 0;
 }
 
 async function fetchPfd(qs) {
-  const j = await limit(() => request(`${URL_PFD}?${qs}`, {
-    headers: { 'X-Access-Token': config.travelpayoutsToken },
-    timeoutMs: 15000,
-    retries: 1,
-  }));
+  if (blocked()) throw blockedError();
+  const j = await limit(async () => {
+    if (blocked()) throw blockedError();
+    try {
+      return await request(`${URL_PFD}?${qs}`, {
+        headers: { 'X-Access-Token': config.travelpayoutsToken },
+        timeoutMs: 15000,
+        retries: 1,
+      });
+    } catch (e) {
+      const s = Number(e.status) || 0;
+      // 400/422 (odmítnutá trasa), 401/403 (token) a neplatné JSON pojistku nespouští – to nejsou výpadky
+      if (s !== 429 && s < 500 && e instanceof HttpError) throw e;
+      const ms = s === 429 ? (e.retryAfter > 0 ? Math.min(15 * 60e3, e.retryAfter * 1000) : 2 * 60e3) : 60e3;
+      block.until = Math.max(block.until, Date.now() + ms);
+      block.why = s === 429 ? 'teď omezuje dotazy (HTTP 429)' : s ? `má výpadek (HTTP ${s})` : 'neodpovídá';
+      console.warn(`Travelpayouts ${block.why} (${e.message}) → vynechán na ${Math.round(ms / 1000)} s`);
+      throw blockedError();
+    }
+  });
   if (j && j.success === false) {
     const err = new Error(`Travelpayouts: ${j.error || 'chyba'}`);
     err.status = 400;
@@ -138,6 +164,8 @@ export const travelpayouts = {
   id: 'travelpayouts',
   name: 'Travelpayouts (všechny aerolinky)',
   live: false,
+  isBlocked: blocked,
+  retryAfter: () => Math.max(0, Math.ceil((block.until - Date.now()) / 1000)), // s do konce pojistky (pro „Zkusit znovu“)
 
   async stations() {
     return null; // pokrývá prakticky všechna letiště

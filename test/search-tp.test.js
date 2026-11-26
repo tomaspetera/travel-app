@@ -113,3 +113,38 @@ test('Travelpayouts ve „Víc měst“: let s přestupem s nemožnou délkou m�
     stub.restore();
   }
 });
+
+test('Travelpayouts: výpadek (5xx, síť) nebo 429 → pojistka: další dotazy hned skončí, hlášení česky s odpočtem', async () => {
+  // Bez pojistky čekal každý z desítek dotazů „kamkoliv“ (letiště × měsíce) na timeout 2 × 15 s ve sdílené frontě po
+  // čtyřech – při zavěšeném API hledání trvalo minuty (1 letiště, 6 měsíců: 63 s) a čekali i ostatní uživatelé.
+  const { providerStatus } = await import('../server/providers/index.js');
+  const cases = [
+    [() => ({ status: 500, body: 'x' }), /výpadek \(HTTP 500\)/, 50, 70],
+    [() => { throw new TypeError('fetch failed'); }, /neodpovídá/, 50, 70],
+    [() => ({ status: 429, body: '{}', headers: { 'retry-after': '300' } }), /omezuje dotazy/, 290, 310],
+  ];
+  for (const [i, [answer, why, min, max]] of cases.entries()) {
+    resetTravelpayouts();
+    const stub = stubFetch(answer);
+    try {
+      // 1 letiště, ~10 měsíců = 11 dotazů; bez pojistky každý (u 5xx a sítě i s opakováním) až k API
+      const q = { from: ['ap:PRG'], radiusKm: 0, to: ['anywhere'], dateFrom: ymdPlus(30 + i * 3), dateTo: ymdPlus(330 + i * 3), trip: 'oneway', kmRate: 0 };
+      const r = await search(q);
+      assert.ok(stub.calls.length <= 8, `k API nejvýš první 4 souběžné dotazy (s opakováním), ne všechny: ${stub.calls.length}`);
+      const st = r.providers.find((p) => p.id === 'travelpayouts');
+      assert.equal(st.state, 'error');
+      assert.equal(st.outage, 'blocked');
+      assert.match(st.error, why);
+      assert.doesNotMatch(st.error, /https?:|Timeout/);
+      assert.ok(st.retryAfter >= min && st.retryAfter <= max, `odpočet ${st.retryAfter} s`);
+      assert.equal(providerStatus().find((p) => p.id === 'travelpayouts').blocked, true);
+      // další hledání během pojistky na API vůbec nesáhne
+      stub.calls.length = 0;
+      await search({ ...q, dateFrom: ymdPlus(31 + i * 3) });
+      assert.equal(stub.calls.length, 0);
+    } finally {
+      stub.restore();
+    }
+  }
+  resetTravelpayouts();
+});

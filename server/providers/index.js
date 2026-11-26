@@ -70,6 +70,7 @@ export function providerStatus() {
     },
     {
       id: 'travelpayouts', ...PROVIDER_INFO.travelpayouts, enabled: Boolean(config.travelpayoutsToken),
+      blocked: travelpayouts.isBlocked(), retryAfter: travelpayouts.retryAfter(),
       hint: config.travelpayoutsToken ? null : 'Zdarma token na travelpayouts.com → TRAVELPAYOUTS_TOKEN v .env přidá stovky dalších aerolinek',
     },
   ];
