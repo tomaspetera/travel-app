@@ -40,8 +40,11 @@
   };
   const doneAt = (mask, i) => typeof mask === 'string' && /^[0-9a-f]{1,20}$/.test(mask) && (parseInt(mask[i >> 2] || '0', 16) & (8 >> (i & 3))) > 0;
 
+  // vlastní let bez Odkud („Letenku už mám“ – trip.js ownFlightTrip) nemá letiště domova: '' tam (from) nebo zpět (to);
+  // bez něj by záloha a přenos úsek zahodily a kalendář z Mých cest by ukázal jen text letu. Obě letiště prázdná ne.
+  const legAp = (s, other) => iata(s) || (s === '' && iata(other) ? '' : null);
   function leg(l) {
-    if (!obj(l) || !iata(l.from) || !iata(l.to)) return null;
+    if (!obj(l) || legAp(l.from, l.to) == null || legAp(l.to, l.from) == null) return null;
     const dep = localDt(l.dep);
     const date = isYmd(l.date) ? l.date : dep ? dep.slice(0, 10) : null;
     if (!date) return null;

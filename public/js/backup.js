@@ -205,6 +205,10 @@
     const t = { ...plan };
     if (fin(raw.tripId) && raw.tripId > 0 && raw.tripId < 1e13) t.tripId = raw.tripId;
     if (typeof raw.pid === 'string' && PID.test(raw.pid)) t.pid = raw.pid;
+    // cena cesty z průvodce při uložení (trip.js saveToPlanner) – karta v Mých cestách ji ukáže vedle „Můj rozpočet“
+    // (app.js tripMoney); bez ní by po obnově či přenosu zbyl jen rozpočet, který vypadá jako cena
+    const tot = numOr(raw.totalCzk, 0, 1e8);
+    if (tot != null) t.totalCzk = Math.round(tot);
     const w = cleanWiz(raw.wizard, d);
     if (w) t.wizard = w;
     // co vygeneroval průvodce: stejně jako plán (beze změn textu), ať se pozná, co uživatel v plánovači upravil

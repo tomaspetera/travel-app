@@ -304,6 +304,9 @@ function histPop() {
   // Zpět při otevřeném okně: krok okna už je pryč – jen ho zavřít
   if (hist.modal) { hist.modal = false; modalShow(false); }
   const st = history.state;
+  // odkaz vložený do otevřené stránky (#sync=, #trip=, #plan=… – nový krok bez stavu aplikace) není Zpět: průvodce by
+  // jinak couvl o krok a uložil se (autoSave) – zpětný přenos by změnil cestu, i když se nic neslučuje; odkaz zpracuje hashchange
+  if (!st && /^#[a-z]+=/.test(location.hash)) return;
   // Zpět z kroku průvodce: předchozí krok, kterým uživatel prošel (krok, na kterém cesta už je, se přeskočí); krok
   // průvodce se vrátí, dokud je kam couvat – nebylo-li kam, Zpět pokračuje o krok dál (výsledky, Přehled)
   if (hist.step && !(st && st.atlasT)) {
