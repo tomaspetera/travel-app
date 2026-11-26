@@ -19,8 +19,9 @@ Pověřence pro ochranu osobních údajů nemáme jmenovaného (není povinný).
 
 ## 2. Krátce
 
-- ATLAS nemá účty, registraci ani přihlášení. **Nepoužívá cookies a nesleduje jednotlivce.** Počítá jen souhrnné
-  denní počty – kolikrát se otevřela aplikace, kolik proběhlo hledání, kolik cest vzniklo (bod 3.6).
+- ATLAS nemá účty, registraci ani přihlášení. **Nepoužívá cookies a nesleduje jednotlivce** – kromě záznamu návštěvy
+  podle bodu 3.7, pokud ho sám zapneš. Počítá jen souhrnné denní počty – kolikrát se otevřela aplikace, kolik
+  proběhlo hledání, kolik cest vzniklo (bod 3.6).
 - Tvoje cesty, hlídané ceny, oblíbená místa a nastavení jsou **jen v tvém prohlížeči** na tvém zařízení. Na server se
   neposílají.
 - Server ATLASu dostane jen to, co potřebuje k odpovědi (např. odkud a kam hledáš let), a tvou IP adresu, kterou
@@ -173,6 +174,34 @@ nebo vypršel, a přijaté hlášení chyby aplikace (bod 3.3).
 > (klíč `STATS_KEY`, `statsKeyOk()`) a serverové počty v `handleSearch()`, `streamSearch()` (`searchEvent()`),
 > `/api/stays`, `/api/share/<id>` a `/api/client-error`, `test/pocitadla.test.js`.
 
+### 3.7 Záznam průchodu návštěvou (jen se souhlasem)
+
+Když v Další zapneš **Pomáhat se zlepšováním** (nebo na kartě na Přehledu klepneš na Zapnout), aplikace při každé
+návštěvě posílá pořadí obrazovek a hlavních akcí z bodu 3.6 (bez nabídky placené verze, průzkumu ceny a odpovědí na
+otázky) a opakované klepnutí na totéž místo, když něco nereaguje (jen sekce aplikace, ne co bylo pod prstem), se
+sekundami od začátku a náhodným číslem návštěvy, které existuje jen v paměti otevřené stránky a po 30 minutách
+nečinnosti se mění. Neposílá se text, místa, ceny, údaje cestujících, IP adresa ani údaje o prohlížeči. Jde
+o pseudonymní údaje. Se souhlasem se zároveň počítají i podrobnější souhrnné počty z aplikace (jako v bodě 3.6), bez
+něj se neposílají.
+
+- **Účel:** zlepšování aplikace (kde návštěvy končí, co lidé dělali před odchodem). Vyhodnocuje se jen souhrnně,
+  žádné profilování ani přizpůsobování obsahu; jednotlivé návštěvy se neprohlížejí.
+- **Základ:** souhlas (čl. 6 odst. 1 písm. a) GDPR). Ve výchozím stavu je vypnuto.
+- **Zpracovatelé:** Upstash (region [doplnit region]), Render, Cloudflare; předání do USA viz bod 6.
+- **Uložení:** nejvýš 300 návštěv denně; záznamy jednoho dne se smažou 30 dní po posledním zápisu toho dne, tedy
+  nejpozději do 31 dnů. Záznam čeká na zápis nejvýš 30 minut v paměti serveru. Číst je může jen provozovatel
+  (stránka statistik za klíčem).
+- **Odvolání:** souhlas můžeš kdykoli odvolat vypnutím v Další (nebo v O aplikaci), aniž by to ovlivnilo dřívější
+  zpracování (čl. 7 odst. 3). Záznam právě probíhající návštěvy se tím smaže. Dřívější záznamy k tobě nedokážu
+  přiřadit (čl. 11), proto nejdou smazat jednotlivě a vyprší samy.
+- **Stížnost:** u ÚOOÚ (bod 7). [ověřit – Otázky, bod 14]
+
+> Kde v kódu: `public/js/count.js` (`consent()`, `deep()`, `rageTap()`, záznam jen v paměti, odeslání přes
+> `sendBeacon` na `/api/trace` při odchodu ze stránky), `server/lib/traces.js` (`cleanTrace()` – jen ID a názvy
+> z pevného seznamu, `makeTraces()` – strop `CAP` = 300, `TTL_SEC` = 30 dní, odvolání HDEL), `server/index.js`
+> obsluha `/api/trace` (limit 30 za 10 minut z adresy, tělo nejvýš 4 KB) a `/api/traces` (jen s klíčem `STATS_KEY`),
+> karta a přepínač v `public/js/app.js` (`helpCard()`, `helpSwitch()`), `test/traces.test.js`.
+
 ## 4. Co zůstává jen ve tvém zařízení
 
 ATLAS ukládá data v úložišti prohlížeče (localStorage) na tvém zařízení. Provozovatel k nim nemá přístup a na server
@@ -190,6 +219,7 @@ se neposílají (kromě případů v bodě 3, kdy je sám odešleš). **Nejsou t
 | `atlas_ph` | mezipaměť adres fotek měst |
 | `atlas_nowwx` | předpověď pro kartu Dnes na cestě (i bez signálu) |
 | `atlas_wn`, `atlas_wn_top`, `atlas_since`, `atlas_tip`, `atlas_flags` | co už jsi viděl v Novinkách a tipech, technické příznaky zobrazení |
+| `atlas_help` | tvoje volba u Pomáhat se zlepšováním (`1` zapnuto, `0` vypnuto) – zapíše se až po klepnutí, nic dalšího (číslo návštěvy ne) |
 
 Pro práci bez internetu si aplikace (service worker) ukládá v mezipaměti prohlížeče **soubory aplikace** a čas
 posledního spojení se serverem – žádné osobní údaje ani odpovědi na hledání.
@@ -284,7 +314,9 @@ a obrazovku). Provozovatel uvidí tvou e-mailovou adresu a obsah zprávy a použ
 - **Render** (hosting, USA): server v regionu Frankfurt (EU); Render Services, Inc. je společnost z USA.
   [doplnit – smluvní doložky / EU-US Data Privacy Framework]
 - **Cloudflare** (síť doručení před Renderem, USA). [doplnit]
-- **Upstash** (krátké odkazy): region databáze [doplnit region]; Upstash, Inc. je společnost z USA. [doplnit]
+- **Upstash** (krátké odkazy, souhrnné počty a se souhlasem i pseudonymní záznamy návštěv podle bodu 3.7): region
+  databáze [doplnit region]; Upstash, Inc. je společnost z USA. [doplnit – smlouva o zpracování (DPA), EU-US Data
+  Privacy Framework]
 - Služby fotek a map v bodě 5.1 mohou mít servery i mimo EU.
 
 ## 7. Tvoje práva
@@ -294,10 +326,12 @@ námitku proti zpracování na základě oprávněného zájmu (čl. 15–21 GDP
 
 Upozorňujeme, že u většiny údajů tě nedokážeme identifikovat: nemáme účty a IP adresu držíme jen v paměti po dobu
 podle bodu 3.1. Data v tvém zařízení (bod 4) smažeš sám. U krátkého odkazu nám pro výmaz pošli odkaz (`…/c/…`).
+Souhlas se záznamem návštěvy (bod 3.7) odvoláš vypnutím Pomáhat se zlepšováním v Další – smaže se tím i záznam
+právě probíhající návštěvy; starší záznamy k tobě nedokážeme přiřadit (čl. 11 GDPR) a vyprší samy do 31 dnů.
 
 Máš právo podat stížnost u **Úřadu pro ochranu osobních údajů**, Pplk. Sochora 27, 170 00 Praha 7, www.uoou.gov.cz.
 
-Nepoužíváme automatizované rozhodování ani profilování. Poskytnutí údajů není povinné; bez údajů o hledání ti ale
+Nepoužíváme automatizované rozhodování ani profilování (záznamy návštěv podle bodu 3.7 se vyhodnocují jen souhrnně). Poskytnutí údajů není povinné; bez údajů o hledání ti ale
 ATLAS nemůže najít spoje.
 
 ## 8. Změny zásad
@@ -368,3 +402,11 @@ Zásady můžeme upravit, když se změní aplikace nebo předpisy. Aktuální z
       situace než automaticky odeslaný počet?
     - **Události odvozené z uloženého stavu** (`limit_shown`, `plus_offer_shown`, `sesit_shown` – ukážou se podle toho,
       co má aplikace uložené v localStorage, např. počet cest): stejné posouzení jako u klientských počtů, nebo jiné?
+14. **Záznam průchodu návštěvou se souhlasem** (bod 3.7, karta na Přehledu a přepínač Pomáhat se zlepšováním).
+    Prosím o přečtení textu karty a bodu 3.7. Dále: souhlas dětí pod 15 let (čl. 8 GDPR, § 7 zák. 110/2019 Sb.);
+    stačí čl. 11 pro minulé návštěvy (ID existuje jen v paměti stránky); je potřeba DPIA nebo záznam podle čl. 30
+    („monitorování chování“ na seznamu ÚOOÚ; rozsah je malý – nejvýš 300 návštěv denně); po jaké době souhlas
+    obnovit (dnes platí do vypnutí); smlouva o zpracování s Upstash, jeho certifikace v EU-US Data Privacy Framework
+    a region databáze. Podrobné klientské počty (nové počty z Letů, průvodce, Objevuj a Přehledu a opakované klepnutí)
+    se rozhodnutím provozovatele posílají jen s tímto souhlasem – stačí pro ně text karty, nebo je vyjmenovat?
+    Ukázku jednotlivých návštěv na stránce statistik zatím nestavím – je přípustná?

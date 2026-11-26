@@ -348,8 +348,10 @@ function loadCount({ beacon = true, online = true, fetchOk = true } = {}) {
   return { C: ctx.Count, log, ctx };
 }
 
-test('count.js: nic neukládá do prohlížeče – žádné cookies, úložiště ani identifikátor', () => {
-  assert.doesNotMatch(COUNT_SRC, /document\.cookie|localStorage|sessionStorage|indexedDB|caches\.|crypto\.|randomUUID|userAgent|screen\.|Date\.now/);
+test('count.js: bez souhlasu nic neukládá do prohlížeče – žádné cookies, úložiště ani identifikátor', () => {
+  assert.doesNotMatch(COUNT_SRC, /document\.cookie|sessionStorage|indexedDB|caches\.|randomUUID|userAgent|screen\./);
+  // úložiště jen kvůli volbě Pomáhat se zlepšováním (atlas_help), náhodné ID návštěvy jen se souhlasem (test/traces.test.js)
+  assert.deepEqual(COUNT_SRC.match(/localStorage\.\w+\('[^']*'/g), ["localStorage.getItem('atlas_help'", "localStorage.setItem('atlas_help'"]);
   // náhoda jen k výběru, jestli se Count.ask zeptá – nikam se neposílá ani neukládá (test/mikro-otazky.test.js)
   assert.deepEqual(COUNT_SRC.match(/Math\.random\(\)[^;]*/g), ['Math.random() < o.rate)) return null']);
   // běh v prohlížeči, kde úložiště ani cookies vůbec nejsou: sáhnutí na ně by skončilo chybou
@@ -357,7 +359,8 @@ test('count.js: nic neukládá do prohlížeče – žádné cookies, úložišt
   C.hit('app_open');
   assert.deepEqual(log.beacons, [{ url: 'https://letsi.example/app/api/count', body: '{"e":"app_open"}' }], 'jen název události');
   assert.equal(log.fetches.length, 0);
-  assert.deepEqual(Object.keys(ctx.Count).sort(), ['ask', 'hit', 'view', 'viewEvent']);
+  assert.deepEqual(Object.keys(ctx.Count).sort(), ['ask', 'consent', 'deep', 'helping', 'hit', 'rageTap', 'view', 'viewEvent']);
+  assert.equal(ctx.Count.helping(), false, 'bez localStorage = bez souhlasu');
 });
 
 test('count.js: offline nic, bez sendBeacon fetch s keepalive, chyba se nikdy neprojeví', async () => {

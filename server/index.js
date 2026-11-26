@@ -43,6 +43,7 @@ import { BRAND } from './brand.js';
 import { mapyOn, mapyReady, mapyStatus, parseTile, mapyTile } from './lib/mapy.js';
 import { cleanReport, recordClientError, clientErrorCount, MAX_BODY as CLIENT_ERR_MAX } from './lib/clienterr.js';
 import { RateLimiter } from './lib/ratelimit.js';
+import { upstashTraces, memoryTraces, makeTraces, cleanTrace, MAX_BODY as TRACE_MAX } from './lib/traces.js';
 import { upstashCounts, memoryCounts, makeCounter, clampDays, statsKeyOk, EVENTS, SERVER_EVENTS, MAX_BODY as COUNT_MAX } from './lib/counts.js';
 import { upstashStore, memoryStore, cachedStore, createShare, loadShare, sharePage, inviteMeta, invitePage, ogPhoto, PREVIEW_BOT, PREVIEW_CSP, MAX_JSON as SHARE_MAX, ID_RE as SHARE_ID } from './lib/shortlinks.js';
 import { sharedRuns, gate, perClient, recentResults, breathe } from './lib/crowd.js';
@@ -230,7 +231,10 @@ const countHits = new RateLimiter(); // události z prohlížeče (/api/count): 
 // …a stejná událost z jedné adresy nejvýš 30× za 10 minut (klíč adresa|událost jen v paměti limitu, k počtům se
 // neukládá) – jedna adresa tak jedno číslo nenafoukne celým limitem 120
 const countPairs = new RateLimiter();
-const statsFails = new RateLimiter({ windowMs: 60 * 60e3 }); // špatný klíč k /api/stats: 10 za hodinu z jedné adresy
+const statsFails = new RateLimiter({ windowMs: 60 * 60e3 }); // špatný klíč k /api/stats a /api/traces: 10 za hodinu z jedné adresy
+// Záznam návštěv jen se souhlasem (server/lib/traces.js): úložiště jako počty, adresa slouží jen limitu traceHits
+const traces = makeTraces(config.upstashUrl && config.upstashToken ? upstashTraces(config.upstashUrl, config.upstashToken) : memoryTraces());
+const traceHits = new RateLimiter(); // POST /api/trace: 30 za 10 minut z jedné adresy (odeslání při odchodu ze stránky)
 const wxHits = new RateLimiter(); // předpověď mimo mezipaměť serveru (MET Norway)
 const fxHits = new RateLimiter(); // kurzy pro okno země (/api/fx): klient je bere jednou denně, 60 za 10 minut stačí
 // clientIp (server/lib/security.js): na Renderu adresa od Cloudflare, ne podvrhnutelná první z X-Forwarded-For
@@ -690,6 +694,36 @@ async function route(req, res) {
       return sendJson(req, res, 200, await counter.stats(clampDays(url.searchParams.get('days'))), config.statsKey ? {} : { 'Cache-Control': 'public, max-age=300' });
     } catch (e) {
       return sendJson(req, res, 503, { error: 'Počty teď nejsou dostupné.' });
+    }
+  }
+  if (p === '/api/trace') {
+    // Záznam průchodu návštěvou se souhlasem (public/js/count.js): { id, s: [[sekund, událost], …] } nebo odvolání
+    // { id, del: 1 }. Z požadavku se nic jiného nečte ani neukládá – adresa jen do limitu, prohlížeč vůbec ne.
+    // Odpověď vždy 204 (i u zahozeného záznamu): sendBeacon na ni nečeká a nic se z ní nedá vyčíst.
+    if (req.method !== 'POST') return sendJson(req, res, 405, { error: 'Jen POST' }, { Allow: 'POST' });
+    if (rateLimited(req, 30, traceHits)) return sendJson(req, res, 429, { error: 'Příliš mnoho požadavků' });
+    let b = null;
+    try {
+      b = JSON.parse((await readBody(req, TRACE_MAX)) || 'null');
+    } catch (e) {
+      if (e && e.status === 413) return badBody(req, res, e);
+    }
+    traces.add(cleanTrace(b));
+    res.writeHead(204, { 'Cache-Control': 'no-store' });
+    return res.end();
+  }
+  if (p === '/api/traces') {
+    // Záznamy návštěv za ?days= (7–30) → { days, visits: [[kroky], …] } bez ID a dne. Jsou to pseudonymní údaje, proto
+    // nikdy veřejně: bez STATS_KEY 404, jinak jen se správným klíčem jako /api/stats.
+    if (!config.statsKey) return sendJson(req, res, 404, { error: 'Neznámý endpoint' });
+    if (!statsKeyOk(req.headers.authorization, config.statsKey)) {
+      if (req.headers.authorization && rateLimited(req, 10, statsFails)) return sendJson(req, res, 429, { error: 'Příliš mnoho pokusů – zkus to později.' });
+      return sendJson(req, res, 401, { error: 'Chybí klíč ke statistikám.' }, { 'WWW-Authenticate': 'Bearer' });
+    }
+    try {
+      return sendJson(req, res, 200, await traces.traces(url.searchParams.get('days')));
+    } catch (e) {
+      return sendJson(req, res, 503, { error: 'Záznamy teď nejsou dostupné.' });
     }
   }
   if (p === '/api/share') {
@@ -1329,7 +1363,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === path.join(config.root, 
   const shutdown = (sig) => {
     console.log(`${sig}: ukončuji server…`);
     // počty z posledních (až 30) minut by s procesem zmizely – konec až po jejich zápisu (nejvýš 10 s, viz níž)
-    const counted = counter.flush();
+    const counted = Promise.all([counter.flush(), traces.flush()]); // i záznamy návštěv (stejné okno 30 minut)
     server.close(() => counted.finally(() => process.exit(0)));
     setTimeout(() => process.exit(0), 10000).unref();
   };
