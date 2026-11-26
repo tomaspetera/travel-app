@@ -321,7 +321,6 @@
 :root[data-brand="letsi"][data-theme="light"] :is(.bad,.w-stats .bad,.trip-del,.kv .safe-bad,.pc-trend.up b){color:var(--bad-ink)}
 :root[data-brand="letsi"] .trip-del{border-color:var(--border-2)}
 :root[data-brand="letsi"] .prow.error .pbar span{background:var(--letsi-chyba)}
-=======
 /* horní lišta na telefonu: na Přehledu místo textu „Přehled“ malé logo, jinde název sekce zůstává. Proč takhle:
    – na místě názvu, ne nad ním: lišta zůstane stejně vysoká (logo 26 px < tlačítka 40 px), obsah ani rezerva pod
      lepicí lištou (scroll-margin 58 px) se neposunou a tlačítka vpravo stojí, kde stála; 121 px (26 px výšky
