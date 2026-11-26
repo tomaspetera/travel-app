@@ -763,3 +763,9 @@ table.cost tr.entry-tot td{font-weight:800;border-bottom:none}
 .mt-more{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
 /* jako tlačítka v úvodu Cesty: na telefonu přes celou šířku pod sebou (různě dlouhé popisky nevisí vlevo), na počítači vedle sebe */
 .mt-more .btn{flex:1 1 220px;justify-content:center}
+/* ✈️ Letenku už mám: formulář vlastního letu místo hledání (trip.js haveTicket) – dvě pole vedle sebe vejdou i na 360 px */
+.own-form .own-lead{margin:4px 0 6px;font-size:13.5px}
+.own-form .own-l,.own-form .own-row label{display:block;font-size:13px;font-weight:600;margin:12px 0 4px}
+.own-form .own-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.own-form .own-row .input{display:block;width:100%;min-width:0;margin-top:4px;font-weight:400}
+.own-form small{font-weight:400;color:var(--muted)}

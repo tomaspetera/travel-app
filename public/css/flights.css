@@ -66,6 +66,9 @@
 .hero-plan{display:inline-flex;align-items:center;gap:6px;margin-top:12px;max-width:100%;font-weight:700;font-size:14px;line-height:1.25;font-family:inherit;color:#fff;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.4);border-radius:999px;padding:10px 16px;cursor:pointer;text-align:left}
 .hero-plan:hover,.hero-plan:focus-visible{background:rgba(255,255,255,.26)}
 .hero.ph .hero-plan{background:rgba(10,14,30,.5)}
+/* ✈️ Letenku už mám vedle 🧳: na telefonu pod sebou (vedle sebe se na 412 px nevejdou a zalomily by se uprostřed) */
+.hero-plans{display:flex;flex-direction:column;align-items:flex-start;gap:8px;margin-top:12px}
+.hero-plans .hero-plan{margin-top:0}
 .pi-dark{background:transparent;border:none;min-height:38px;padding:2px 0}
 .pi-dark:focus-within{background:transparent}
 /* bez rámečku pole na Přehledu nebylo z klávesnice vidět, kde je fokus – obrys kolem celého pole (i s čipy míst) */
@@ -1629,3 +1632,6 @@ ol.guide code,.note code{background:var(--surface-2);padding:1px 6px;border-radi
 .cache-mark{font-size:11px;font-weight:600;line-height:1.3;color:var(--warn-ink)}
 .radar-card .rc-price .cache-mark{color:rgba(255,255,255,.88);font-family:Inter,sans-serif}
 .cache-note{font-size:11.5px;line-height:1.45;margin:0 2px 8px}
+/* „Koupeno?“ po návratu z webu prodejce: tichý řádek v kartě nabídky, žádné okno (flights.js boughtShow) */
+.tr-bought{margin-top:10px;padding:8px 12px;border-radius:10px;background:var(--surface-2);font-size:13.5px;color:var(--text)}
+.tr-bought .linkbtn{font-weight:700}

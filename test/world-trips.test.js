@@ -132,5 +132,5 @@ test('detail země Česko: bez „Najít lety sem“ (domov), hlavní je 🌍 Ob
 });
 
 test('Co je nového: aktualizace plánu od kamaráda, úprava cesty, pod nimi hledání větou rozumí víc (nová sada novinek)', () => {
-  assert.match(app, /const WN_ID = '2026-11-25a';\s*const WHATS_NEW = \[\s*\['🔒', 'Soukromí', 'počítám jen souhrnné denní počty, žádné sledování jednotlivců\.[^\n]*\],\s*\['🔄', 'Upravený plán od kamaráda bez kopií',[^\n]*🔄 Aktualizovat moji cestu[^\n]*\],\s*\['✏️', 'Cestu upravíš i po uložení',[^\n]*✏️ Upravit název a termín[^\n]*\],\s*\['✨', 'Hledání větou rozumí víc',[^\n]*Vánoce a Silvestr[^\n]*Den boje za svobodu[^\n]*s dětmi 5 a 8 let[^\n]*\],\s*\['🔎', 'Země na mapu napsáním',/);
+  assert.match(app, /const WN_ID = '2026-11-26a';\s*const WHATS_NEW = \[\s*\['✈️', 'Letenku už máš\?',[^\n]*\],\s*\['🔒', 'Soukromí', 'počítám jen souhrnné denní počty, žádné sledování jednotlivců\.[^\n]*\],\s*\['🔄', 'Upravený plán od kamaráda bez kopií',[^\n]*🔄 Aktualizovat moji cestu[^\n]*\],\s*\['✏️', 'Cestu upravíš i po uložení',[^\n]*✏️ Upravit název a termín[^\n]*\],\s*\['✨', 'Hledání větou rozumí víc',[^\n]*Vánoce a Silvestr[^\n]*Den boje za svobodu[^\n]*s dětmi 5 a 8 let[^\n]*\],\s*\['🔎', 'Země na mapu napsáním',/);
 });
