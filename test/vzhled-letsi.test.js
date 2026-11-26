@@ -146,6 +146,10 @@ test('letsi.css krok 2: žádná modrá ani fialová, ceny barvou textu, stupnic
   assert.match(src, /\] b\.good\{color:var\(--text\)\}/);
   assert.match(src, /\] \.cd b\{color:var\(--text\)/);
   assert.match(src, /\] \.cd\.sel\{background:var\(--surface-2\);box-shadow:inset 0 0 0 2px var\(--text\)/, 'vybraný den: pěna + lem 2 px');
+  // den bez ceny a ✕ (nic neprošlo filtry) tlumeně – silnější selektor než .cd b / .cd span výše
+  assert.match(src, /\] \.cd\.none :is\(span,b\)\{color:var\(--faint\)\}/);
+  // tmavý režim: ztmavení za oknem černé, Noc na Noci by nebyla vidět
+  assert.match(src, /\[data-theme="dark"\] \.modal-bg\{background:rgba\(0,0,0,\.6\)\}/);
   // „Je to dobrá cena?“: plné úseky (pseudoprvky), ne přechod z flights.css
   assert.match(src, /\] \.pc-bar\{[^}]*background:var\(--letsi-roleta\)/);
   assert.match(src, /\] \.pc-bar::before\{[^}]*background:#D6DE82/);
