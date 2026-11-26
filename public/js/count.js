@@ -31,7 +31,8 @@
 
   /*
    * Krátká otázka na jedno klepnutí: řádek s volbami hned za prvkem el (ne okno ani toast). o = { id, q (otázka),
-   * opts: [[název události, popisek], …], rate (podíl případů, kdy se zeptá: 0.25 = 1 ze 4), done(název, řádek) }.
+   * opts: [[název události, popisek], …], rate (podíl případů, kdy se zeptá: 0.25 = 1 ze 4), done(název, řádek),
+   * at (místo vůči el pro insertAdjacentElement, jinak hned za ním) }.
    * Nejvýš jedna otázka za načtení stránky – víc by obtěžovalo. Neposílá se nic, dokud člověk sám neklepne na volbu:
    * zobrazení otázky se nepočítá (automaticky posílaný počet čeká na posouzení advokátem). Volný text se neposílá.
    * Nic se neukládá do zařízení, takže po obnovení stránky se může zeptat znovu.
@@ -42,7 +43,7 @@
       if (!el || !el.insertAdjacentElement || !o || !Array.isArray(o.opts)) return null;
       if (asked) {
         // překreslení obsahu řádek zahodí – nezodpovězená otázka se stejným id se vrátí na nové místo (znovu se nelosuje)
-        if (asked.open && asked.id === o.id && !asked.row.isConnected) { el.insertAdjacentElement('afterend', asked.row); return asked.row; }
+        if (asked.open && asked.id === o.id && !asked.row.isConnected) { el.insertAdjacentElement(o.at || 'afterend', asked.row); return asked.row; }
         return null;
       }
       if (!(Math.random() < o.rate)) return null;
@@ -51,7 +52,7 @@
       row.dataset.mq = o.id;
       row.setAttribute('role', 'group');
       row.setAttribute('aria-label', o.q);
-      row.style.cssText = 'gap:6px;margin:10px 0 0';
+      row.style.cssText = `gap:6px;margin:${o.at ? '0 0 12px' : '10px 0 0'}`; // na začátku bloku mezera pod, jinak nad
       const q = document.createElement('b');
       q.textContent = o.q;
       row.append(q);
@@ -70,7 +71,7 @@
       x.setAttribute('aria-label', 'Zavřít otázku');
       x.style.padding = '4px 8px'; // ✕ je malé – větší plocha pro prst
       x.onclick = () => { me.open = false; row.remove(); };
-      el.insertAdjacentElement('afterend', row);
+      el.insertAdjacentElement(o.at || 'afterend', row);
       return row;
     } catch (err) { return null; } // otázka nesmí nic rozbít
   }

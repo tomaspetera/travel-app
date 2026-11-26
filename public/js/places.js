@@ -120,10 +120,9 @@
     for (const d of plan?.days || []) for (const p of d.items) if (!have.has(p.id)) { have.add(p.id); extra.push(p); }
     return extra.length ? [...items, ...extra] : items;
   };
-  // Enter v hledání: návrhy k právě napsanému textu → vyber; jinak (čeká se, stará odpověď, chyba) hledej hned.
-  // Otázka 5 „Co jsi hledal/a?“ při druhém nenalezení bez úspěchu mezi nimi. Dopsání dalšího písmene k nenalezenému
-  // textu („Londm“ → „Londmn“) je pořád tentýž pokus, ne druhý. miss = { n, text } → nový stav po nenalezení textu.
-  const missNext = (miss, text) => ({ n: miss.text && text.startsWith(miss.text) ? miss.n : miss.n + 1, text });
+  // Otázka 5 „Co jsi hledal/a?“ při druhém nenalezení bez úspěchu mezi nimi. Dopsání nebo smazání písmene u nenalezeného
+  // textu („Londm“ → „Londmn“ → „Londm“) je pořád tentýž pokus, ne druhý. miss = { n, text } → nový stav po nenalezení.
+  const missNext = (miss, text) => ({ n: miss.text && text && (text.startsWith(miss.text) || miss.text.startsWith(text)) ? miss.n : miss.n + 1, text });
   const EX_ASK = { id: 'ex', q: 'Co jsi hledal/a?', rate: 1,
     opts: [['mq_ex_city', 'Město'], ['mq_ex_nature', 'Vesnici nebo přírodu'], ['mq_ex_region', 'Oblast nebo zemi'], ['mq_ex_other', 'Něco jiného']] };
   let exMiss = { n: 0, text: '' };
@@ -132,6 +131,7 @@
     exMiss = missNext(exMiss, text);
     if (exMiss.n >= 2 && window.Count && Count.ask) Count.ask(el, EX_ASK);
   }
+  // Enter v hledání: návrhy k právě napsanému textu → vyber; jinak (čeká se, stará odpověď, chyba) hledej hned.
   const enterAction = ({ text, sugFor, count, err }) => (text.length < 2 ? 'none' : sugFor === text && !err ? (count ? 'pick' : 'none') : 'fetch');
   // Logo Mapy.com (podmínka jejich API): u návrhů z Mapy.com („Hledají i Mapy.com“) a nad turistickou mapou.
   const MAPY_LOGO = 'https://api.mapy.com/img/api/logo.svg';
@@ -2738,7 +2738,8 @@
     $$('[data-rad]', body).forEach(b => b.onclick = () => setRadius(+b.dataset.rad));
     // prázdný okruh je pro otázku 5 nenalezení (jednou na místo a okruh – překreslení není další pokus)
     if (ex.items.length) exFound();
-    else if (!(fr && fr.busy) && !bz) exNotFound($('#exList .empty', body), `\u0000${p.label}|${ex.radius}|`);
+    // ve sbaleném seznamu (kolo, pěšky, výlety) by otázka nebyla vidět a zabrala by jedinou otázku stránky
+    else if (!(fr && fr.busy) && !bz) { const em = $('#exList .empty', body); exNotFound(em && !em.closest('details:not([open])') ? em : null, `\u0000${p.label}|${ex.radius}|`); }
     on('#exPlaces', 'ontoggle', e => { ex.listOpen = e.target.open; });
     $$('[data-mode]', body).forEach(b => b.onclick = () => { if (ex.mode !== b.dataset.mode) { ex.mode = b.dataset.mode; paintExplore(); } });
     $$('[data-transport]', body).forEach(b => b.onclick = () => { ex.autoTransit = null; if (ex.transport !== b.dataset.transport) { ex.transport = b.dataset.transport; paintExplore(); } });

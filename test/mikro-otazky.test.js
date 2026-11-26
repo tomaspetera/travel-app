@@ -130,6 +130,19 @@ test('Count.ask: překreslení obsahu – nezodpovězená otázka se se stejným
   assert.equal(host.children.length, 1);
 });
 
+test('Count.ask: at – řádek jinde než hned za prvkem (na začátku bloku), i při návratu po překreslení', () => {
+  const { C, host, p } = loadCount(0);
+  const seen = [];
+  const block = { insertAdjacentElement: (pos, x) => { seen.push(pos); host.replaceChildren(x, p); return x; } };
+  const row = C.ask(block, { ...Q, at: 'afterbegin' });
+  assert.deepEqual(seen, ['afterbegin']);
+  assert.equal(host.children[0], row);
+  assert.match(row.style.cssText, /margin:0 0 12px/, 'mezera pod řádkem, ne nad ním');
+  host.replaceChildren(p);
+  assert.equal(C.ask(block, { ...Q, rate: 0, at: 'afterbegin' }), row);
+  assert.deepEqual(seen, ['afterbegin', 'afterbegin']);
+});
+
 test('Count.ask: bez prvku nebo s nesmyslem nic nerozbije', () => {
   const { C, p } = loadCount(0);
   for (const [el, o] of [[null, Q], [{}, Q], [p, null], [p, { ...Q, opts: null }]]) assert.doesNotThrow(() => assert.equal(C.ask(el, o), null));
@@ -198,6 +211,8 @@ test('Objevuj missNext(): druhé nenalezení bez úspěchu mezi nimi; dopsání 
   assert.deepEqual(m, { n: 1, text: 'Londm' });
   m = missNext(m, 'Londmn');
   assert.equal(m.n, 1, 'pořád tentýž pokus');
+  m = missNext(m, 'Londm');
+  assert.equal(m.n, 1, 'smazání písmene (oprava překlepu) je pořád tentýž pokus');
   m = missNext(m, 'Lodnýn');
   assert.equal(m.n, 2, 'jiný text = druhý pokus');
   assert.equal(missNext({ n: 0, text: '' }, '').n, 1);
@@ -219,7 +234,8 @@ test('místa v aplikaci: kdy a jak často se ptá (tabulka v oddílu 4)', () => 
   assert.match(F, /\$\('\[data-bought\]', row\)\.onclick = [^\n]+\n(?: {4}\/\/[^\n]*\n)+ {4}if \(b\.k === 'buy' && window\.Count && Count\.ask\) Count\.ask\(\$\('\[data-bought\]', row\), \{ id: 'price', q: 'Seděla cena u prodejce\?', rate: 0\.5,/);
   assert.match(F, /boughtAt = \{ tid: row\.dataset\.tid, r, res: shownRes \|\| lastResult, k \};/);
   // 3: po potvrzeném ↺ Začít znovu s postupem, vždy, nahoře v Letech
-  assert.match(T, /go\('flights'\);\n(?: {4}\/\/[^\n]*\n)+ {4}if \(done\.length && window\.Count && Count\.ask\) Count\.ask\(\$\('#searchSum'\), \{ id: 'restart', q: 'Proč začínáš znovu\?', rate: 1,/);
+  // (na začátku Lety, ne za #searchSum – tam by ho překryla úvodní fotka se záporným okrajem)
+  assert.match(T, /go\('flights'\);\n(?: {4}\/\/[^\n]*\n)+ {4}if \(done\.length && window\.Count && Count\.ask\) Count\.ask\(\$\('#view-flights'\), \{ id: 'restart', q: 'Proč začínáš znovu\?', rate: 1, at: 'afterbegin',/);
   // 4: první Shrnutí vlastní cesty, 1 ze 2
   assert.match(T, /if \(window\.Count && Count\.ask && !t\.shared\) Count\.ask\(\$\('#sumSupport'\), \{ \.\.\.TRIP_ASK, rate: first \? 0\.5 : 0 \}\);/);
   // 5: druhé nenalezení v Objevuj, vždy

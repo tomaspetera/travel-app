@@ -1182,9 +1182,9 @@
       save(); toast('Cesta je zpátky'); go('trip');
     } });
     go('flights');
-    // otázka 3: proč zahodil rozpracovanou cestu (bez postupu se nic neztratilo, tam se neptá) – nahoře v Letech, kde
-    // vybírá nový let
-    if (done.length && window.Count && Count.ask) Count.ask($('#searchSum'), { id: 'restart', q: 'Proč začínáš znovu?', rate: 1,
+    // otázka 3: proč zahodil rozpracovanou cestu (bez postupu se nic neztratilo, tam se neptá) – úplně nahoře v Letech,
+    // kde vybírá nový let. Ne za #searchSum: úvodní fotka nad ním má záporný okraj a řádek by překryla (počítač, nový člověk)
+    if (done.length && window.Count && Count.ask) Count.ask($('#view-flights'), { id: 'restart', q: 'Proč začínáš znovu?', rate: 1, at: 'afterbegin',
       opts: [['mq_restart_date', 'Jiný let nebo termín'], ['mq_restart_price', 'Moc draho'], ['mq_restart_lost', 'Nevyznal/a jsem se'], ['mq_restart_try', 'Jen zkouším']] });
   }
 
