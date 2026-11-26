@@ -11,6 +11,7 @@ import { request } from './http.js';
 import { EVENTS, SERVER_EVENTS, FLUSH_MS } from './counts.js';
 
 export const CAP = 300; // návštěv za den – strop přežije restart serveru (HLEN před zápisem)
+export const HOUR_CAP = 25; // nových návštěv za hodinu (dvojnásobek průměru dne – špička projde)
 export const MAX_STEPS = 120;
 export const MAX_BODY = 4096;
 export const TTL_SEC = 30 * 86400;
@@ -58,7 +59,8 @@ export function upstashTraces(url, token, req = request) {
       for (let i = 0; Array.isArray(a) && i + 1 < a.length; i += 2) m.set(a[i], a[i + 1]);
       return m;
     })),
-    del: (keys, id) => pipe(keys.map((k) => ['HDEL', k, id])),
+    // [[klíč, [id, …]], …] → jedno HDEL na den se všemi odvolanými návštěvami
+    del: (byKey) => pipe(byKey.map(([k, ids]) => ['HDEL', k, ...ids])),
   };
 }
 
@@ -71,7 +73,7 @@ export function memoryTraces() {
     hlen: async (key) => (m.get(key) || new Map()).size,
     write: async (key, pairs) => { for (const [id, v] of pairs) h(key).set(id, v); },
     read: async (keys) => keys.map((k) => new Map(m.get(k) || [])),
-    del: async (keys, id) => { for (const k of keys) if (m.has(k)) m.get(k).delete(id); },
+    del: async (byKey) => { for (const [k, ids] of byKey) if (m.has(k)) for (const id of ids) m.get(k).delete(id); },
   };
 }
 
@@ -79,14 +81,23 @@ export function memoryTraces() {
  * Záznamy nad úložištěm. add(záznam z cleanTrace) → true / false (nad stropem). Kroky se drží v paměti a ve flush()
  * odejdou najednou; když zápis selže, dávka se zahodí (stejně jako počty – nic se nezdvojí, nejvýš se ztratí).
  * traces(dní) → { visits: [[kroky], …] } bez ID a bez dne – stránka z nich počítá jen souhrny.
+ * Nových návštěv nejvýš hourCap za hodinu: strop dne (CAP) by jinak kdokoli zaplnil vymyšlenými ID za pár minut
+ * a do půlnoci by se nezapsala žádná skutečná.
  */
-export function makeTraces(store, { cap = CAP, flushMs = FLUSH_MS, now = Date.now, cacheMs = 10 * 60e3 } = {}) {
+export function makeTraces(store, { cap = CAP, hourCap = HOUR_CAP, flushMs = FLUSH_MS, now = Date.now, cacheMs = 10 * 60e3 } = {}) {
   let pend = new Map(); // id → { day, steps }
+  // Odvolání souhlasu čeká na flush(): dřív šlo každé hned do Upstash (HDEL) a zkoušení náhodných ID s del:1 tak
+  // vyčerpalo měsíční strop příkazů zdarma (i krátkým odkazům). Klíč dne → ID; dny podle času odvolání, ne flush() –
+  // flush po půlnoci by jinak minul den, kdy návštěva začala.
+  let dels = new Map();
+  let delIds = new Set(); // všechna odvolaná ID (strop paměti)
+  let fresh = []; // časy nových ID za poslední hodinu (hourCap)
   let timer = null;
   let cached = null; // { at, maps } – 30 dní najednou: jiné ?days= není další dotaz do Upstash
   let seen = { day: '', ids: new Set() }; // ID už zapsaná dnes – pozdější kroky téže návštěvy se do stropu nepočítají znovu
+  const has = (id) => pend.has(id) || seen.ids.has(id);
   const arm = () => {
-    if (timer || !pend.size) return;
+    if (timer || (!pend.size && !delIds.size)) return;
     timer = setTimeout(flush, flushMs);
     timer.unref();
   };
@@ -95,6 +106,15 @@ export function makeTraces(store, { cap = CAP, flushMs = FLUSH_MS, now = Date.no
     timer = null;
     const batch = [...pend];
     pend = new Map();
+    const gone = [...dels].map(([k, ids]) => [k, [...ids]]);
+    dels = new Map();
+    delIds = new Set();
+    if (gone.length) {
+      try {
+        await store.del(gone);
+        cached = null;
+      } catch (e) { /* jako zápis: nepovedené mazání se zahodí – záznam stejně do 31 dnů zmizí */ }
+    }
     const byDay = new Map();
     for (const [id, x] of batch) { if (!byDay.has(x.day)) byDay.set(x.day, []); byDay.get(x.day).push([id, JSON.stringify(x.steps)]); }
     for (const [day, pairs] of byDay) {
@@ -115,19 +135,35 @@ export function makeTraces(store, { cap = CAP, flushMs = FLUSH_MS, now = Date.no
     add(t) {
       if (!t || !t.id) return false;
       if (t.del) {
-        // odvolání souhlasu: pryč z paměti i z úložiště (dnes a včera – návštěva mohla začít před půlnocí)
+        // odvolání souhlasu: hned pryč z paměti, z úložiště při flush() (dnes a včera – návštěva mohla začít před
+        // půlnocí). Neznámých ID (jiná instance, po restartu) jen do stropu – jinak by zkoušení zabralo paměť.
+        const mine = has(t.id);
         pend.delete(t.id);
+        seen.ids.delete(t.id);
+        if (!mine && delIds.size >= cap) return true;
+        delIds.add(t.id);
         const d = now();
-        cached = null;
-        store.del([KEY + dayOf(d), KEY + dayOf(d - DAY_MS)], t.id).catch(() => {});
+        for (const k of [KEY + dayOf(d), KEY + dayOf(d - DAY_MS)]) {
+          if (!dels.has(k)) dels.set(k, new Set());
+          dels.get(k).add(t.id);
+        }
+        arm();
         return true;
       }
       if (!pend.has(t.id) && pend.size >= cap) return false; // víc za 30 minut nezapíše ani strop dne
+      if (!has(t.id)) {
+        const t0 = now() - 3600e3;
+        fresh = fresh.filter((x) => x > t0);
+        if (fresh.length >= hourCap) return false;
+        fresh.push(now());
+      }
       pend.set(t.id, { day: (pend.get(t.id) || {}).day || dayOf(now()), steps: t.steps });
       arm();
       return true;
     },
     flush,
+    /** ID návštěvy, o které server ví (čeká na zápis nebo zapsaná dnes) – další kroky nejsou nová návštěva. */
+    has,
     async traces(days = 30) {
       const t = now();
       if (!cached || t - cached.at > cacheMs) {

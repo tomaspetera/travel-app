@@ -167,7 +167,14 @@ test('API z cizího webu (Sec-Fetch-Site: cross-site) 403, z aplikace a otevřen
   assert.equal(r.status, 403);
   assert.match(JSON.parse(r.body).error, /jen z aplikace Letsi/);
   assert.equal((await raw('/api/poi?lat=50&lon=14', { headers: { ...cross, 'x-forwarded-for': '10.88.0.1' } })).status, 403);
-  assert.equal((await raw('/api/health', { headers: { 'sec-fetch-site': 'cross-site', 'sec-fetch-mode': 'navigate' } })).status, 200, 'odkaz z jiného webu');
+  const nav = (dest) => ({ 'sec-fetch-site': 'cross-site', 'sec-fetch-mode': 'navigate', ...(dest ? { 'sec-fetch-dest': dest } : {}) });
+  assert.equal((await raw('/api/health', { headers: nav('document') })).status, 200, 'odkaz z jiného webu');
+  // formulář a rám z cizí stránky jsou taky navigace – zapisovat ani hledat za návštěvníky cizího webu nesmí
+  const ev = JSON.stringify({ e: 'app_open' });
+  assert.equal((await raw('/api/count', { method: 'POST', headers: { ...nav('iframe'), 'content-type': 'text/plain' }, body: ev })).status, 403, 'formulář do skrytého rámu');
+  assert.equal((await raw('/api/count', { method: 'POST', headers: { ...nav('document'), 'content-type': 'text/plain' }, body: ev })).status, 403, 'formulář do celého okna (POST)');
+  assert.equal((await raw('/api/places?q=Praha', { headers: nav('iframe') })).status, 403, 'API v cizím rámu');
+  assert.equal((await raw('/api/health', { headers: nav() })).status, 403, 'navigace bez Sec-Fetch-Dest: document');
   assert.equal((await raw('/api/health', { headers: { 'sec-fetch-site': 'same-origin', 'sec-fetch-mode': 'cors' } })).status, 200);
   assert.equal((await raw('/api/health')).status, 200, 'bez hlaviček (curl, starší prohlížeč)');
   assert.equal((await raw('/', { headers: cross })).status, 200, 'stránka a soubory se neomezují');

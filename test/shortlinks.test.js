@@ -2,10 +2,13 @@
 // z obsahu, příkazy pro Upstash, neplatné vstupy; API /api/share a stránka /c/<id> v demu (úložiště v paměti).
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { randomBytes } from 'node:crypto';
+import { deflateRawSync } from 'node:zlib';
 
 process.env.ATLAS_MOCK = '1';
 const S = await import('../server/lib/shortlinks.js');
-const { createServer } = await import('../server/index.js');
+const { createServer, _shareBudget } = await import('../server/index.js');
 
 const TRIP = { v: 1, dest: { label: 'Tirana', cc: 'AL' }, flight: { out: { from: 'PRG', to: 'TIA', date: '2026-11-03' }, back: { from: 'TIA', to: 'PRG', date: '2026-11-08' } }, route: { bases: [] } };
 
@@ -25,6 +28,42 @@ test('uložení a načtení cesty; náhled z cíle a termínu; neplatná cesta o
   for (const [k, j] of [['trip', '{"flight":{}}'], ['trip', 'nejson'], ['trip', '[1]'], ['offer', json], ['trip', 'x'.repeat(S.MAX_JSON + 1)]]) {
     await assert.rejects(S.createShare(st, k, j), (e) => e.status === 400, `${k} ${j.slice(0, 20)}`);
   }
+});
+
+/**
+ * Největší plán, jaký plánovač pošle (planshare.js MAX_HASH ~110 kB JSON): 30 dní plných aktivit z různorodého
+ * českého textu (vstupní podmínky – věty se neopakují jako u vymyšlených dat), seznam a poznámky.
+ */
+function bigPlan() {
+  const words = [];
+  const walk = (v) => { if (typeof v === 'string') words.push(...v.split(/\s+/).filter(Boolean)); else if (v && typeof v === 'object') Object.values(v).forEach(walk); };
+  walk(JSON.parse(readFileSync(new URL('../data/entry.json', import.meta.url), 'utf8')));
+  let w = 0;
+  const text = (n) => { let s = ''; while (s.length < n) s += (s ? ' ' : '') + words[w++ % words.length]; return s.slice(0, n); };
+  const days = {};
+  for (let d = 1; d <= 30; d++) days[`2027-04-${String(d).padStart(2, '0')}`] = Array.from({ length: 23 }, (_, i) => `${8 + (i % 12)}:${i % 2 ? '30' : '00'} ${text(60 + ((d * 7 + i * 13) % 140))}`);
+  const plan = { name: 'Itálie od severu k jihu', dest: 'Řím', iso: 'IT', start: '2027-04-01', end: '2027-04-30', pax: '2', budget: '80000', flight: text(200), days,
+    checklist: Array.from({ length: 80 }, (_, i) => ({ t: text(40 + (i % 60)), done: i % 3 === 0 })), notes: text(3000) };
+  return JSON.stringify(plan);
+}
+
+test('velikost: náhodná data (base64) nad strop po stlačení 400, největší skutečný plán projde; plán musí mít tvar plánu', async (t) => {
+  const st = S.memoryStore();
+  const big = bigPlan();
+  const zipped = deflateRawSync(big).length;
+  t.diagnostic(`plán ${big.length} znaků → ${zipped} B stlačeně (strop ${S.MAX_ZIP})`);
+  assert.ok(big.length > 100_000 && big.length < S.MAX_JSON, String(big.length));
+  assert.ok(zipped < S.MAX_ZIP * 0.7, 'rezerva aspoň 30 %');
+  assert.match(await S.createShare(st, 'plan', big), S.ID_RE);
+  const noise = JSON.stringify({ name: 'x', dest: 'y', notes: randomBytes(112_500).toString('base64') });
+  assert.ok(noise.length > 150_000 && noise.length < S.MAX_JSON);
+  await assert.rejects(S.createShare(st, 'plan', noise), (e) => e.status === 400 && /velká/.test(e.message));
+  const trip = JSON.stringify({ ...TRIP, x: randomBytes(112_500).toString('base64') });
+  await assert.rejects(S.createShare(st, 'trip', trip), (e) => e.status === 400, 'i u cesty');
+  for (const j of [{}, { name: 'Řím' }, { name: 'Řím', dest: 3 }, { name: 'Řím', dest: 'Řím', days: [] }, { name: 'Řím', dest: 'Řím', checklist: 'x' }]) {
+    await assert.rejects(S.createShare(st, 'plan', JSON.stringify(j)), (e) => e.status === 400, JSON.stringify(j));
+  }
+  assert.match(await S.createShare(st, 'plan', JSON.stringify({ name: 'Řím', dest: 'Řím' })), S.ID_RE);
 });
 
 test('náhled: termín přes měsíc, jen odlet, cesta přes víc měst, plán z plánovače, text bez HTML', () => {
@@ -134,6 +173,27 @@ test('API: zkoušení náhodných id má limit (každé je příkaz do Upstash),
   assert.equal(page.status, 200);
   assert.match(await page.text(), /<meta http-equiv="refresh" content="0;url=\/#s=Rndzzzzz">/);
   assert.equal(page.headers.get('cache-control'), 'no-store');
+});
+
+test('API: čtení mimo mezipaměť má i celkový hodinový rozpočet ze všech adres – nad ním 503, uložené odkazy dál', async () => {
+  const r = await fetch(`${base}/api/share`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ k: 'plan', j: JSON.stringify({ name: 'Brno', dest: 'Brno' }) }) });
+  const { id } = await r.json();
+  const per = _shareBudget.perHour;
+  _shareBudget.perHour = 1; // jedno čtení mimo mezipaměť už proběhlo (výš) nebo proběhne teď
+  try {
+    // každá adresa jiná (IPv6 po /64 by limit adresy obešel) – limit adresy nepomůže
+    const get = (path, i) => fetch(`${base}${path}`, { headers: { 'x-forwarded-for': `198.51.100.${i}` } });
+    await get('/api/share/Bdgtaaaa', 1);
+    const over = await get('/api/share/Bdgtbbbb', 2);
+    assert.equal(over.status, 503);
+    assert.match((await over.json()).error, /přetížené/);
+    assert.equal((await get(`/api/share/${id}`, 3)).status, 200, 'z mezipaměti serveru bez rozpočtu');
+    const page = await get('/c/Bdgtcccc', 4);
+    assert.equal(page.status, 200, 'stránka odkazu bez náhledu, přesměrování funguje');
+    assert.match(await page.text(), /url=\/#s=Bdgtcccc/);
+  } finally {
+    _shareBudget.perHour = per;
+  }
 });
 
 test('robot náhledu (Facebook, WhatsApp) dostane stránku bez přesměrování, prohlížeč s přesměrováním', async () => {
