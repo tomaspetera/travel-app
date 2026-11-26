@@ -299,9 +299,9 @@
     ...VIEWS, ...MAIN,
   ]);
   const label = (e) => LABELS.get(e) || e;
-  // server zapisuje záznamy po dávkách (FLUSH_MS = 30 min v server/lib/counts.js) – v den spuštění by prázdná tabulka
-  // vypadala jako porucha
-  const NO_VISITS = 'Zatím žádné návštěvy. Záznamy se zapisují s odstupem – nová návštěva se tu objeví nejpozději do 30 minut.';
+  // v den spuštění by prázdná tabulka vypadala jako porucha. Záznam odejde až při skrytí aplikace (count.js onHide),
+  // server ho zapíše po dávce (FLUSH_MS = 30 min v server/lib/counts.js) a čtení drží 10 min (traces.js cacheMs)
+  const NO_VISITS = 'Zatím žádné návštěvy. Záznam odejde, až člověk aplikaci zavře nebo přepne jinam, a zapisuje se s odstupem – nová návštěva se tu objeví zhruba do 40 minut.';
 
   window.Stats = { MAIN, PRICES, DOORS, VIEWS, TABLE, SNAGS, PERIODS, FEW, num, pct, totals, funnel, rates, median, survey, doors, dayRows, period, fmtNum, fmtPct, fmtKc, fmtDay };
   Object.assign(window.Stats, { QUESTIONS, dist });

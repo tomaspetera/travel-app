@@ -141,10 +141,13 @@ test('Cesty návštěv: každý krok záznamu má český popisek z tabulek str�
   assert.deepEqual(JSON.parse(JSON.stringify(St.exits([[[0, 'app_open']]]))), [], 'návštěva jen s otevřením nemá kde končit');
 });
 
-test('Cesty návštěv bez záznamů: věta, že se zapisují s odstupem (30 min jako FLUSH_MS), ne pět prázdných tabulek', async () => {
+test('Cesty návštěv bez záznamů: věta, že se zapisují s odstupem (40 min = FLUSH_MS + mezipaměť čtení), ne pět prázdných tabulek', async () => {
   const { FLUSH_MS } = await import('../server/lib/counts.js');
-  assert.equal(FLUSH_MS, 30 * 60e3, 'věta v NO_VISITS říká 30 minut');
-  assert.match(St.NO_VISITS, /s odstupem – nová návštěva se tu objeví nejpozději do 30 minut/);
+  assert.equal(FLUSH_MS, 30 * 60e3, 'věta v NO_VISITS počítá s 30 min zápisu');
+  assert.match(read('server/lib/traces.js'), /cacheMs = 10 \* 60e3/, '… a 10 min mezipaměti čtení');
+  // záznam odchází až při skrytí stránky – „do 30 minut“ by neplatilo, dokud má člověk aplikaci otevřenou
+  assert.match(read('public/js/count.js'), /const onHide = \(\) => \{ if \(document\.visibilityState === 'hidden'\) send\(\); \};/);
+  assert.match(St.NO_VISITS, /aplikaci zavře nebo přepne jinam, a zapisuje se s odstupem – nová návštěva se tu objeví zhruba do 40 minut/);
   const root = { innerHTML: '', setAttribute() {}, removeAttribute() {} }, box = { innerHTML: '' };
   const replies = [{ ok: true, status: 200, json: async () => ({ days: [], total: {} }) }, { ok: true, status: 200, json: async () => ({ days: 30, visits: [] }) }];
   const c = {
@@ -154,7 +157,7 @@ test('Cesty návštěv bez záznamů: věta, že se zapisují s odstupem (30 min
   };
   vm.runInNewContext(read('public/js/statistiky.js'), c);
   await new Promise((r) => setTimeout(r, 20));
-  assert.match(box.innerHTML, /nejpozději do 30 minut/);
+  assert.match(box.innerHTML, /zhruba do 40 minut/);
   assert.doesNotMatch(box.innerHTML, /Kde návštěvy končí/);
   assert.match(box.innerHTML, /Opakované klepnutí podle sekce/, 'počty z /api/stats zůstanou');
 });
