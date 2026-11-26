@@ -3038,7 +3038,7 @@
     const per = opts.reduce((s, o) => s + o.perPersonCzk, 0), pax = SearchHelp.paxOf(res.query).seats;
     const visit = res.legs.slice(0, res.returnsHome ? n - 1 : n);
     const ccs = [...new Set(visit.map(l => l.dest && l.dest.cc).filter(Boolean))], all = mCountries(res), via = mVia(res, opts);
-    S.trips.push({
+    const trip = {
       name: res.destination.label.slice(0, 120), dest: [...new Set(visit.map(l => l.to))].join(', ').slice(0, 120) || '—',
       iso: ccs.length === 1 && byIso[ccs[0]] ? ccs[0] : null,
       // víc zemí na cestě: jen kódy zemí (vstupní podmínky se dopočítají z dat, sdílený odkaz zůstane krátký)
@@ -3050,11 +3050,18 @@
       flight: `${opts.map((o, i) => `${i + 1}. ${o.out.from}→${o.out.to} ${fmtDate(o.out.date)} ${timeOf(o.out)} (${o.out.carrierName || provName(o.out.provider)})`).join(', ')} · ${plural(n, 'samostatná letenka', 'samostatné letenky', 'samostatných letenek')}`.slice(0, 500),
       legs: opts.map(o => Trip.legBrief(o.out)), days: {}, checklist: PACK.map(x => ({ t: x, done: false })),
       notes: ['Každý let je samostatná letenka – kup je zvlášť:', ...opts.map((o, i) => `${i + 1}. let ${o.out.from}→${o.out.to} ${fmtDate(o.out.date)}: ${o.bookUrl || o.out.bookUrl || 'rezervace u aerolinky'}`)].join('\n'),
-    });
-    save();
-    toast('Cesta uložena do Mých cest');
-    go('planner'); // Moje cesty (app.js go)
-    setTimeout(() => openTrip(S.trips.length - 1), 250);
+    };
+    // asked = ukázal se list „Místo pro jednu cestu…“ (plus.js): zůstat, kde uživatel je – list mohl nechat otevřenou
+    // otázku na cenu, okno cesty by ji přepsalo
+    const add = asked => {
+      S.trips.push(trip);
+      save();
+      toast('Cesta uložena do Mých cest');
+      if (asked) return tripsChanged();
+      go('planner'); // Moje cesty (app.js go)
+      setTimeout(() => openTrip(S.trips.indexOf(trip)), 250);
+    };
+    if (window.Plus) Plus.gateNewTrip('offer', add, trip); else add(false);
   }
   /** Všechny lety cesty (+ celodenní blok celé cesty) do kalendáře (.ics). */
   function multiIcs(res, picks) {

@@ -3845,6 +3845,7 @@
         <button class="btn primary" id="sumSave">${t.shared ? '💾 Uložit do Mých cest' : '🧳 Uloženo v Mých cestách'}</button>
         <button class="btn" id="sumShare">📤 Sdílet cestu</button>
         <button class="btn" id="sumIcs">📅 Do kalendáře</button>
+        ${window.Plus && !t.shared && !past ? '<button class="btn" id="sumSesit">📒 Sešit cesty · Plus</button>' : ''}
         <a class="btn ghost" href="${esc(safeUrl(Ics.gcalUrl(tripEvent(t))))}" target="_blank" rel="noopener">Přidat do Google Kalendáře ↗</a>
         <button class="btn ghost" id="sumNew">Začít novou cestu</button>
       </div>
@@ -3881,6 +3882,12 @@
     if (window.ShareLink) ShareLink.prepare('trip', linkJson(t));
     $('#sumIcs').onclick = () => icsDownload(`atlas-${t.dest.label}-${checkin}`, calendarEvents(t), { name: `Cesta: ${t.dest.label}` });
     $('#sumNew').onclick = () => newAfterPast(); // hotová cesta zůstane v Mých cestách
+    // 📒 Sešit cesty (plus.js, zatím falešné dveře): náhled z uložené cesty, jinak z průvodce
+    const ses = window.Plus && $('#sumSesit');
+    if (ses) {
+      Plus.sesitShown(t.created);
+      ses.onclick = () => Plus.sesit(entryOf(t) || { dest: tripName(t), iso: t.dest.cc, start: outLeg(t).date, end: backLeg(t) ? backLeg(t).date : '', tripId: t.created, days: {} });
+    }
     // vstupní podmínky dorazily až po vykreslení → shrnutí znovu (jen když je pořád otevřené)
     if (window.Entry && !Entry.ready()) Entry.whenReady(() => { if ($('#tripEntry') && T() && T().step === 'summary') summaryStep(); });
   }
@@ -4175,6 +4182,13 @@
     // Znovu uložená cesta (stejné tripId) se aktualizuje – bez kopie; vlastní název, ručně upravené poznámky
     // a odškrtnutí v plánovači zůstanou.
     const i = S.trips.findIndex(x => x && x.tripId && x.tripId === entry.tripId);
+    // ⭐ druhá cesta zdarma (plus.js): list s nabídkou Plus jen u cesty, kterou člověk ukládá sám poprvé – nová, nebo
+    // dosud jen sama uložená (auto: true se do jedné cesty zdarma nepočítá, viz Plus.counts). Ne u tichého ukládání,
+    // u cesty poslané odkazem (shared) a z karty Dnes na cestě (now). Uloží se vždy – po volbě i po zavření listu.
+    if (!o.quiet && !o.gated && !o.now && !t.shared && window.Plus && (i < 0 || S.trips[i].auto)) {
+      Plus.gateNewTrip('trip', () => saveToPlanner({ ...o, gated: true }), entry);
+      return;
+    }
     if (i >= 0) {
       const old = S.trips[i], done = new Set((old.checklist || []).filter(x => x.done).map(x => x.t));
       const was = (v, gen) => gen != null && v !== gen; // změněno v plánovači

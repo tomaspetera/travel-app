@@ -910,3 +910,28 @@ html:has(#modalBg.show) body{overflow:hidden} /* na body, ne na html: přejde na
   .seg{max-width:100%}
   .seg button{padding:8px 10px;font-size:12.5px}
 }
+/* ⭐ Plus (plus.js): list při druhé cestě, stránka Zdarma × Plus, Sešit cesty, otázka na cenu – klidný vzhled okna,
+   žádné přeškrtnuté ceny ani odpočty; tlačítka pod sebou na celou šířku (dlouhé popisky se na telefonu zalomí) */
+.plus-sheet h3,.plus-page h3{margin-bottom:8px}
+.plus-sheet p,.plus-page p{font-size:14px;line-height:1.45}
+.plus-acts{display:flex;flex-direction:column;gap:8px;margin:14px 0 8px}
+.plus-acts .btn{width:100%;justify-content:center;white-space:normal;text-align:center;line-height:1.3}
+.plus-small{font-size:12.5px;margin-top:8px}
+.plus-msg{margin:4px 0 10px}
+.plus-price{margin:4px 0 6px;font-size:14px}
+.plus-opts{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.plus-opts .btn{flex:1 1 calc(50% - 6px);justify-content:center;white-space:normal}
+.plus-opts .btn:first-child{flex-basis:100%}
+.plus-thanks{font-weight:600}
+.plus-table{width:100%;border-collapse:collapse;margin:12px 0 4px;font-size:13.5px}
+.plus-table th,.plus-table td{padding:8px 6px;border-bottom:1px solid var(--border);text-align:center;vertical-align:top}
+.plus-table th[scope="row"],.plus-table thead th:first-child{text-align:left;font-weight:500}
+.plus-table thead th{font-size:12px;font-weight:800;color:var(--muted)}
+.plus-table thead small{display:block;font-weight:500}
+.plus-page #plusAfter{margin-top:14px}
+.ss-prev{border:1px solid var(--border);border-radius:12px;padding:14px;margin:6px 0 12px;background:var(--surface-2)}
+.ss-title{font:700 18px/1.2 Sora,Inter,sans-serif}
+.ss-term{font-size:13px;margin:2px 0 10px}
+.ss-day{font-size:13px;margin-top:8px}
+.ss-day ul{margin:4px 0 0;padding-left:18px}
+.plus-card-acts{display:flex;gap:8px;flex-wrap:wrap}
