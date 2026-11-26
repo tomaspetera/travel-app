@@ -81,6 +81,13 @@ if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configur
     if (localStorage.getItem('atlas_look') === 'letsi') {
       root.setAttribute('data-brand', 'letsi');
       for (i = 0; i < m.length; i++) m[i].setAttribute('content', light ? '#F3F4F0' : '#14161F'); // lišta Vápno / Noc (jako pwa.js)
+      // favicon Letsi (krok 3): adresy se přepíšou až tady, v hlavičce zůstávají ikony ATLASu – bez přepínače se tak
+      // nic z vendor/letsi nestáhne a service worker je nepřidá do sady pro instalaci všem (pwa.js shellAssets)
+      var ic = document.querySelectorAll('link[rel="icon"]');
+      if (ic.length === 2) {
+        ic[0].setAttribute('href', 'vendor/letsi/favicon-32.png'); ic[0].setAttribute('sizes', '32x32');
+        ic[1].setAttribute('href', 'vendor/letsi/favicon.svg');
+      }
     }
   } catch (e) { }
   window.atlasLaunchAt = performance.now(); // úvodní obrazovka se začne kreslit teď (vzlet vlaštovky – app.js launchDone)

@@ -247,3 +247,50 @@
 /* značka aerolinky: barva poskytovatele se píše do style (modrá Demo Air, fialové a modré aerolinky) → Noc s Vápnem;
    kód aerolinky v odznaku zůstává, takže se nic neztratí; !important jen kvůli stylu v prvku */
 :root[data-brand="letsi"] .cbadge{background:var(--text)!important;color:var(--bg)}
+
+/* ============ KROK 3: IKONY ROZHRANÍ, LOGO A ZNAK (vendor/letsi/, soubory z balíku Letsi 2.1 beze změny) ============
+   Technika: CSS maska na stávající <svg>, ne druhá <svg><use href="sprite.svg#…"> v index.html. Proč:
+   – ikony lišt (spodní i postranní) kreslí app.js (ico()), do kterého tenhle krok nesahá; maska je dosáhne jen stylem;
+   – obrázek z CSS prohlížeč stáhne, jen když pravidlo platí pro vykreslený prvek; pravidla jsou pod data-brand="letsi",
+     takže bez přepínače se z vendor/letsi nestáhne nic (ověřeno v síti Chromia) a do index.html nepřibude žádný odkaz,
+     který by service worker přidal do sady pro instalaci všem (server/lib/pwa.js shellAssets);
+   – maska vezme z ikony jen tvar, barvu dodá currentColor: Noc, v tmavém režimu Vápno, neaktivní text-3 – jako sprite.
+   Každá ikona je samostatné SVG (maska na #symbol ze spritu nefunguje). Původní cesty ATLASu se jen skryjí; aria-hidden
+   a aria-label tlačítek zůstávají z index.html a app.js. */
+:root[data-brand="letsi"] :is(.mobile-nav .mi,.nav-item,.more-tile .mt-ico,.icon-btn,.theme-toggle,.sf-ico,.sf-swap,.search-wide)>svg{-webkit-mask:var(--letsi-ikona) center/contain no-repeat;mask:var(--letsi-ikona) center/contain no-repeat;background:currentColor}
+:root[data-brand="letsi"] :is(.mobile-nav .mi,.nav-item,.more-tile .mt-ico,.icon-btn,.theme-toggle,.sf-ico,.sf-swap,.search-wide)>svg>*{display:none}
+/* význam podle ikony.json; Lety = hledání → znak kukátka (README sady: „Hledat je znak kukátka, 27 px“; mono má okénka
+   jako otvory, takže maska nechá rám a zorničky). Aktivní záložku nese barva a tučný popisek, ikona zůstává obrysová
+   (pravidlo 7 sady; plné varianty má sada jen pro Hlídám, Odloženo, Chci tam, Místo a Pole) */
+:root[data-brand="letsi"] :is([data-view="dashboard"],[data-mv="dashboard"] .mt-ico)>svg{--letsi-ikona:url(../vendor/letsi/ikony/domov.svg)}
+:root[data-brand="letsi"] :is([data-view="flights"],[data-mv="flights"] .mt-ico)>svg{--letsi-ikona:url(../vendor/letsi/letsi-znak-mono.svg)}
+:root[data-brand="letsi"] :is([data-view="trip"],[data-mv="trip"] .mt-ico)>svg{--letsi-ikona:url(../vendor/letsi/ikony/moje-cesty.svg)}
+:root[data-brand="letsi"] :is([data-view="explore"],[data-mv="explore"] .mt-ico)>svg{--letsi-ikona:url(../vendor/letsi/ikony/kompas.svg)}
+:root[data-brand="letsi"] :is([data-view="map"],[data-mv="map"] .mt-ico,#worldNav)>svg{--letsi-ikona:url(../vendor/letsi/ikony/mapa.svg)}
+:root[data-brand="letsi"] :is([data-view="countries"],[data-mv="countries"] .mt-ico)>svg{--letsi-ikona:url(../vendor/letsi/ikony/jazyk.svg)}
+:root[data-brand="letsi"] :is([data-view="recommend"],[data-mv="recommend"] .mt-ico)>svg{--letsi-ikona:url(../vendor/letsi/ikony/super-cena.svg)}
+:root[data-brand="letsi"] :is(#moreNav,#menuBtn)>svg{--letsi-ikona:url(../vendor/letsi/ikony/menu.svg)}
+:root[data-brand="letsi"] #refreshBtn>svg{--letsi-ikona:url(../vendor/letsi/ikony/znovu.svg)}
+:root[data-brand="letsi"] .theme-toggle>svg{--letsi-ikona:url(../vendor/letsi/ikony/motiv.svg)}
+:root[data-brand="letsi"] .sf-from .sf-ico>svg{--letsi-ikona:url(../vendor/letsi/ikony/odlet.svg)}
+:root[data-brand="letsi"] .sf-to .sf-ico>svg{--letsi-ikona:url(../vendor/letsi/ikony/prilet.svg)}
+:root[data-brand="letsi"] .sf-swap>svg{--letsi-ikona:url(../vendor/letsi/ikony/prohodit.svg)}
+:root[data-brand="letsi"] .search-wide>svg{--letsi-ikona:url(../vendor/letsi/ikony/lupa.svg)}
+/* velikosti z README sady: 24 px lišty, 20 px pole a tlačítka, znak kukátka 27 px */
+:root[data-brand="letsi"] :is(.mobile-nav .mi,.nav-item)>svg{width:24px;height:24px}
+:root[data-brand="letsi"] .mobile-nav .mi[data-view="flights"]>svg{width:27px}
+:root[data-brand="letsi"] :is(.icon-btn,.theme-toggle,.sf-ico,.sf-swap)>svg{width:20px;height:20px}
+/* tlačítko polohy má v index.html jen 📍 (jméno nese aria-label): emoji schovat, ikona Moje poloha maskou */
+:root[data-brand="letsi"] #geoBtn{font-size:0}
+:root[data-brand="letsi"] #geoBtn::before{content:"";display:inline-block;width:20px;height:20px;vertical-align:middle;background:currentColor;-webkit-mask:url(../vendor/letsi/ikony/poloha.svg) center/contain no-repeat;mask:url(../vendor/letsi/ikony/poloha.svg) center/contain no-repeat}
+
+/* postranní panel (počítač): místo dlaždice s vlaštovkou a názvu malé logo, jednobarevné (README loga: lišta aplikace
+   = logo-mala-mono, slunce patří nejlevnější ceně); barvou textu, v tmavém Vápno. Text „ATLAS“ zůstává pro čtečku. */
+:root[data-brand="letsi"] .brand-logo{display:none}
+:root[data-brand="letsi"] .brand-name{width:140px;height:30px;margin-bottom:6px;font-size:0;background:currentColor;-webkit-mask:url(../vendor/letsi/letsi-logo-mala-mono.svg) left center/contain no-repeat;mask:url(../vendor/letsi/letsi-logo-mala-mono.svg) left center/contain no-repeat}
+
+/* úvodní obrazovka: místo dlaždice s vlaštovkou, letadel a názvu plné logo (od 48 px výšky; tady 64 px), statické
+   (logo nikdy nemrká). Na obrazovce nic jiného není, takže slunce nad i smí svítit: na Vápně hlavní, na Noci negativ. */
+:root[data-brand="letsi"] #launch :is(.l-ico,.l-jet,b){display:none}
+:root[data-brand="letsi"] #launch::before{content:"";position:absolute;left:50%;top:45%;width:288px;height:64px;margin:-32px 0 0 -144px;background:url(../vendor/letsi/letsi-logo-hlavni.svg) center/contain no-repeat}
+:root[data-brand="letsi"][data-theme="dark"] #launch::before{background-image:url(../vendor/letsi/letsi-logo-negativ.svg)}
