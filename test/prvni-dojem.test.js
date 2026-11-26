@@ -29,7 +29,7 @@ test('texty pro uživatele bez „radaru“ – sekce se jmenuje Kam letět levn
     // jen viditelné texty: identifikátory (renderRadar, radarMode, #radarFrom, 'radar' v počítadlech, { radar: x },
     // const radar =) nevadí
     const src = code(read(f)).replace(/(const |[{,(]\s*)radar\b(?=\s*[:,=)])/g, '');
-    const hits = src.match(/[^\w#.'"-]radar(u|em|ti)?\b(?![\w-])(?!['"])/gi) || [];
+    const hits = src.match(/[^\w#.-]radar(u|em|ti)?\b(?![\w-])(?!['"])/gi) || [];
     assert.deepEqual(hits, [], f);
   }
   assert.match(APP, /\['dashboard', 'Přehled', 'Levné lety a tvoje cesty'/);

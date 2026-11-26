@@ -1028,7 +1028,7 @@ const WHATS_NEW = [
   ['✈️', 'Nové Lety', 'fotka cíle nahoře, Odkud a Kam s tlačítkem ⇅ (prohodí je), letiště v okolí v jednom řádku, velké tlačítko hledání a <b>Nápady, kam letět</b> s fotkami.'],
   ['📉', 'Zlevnilo – hned nahoře', 'když hlídaná cena klesne nebo je pod tvou cílovou cenou, uvidíš ji na Přehledu jako velkou kartu s fotkou a tlačítkem <b>Zobrazit lety</b>.'],
   ['🧭', 'Přehlednější telefon', 'dole jen 5 sekcí – Mapa a Země jsou spolu ve <b>Světě</b>; Plánovač, Doporučení, záloha a vzhled v menu ☰ nahoře. V Letech je délka pobytu a teplota pod <b>Upřesnit</b>.'],
-  ['📱', 'Nový vzhled', 'radar jako velké karty s fotkou města (na telefonu posun prstem do strany), plovoucí spodní lišta, okna zespodu – zavřeš je stažením dolů.'],
+  ['📱', 'Nový vzhled', '<b>Kam letět levně</b> jako velké karty s fotkou města (na telefonu posun prstem do strany), plovoucí spodní lišta, okna zespodu – zavřeš je stažením dolů.'],
   ['⚙️', 'Výsledky hned nahoře', 'na mobilu jsou filtry, řazení a „Odkud se vyplatí letět“ pod tlačítkem ⚙️ Filtry; formulář se po hledání sbalí (✎ Upravit).'],
   ['📌', 'Odložené nabídky', '„📌 Odložit“ u nabídky nebo v ⋯ na kartě – pak <b>Porovnat</b> vedle sebe a 📤 poslat k výběru.'],
   ['🔎', 'Co tam je', 'na kartě výsledku a pod ⓘ v <b>Kam letět levně</b>: místa s fotkou, cesta z letiště do města, počasí, vstup.'],
@@ -1061,9 +1061,9 @@ const wnAtStart = (seen, hash, id = WN_ID) => (!/^#sync=/.test(String(hash || ''
  * nad radarem jen odsouval jeho hlídanou cenu a rozpracovanou cestu. → true = skrýt jako „Rozumím“.
  * Mizí jen při vykreslení Přehledu (návrat z Letů, Cest), ne pod rukama; při dalším startu rozhoduje wnAtStart.
  */
+const wnDoneNow = (mode, s) => mode === 'welcome' && ((s.watch || []).length > 0 || (s.trips || []).length > 0);
 /** Kam „Začít hledat“ v uvítání dá kurzor: uvítání se ptá na domov (askHome) a Odkud na Přehledu je prázdné → 'from', jinak 'to' (Kam). */
 const wcGoTo = (askHome, fromCount) => (askHome && !fromCount ? 'from' : 'to');
-const wnDoneNow = (mode, s) => mode === 'welcome' && ((s.watch || []).length > 0 || (s.trips || []).length > 0);
 let wnFirst = false; // v tomhle otevření se ukázalo uvítání: 💡 tipy až příště (renderDashTip) – dvě rady naráz zahltí
 const WN_TOP = 4; // v celém seznamu nejnovější novinky hned, starší pod „Starší novinky“
 // „~350 Kč“, „~3 h 25“ v textu novinek s pevnou mezerou – na úzkém telefonu se jednotka neodtrhne od čísla
