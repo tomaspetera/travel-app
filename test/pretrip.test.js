@@ -736,7 +736,7 @@ test('průvodce: shrnutí má kartu „Co zařídit a co sbalit“, kalendář p
   c.S.trip = t;
   c.window.Trip.render();
   const h = sp(host.innerHTML);
-  const i = h.indexOf('<h3>🛂 Před cestou</h3>'), j = h.indexOf('id="preTrip"'), k = h.indexOf('🗓️ Průběh cesty');
+  const i = h.indexOf('<h3>🛂 Před cestou</h3>'), j = h.indexOf('id="preTrip"'), k = h.indexOf('<span class="ico i-kalendar" aria-hidden="true"></span> Průběh cesty');
   // průběh cesty je první karta Shrnutí, „Před cestou“ pod vstupními podmínkami
   assert.ok(k > 0 && i > k && j > i, 'průběh cesty první, „Před cestou“ pod vstupními podmínkami');
   assert.match(h, /Vyřiď mezinárodní řidičský průkaz \(vzor 1949\)/);
@@ -1024,7 +1024,7 @@ test('sdílená cesta (#trip=): den sdílení v odkazu, u příjemce poznámka o
   b.Trip.render();
   const h = sp(b.c.__root.innerHTML);
   assert.match(h, new RegExp(`<b>Sdílená cesta</b> – ceny jsou z doby sdílení \\(${dm(today).replace(/\./g, '\\.')}\\)\\. Před nákupem je ověř\\.`));
-  assert.match(h, /id="tripSharedSave">💾 Uložit si ji</);
+  assert.match(h, /id="tripSharedSave"><span class="ico i-moje-cesty" aria-hidden="true"><\/span> Uložit si ji</);
   // 💾 Uložit si ji = uložení do plánovače (stejná cesta jako ve Shrnutí); pak vlastní cesta bez poznámky
   b.els['#tripSharedSave'].onclick();
   assert.equal(b.c.S.trips.length, 1);

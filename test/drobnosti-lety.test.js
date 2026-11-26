@@ -54,11 +54,11 @@ test('během hledání: změněný formulář povolí tlačítko (nové hledán�
   assert.match(fl, /function formEdited\(\) \{[\s\S]*?searchBtnPaint\(\);[\s\S]*?\n {2}\}/, 'volá se při úpravě formuláře');
   const run = (running, form) => {
     const btn = { disabled: true, innerHTML: 'Hledám…' };
-    new Function('running', '$', 'payloadOf', 'getForm', `${m[0]}; searchBtnPaint();`)(running, () => btn, f => ({ to: f.to }), () => form);
+    new Function('running', '$', 'payloadOf', 'getForm', 'ikona', `${m[0]}; searchBtnPaint();`)(running, () => btn, f => ({ to: f.to }), () => form, n => `[${n}]`);
     return btn;
   };
   const key = JSON.stringify({ to: ['Řím'] });
-  assert.deepEqual(run({ key }, { to: ['Londýn'] }), { disabled: false, innerHTML: '🔎 Najít lety' });
+  assert.deepEqual(run({ key }, { to: ['Londýn'] }), { disabled: false, innerHTML: '[lupa] Najít lety' });
   // vrácený formulář = běžící hledání: opakované klepnutí by nic nového nespustilo (limit hledání z jedné adresy)
   assert.equal(run({ key }, { to: ['Řím'] }).disabled, true);
   assert.deepEqual(run(null, { to: ['Londýn'] }), { disabled: true, innerHTML: 'Hledám…' }, 'bez běžícího hledání nesahá');

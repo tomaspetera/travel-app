@@ -207,7 +207,7 @@ test('Shrnutí průvodce: 📒 Sešit cesty · Plus vedle Do kalendáře, otevř
   const c = loadTrip();
   c.S.trip.step = 'summary'; c.window.Trip.render();
   const html = c.__els['#tripStep'].innerHTML;
-  assert.match(html, /id="sumIcs">📅 Do kalendáře<\/button>\s*<button class="btn" id="sumSesit">📒 Sešit cesty · Plus<\/button>/);
+  assert.match(html, /id="sumIcs"><span class="ico i-kalendar" aria-hidden="true"><\/span> Do kalendáře<\/button>\s*<button class="btn" id="sumSesit">📒 Sešit cesty · Plus<\/button>/);
   assert.ok(c.__calls.some((x) => x[0] === 'shown'), 'sesit_shown (Plus.sesitShown počítá jednou pro cestu)');
   c.__els['#sumSesit'].onclick();
   assert.deepEqual(plain(c.__calls.at(-1)), ['sesit', 'Řím']);

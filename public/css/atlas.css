@@ -139,6 +139,8 @@ a{color:inherit}
 /* ℹ️ O aplikaci a soukromí (about.js) – počítač a tablet nemají ⋯ Další; postranní panel je na telefonu skrytý */
 .side-foot .side-about{width:100%;font:inherit;font-size:13px;text-align:left;justify-content:flex-start}
 .side-foot .side-about:hover{border-color:var(--border-2)}
+/* ikona místo emoji (.ico níž): v řádku flex se mezera za ní ztratí */
+.side-foot .side-about>.ico{margin-right:.45em}
 
 .main{min-width:0;display:flex;flex-direction:column}
 .topbar{
@@ -935,3 +937,54 @@ html:has(#modalBg.show) body{overflow:hidden} /* na body, ne na html: přejde na
 .ss-day{font-size:13px;margin-top:8px}
 .ss-day ul{margin:4px 0 0;padding-left:18px}
 .plus-card-acts{display:flex;gap:8px;flex-wrap:wrap}
+
+/* ============ IKONY ROZHRANÍ LETSI MÍSTO EMOJI (ikona() v app.js: <span class="ico i-…" aria-hidden="true">) ============
+   Proč tady a ne v letsi.css: ikona nahradila emoji v textu tlačítka, takže musí být vidět i v nouzovém ?vzhled=atlas
+   (letsi.css platí jen pod data-brand). Technika jako krok 3 v letsi.css: maska z SVG balíku beze změny, barva
+   currentColor (Noc, v tmavém Vápno; na tlačítku barva jeho textu). Adresa ../vendor/letsi/ikony/… je stejná jako
+   v letsi.css, takže se každá ikona stáhne jen jednou. Velikost 1.15em jako písmo, střed na řádku textu. */
+.ico{display:inline-block;width:1.15em;height:1.15em;flex:none;vertical-align:-.2em;background:currentColor;-webkit-mask:var(--ico) center/contain no-repeat;mask:var(--ico) center/contain no-repeat}
+/* poloha v poli Odkud je tlačítko jen s ikonou (jméno nese aria-label): 20 px jako ikony polí (README sady) */
+#geoBtn .ico{width:20px;height:20px;vertical-align:middle}
+/* Program je podle ikony.json čitelný nejméně ve 20 px (ve 16 px se slévá) */
+.ico.i-program{width:max(1.15em,20px);height:max(1.15em,20px);vertical-align:-.3em}
+.i-auto{--ico:url(../vendor/letsi/ikony/auto.svg)}
+.i-autobus{--ico:url(../vendor/letsi/ikony/autobus.svg)}
+.i-cas{--ico:url(../vendor/letsi/ikony/cas.svg)}
+.i-cena-klesla{--ico:url(../vendor/letsi/ikony/cena-klesla.svg)}
+.i-cestujici{--ico:url(../vendor/letsi/ikony/cestujici.svg)}
+.i-domov{--ico:url(../vendor/letsi/ikony/domov.svg)}
+.i-filtr{--ico:url(../vendor/letsi/ikony/filtr.svg)}
+.i-historie{--ico:url(../vendor/letsi/ikony/historie.svg)}
+.i-hlidam{--ico:url(../vendor/letsi/ikony/hlidam.svg)}
+.i-hotovo{--ico:url(../vendor/letsi/ikony/hotovo.svg)}
+.i-info{--ico:url(../vendor/letsi/ikony/info.svg)}
+.i-jazyk{--ico:url(../vendor/letsi/ikony/jazyk.svg)}
+.i-kalendar{--ico:url(../vendor/letsi/ikony/kalendar.svg)}
+.i-kompas{--ico:url(../vendor/letsi/ikony/kompas.svg)}
+.i-let{--ico:url(../vendor/letsi/ikony/let.svg)}
+.i-lupa{--ico:url(../vendor/letsi/ikony/lupa.svg)}
+.i-mapa{--ico:url(../vendor/letsi/ikony/mapa.svg)}
+.i-misto{--ico:url(../vendor/letsi/ikony/misto.svg)}
+.i-moje-cesty{--ico:url(../vendor/letsi/ikony/moje-cesty.svg)}
+.i-motiv{--ico:url(../vendor/letsi/ikony/motiv.svg)}
+.i-napoveda{--ico:url(../vendor/letsi/ikony/napoveda.svg)}
+.i-novinky{--ico:url(../vendor/letsi/ikony/novinky.svg)}
+.i-odbavene{--ico:url(../vendor/letsi/ikony/odbavene.svg)}
+.i-odlozeno{--ico:url(../vendor/letsi/ikony/odlozeno.svg)}
+.i-oblibene{--ico:url(../vendor/letsi/ikony/oblibene.svg)}
+.i-oblibene-plne{--ico:url(../vendor/letsi/ikony/oblibene-plne.svg)}
+.i-plus{--ico:url(../vendor/letsi/ikony/plus.svg)}
+.i-poloha{--ico:url(../vendor/letsi/ikony/poloha.svg)}
+.i-program{--ico:url(../vendor/letsi/ikony/program.svg)}
+.i-qr{--ico:url(../vendor/letsi/ikony/qr.svg)}
+.i-sdilet{--ico:url(../vendor/letsi/ikony/sdilet.svg)}
+.i-skryt{--ico:url(../vendor/letsi/ikony/skryt.svg)}
+.i-smazat{--ico:url(../vendor/letsi/ikony/smazat.svg)}
+.i-stahnout{--ico:url(../vendor/letsi/ikony/stahnout.svg)}
+.i-super-cena{--ico:url(../vendor/letsi/ikony/super-cena.svg)}
+.i-ubytovani{--ico:url(../vendor/letsi/ikony/ubytovani.svg)}
+.i-upravit{--ico:url(../vendor/letsi/ikony/upravit.svg)}
+.i-vlak{--ico:url(../vendor/letsi/ikony/vlak.svg)}
+.i-znovu{--ico:url(../vendor/letsi/ikony/znovu.svg)}
+.i-zobrazit{--ico:url(../vendor/letsi/ikony/zobrazit.svg)}

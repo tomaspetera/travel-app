@@ -1,5 +1,7 @@
 /* ATLAS – objevování míst, plánovač programu a výletů (Wikidata + Wikipedie, mapa MapLibre + OpenFreeMap). */
 (function () {
+  // ikona rozhraní Letsi (stejná jako ikona() v app.js): modul běží i v testech (node:vm) bez app.js
+  const ikona = n => `<span class="ico i-${n}" aria-hidden="true"></span>`;
   const CAT = {
     museum: ['🏛️', 'Muzea', '#5b8cff'], gallery: ['🖼️', 'Galerie', '#7c6cff'], church: ['⛪', 'Kostely', '#a855f7'],
     castle: ['🏰', 'Hrady', '#f59e0b'], palace: ['👑', 'Paláce', '#f59e0b'], monument: ['🗿', 'Památníky', '#94a3b8'],
@@ -1162,7 +1164,7 @@
     const all = typeof byIso !== 'undefined' ? Object.values(byIso).filter(c => c && c.iso2 && c.cs).sort((a, b) => a.cs.localeCompare(b.cs, 'cs')) : [];
     const pop = CC_POP.filter(cc => all.some(c => c.iso2 === cc));
     const tile = cc => `<button type="button" class="ex-cc-tile" data-cc="${cc}" data-ccn="${esc(foldName(`${countryCs(cc)} ${byIso[cc].en || ''}`))}"><span class="ex-cc-flag">${flag(cc)}</span><span>${esc(countryCs(cc))}</span></button>`;
-    return `<div class="section-head ex-cc-h"><h2>🌍 Vyber zemi</h2></div>
+    return `<div class="section-head ex-cc-h"><h2>${ikona('jazyk')} Vyber zemi</h2></div>
       <div class="muted ex-cnote">To nejlepší v celé zemi: města, další cíle, památky UNESCO a národní parky na mapě. Zemi můžeš i napsat do hledání („Francie“, „Itálie“).</div>
       <input class="input ex-cc-q" id="exCcQ" placeholder="Hledat zemi…" autocomplete="off" aria-label="Hledat zemi">
       <div class="ex-cc-pop" id="exCcPop">${pop.map(tile).join('')}</div>
@@ -1234,7 +1236,7 @@
       <div class="ex-search">
         <div class="field" style="margin:0"><label for="exQ">Kam se chceš podívat? <span class="lab-hint">město, obec, ostrov, místo…</span></label>
           <div style="position:relative"><input class="input${ex.place ? ' has-clear' : ''}" id="exQ" placeholder="Lisabon, Francie, „Řím na 3 dny“" autocomplete="off" value="${esc(qLabel())}">${ex.place ? '<button type="button" class="in-clear" id="exClear" title="Začít znovu – zrušit místo i plány" aria-label="Začít znovu">✕</button>' : ''}<div class="pi-dd" id="exDd" tabindex="-1" hidden></div></div></div>
-        <button class="btn ghost" id="exGeo" title="Moje poloha" style="align-self:end">📍 Tady</button>
+        <button class="btn ghost" id="exGeo" title="Moje poloha" style="align-self:end">${ikona('poloha')} Tady</button>
         <div class="field" style="margin:0"><label for="exRad">Okruh</label><select id="exRad">${RADII.map(r => `<option value="${r}" ${ex.radius === r ? 'selected' : ''}>${r} km</option>`).join('')}<option value="${COUNTRY}" ${ex.radius === COUNTRY ? 'selected' : ''}>🌍 Celá země</option></select></div>
       </div><div class="ex-recent" id="exRecent" hidden></div>${ex.place || !window.Smart ? '' : `<div class="ex-try"><span class="faint">✨ Zkus:</span>${EX_TRY.map((x, i) => `<button type="button" class="fchip" data-extry="${i}">${esc(x)}</button>`).join('')}</div>`}</div>
       <div id="exBody">${ex.place ? '' : ex.radius === COUNTRY ? pickerHtml() : inspHtml(insp)}</div>
@@ -1841,7 +1843,7 @@
       <div><div class="poi-name">${g[1]} ${esc(x.name)}</div>
         <div class="poi-meta">${esc(g[3])}${x.distanceKm != null ? ` · ${num(x.distanceKm)} km` : ''}${x.unesco && g[0] !== 'unesco' ? ' · <b class="poi-unesco">UNESCO</b>' : ''}${x.wv ? ' · <b class="poi-wv" title="Vybral cestovní průvodce Wikivoyage">👍 Wikivoyage</b>' : ''}</div>
         <div class="poi-desc">${descHtml(desc, x.extract || x.description ? x.descLang : 'en')}</div>
-        <div class="poi-acts"><button type="button" class="linkbtn" data-cgo="${esc(x.id)}">🔎 Prozkoumat</button>${x.url ? `<a href="${esc(safeUrl(x.url))}" target="_blank" rel="noopener">Wikipedie ↗</a>` : ''}
+        <div class="poi-acts"><button type="button" class="linkbtn" data-cgo="${esc(x.id)}">${ikona('kompas')} Prozkoumat</button>${x.url ? `<a href="${esc(safeUrl(x.url))}" target="_blank" rel="noopener">Wikipedie ↗</a>` : ''}
           <a href="${esc(gmSearch(gq(x.name, center.country || '')))}" target="_blank" rel="noopener" data-gm>Google Maps ↗</a></div></div>
     </div>`;
   }
@@ -2239,8 +2241,8 @@
   }
   const shortName = s => (s.length > 32 ? `${s.slice(0, 30).trim()}…` : s);
   const saveHtml = (i, trips) => (i >= 0
-    ? `<button class="btn" id="exSave" title="${esc(`Přidat k cestě ${trips[i].name} (stejné místo v jejím termínu)`)}">💾 Přidat k cestě ${esc(shortName(trips[i].name))}</button><button type="button" class="linkbtn ex-savenew" id="exSaveNew">uložit jako novou</button>`
-    : '<button class="btn" id="exSave">💾 Uložit do Mých cest</button>');
+    ? `<button class="btn" id="exSave" title="${esc(`Přidat k cestě ${trips[i].name} (stejné místo v jejím termínu)`)}">${ikona('moje-cesty')} Přidat k cestě ${esc(shortName(trips[i].name))}</button><button type="button" class="linkbtn ex-savenew" id="exSaveNew">uložit jako novou</button>`
+    : '<button class="btn" id="exSave">' + ikona('moje-cesty') + ' Uložit do Mých cest</button>');
   // Hláška s tlačítkem (toast z app.js tlačítko neumí); delší, ať se na tlačítko stihne kliknout.
   function actToast(msg, label, fn) {
     const t = $('#toast');
@@ -2368,8 +2370,8 @@
       ${elevSvg(r.geometry, routeColor(r))}
       ${train ? `<div class="note info" style="margin-top:10px">🚲 <div>Kolo ve vlaku obvykle potřebuje vlastní jízdenku${st.cc === 'CZ' ? ' (v Česku „jízdní kolo“ jako spoluzavazadlo)' : ''} a některé vlaky vyžadují rezervaci místa pro kolo – ověř to u konkrétního spoje.</div></div>` : ''}
       <div class="row wrap" style="gap:8px;margin-top:10px">
-        <button class="btn" id="routeOther">🔄 ${train ? 'Jiné nádraží' : 'Jiná trasa'}</button>${variantTxt(r) ? `<span class="faint route-var">${variantTxt(r)}</span>` : ''}
-        <button class="btn" id="routeGpx">⬇️ Stáhnout GPX</button>
+        <button class="btn" id="routeOther">${ikona('znovu')} ${train ? 'Jiné nádraží' : 'Jiná trasa'}</button>${variantTxt(r) ? `<span class="faint route-var">${variantTxt(r)}</span>` : ''}
+        <button class="btn" id="routeGpx">${ikona('stahnout')} Stáhnout GPX</button>
         <a class="btn" href="${esc(safeUrl(r.mapyUrl))}" target="_blank" rel="noopener">Otevřít v Mapy.com ↗</a>
         <a class="btn" href="${esc(safeUrl(r.googleUrl))}" target="_blank" rel="noopener">Google Maps ↗</a>
       </div></div>
@@ -2484,7 +2486,7 @@
       ${h.back ? sunSlot(g, d.date, h.back, `Počítám se startem ${d.from} a s přestávkami – zpět kolem ${h.back}.`) : ''}
       ${h.geometry ? elevSvg(h.geometry, '#f97316') : ''}
       <div class="dp-tip">${rainTxt(h)}</div>${kidsTxt(h)}
-      <div class="hk-acts">${h.geometry ? `<button type="button" class="linkbtn" data-hgpx="${i}">⬇️ GPX</button>` : ''}${g.url ? `<a class="linkbtn" href="${esc(safeUrl(g.url))}" target="_blank" rel="noopener">Wikipedie ↗</a>` : ''}</div>
+      <div class="hk-acts">${h.geometry ? `<button type="button" class="linkbtn" data-hgpx="${i}">${ikona('stahnout')} GPX</button>` : ''}${g.url ? `<a class="linkbtn" href="${esc(safeUrl(g.url))}" target="_blank" rel="noopener">Wikipedie ↗</a>` : ''}</div>
     </div>`;
   }
   // Mapy.com na místě cíle (další cíle v okolí)
@@ -2691,7 +2693,7 @@
     body.innerHTML = `${ex.demo ? '<div class="note warn" style="margin-bottom:12px">⚠️ <div><b>DEMO data</b> – místa jsou vymyšlená.</div></div>' : ''}
       <div class="section-head ex-head" style="margin-top:6px"><h2>${p.cc ? flag(p.cc) : '📍'} ${esc(p.label)} · ${placesTxt(cityN)} do ${cityKm(ex.radius)} km${far ? (tripN ? ` <span class="ex-head-more">+ ${placesTxt(tripN)} v okolí do ${ex.radius} km</span>` : '')
           : tripN ? ` <span class="ex-head-more">+ ${plural(tripN, 'výlet', 'výlety', 'výletů')}</span>` : ''}</h2>${
-        `<span class="ex-head-act">${window.Flights && flyTarget(p) ? '<button type="button" class="btn sm ghost" id="exFly">✈️ Najít lety sem</button>' : idos ? `<a class="btn sm ghost" id="exIdos" href="${esc(safeUrl(idos))}" target="_blank" rel="noopener" title="Vlak a autobus sem – jízdní řády IDOS">🚆 Spojení ↗</a>` : ''}<button type="button" class="btn sm ghost" id="exReset" title="Zrušit místo, plán i výběr míst">↺ Začít znovu</button></span>`}</div>
+        `<span class="ex-head-act">${window.Flights && flyTarget(p) ? '<button type="button" class="btn sm ghost" id="exFly">' + ikona('let') + ' Najít lety sem</button>' : idos ? `<a class="btn sm ghost" id="exIdos" href="${esc(safeUrl(idos))}" target="_blank" rel="noopener" title="Vlak a autobus sem – jízdní řády IDOS">🚆 Spojení ↗</a>` : ''}<button type="button" class="btn sm ghost" id="exReset" title="Zrušit místo, plán i výběr míst">↺ Začít znovu</button></span>`}</div>
       <div class="ex-layout ex-main">
       <div class="card step-card ex-plan${ex.planOpen || out || bz || wait ? '' : ' shut'}" id="exPlanCard"><h3 class="ex-plan-h"><button type="button" class="ex-plan-tg" id="exPlanTg">🗓️ Naplánovat <span class="faint ex-plan-hint">– program, výlety, kolo, pěšky</span><span class="ex-plan-chev" aria-hidden="true">▾</span></button></h3>
         <div class="seg wrap" id="exMode" style="margin:4px 0 12px">${modeBtns(ex.mode)}</div>

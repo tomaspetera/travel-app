@@ -34,7 +34,7 @@ test('myTrips: cesta z průvodce se otevře v průvodci (rozpracovaná zpět do 
   assert.match(fn, /<span class="tt-when">\$\{inf\.shared \? 'sdílená' : inf\.done \? 'sestavená' : 'rozpracovaná'\}<\/span>/);
   assert.match(fn, /<div class="mt-cur">\$\{inf\.shared \? '🔗 Sdílená cesta z odkazu, zatím neuložená – otevřít a 💾 uložit si ji ›' : curTxt\}<\/div>/);
   assert.match(read('js/trip.js'), /done: t\.step === 'summary', shared: Boolean\(t\.shared\) \};/);
-  assert.match(fn, /📝 Vlastní cesta bez letu/);
+  assert.match(fn, /\$\{ikona\('plus'\)\} Vlastní cesta bez letu/);
   // „Z posledního hledání“ ne, když z toho hledání už je cesta v průvodci (i s jinou nabídkou / termínem)
   assert.match(fn, /if \(pick && S\.trips\.some\(t => t\.dest === pick\.dest && \(t\.start === pick\.start \|\| \(t\.wizard && \(t\.end \|\| t\.start \|\| ''\) >= todayLocal\(\)\)\)\)\) pick = null;/);
   assert.match(fn, /bkWire\(host\);/);
@@ -71,7 +71,7 @@ test('Moje cesty místo Plánovače: Trip.mine ukáže seznam i nad rozpracovano
   const js = read('js/trip.js');
   assert.match(js, /function mine\(\) \{\s*const t = T\(\);\s*if \(t\) \{ if \(autoT \|\| !entryOf\(t\)\) autoSave\(\); mineFor = t\.created; \}\s*safeRender\(\);\s*\}/);
   assert.match(js, /render: safeRender, mine,/);
-  assert.match(js, /\$\{window\.newTrip \? '<button type="button" class="btn ghost" id="tripOwn">📝 Vlastní cesta bez letu<\/button>' : ''\}/);
+  assert.match(js, /\$\{window\.newTrip \? '<button type="button" class="btn ghost" id="tripOwn">' \+ ikona\('plus'\) \+ ' Vlastní cesta bez letu<\/button>' : ''\}/);
   const app = read('js/app.js');
   assert.match(app, /if \(v === 'trip'\) lazyView\('trip', '#tripRoot', \(\) => \(opts\.mine \? Trip\.mine\(\) : Trip\.render\(\)\)\);/);
   assert.match(app, /const NAV_PICK = \['flights', 'trip', 'explore', 'world', 'recommend'\];/);

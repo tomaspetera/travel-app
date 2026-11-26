@@ -93,6 +93,9 @@ const NAV = [['dashboard', 'Přehled', 'Radar cen a tvoje cesty', 'M3 12l9-9 9 9
 ['recommend', 'Doporučení', 'Kam se vyplatí jet právě teď', 'M12 2l2.4 7.4H22l-6 4.3 2.3 7.3-6.3-4.6L5.7 21 8 13.7 2 9.4h7.6z']];
 let activeView = 'dashboard';
 function ico(d) { return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="${d}"/></svg>`; }
+/** Ikona rozhraní Letsi místo emoji (public/vendor/letsi/ikony/<n>.svg, maska a velikost v atlas.css .ico / .i-<n>).
+ *  Vždy aria-hidden: přístupný název nese text tlačítka (manuál: ikona stojí s textem). */
+const ikona = n => `<span class="ico i-${n}" aria-hidden="true"></span>`;
 function buildNav() {
   // U přehledu odznak „zlevnilo“ z hlídaných cen (plní flights.js).
   $('#nav').innerHTML = NAV.map(n => `<div class="nav-item" data-view="${n[0]}">${ico(n[3])}<span>${n[1]}</span>${n[0] === 'map' ? '<span class="nav-badge" id="navBadge">0</span>' : n[0] === 'dashboard' ? '<span class="nav-badge drop" id="navDrops" title="Hlídané ceny, které od minule zlevnily" hidden></span>' : ''}</div>`).join('');
@@ -156,10 +159,10 @@ function openMore() {
   const list = $('.more-nav', $('#modal'));
   if (window.Transfer) Transfer.addToMenu(list); // 📲 Přenést do jiného zařízení – odkaz a QR kód (transfer.js)
   if (window.Backup) {
-    list.insertAdjacentHTML('beforeend', `<button type="button" class="btn ghost" id="moreBk">💾 Přenos a záloha <span class="faint">soubor, obnova</span></button>`);
+    list.insertAdjacentHTML('beforeend', `<button type="button" class="btn ghost" id="moreBk">${ikona('stahnout')} Přenos a záloha <span class="faint">soubor, obnova</span></button>`);
     $('#moreBk').onclick = () => { modalClose(); Backup.open(); };
   }
-  list.insertAdjacentHTML('beforeend', `<button type="button" class="btn ghost" id="moreWn">✨ Co je nového <span class="faint">novinky</span></button>`);
+  list.insertAdjacentHTML('beforeend', `<button type="button" class="btn ghost" id="moreWn">${ikona('novinky')} Co je nového <span class="faint">novinky</span></button>`);
   $('#moreWn').onclick = () => { modalClose(); whatsNewOpen(); };
   if (window.Plus) Plus.addToMenu(list); // ⭐ Plus: co je zdarma a co chystáme navíc (plus.js)
   if (window.About) About.addToMenu(list); // ℹ️ O aplikaci a soukromí (about.js)
@@ -168,7 +171,7 @@ function openMore() {
     helpSwitch($('#moreHelp'));
   }
   // motiv: přepínač v postranním panelu je na telefonu skrytý
-  list.insertAdjacentHTML('beforeend', `<button type="button" class="btn ghost" id="moreTheme">🌗 ${themeNow() === 'dark' ? 'Světlý' : 'Tmavý'} režim <span class="faint">vzhled</span></button>`);
+  list.insertAdjacentHTML('beforeend', `<button type="button" class="btn ghost" id="moreTheme">${ikona('motiv')} ${themeNow() === 'dark' ? 'Světlý' : 'Tmavý'} režim <span class="faint">vzhled</span></button>`);
   $('#moreTheme').onclick = () => { modalClose(); $('#themeToggle').click(); };
   if (window.Pwa) Pwa.addToMenu(list); // ➕ Přidat ATLAS na plochu (pwa.js)
 }
@@ -1161,7 +1164,7 @@ function whatsNewPop() {
   bar.setAttribute('aria-label', 'Co je nového');
   bar.setAttribute('aria-live', 'polite'); // čtečka ohlásí, že se lišta objevila (jako lišta nové verze)
   const n = f.show.length + f.more;
-  bar.innerHTML = `<div class="wn-pop-h"><b>✨ ${n > 1 ? 'Novinky' : 'Novinka'} od minula</b><button type="button" class="pwa-x" aria-label="Zavřít">×</button></div>
+  bar.innerHTML = `<div class="wn-pop-h"><b>${ikona('novinky')} ${n > 1 ? 'Novinky' : 'Novinka'} od minula</b><button type="button" class="pwa-x" aria-label="Zavřít">×</button></div>
     <ul class="wn-list">${f.show.map(wnLi).join('')}</ul>
     <div class="wn-pop-f"><button type="button" class="linkbtn" data-wn-all>${f.more ? `a ${f.more} ${f.more < 5 ? 'další' : 'dalších'} ›` : 'Všechny novinky ›'}</button><button type="button" class="btn sm primary" data-wn-ok>OK</button></div>`;
   const close = () => bar.remove();
@@ -1187,7 +1190,7 @@ function whatsNewPop() {
 /** Celý seznam novinek v okně (menu ☰ → Co je nového, postranní panel na počítači, „Všechny novinky ›“ v liště). */
 function whatsNewOpen() {
   const more = WHATS_NEW.slice(WN_TOP);
-  modalOpen(`<div class="modal-body"><h3>✨ Co je nového</h3><p class="faint" style="margin:0 0 4px">Novinky posledních verzí a kde je v aplikaci najdeš.</p>
+  modalOpen(`<div class="modal-body"><h3>${ikona('novinky')} Co je nového</h3><p class="faint" style="margin:0 0 4px">Novinky posledních verzí a kde je v aplikaci najdeš.</p>
     <ul class="wn-list">${WHATS_NEW.slice(0, WN_TOP).map(wnLi).join('')}</ul>
     ${more.length ? `<details class="wn-more"><summary>Starší novinky (${more.length})</summary><ul class="wn-list">${more.map(wnLi).join('')}</ul></details>` : ''}
     <button type="button" class="btn ghost" data-close>Zavřít</button></div>`);
@@ -1247,7 +1250,7 @@ function renderSince() {
     } catch (e) { lines = []; }
   }
   const h = lines.length ? `<div class="card since-card" role="region" aria-label="Od minula">
-    <div class="sc-top"><span class="sc-h">🕘 Od minula <span class="faint">· naposledy ${sinceNb(Since.dayRef(m.from, now))}</span></span><button type="button" class="dt-x" id="scX" title="Skrýt – ukážu, až bude něco nového" aria-label="Skrýt Od minula">✕</button></div>
+    <div class="sc-top"><span class="sc-h">${ikona('historie')} Od minula <span class="faint">· naposledy ${sinceNb(Since.dayRef(m.from, now))}</span></span><button type="button" class="dt-x" id="scX" title="Skrýt – ukážu, až bude něco nového" aria-label="Skrýt Od minula">✕</button></div>
     <ul class="sc-rows">${lines.map((l, k) => `<li><button type="button" class="sc-row" data-sc="${k}"><span class="sc-i" aria-hidden="true">${l.ico}</span><span class="sc-t"><b>${sinceNb(l.b)}:</b> ${sinceNb(l.t)}</span><span class="sc-go" aria-hidden="true">›</span></button></li>`).join('')}</ul></div>` : '';
   el.hidden = !h;
   el.dataset.quiet = h || (open && m.shut === m.at) ? '1' : '';
@@ -1646,7 +1649,7 @@ function renderRecs() {
       ${recWhy(r.why)}
       <div class="tags">${r.tags.map(x => `<span class="tag">✓ ${x}</span>`).join('')}</div>
       ${entryChip(c.iso2)}<div class="meta">${costDots(c.cost)}<span title="Nejlepší měsíce na cestu">☀️ ${monthRanges(c.months)}</span></div>
-      <button type="button" class="btn sm rec-fly" data-fly="${i}" title="Nejlevnější lety: ${esc(r.fly.label)}, odlet ${MNS_LOC[m - 1]}">✈️ Najít lety</button></div></div>`;
+      <button type="button" class="btn sm rec-fly" data-fly="${i}" title="Nejlevnější lety: ${esc(r.fly.label)}, odlet ${MNS_LOC[m - 1]}">${ikona('let')} Najít lety</button></div></div>`;
   }).join('') : `<div class="empty" style="grid-column:1/-1">Zvoleným filtrům nic neodpovídá – uvolni rozpočet nebo bezpečnost${hidden.mute.length ? ', nebo uprav 🙈 Nezajímá mě (vynechané země jsou pod tímhle)' : ''}.</div>`;
   // vynechané (ať je vidět proč tu nějaká země není)
   const foot = [hidden.unsafe ? `Doporučení vynechává ${hidden.unsafe} ${hidden.unsafe === 1 ? 'zemi' : hidden.unsafe <= 4 ? 'země' : 'zemí'}, před kterými MZV ČR varuje nebo kam doporučuje jen nezbytné cesty.` : '',
@@ -1871,7 +1874,7 @@ function openCountry(iso) {
      ${mine ? `<div class="note info cm-trip">🧳 <div>Tvoje cesta: <button type="button" class="linkbtn" id="cmTrip">${esc(tripTitle(mine.t))}${mine.t.start ? ' · ' + dateSpan(mine.t.start, mine.t.end) : ''} ›</button></div></div>` : ''}
      <div class="row wrap cm-acts">
        ${iso === 'CZ' ? '' : `<button class="btn primary" data-cm="search">${ico('M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z')} Najít lety sem</button>`}
-       ${window.Lazy || (window.Places && Places.openCountryView) ? `<button class="btn${iso === 'CZ' ? ' primary' : ''}" data-cm="explore">🌍 Objevuj celou zemi</button>` : ''}
+       ${window.Lazy || (window.Places && Places.openCountryView) ? `<button class="btn${iso === 'CZ' ? ' primary' : ''}" data-cm="explore">${ikona('kompas')} Objevuj celou zemi</button>` : ''}
        <button class="btn" data-cm="stay">${ico('M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z')} Ubytování</button>
        <button class="btn" data-cm="plan">${ico('M12 5v14M5 12h14')} Nová cesta</button>
        <button class="btn ${isV ? 'warm' : 'ghost'}" id="visBtn" data-cm="vis">${isV ? '✓ Navštíveno' : 'Byl/a jsem tu'}</button>
@@ -2110,11 +2113,11 @@ function myTrips(host, o = {}) {
     : a && !curPast ? `<div class="card trip" data-mcur="1"><div class="trip-top"${inf.name ? ` data-photo="${esc(inf.name)}" style="--h:${ccHue(inf.cc || inf.name)}"` : ''}><span class="tt-when">${inf.shared ? 'sdílená' : inf.done ? 'sestavená' : 'rozpracovaná'}</span><div class="tt-name">${esc(inf.name || 'Cesta')}</div><div class="tt-meta">${inf.cc ? flag(inf.cc) + ' ' : ''}${inf.start ? dateSpan(inf.start, inf.end) : ''}</div></div>
       <div class="trip-body"><div class="mt-cur">${inf.shared ? '🔗 Sdílená cesta z odkazu, zatím neuložená – otevřít a 💾 uložit si ji ›' : curTxt}</div></div></div>` : '';
   host.innerHTML = `<div class="trip-mine">
-    <div class="section-head"><h2>🧳 Moje cesty</h2></div>
+    <div class="section-head"><h2>${ikona('moje-cesty')} Moje cesty</h2></div>
     ${curCard || coming.length ? `<div class="trip-grid">${curCard}${coming.map(card).join('')}</div>` : ''}
     ${past.length ? `<details class="mt-past"><summary>Proběhlé cesty (${past.length})</summary><div class="trip-grid past">${past.map(card).join('')}</div></details>` : ''}
     ${o.ask || ''}
-    <div class="mt-more"><button type="button" class="btn sm ghost" id="mtNew">📝 Vlastní cesta bez letu</button>${pick ? `<button type="button" class="btn sm ghost" id="mtLast">✈️ Z posledního hledání: ${esc(pick.dest)} · ${fmtDate(pick.start)}${pick.end ? '–' + fmtDate(pick.end) : ''}</button>` : ''}</div>
+    <div class="mt-more"><button type="button" class="btn sm ghost" id="mtNew">${ikona('plus')} Vlastní cesta bez letu</button>${pick ? `<button type="button" class="btn sm ghost" id="mtLast">${ikona('let')} Z posledního hledání: ${esc(pick.dest)} · ${fmtDate(pick.start)}${pick.end ? '–' + fmtDate(pick.end) : ''}</button>` : ''}</div>
     ${bkTools()}</div>`;
   const open = i => {
     const t = S.trips[i];
@@ -2332,10 +2335,10 @@ function openTrip(i) {
     flight: t.flight ? `<div class="note info" style="margin-bottom:14px">${planIco(t.flight)} <div>${planFlightHtml(t.flight)}</div></div>` : '',
     // cesta z průvodce už má let vybraný: hlavní je „Otevřít v průvodci“ (napřed), hledání letů vedlejší; cesta po Česku
     // (Krkonoše) bez letů a bez Info o zemi (vstup, měna, počasí v Praze) – hlavní je ubytování
-    acts: `<div class="row wrap">${t.wizard && (window.Trip || window.Lazy) ? '<button class="btn primary" id="tripWizard">🧳 Otevřít v průvodci</button>' : ''}${local ? '' : `${home ? '' : `<button class="btn${t.wizard ? '' : ' primary'}" id="tripSearch">${ico('M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z')} Hledat lety</button>`}<button class="btn${home ? ' primary' : ''}" id="tripStay">${ico('M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z')} Ubytování</button>`}${c && !home ? '<button class="btn ghost" id="tripCountry">Info o zemi</button>' : ''}</div>`,
+    acts: `<div class="row wrap">${t.wizard && (window.Trip || window.Lazy) ? '<button class="btn primary" id="tripWizard">' + ikona('program') + ' Otevřít v průvodci</button>' : ''}${local ? '' : `${home ? '' : `<button class="btn${t.wizard ? '' : ' primary'}" id="tripSearch">${ico('M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z')} Hledat lety</button>`}<button class="btn${home ? ' primary' : ''}" id="tripStay">${ico('M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z')} Ubytování</button>`}${c && !home ? '<button class="btn ghost" id="tripCountry">Info o zemi</button>' : ''}</div>`,
     // po cestě jen „přidat na mapu“ – pas, víza a očkování nad „Cesta proběhla“ nikdo nepotřebuje
     entry: `${(t.end || t.start || '9999') < todayLocal() ? '' : tripEntryHtml(t)}${visitedPrompt(t)}`,
-    share: `<div class="row wrap" style="gap:8px;margin-top:10px">${days.length ? '<button class="btn sm" id="tripIcs">📅 Do kalendáře (.ics)</button>' : ''}<button class="btn sm" id="tripShare">🔗 Sdílet plán</button>${t.wizard && okYmd(t.start) && t.start >= todayLocal() ? '<button class="btn sm" id="tripJed">🙋 Jede někdo se mnou?</button>' : ''}${days.length ? `<a class="btn sm ghost" id="tripGcal" href="${esc(safeUrl(Ics.gcalUrl(planEvents(t)[0])))}" target="_blank" rel="noopener">Přidat do Google Kalendáře ↗</a>` : ''}</div>`,
+    share: `<div class="row wrap" style="gap:8px;margin-top:10px">${days.length ? '<button class="btn sm" id="tripIcs">' + ikona('kalendar') + ' Do kalendáře (.ics)</button>' : ''}<button class="btn sm" id="tripShare">${ikona('sdilet')} Sdílet plán</button>${t.wizard && okYmd(t.start) && t.start >= todayLocal() ? '<button class="btn sm" id="tripJed">🙋 Jede někdo se mnou?</button>' : ''}${days.length ? `<a class="btn sm ghost" id="tripGcal" href="${esc(safeUrl(Ics.gcalUrl(planEvents(t)[0])))}" target="_blank" rel="noopener">Přidat do Google Kalendáře ↗</a>` : ''}</div>`,
     days: `<div class="divider"></div>
     <div class="row" style="justify-content:space-between"><h3 style="font-size:16px">🗺️ Itinerář</h3><span class="faint" style="font-size:12px">${days.length ? days.length + (days.length === 1 ? ' den' : days.length < 5 ? ' dny' : ' dní') : 'doplň termíny'}</span></div>
     <div style="margin-top:10px">${days.length ? days.map((d, di) => (live && live.today === d ? `<div class="day-ptr"><b>Den ${di + 1}</b> · ${fmtDate(d)} · dnes – je nahoře ↑</div>` : dayHtml(d, di))).join('') : `<div class="note info">${ico('M12 16v-4M12 8h.01M12 2a10 10 0 100 20 10 10 0 000-20z')}<div>Doplň termíny cesty a objeví se itinerář den po dni.</div></div>`}</div>`,
@@ -2962,7 +2965,7 @@ async function start() {
   applyTheme(); applyMapStyle(); buildNav(); fillSelects(); wireEvents(); renderTips();
   // ✨ Co je nového v postranním panelu (počítač a tablet nemají menu ☰) – pod přepínačem motivu jako O aplikaci
   const tt = $('#themeToggle');
-  if (tt && !$('#sideWn')) { tt.insertAdjacentHTML('afterend', '<button type="button" class="theme-toggle side-about" id="sideWn">✨ Co je nového</button>'); $('#sideWn').onclick = whatsNewOpen; }
+  if (tt && !$('#sideWn')) { tt.insertAdjacentHTML('afterend', '<button type="button" class="theme-toggle side-about" id="sideWn">' + ikona('novinky') + ' Co je nového</button>'); $('#sideWn').onclick = whatsNewOpen; }
   if (window.Entry) {
     // vstupní podmínky (~20 kB gzip) souběžně se startem; po načtení doplnit čipy a otevřený seznam zemí
     Entry.whenReady(() => { paintEntryChips(); if (activeView === 'countries' && $('#cEntry').value) renderCountries(); });

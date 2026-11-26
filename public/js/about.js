@@ -149,7 +149,7 @@
 
   /** Položka v ⋯ Další (app.js openMore). */
   function addToMenu(list) {
-    list.insertAdjacentHTML('beforeend', '<button type="button" class="btn ghost" id="moreAbout">ℹ️ O aplikaci a soukromí <span class="faint">data, verze</span></button>');
+    list.insertAdjacentHTML('beforeend', '<button type="button" class="btn ghost" id="moreAbout"><span class="ico i-info" aria-hidden="true"></span> O aplikaci a soukromí <span class="faint">data, verze</span></button>');
     list.querySelector('#moreAbout').onclick = open;
   }
   // Počítač a tablet nemají ⋯ Další (lišta dole je jen na telefonu): odkaz v postranním panelu pod přepínačem motivu,
@@ -157,7 +157,7 @@
   if (typeof document !== 'undefined') {
     const toggle = document.querySelector('#themeToggle');
     if (toggle && !document.querySelector('#sideAbout')) {
-      toggle.insertAdjacentHTML('afterend', '<button type="button" class="theme-toggle side-about" id="sideAbout">ℹ️ O aplikaci a soukromí</button>');
+      toggle.insertAdjacentHTML('afterend', '<button type="button" class="theme-toggle side-about" id="sideAbout"><span class="ico i-info" aria-hidden="true"></span> O aplikaci a soukromí</button>');
       document.querySelector('#sideAbout').onclick = open;
     }
   }

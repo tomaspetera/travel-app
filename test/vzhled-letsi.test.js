@@ -190,8 +190,9 @@ test('favicon: Letsi přímo v hlavičce pro všechny (96 px pro vyhledávače, 
   assert.doesNotMatch(BOOT, /link\[rel="icon"\]/);
 });
 
-test('vendor/letsi: každý soubor, na který letsi.css a index.html odkazují, existuje a žádný soubor navíc', () => {
-  const css = [...SRC.matchAll(/url\(\.\.\/(vendor\/letsi\/[^)]+)\)/g)].map((m) => m[1]);
+test('vendor/letsi: každý soubor, na který letsi.css, atlas.css (ikony místo emoji) a index.html odkazují, existuje a žádný soubor navíc', () => {
+  // ikony rozhraní místo emoji jsou v atlas.css (.i-…): ikona je v textu tlačítka, takže platí i bez data-brand
+  const css = [...(SRC + read('css/atlas.css')).matchAll(/url\(\.\.\/(vendor\/letsi\/[^)]+)\)/g)].map((m) => m[1]);
   const boot = [...INDEX.matchAll(/href="(vendor\/letsi\/[^"]+)"/g)].map((m) => m[1]);
   const used = new Set([...css, ...boot]);
   assert.ok(used.size >= 20, `${used.size} souborů`);
@@ -204,7 +205,7 @@ test('vendor/letsi: každý soubor, na který letsi.css a index.html odkazují, 
   for (const f of css.filter((x) => x.includes('/ikony/'))) assert.match(read(f), /stroke="currentColor"/, f);
 });
 
-test('obrázky a písma Letsi: v sadě pro instalaci (výchozí vzhled offline), ve vzhledu ATLASu se z CSS nic z nich nestáhne', async () => {
+test('obrázky a písma Letsi: v sadě pro instalaci (výchozí vzhled offline), ve vzhledu ATLASu se z letsi.css nic z nich nestáhne', async () => {
   // obrázek z CSS se stáhne, jen když pravidlo platí – každé pravidlo s url() na vendor/letsi je pod data-brand
   // (tělo bez „{“: u pravidla uvnitř @media se kontroluje jeho selektor, ne hlavička @media)
   for (const m of SRC.matchAll(/([^{}]*)\{[^{}]*url\(\.\.\/vendor\/letsi\//g)) assert.match(m[1].trim(), /^:root\[data-brand="letsi"\]/, m[1]);
@@ -214,7 +215,8 @@ test('obrázky a písma Letsi: v sadě pro instalaci (výchozí vzhled offline),
   const { serviceWorker, cssAssets } = await import('../server/lib/pwa.js');
   const dirs = { publicDir: new URL('../public', import.meta.url).pathname, dataDir: new URL('../data', import.meta.url).pathname };
   const list = serviceWorker(dirs).precache;
-  const need = cssAssets(CSS, 'css/letsi.css');
+  // + ikony místo emoji z atlas.css (stejné adresy vendor/letsi/ikony/…, v sadě jednou)
+  const need = [...new Set([...cssAssets(CSS, 'css/letsi.css'), ...cssAssets(read('css/atlas.css'), 'css/atlas.css').filter((u) => u.startsWith('vendor/letsi/'))])];
   assert.ok(need.length >= 25 && need.some((u) => u.startsWith('vendor/fonts/letsi/')) && need.some((u) => u.startsWith('vendor/letsi/ikony/')), need.join());
   for (const u of [...need, 'js/kukatko.js', 'css/kukatko.css']) assert.ok(list.includes(u), `v sadě chybí ${u}`);
   // cssAssets: jen vlastní soubory vůči stylu, bez data:, #id a cizích webů, bez opakování
