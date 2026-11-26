@@ -75,6 +75,9 @@ export function movedTo({ host, method, path, search = '', dest }, publicUrl, { 
   if (preview || !h.endsWith('.onrender.com') || target.hostname.endsWith('.onrender.com') || h === target.hostname) return null;
   if ((method !== 'GET' && method !== 'HEAD') || path.startsWith('/api/') || path === '/healthz' || path === '/sw.js') return null;
   if (dest && dest !== 'document') return null; // soubor stránky (skript, styl, písmo, obrázek, manifest, worker…)
+  // Bez Sec-Fetch-Dest (Safari pod 16.4, roboti) pozná soubor jen podle přípony: přesměrovaný by se stáhl z jiné domény
+  // bez CORS a aktualizace service workeru (fetch v instalaci) by na staré adrese napořád selhávala.
+  if (!dest && /\.[^/]+$/.test(path) && !path.endsWith('.html')) return null;
   return `${target.origin}${path}${search}`;
 }
 
