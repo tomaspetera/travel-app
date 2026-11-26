@@ -61,7 +61,7 @@ test('ikona je vždy aria-hidden; tlačítko jen s ikonou má aria-label', () =>
 test('ovládací prvky bez emoji: Přehled, Lety, Další a Shrnutí cesty mají ikonu se stejným textem', () => {
   const html = read('index.html'), app = read('js/app.js'), trip = read('js/trip.js');
   const ico = (n) => `<span class="ico i-${n}" aria-hidden="true"></span>`;
-  for (const [n, t] of [['program', 'Naplánovat celou dovolenou'], ['let', 'Letenku už mám'], ['lupa', 'Najít lety'], ['hlidam', 'Hlídané ceny'], ['filtr', 'Upřesnit']]) {
+  for (const [n, t] of [['program', 'Naplánovat celou dovolenou'], ['let', 'Letenku už mám'], ['hlidam', 'Hlídané ceny'], ['filtr', 'Upřesnit']]) {
     assert.ok(html.includes(`${ico(n)} ${t}`), t);
   }
   for (const [n, id] of [['stahnout', 'moreBk'], ['novinky', 'moreWn'], ['motiv', 'moreTheme']]) assert.ok(app.includes(`id="${id}">\${ikona('${n}')} `), id);
@@ -71,4 +71,13 @@ test('ovládací prvky bez emoji: Přehled, Lety, Další a Shrnutí cesty mají
   assert.match(read('js/flights.js'), /' \+ ikona\('cena-klesla'\) \+ ' Upozorňovat/);
   // přepínač motivu v panelu kreslí SVG vedle textu – emoji by bylo podruhé
   assert.match(html, /<span>Tmavý režim<\/span>/);
+});
+
+test('ikony jen ve významu z ikony.json: Moje cesty jen ve spodní navigaci, Lupa jen v poli hledání, kalendář cen není Kalendář', () => {
+  // ikony.json „kdy použít“: moje-cesty = „jen spodní navigace“, lupa = „uvnitř vyhledávacích polí; záložka Hledat je
+  // kukátko“ (v sadě není), „kalendář cen je clona“ – tam, kde ikona v sadě chybí, zůstává emoji
+  const names = new Set(ALL.flatMap(([, s]) => used(s)));
+  for (const n of ['moje-cesty', 'lupa']) assert.ok(!names.has(n), n);
+  assert.match(read('index.html'), /id="doSearch" type="submit">🔎 Najít lety<\/button>/);
+  assert.doesNotMatch(read('js/flights.js'), /ikona\('kalendar'\)\} Kalendář cen/);
 });

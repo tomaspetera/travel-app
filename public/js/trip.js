@@ -1129,7 +1129,7 @@
     if (!t.shared) return '';
     const on = t.shared.on;
     return `<div class="note info trip-shared"><span aria-hidden="true">🔗</span><div class="ts-t"><b>Sdílená cesta</b> – ${on ? `ceny jsou z doby sdílení (${+on.slice(8, 10)}.\u00a0${+on.slice(5, 7)}.)` : 'ceny se mohly změnit'}. Před nákupem je ověř.</div>
-      <button type="button" class="btn sm primary" id="tripSharedSave">${ikona('moje-cesty')} Uložit si ji</button></div>`;
+      <button type="button" class="btn sm primary" id="tripSharedSave">💾 Uložit si ji</button></div>`;
   }
   /**
    * Cesta, která už skončila (pobyt do včerejška a dřív): průvodce ukazoval Shrnutí jako před odletem („Co zarezervovat“,
@@ -3971,7 +3971,7 @@
           : !ov && f.back && f.back.provider !== f.out.provider ? '<div class="note warn" style="margin-top:10px">⚠️ <div>Lety tam a zpět jsou dvě samostatné letenky – při zpoždění prvního letu druhá aerolinka nečeká.</div></div>' : ''}
       ${onTrip || past ? '</details>' : ''}</div></div>
       <div class="row wrap sum-acts" style="gap:8px;margin:0 0 14px">
-        <button class="btn primary" id="sumSave">${t.shared ? ikona('moje-cesty') + ' Uložit do Mých cest' : ikona('hotovo') + ' Uloženo v Mých cestách'}</button>
+        <button class="btn primary" id="sumSave">${t.shared ? '💾 Uložit do Mých cest' : ikona('hotovo') + ' Uloženo v Mých cestách'}</button>
         <button class="btn" id="sumShare">${ikona('sdilet')} Sdílet cestu</button>
         <button class="btn" id="sumIcs">${ikona('kalendar')} Do kalendáře</button>
         ${window.Plus && !t.shared && !past ? '<button class="btn" id="sumSesit">📒 Sešit cesty · Plus</button>' : ''}

@@ -2241,8 +2241,8 @@
   }
   const shortName = s => (s.length > 32 ? `${s.slice(0, 30).trim()}…` : s);
   const saveHtml = (i, trips) => (i >= 0
-    ? `<button class="btn" id="exSave" title="${esc(`Přidat k cestě ${trips[i].name} (stejné místo v jejím termínu)`)}">${ikona('moje-cesty')} Přidat k cestě ${esc(shortName(trips[i].name))}</button><button type="button" class="linkbtn ex-savenew" id="exSaveNew">uložit jako novou</button>`
-    : '<button class="btn" id="exSave">' + ikona('moje-cesty') + ' Uložit do Mých cest</button>');
+    ? `<button class="btn" id="exSave" title="${esc(`Přidat k cestě ${trips[i].name} (stejné místo v jejím termínu)`)}">💾 Přidat k cestě ${esc(shortName(trips[i].name))}</button><button type="button" class="linkbtn ex-savenew" id="exSaveNew">uložit jako novou</button>`
+    : '<button class="btn" id="exSave">💾 Uložit do Mých cest</button>');
   // Hláška s tlačítkem (toast z app.js tlačítko neumí); delší, ať se na tlačítko stihne kliknout.
   function actToast(msg, label, fn) {
     const t = $('#toast');

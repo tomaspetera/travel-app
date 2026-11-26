@@ -358,7 +358,7 @@ test('🧳 Shrnutí: „Uloženo v Mých cestách“ uloží hned (na přání) 
   c.__toasts.length = 0;
   c.__els['#sumSave'].onclick();
   assert.deepEqual(plain([c.S.trips.length, c.__toasts]), [1, ['Cesta je uložená v Mých cestách']]);
-  assert.match(render(c, vie({ step: 'summary', shared: { on: '2026-10-01' } })), /id="sumSave"><span class="ico i-moje-cesty" aria-hidden="true"><\/span> Uložit do Mých cest<\/button>/);
+  assert.match(render(c, vie({ step: 'summary', shared: { on: '2026-10-01' } })), /id="sumSave">💾 Uložit do Mých cest<\/button>/);
 });
 
 test('auto: délka pronájmu a příplatek za vrácení jinde podle upravených časů; úpravy u zadané ceny platí i po „Pokračovat“', () => {

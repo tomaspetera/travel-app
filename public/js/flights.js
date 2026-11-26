@@ -1419,7 +1419,7 @@
     let other = false;
     try { other = JSON.stringify(payloadOf(getForm())) !== running.key; } catch (e) { /* rozepsaný formulář */ }
     btn.disabled = !other;
-    btn.innerHTML = other ? ikona('lupa') + ' Najít lety' : '<span class="spin"></span> Hledám…';
+    btn.innerHTML = other ? '🔎 Najít lety' : '<span class="spin"></span> Hledám…';
   }
   // Po hledání změněná cesta na letiště (🏠 vlastní cena, jízdné ×, autem/veřejnou): ceny dopravy ve výsledcích jsou
   // ještě podle předchozího nastavení → nad výsledky „↻ Přepočítat“ (hledání znovu). Zmizí s novým hledáním
@@ -1583,7 +1583,7 @@
     } finally {
       busySearches--;
       // tlačítko odemkne jen poslední hledání – zrušené předchozí by ho odemklo uprostřed běžícího
-      if (running && running.ctl === ctl) { running = null; btn.disabled = false; btn.innerHTML = ikona('lupa') + ' Najít lety'; }
+      if (running && running.ctl === ctl) { running = null; btn.disabled = false; btn.innerHTML = '🔎 Najít lety'; }
     }
     })();
     running = { key: pkey, ctl, job };
@@ -2763,7 +2763,7 @@
       ${tripRow(t, g, i0)}
       ${others.length ? `<button type="button" class="more-btn" data-exp="${esc(g.dest.key)}">${exp ? '▲ Skrýt' : `▼ Další termíny a letiště (${others.length})`}</button>
         ${exp ? `<div class="alt-list">${others.map(o => tripRow(o, g, reg(o, g))).join('')}</div>` : ''}` : ''}
-      ${lastResult && lastResult.mode !== 'route' && g.dest.id ? `<button type="button" class="more-btn" data-alldates="${esc(g.dest.key)}">${ikona('kalendar')} Kalendář cen sem – všechny termíny</button>` : ''}
+      ${lastResult && lastResult.mode !== 'route' && g.dest.id ? `<button type="button" class="more-btn" data-alldates="${esc(g.dest.key)}">📅 Kalendář cen sem – všechny termíny</button>` : ''}
     </div>`;
   }
 
@@ -3011,7 +3011,7 @@
         ${note ? `<div class="pd pax-note">👶 ${esc(note)}</div>` : ''}${kidsNote(res.query, opts.map(o => (o.bookUrl ? o.provider : o.out.bookUrl ? o.out.provider : null)))}
         ${sum('groundCzk') || sum('arrCzk') ? `<div class="pd px">${[sum('groundCzk') ? `<span title="${esc(groundFoot(res, true))}">${res.query.groundMode === 'car' ? '🚗 autem' : '🚆 doprava'} na letiště${res.returnsHome ? ' a zpět' : ''} ~${czk(sum('groundCzk'))}/os.</span>` : '', sum('arrCzk') ? `<span title="${esc(arrivalFoot(res, true))}">🚌 z letišť do měst a zpět ~${czk(sum('arrCzk'))}/os.</span>` : ''].filter(Boolean).join(' · ')}<span class="px-n">průměrná cena, odhad – v ceně letenek není</span></div>` : ''}</div>
       <div class="tr-act"><button type="button" class="btn sm primary" data-mgo="1">${wiz ? PLAN_BTN : 'Vybrat a uložit do Mých cest →'}</button>
-        ${wiz ? '<button type="button" class="btn sm" data-msave="1">' + ikona('moje-cesty') + ' Do Mých cest</button>' : ''}
+        ${wiz ? '<button type="button" class="btn sm" data-msave="1">💾 Do Mých cest</button>' : ''}
         <button type="button" class="btn sm" data-mics="1">${ikona('kalendar')} Do kalendáře (.ics)</button>
         <div class="tr-more faint">${why}</div></div>
     </div></div>`;
@@ -5544,7 +5544,7 @@
     };
     host.innerHTML = `<div class="section-head"><h2>${ikona('oblibene')} Moje cíle${pl.fav.length ? ` <span class="faint" style="font-size:13px;font-weight:600">· ${pl.fav.length}</span>` : ''}</h2><button type="button" class="link" id="favEdit">Upravit →</button></div>
       <div class="card fav-card">${pl.fav.length ? `<div class="fav-strip">${pl.fav.map(tile).join('')}</div>
-        <div class="fav-foot"><button type="button" class="btn primary sm" id="favGo">${ikona('lupa')} Hledat moje cíle</button><span class="faint">${esc(favNames(pl.fav))} · ${esc(q.sub.split(' · ').slice(1).join(' · '))}</span></div>
+        <div class="fav-foot"><button type="button" class="btn primary sm" id="favGo">🔎 Hledat moje cíle</button><span class="faint">${esc(favNames(pl.fav))} · ${esc(q.sub.split(' · ').slice(1).join(' · '))}</span></div>
         <div class="faint fav-note" title="Jen letenka – bez cesty na letiště, do města a zavazadel; s odletem od tohoto měsíce. Telefon a počítač mají každý svou paměť cen.">Cena = nejlevnější zpáteční letenka na osobu, jakou Letsi zná z tohohle zařízení.</div>`
         : '<div class="faint">Zatím žádné – přidáš je přes ⋯ u karty radaru nebo u cíle v Kamkoliv (⭐ Chci tam).</div>'}
         ${pl.mute.length ? `<div class="faint fav-mute">🙈 Nezajímá mě – v radaru a v Kamkoliv skryto: ${plural(pl.mute.length, 'město', 'města', 'měst')}</div>` : ''}</div>`;
@@ -5681,7 +5681,7 @@
         ${pinDoor(p, x.d)}
         <div class="pin-ln">✈︎ ${esc(SearchHelp.radarRoute(r))} · ${day(r.d1)}${r.d2 ? ` – ${day(r.d2)} · ${nightsTxt(SearchHelp.diffDays(r.d1, r.d2))}` : ' · jen tam'}${radarLeave(r)}</div>
         <div class="pin-ln faint">z radaru – rozpis ceny a lety ukáže hledání</div>${tail}
-        <div class="pin-act"><button type="button" class="btn sm primary" data-psrch="${esc(p.k)}">${ikona('lupa')} Najít tento termín →</button>${buy ? `<div class="tr-buy">${buy}</div>` : ''}</div></div>`;
+        <div class="pin-act"><button type="button" class="btn sm primary" data-psrch="${esc(p.k)}">🔎 Najít tento termín →</button>${buy ? `<div class="tr-buy">${buy}</div>` : ''}</div></div>`;
     }
     const t = p.t, lv = SearchHelp.leaveDays(t.out, t.back), lt = lv && SearchHelp.leaveTxt(lv), dw = p.was ? t.perPersonCzk - p.was.czk : 0;
     return `<div class="card pin-card" data-pk="${esc(p.k)}">${pinHead(p)}

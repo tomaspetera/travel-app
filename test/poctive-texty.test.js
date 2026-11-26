@@ -33,7 +33,7 @@ test('úvod Přehledu, tlačítko hledání a Kamkoliv neslibují nejlevnější
   assert.ok(hero, 'heroBox');
   assert.match(hero[1], /orientační ceny/);
   assert.doesNotMatch(hero[1], SLIB);
-  assert.match(html, /id="doSearch" type="submit"><span class="ico i-lupa" aria-hidden="true"><\/span> Najít lety<\/button>/);
+  assert.match(html, /id="doSearch" type="submit">🔎 Najít lety<\/button>/);
   const quick = fl.match(/\['🌍', '(Kamkoliv[^']*)', '([^']*)'/);
   assert.ok(quick, 'rychlé hledání Kamkoliv');
   assert.doesNotMatch(quick[1] + quick[2], SLIB);

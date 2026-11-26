@@ -963,10 +963,8 @@ html:has(#modalBg.show) body{overflow:hidden} /* na body, ne na html: přejde na
 .i-kalendar{--ico:url(../vendor/letsi/ikony/kalendar.svg)}
 .i-kompas{--ico:url(../vendor/letsi/ikony/kompas.svg)}
 .i-let{--ico:url(../vendor/letsi/ikony/let.svg)}
-.i-lupa{--ico:url(../vendor/letsi/ikony/lupa.svg)}
 .i-mapa{--ico:url(../vendor/letsi/ikony/mapa.svg)}
 .i-misto{--ico:url(../vendor/letsi/ikony/misto.svg)}
-.i-moje-cesty{--ico:url(../vendor/letsi/ikony/moje-cesty.svg)}
 .i-motiv{--ico:url(../vendor/letsi/ikony/motiv.svg)}
 .i-napoveda{--ico:url(../vendor/letsi/ikony/napoveda.svg)}
 .i-novinky{--ico:url(../vendor/letsi/ikony/novinky.svg)}

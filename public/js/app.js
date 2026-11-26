@@ -2113,7 +2113,7 @@ function myTrips(host, o = {}) {
     : a && !curPast ? `<div class="card trip" data-mcur="1"><div class="trip-top"${inf.name ? ` data-photo="${esc(inf.name)}" style="--h:${ccHue(inf.cc || inf.name)}"` : ''}><span class="tt-when">${inf.shared ? 'sdílená' : inf.done ? 'sestavená' : 'rozpracovaná'}</span><div class="tt-name">${esc(inf.name || 'Cesta')}</div><div class="tt-meta">${inf.cc ? flag(inf.cc) + ' ' : ''}${inf.start ? dateSpan(inf.start, inf.end) : ''}</div></div>
       <div class="trip-body"><div class="mt-cur">${inf.shared ? '🔗 Sdílená cesta z odkazu, zatím neuložená – otevřít a 💾 uložit si ji ›' : curTxt}</div></div></div>` : '';
   host.innerHTML = `<div class="trip-mine">
-    <div class="section-head"><h2>${ikona('moje-cesty')} Moje cesty</h2></div>
+    <div class="section-head"><h2>🧳 Moje cesty</h2></div>
     ${curCard || coming.length ? `<div class="trip-grid">${curCard}${coming.map(card).join('')}</div>` : ''}
     ${past.length ? `<details class="mt-past"><summary>Proběhlé cesty (${past.length})</summary><div class="trip-grid past">${past.map(card).join('')}</div></details>` : ''}
     ${o.ask || ''}

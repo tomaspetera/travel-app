@@ -1024,7 +1024,7 @@ test('sdílená cesta (#trip=): den sdílení v odkazu, u příjemce poznámka o
   b.Trip.render();
   const h = sp(b.c.__root.innerHTML);
   assert.match(h, new RegExp(`<b>Sdílená cesta</b> – ceny jsou z doby sdílení \\(${dm(today).replace(/\./g, '\\.')}\\)\\. Před nákupem je ověř\\.`));
-  assert.match(h, /id="tripSharedSave"><span class="ico i-moje-cesty" aria-hidden="true"><\/span> Uložit si ji</);
+  assert.match(h, /id="tripSharedSave">💾 Uložit si ji</);
   // 💾 Uložit si ji = uložení do plánovače (stejná cesta jako ve Shrnutí); pak vlastní cesta bez poznámky
   b.els['#tripSharedSave'].onclick();
   assert.equal(b.c.S.trips.length, 1);
