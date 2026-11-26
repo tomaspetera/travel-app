@@ -23,15 +23,19 @@
   // čáry dnů na mapě od sebe; na tmavé mapě by Noc zmizela, tam Vápno. atlas = paleta pro vzhled ATLAS (beze změny).
   const LETSI_DAYS = ['#14161F', '#D6DE82', '#474F22', '#8E949E', '#585D56', '#C6CF6E'];
   const LETSI_DARK = new Set(['#14161F', '#474F22', '#585D56']);
+  const NOC = '#14161F', VAPNO = '#F3F4F0';
   const brandOf = () => (typeof document !== 'undefined' && document.documentElement ? document.documentElement.dataset : {});
-  const dayCol = (i, atlas = DAY_COLORS) => {
+  // ui = puntík dne a kolečko místa v kartě: Noc jako barva textu motivu (Noc ve světlém, Vápno v tmavém režimu), přepne
+  // se s motivem bez překreslení; na mapě podle stylu mapy (data-map) – ten se s režimem aplikace nemusí shodovat
+  const dayCol = (i, atlas = DAY_COLORS, ui = false) => {
     const d = brandOf();
     if (d.brand !== 'letsi') return atlas[i % atlas.length];
     const c = LETSI_DAYS[i % LETSI_DAYS.length];
-    return c === '#14161F' && d.map === 'dark' ? '#F3F4F0' : c;
+    if (c !== NOC) return c;
+    return ui ? 'var(--text)' : d.map === 'dark' ? VAPNO : NOC;
   };
-  // číslo na barvě dne: Vápno na tmavé (Noc, oliva, šedá), jinak Noc; ATLAS '' = tmavé číslo z trip.css
-  const dayInk = c => (brandOf().brand !== 'letsi' ? '' : LETSI_DARK.has(c) ? '#F3F4F0' : '#14161F');
+  // číslo na barvě dne: Vápno na tmavé (Noc, oliva, šedá), jinak Noc; v kartě pozadí motivu; ATLAS '' = číslo z trip.css
+  const dayInk = c => (brandOf().brand !== 'letsi' ? '' : c === 'var(--text)' ? 'var(--bg)' : LETSI_DARK.has(c) ? VAPNO : NOC);
   // all = místa načtená ze serveru (pro loaded.radius), items = z nich ta v právě zvoleném okruhu
   // far = místa v okolí pro okruh 50/100 km ({ place, items, busy, err }), country = přehled země ({ place, data, busy, err }),
   // lastKm = okruh v km před přepnutím na celou zemi
@@ -547,6 +551,7 @@
       const el = document.createElement('div');
       el.className = `mk ${cls}${pt.num ? ' num' : ''}`;
       el.style.background = pt.color;
+      el.dataset.col = pt.color; // prohlížeč by barvu vrátil jako rgb() – pro přebarvení po přepnutí mapy (recolor)
       if (pt.num) { el.textContent = pt.num; const ink = dayInk(pt.color); if (ink) el.style.color = ink; }
       if (pt.day != null) el.dataset.day = pt.day; // den programu (najetí na den v seznamu ztlumí ostatní)
       el.title = pt.label;
@@ -835,7 +840,7 @@
       const { trip, url, mapy } = dayRoute(center, d);
       // delší úsek v horách a přírodě (Krkonoše) se jede autem nebo busem, ve městě MHD/taxi
       const ride = d.rural ? 'autem / busem' : 'MHD/taxi';
-      return `<div class="day-plan" data-day="${i}"><h4><span><span style="color:${dayCol(i)}">●</span> Den ${i + 1} · ${dayLbl(d.date)}${trip ? (d.half ? ' · výlet do okolí' : ' · celodenní výlet') : ''}${wxSlot((trip && d.items[0]) || center, d.date)}</span>
+      return `<div class="day-plan" data-day="${i}"><h4><span><span style="color:${dayCol(i, DAY_COLORS, true)}">●</span> Den ${i + 1} · ${dayLbl(d.date)}${trip ? (d.half ? ' · výlet do okolí' : ' · celodenní výlet') : ''}${wxSlot((trip && d.items[0]) || center, d.date)}</span>
         ${dayLinks(url, mapy)}</h4>
         ${d.area ? `<p class="dp-area">🏘️ Oblast: ${esc(d.area)}</p>` : ''}
         ${d.items.length ? d.items.map((p, j) => `<div class="dp-item" data-poi="${esc(p.id)}"><span class="dp-n">${j + 1}</span><div><b>${icon(p.category)} ${esc(p.name)}</b> <span class="faint">· ${p.at ? `~${esc(p.at)}, ` : ''}${minTxt(p.visitMin)}</span>
@@ -2171,7 +2176,7 @@
       const lastQ = d.stops.length ? stopQ(d.stops.at(-1), center) : from;
       // Počasí dne: u okruhu v místě přespání (poslední den u poslední zastávky), u výletu v hlavním cíli (nejvyšší skóre).
       const wxAt = trip.mode === 'loop' ? d.overnight || d.stops.at(-1) : d.stops.reduce((b, s) => (b && (b.score || 0) >= (s.score || 0) ? b : s), null);
-      return `<div class="day-plan"><h4><span><span style="color:${dayCol(i)}">●</span> ${title} · ${dayLbl(d.date)}${way}${wxSlot(wxAt, d.date)}</span>
+      return `<div class="day-plan"><h4><span><span style="color:${dayCol(i, DAY_COLORS, true)}">●</span> ${title} · ${dayLbl(d.date)}${way}${wxSlot(wxAt, d.date)}</span>
         ${dayLinks(url, mapy, 'trasa autem')}</h4>
         <div class="dp-walk" style="margin:2px 0 4px">${transit ? 'vyrazit kolem' : 'odjezd'} ~09:00 z: ${esc(d.from.name)}</div>
         ${d.stops.map((s, j) => tripStopHtml(s, j, transit, j === 0 ? from : stopQ(d.stops[j - 1], center), d.date, center)).join('')}
@@ -2544,7 +2549,7 @@
     const h = d.hike && d.hike.goal && okPt(d.hike.goal) ? normHike(d.hike) : null;
     const typ = d.type === 'short' ? (d.arrival ? 'den příjezdu · kratší túra' : d.departure ? 'den odjezdu · kratší túra' : 'kratší túra')
       : d.type === 'rest' ? (d.arrival ? 'den příjezdu' : d.departure ? 'den odjezdu' : 'volno') : `celodenní túra${d.arrival ? ' · den příjezdu' : d.departure ? ' · den odjezdu' : ''}`;
-    const head = `<h4><span><span style="color:${dayCol(i)}">●</span> Den ${i + 1} · ${dayLbl(d.date)} · ${typ}${wxSlot(h ? h.goal : center, d.date)}</span>${h ? dayLinks(h.googleUrl, h.mapyUrl, 'túra') : ''}</h4>`;
+    const head = `<h4><span><span style="color:${dayCol(i, DAY_COLORS, true)}">●</span> Den ${i + 1} · ${dayLbl(d.date)} · ${typ}${wxSlot(h ? h.goal : center, d.date)}</span>${h ? dayLinks(h.googleUrl, h.mapyUrl, 'túra') : ''}</h4>`;
     if (!h) return `<div class="day-plan hk-day" data-day="${i}">${head}<div class="faint" style="font-size:13px;padding:6px 0">${esc(HK_NOTE[d.note] || HK_NOTE.rest)}</div></div>`;
     const g = h.goal;
     const from = h.start ? `z: ${h.start.name}` : '';
@@ -3147,12 +3152,27 @@
     }
   }
 
+  // Den 1 (Noc, na tmavé mapě Vápno – dayCol) po přepnutí mapy přebarvit hned, značky i čáry – ne až při dalším vykreslení.
+  // Střed (ctr) zůstane Nocí s vlastním lemem; čáry se vykreslí z ms.lines při načtení nového stylu (addLines).
+  function recolor(ms, dark) {
+    if (brandOf().brand !== 'letsi') return;
+    const re = c => (c === NOC || c === VAPNO ? (dark ? VAPNO : NOC) : c);
+    for (const mk of ms.markers) {
+      const el = mk.getElement();
+      if (el.classList.contains('ctr') || !el.dataset.col) continue;
+      el.dataset.col = el.style.background = re(el.dataset.col);
+      if (el.classList.contains('num')) el.style.color = dayInk(el.dataset.col);
+    }
+    for (const f of (ms.lines && ms.lines.features) || []) f.properties.color = re(f.properties.color);
+  }
+
   // Přepnutí světlý/tmavý režim: otevřené mapy dostanou odpovídající styl (rastrová záloha zůstane).
   function retheme() {
     const dark = document.documentElement.dataset.map === 'dark'; // světlá/tmavá mapa (app.js), ne režim aplikace
     for (const m of liveMaps) {
       const ms = m.atlasState;
       if (!ms || ms.raster || !document.body.contains(m.getContainer())) continue;
+      recolor(ms, dark);
       ms.styleReady = false;
       m.setStyle(OFM + (dark ? 'dark' : 'liberty'), { diff: false });
     }
@@ -3162,7 +3182,7 @@
     renderExplore, renderPlanner, retheme, routeMap, dayRoute, gmDir, openAt, preview, previewHtml, openCountryView, makeHikePlan,
     dayCol, dayInk, // barvy a čísla míst trasy (trip.js)
     // jen pro testy (test/places-ui.test.js)
-    _t: { hikesAt, wxAvgWhy, tripDropUndo, tripPlaces, ownPlaces, savedPlaces, tripDatesFor, inspSub, searchedPlaces, plural, placesTxt, mustTxt, inRadius, needsFetch, outsideIds, planIds, withPlanStops, enterAction, missNext, sugHtml, waitHtml, errLead, errHtml, httpErr, mustBtn, poiCard,
+    _t: { recolor, hikesAt, wxAvgWhy, tripDropUndo, tripPlaces, ownPlaces, savedPlaces, tripDatesFor, inspSub, searchedPlaces, plural, placesTxt, mustTxt, inRadius, needsFetch, outsideIds, planIds, withPlanStops, enterAction, missNext, sugHtml, waitHtml, errLead, errHtml, httpErr, mustBtn, poiCard,
       uiSnapshot, uiRestore, okStart, pushRecent, samePlace, cleanPlace, getJson, firstSentence, descHtml, inclHtml, gq, poiQ, centerQ, gmDir, dayLbl, slug, gpxOf, SLOW_MS, UI_LS,
       countryCs, ccAliasHits, stopQ, mapyDir, dayLinks, planHtml, tripHtml, MAPY_WP, emptyHtml, planEmptyHtml, variantTxt, routeHtml, ROUTE_VARIANTS, blankHtml, looksEnglish, surfaceRows, surfaceHtml,
       afterDark, routeBack, sunSlot, sunHtml, fillSun, toHm, modeBtns, previewPick, previewCard, moreTxt, poiUrl, pvFor, PREVIEW_KM, ex, loadExplore,

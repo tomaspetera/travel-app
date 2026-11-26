@@ -52,7 +52,7 @@ test('vizual-7: vzhled ATLAS beze změny – duha dnů i míst trasy, číslo z 
   assert.equal(t.baseCol(6), '#5b8cff', '7. místo zase první barvou (šest barev)');
   assert.equal(t.baseSty(1), 'background:#f59e0b');
   brand('letsi');
-  assert.equal(t.baseSty(0), 'background:#14161F;color:#F3F4F0');
+  assert.equal(t.baseSty(0), 'background:var(--text);color:var(--bg)', 'místo 1 v kartě barvou textu motivu (tmavý režim: Vápno s Nocí)');
   assert.equal(t.baseSty(1), 'background:#D6DE82;color:#14161F');
   // kolečka v seznamu, v záložkách i značky na mapě berou barvu odsud; hotové místo nechá zelenou plochu a číslo z CSS
   assert.doesNotMatch(tripJs.replace(/^ {2}const baseCol = .*$/m, ''), /BASE_COLORS\[/);

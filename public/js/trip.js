@@ -54,9 +54,10 @@
   const MAX_BASES = 6;
   const BASE_COLORS = ['#5b8cff', '#f59e0b', '#22c55e', '#ec4899', '#14b8a6', '#a855f7'];
   // barva místa trasy: ve vzhledu Letsi z palety Letsi jako dny v Objevuj (Places.dayCol), v ATLASu (a bez places.js) duha
-  const baseCol = i => (window.Places && Places.dayCol ? Places.dayCol(i, BASE_COLORS) : BASE_COLORS[i % BASE_COLORS.length]);
-  // kolečko s číslem: v Letsi číslo kontrastně (Noc na Pistácii, Vápno na Noci); ATLAS tmavé číslo z trip.css
-  const baseSty = i => { const c = baseCol(i), ink = window.Places && Places.dayInk ? Places.dayInk(c) : ''; return `background:${c}${ink ? `;color:${ink}` : ''}`; };
+  const baseCol = (i, ui = false) => (window.Places && Places.dayCol ? Places.dayCol(i, BASE_COLORS, ui) : BASE_COLORS[i % BASE_COLORS.length]);
+  // kolečko s číslem (v kartě – místo 1 sleduje režim aplikace): v Letsi číslo kontrastně (Noc na Pistácii, Vápno na Noci);
+  // ATLAS tmavé číslo z trip.css
+  const baseSty = i => { const c = baseCol(i, true), ink = window.Places && Places.dayInk ? Places.dayInk(c) : ''; return `background:${c}${ink ? `;color:${ink}` : ''}`; };
 
   /* ---------- pomocné ---------- */
   const T = () => S.trip;
@@ -2588,7 +2589,7 @@
   // Trip.com hledá hotel podle názvu (searchWord) – výsledky ukáže až po potvrzení Hledat (links.js)
   const tripHint = u => /^https:\/\/www\.trip\.com\/hotels\/list\?searchWord=/.test(u || '') ? ' – na Trip.com potvrď Hledat' : '';
   const otaTitle = r => r.site ? `Hledání hotelu na ${r.name} na tvoje data${r.site === 'trip' ? ' – potvrď Hledat' : ''}` : `Google Hotels: živé ceny hotelu u všech webů na tvoje data (${r.name} nemá přímý odkaz)`;
-  const outLink = (url, html, { cls = 'linkbtn', title = '', sponsored = false } = {}) => `<a class="${cls}" href="${esc(safeUrl(url))}" target="_blank" rel="${sponsored ? 'sponsored nofollow noopener' : 'noopener'}"${title ? ` title="${esc(title)}"` : ''}>${html}</a>`;
+  const outLink = (url, html, { cls = 'linkbtn', title = '', sponsored = false, aria = '' } = {}) => `<a class="${cls}" href="${esc(safeUrl(url))}" target="_blank" rel="${sponsored ? 'sponsored nofollow noopener' : 'noopener'}"${title ? ` title="${esc(title)}"` : ''}${aria ? ` aria-label="${esc(aria)}"` : ''}>${html}</a>`;
   const otaChips = h => Array.isArray(h.rates) && h.rates.length
     ? `<div class="st-otas">${h.rates.slice(0, 4).map((r, k) => {
       const t = `${r.name}: ${czk(r.totalCzk)} celkem, ${czk(r.perNightCzk)}/noc`, inner = `${esc(r.name)} <b>${czk(r.totalCzk)}</b>`, cls = `ota${k === 0 ? ' best' : ''}`;
@@ -2624,13 +2625,14 @@
     // Booking.com zvlášť, jen když na tvoje dny něco nabízí – jinak poznámka, proč by tam hotel byl vyprodaný.
     const top = h.provider === 'xotelo' && Array.isArray(h.rates) && h.rates[0] && h.rates[0].url ? h.rates[0] : null;
     const bk = top && h.rates.find(r => r.site === 'booking');
-    // sec = vedlejší odkaz (na telefonu až po „další weby“); after = text hned za odkazem
-    const bkLink = (url, label, title, sp, sec = false, after = '') => `<span class="st-bk${sec ? ' sec' : ''}">${outLink(url, `${label} ↗`, { title, sponsored: sp })}${sp ? '<span class="ad-tag">reklama</span>' : ''}${after}</span>`;
+    // sec = vedlejší odkaz (na telefonu až po „další weby“); after = text hned za odkazem; čtečka slyší i hotel – víc
+    // karet pod sebou má stejné „Booking.com ↗“
+    const bkLink = (url, label, title, sp, sec = false, after = '') => `<span class="st-bk${sec ? ' sec' : ''}">${outLink(url, `${esc(label)} ↗`, { title, sponsored: sp, aria: `${label}: ${h.name}` })}${sp ? '<span class="ad-tag">reklama</span>' : ''}${after}</span>`;
     // nápověda k Trip.com (hledá podle názvu, výsledky až po Hledat): na počítači řádek pod cenami webů, na telefonu
     // hned za odkazem (ten řádek je tam schovaný – title se na telefonu neukáže)
     const tripTip = top && top.site === 'trip' ? '<span class="st-trh">– potvrď Hledat</span>' : '';
     const links = !h.bookUrl ? '' : top
-      ? bkLink(h.bookUrl, top.site ? esc(top.name) : 'porovnat ceny', otaTitle(top), h.bookSponsored, false, tripTip) + (bk && bk !== top ? bkLink(bk.url, 'Booking.com', otaTitle(bk), bk.sponsored, true) : '')
+      ? bkLink(h.bookUrl, top.site ? top.name : 'porovnat ceny', otaTitle(top), h.bookSponsored, false, tripTip) + (bk && bk !== top ? bkLink(bk.url, 'Booking.com', otaTitle(bk), bk.sponsored, true) : '')
       : h.guess ? bkLink(h.bookUrl, 'ceny na tvoje dny', 'Google Hotels – ceny hotelu na tvoje dny u všech webů', false)
         // ubytování z OpenStreetMap (bez ceny): hledání u Bookingu na tvoje dny, vlastní web a mapa
         : h.osm ? bkLink(h.bookUrl, 'Booking.com', 'Hledání ubytování na Booking.com na tvoje dny – cenu a volno ověř tam', h.bookSponsored)
@@ -2908,15 +2910,17 @@
   async function checkStay(d, h, btn) {
     const m = /^xo:(g\d+-d\d+)$/.exec(h.id || '');
     if (!m || h.provider !== 'xotelo' || !d.params) return null;
-    const txt = btn ? btn.innerHTML : '';
-    if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spin"></span> Ověřuji volno…'; }
+    const txt = btn ? btn.innerHTML : '', aria = btn ? btn.ariaLabel : '';
+    // aria-label (s názvem hotelu) by čtečce dál hlásil „Vybrat“ – i ten říká, že se ověřuje (ariaLabel = odraz atributu,
+    // Chrome, Safari a Firefox 119+; starší prohlížeč jen nechá původní)
+    if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spin"></span> Ověřuji volno…'; btn.ariaLabel = `Ověřuji volno: ${h.name}`; }
     try {
       // hotel z okolí: odkazy na weby hledají hotel v jeho místě (near), ne v místě pobytu
       const r = await fetch('api/stays/check?' + new URLSearchParams({ ...d.params, hotel: m[1], name: h.name, ...(h.nearby && h.nearby.city ? { near: h.nearby.city } : {}) }));
       return r.ok ? await r.json() : { available: null };
     } catch (e) {
       return { available: null };
-    } finally { if (btn) { btn.disabled = false; btn.innerHTML = txt; } }
+    } finally { if (btn) { btn.disabled = false; btn.innerHTML = txt; if (aria) btn.ariaLabel = aria; } }
   }
 
   /* ---------- auto ---------- */
