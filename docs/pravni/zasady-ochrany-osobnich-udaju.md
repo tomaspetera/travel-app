@@ -61,7 +61,9 @@ tedy prvních 64 bitů) a časy posledních požadavků z ní.
 Aby Letsi mohlo odpovědět, posílá prohlížeč serveru údaje o hledání: odkud a kam, termín, počet cestujících (dospělí,
 děti, miminka), zavazadla, způsob cesty na letiště a výchozí místo (domov), u ubytování místo, termín a počet hostů,
 v Objevuj místo a volby programu. **Polohu zařízení** prohlížeč zjistí a použije jen tehdy, když sám klepneš na
-📍 Moje poloha nebo Moje okolí (prohlížeč se tě nejdřív zeptá na povolení).
+📍 Moje poloha nebo Moje okolí (prohlížeč se tě nejdřív zeptá na povolení). Ven ji pošle jen zaokrouhlenou:
+domov z 📍 Moje poloha na 2 desetinná místa (asi 1 km – tak se i uloží a posílá při dalších otevřeních), Objevuj → Tady
+na 3 desetinná místa (asi 100 m).
 
 Server odpovědi drží chvíli v mezipaměti v operační paměti (podle dotazu, ne podle uživatele – IP adresa ani jiný
 identifikátor v ní není), aby stejný dotaz nemusel znovu ke zdrojům dat.
@@ -70,7 +72,8 @@ identifikátor v ní není), aby stejný dotaz nemusel znovu ke zdrojům dat.
 
 > Kde v kódu: `public/js/about.js` (oddíl „Co se na server posílá“, hlídá ho `test/about.test.js`),
 > `server/lib/cache.js` (mezipaměť v paměti), poloha jen na klepnutí `public/js/flights.js` a `public/js/places.js`
-> (`navigator.geolocation.getCurrentPosition`).
+> (`navigator.geolocation.getCurrentPosition`; zaokrouhlení `SearchHelp.myPlace` v `public/js/searchhelp.js`, `exGeo`
+> v `public/js/places.js`, pojistka `poiCoord` v `server/index.js`).
 
 ### 3.3 Hlášení chyb z prohlížeče
 
@@ -271,7 +274,8 @@ Server se jich ptá **bez tvé IP adresy a bez čehokoli, co by tě identifikova
 - ubytování: **Xotelo** (data TripAdvisoru), **LiteAPI** (je-li zapnuté), OpenStreetMap (Nominatim),
 - vlak a bus: **RegioJet**,
 - počasí: **MET Norway** (souřadnice zaokrouhlené na 2 desetinná místa),
-- mapy, místa a trasy: **Mapy.com** (Seznam.cz, a.s.), BRouter, Overpass (OpenStreetMap), Wikidata, Wikipedie,
+- mapy, místa a trasy: **Mapy.com** (Seznam.cz, a.s.), BRouter, Overpass (OpenStreetMap), Wikidata, Wikipedie
+  (místa v okolí dostanou souřadnice zaokrouhlené nejvýš na 3 desetinná místa, asi 100 m),
 - fotky: Wikimedia, Pexels, Unsplash; kurzy a palivo: ECB, ČSÚ, Evropská komise.
 
 > Kde v kódu: `server/providers/` (`ryanair.js`, `wizzair.js`, `kiwi.js`, `travelpayouts.js`, `stays/`),

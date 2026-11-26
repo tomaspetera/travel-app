@@ -2131,8 +2131,9 @@
     ['Vídeň', 'AT', 48.2085, 16.3721], ['Bratislava', 'SK', 48.1482, 17.1067]];
   const ccFlag = cc => String.fromCodePoint(...[...cc].map(c => 127397 + c.charCodeAt(0)));
   const cityPlace = ([label, cc, lat, lon]) => ({ id: `geo:${lat.toFixed(4)},${lon.toFixed(4)}|${label}`, type: 'city', label, flag: ccFlag(cc), cc, lat, lon });
-  /** 📍 Moje poloha jako místo Odkud (v Letech i v uvítání) – poloha na 4 desetinná místa. */
-  const myPlace = (lat, lon) => ({ id: `geo:${(+lat).toFixed(4)},${(+lon).toFixed(4)}|Moje poloha`, label: 'Moje poloha', flag: '📍', type: 'place' });
+  /** 📍 Moje poloha jako místo Odkud (v Letech i v uvítání) – poloha na 2 desetinná místa (~1 km): na hledání letišť
+   *  v okruhu stačí a domov se posílá při každém otevření, přesnější by v logu serveru byla skoro adresa (app.js coarseGeo). */
+  const myPlace = (lat, lon) => ({ id: `geo:${(+lat).toFixed(2)},${(+lon).toFixed(2)}|Moje poloha`, label: 'Moje poloha', flag: '📍', type: 'place' });
   /**
    * Domov radaru z čipu uvítání: název města z HOME_CITIES nebo hotové místo (📍 Moje poloha) → tvar S.home jako
    * z nastavení domova, letiště do 150 km a ceny pro 2 osoby. Neznámé město = null.

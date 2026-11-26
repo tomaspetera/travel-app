@@ -143,7 +143,7 @@ test('radar: nejvýhodnější orientační cena není „🔥 super cena“ (ja
 
 test('detail karty radaru: orientační cena se štítkem a „Otevřít … na Aviasales“ místo „Koupit let“', () => {
   const dp = cut('  function dpBuy(d) {', '  function dpHtml(d) {');
-  const dpBuy = new Function('esc', 'safeUrl', 'shopName', `${dp}; return dpBuy;`)(esc, u => u, () => 'Ryanair');
+  const dpBuy = new Function('esc', 'safeUrl', 'shopName', `${fl.match(/^ *const affBuy = [^\n]+\n *const buyRel = [^\n]+\n *const adTag = [^\n]+\n/m)[0]}${dp}; return dpBuy;`)(esc, u => u, () => 'Ryanair');
   assert.match(dpBuy({ buy: [['https://www.aviasales.com/x', 'travelpayouts']], oc: true }), />Otevřít na Aviasales ↗<\/a>$/);
   assert.match(dpBuy({ buy: [['https://www.ryanair.com/x', 'ryanair']], oc: false }), />Koupit let u Ryanair ↗<\/a>$/, 'živá cena beze změny');
   assert.match(dpBuy({ buy: [['https://a.example/x', 'ryanair', 'out']], oc: true }), />Let tam u Ryanair ↗/);

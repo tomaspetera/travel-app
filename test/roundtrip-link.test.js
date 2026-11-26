@@ -71,7 +71,7 @@ test('aplikace: dvojice složená v prohlížeči ve stejné měně → jedno tl
   const a = src.indexOf('  // Dvojice složená v prohlížeči'), b = src.indexOf('  // S dětmi pod tlačítky Koupit');
   const ctx2 = { URL, Intl, SearchHelp: H, lastResult: { fx: { eurCzk: 24.3 } }, esc: (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;'),
     safeUrl: (u) => u, provColor: () => '#000', shopName: (p) => ({ wizzair: 'Wizz Air', ryanair: 'Ryanair' })[p] || p };
-  vm.runInNewContext(`${src.slice(a, b)}\nthis.bookButtons = bookButtons; this.buyNote = buyNote;`, ctx2);
+  vm.runInNewContext(`${src.match(/^ *const affBuy = [^\n]+\n *const buyRel = [^\n]+\n *const adTag = [^\n]+\n/m)[0]}${src.slice(a, b)}\nthis.bookButtons = bookButtons; this.buyNote = buyNote;`, ctx2);
   for (const p of ['ryanair', 'wizzair']) {
     // složená v prohlížeči (composeTrip) – bez bookUrl
     const vie = { ...makeTrip(leg(p, 'VIE', 'BCN', '2026-12-12', 30, 'EUR'), leg(p, 'BCN', 'VIE', '2026-12-20', 25.5, 'EUR')), bookUrl: null };

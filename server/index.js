@@ -181,6 +181,9 @@ function readBody(req, limit = 64 * 1024) {
 
 /** Souřadnice z adresy: chybějící nebo prázdná → NaN (Number(null) i Number('') je 0 – bod 0,0 v Guinejském zálivu). */
 export const coordOf = (v) => (v == null || String(v).trim() === '' ? NaN : Number(v));
+/** Poloha pro místa v okolí na 3 desetinná místa (~100 m): na okruh km stačí a přesná GPS (Objevuj → Tady) nepůjde dál
+ *  Wikidatům a Wikipedii ani do mezipaměti – pojistka i pro starší klienty, nový zaokrouhlí sám (places.js exGeo). */
+const poiCoord = (v) => Math.round(coordOf(v) * 1000) / 1000;
 
 /** Datum YYYY-MM-DD, které opravdu existuje: 2027-02-30 isYmd pustí a Date ho tiše posune na 2. 3. */
 export const realYmd = (s) => isYmd(s) && addDays(s, 0) === s;
@@ -978,8 +981,8 @@ async function route(req, res) {
     return sendJson(req, res, 200, { base: 'CZK', rates, source: r.source, date: r.date }, { 'Cache-Control': 'public, max-age=3600' });
   }
   if (p === '/api/poi') {
-    const lat = coordOf(url.searchParams.get('lat'));
-    const lon = coordOf(url.searchParams.get('lon'));
+    const lat = poiCoord(url.searchParams.get('lat'));
+    const lon = poiCoord(url.searchParams.get('lon'));
     if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return sendJson(req, res, 400, { error: 'Chybí poloha (lat/lon).' });
     const radiusKm = Math.min(25, Math.max(1, Number(url.searchParams.get('radius')) || 10));
     const dayTrips = url.searchParams.get('dayTrips') !== '0';
@@ -990,8 +993,8 @@ async function route(req, res) {
   if (p === '/api/poi/trips') {
     // Objevuj s okruhem 50/100 km: nejzajímavější místa v okolí do ~120 km – stejné cíle (a mezipaměť) jako plánovač
     // výletů, takže „🎒 Výlet sem“ pak nečeká na další dotaz.
-    const lat = coordOf(url.searchParams.get('lat'));
-    const lon = coordOf(url.searchParams.get('lon'));
+    const lat = poiCoord(url.searchParams.get('lat'));
+    const lon = poiCoord(url.searchParams.get('lon'));
     if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return sendJson(req, res, 400, { error: 'Chybí poloha (lat/lon).' });
     if (exploreLimited(req, tripsCached({ lat, lon }))) return sendJson(req, res, 429, TOO_MANY_EXPLORE);
     try {

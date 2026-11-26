@@ -50,7 +50,14 @@ let TOT = 197; const CONT_TOT = {};
 /* ================= STATE ================= */
 const LS = 'atlas_v1';
 let S = load();
-function load() { try { const d = JSON.parse(localStorage.getItem(LS)); if (d) return migratePrices(Object.assign(defState(), d), d.pv); } catch (e) { } return defState(); }
+function load() { try { const d = JSON.parse(localStorage.getItem(LS)); if (d) return migrateGeo(migratePrices(Object.assign(defState(), d), d.pv)); } catch (e) { } return defState(); }
+// 📍 Moje poloha jde ven jen na ~1 km (SearchHelp.myPlace, 2 desetinná místa) – na letiště do 150 km to stačí. Dřív
+// uložený domov, formulář a Nedávno měly 4 místa (~11 m, skoro adresa domu v logu serveru): při načtení zaokrouhlit.
+const coarseGeo = p => { const m = p && /^geo:(-?[\d.]+),(-?[\d.]+)\|Moje poloha$/.exec(p.id || ''); return m ? { ...p, id: `geo:${(+m[1]).toFixed(2)},${(+m[2]).toFixed(2)}|Moje poloha` } : p; };
+function migrateGeo(s) {
+  const fix = o => (o && Array.isArray(o.from) ? { ...o, from: o.from.map(coarseGeo) } : o);
+  return { ...s, home: fix(s.home), form: fix(s.form), recent: Array.isArray(s.recent) ? s.recent.map(r => (r && r.form ? { ...r, form: fix(r.form) } : r)) : s.recent };
+}
 // Ceny letů jsou od pv 2 jen za letenku (+ zavazadla), dřív i s dopravou na letiště a do města: uložené karty radaru
 // se načtou znovu a „naposledy prohlížené“ ceny zapomenou – jinak by vedle nových cen vypadaly dráž („zlevnilo“).
 // Hlídané ceny si nový základ vezmou při příští kontrole (Alerts, w.pv), odložené nabídky se přepočítají (Pins).
