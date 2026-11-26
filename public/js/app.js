@@ -2077,11 +2077,13 @@ document.addEventListener('click', e => { const p = $('#mapPop'); if (p.classLis
 let mapKept = null;
 function mapRestore() {
   if (!mapKept) return;
-  const wrap = $('#mapWrap'); wrap.style.minHeight = ''; wrap.replaceChildren(...mapKept); mapKept = null;
+  const wrap = $('#mapWrap'); wrap.removeAttribute('style'); wrap.replaceChildren(...mapKept); mapKept = null;
   applyMapStyle(); refreshStats(); // přepínač a chip se mezitím nepřekreslovaly (nebyly v dokumentu)
 }
 function mapFallback(msg) {
-  const wrap = $('#mapWrap'); wrap.style.minHeight = 'auto';
+  // na telefonu má mapa pevnou výšku (340 px) a skrývá přesah – seznam se v ní musí dát posouvat; podklad karty, ne
+  // „moře“ mapy, na kterém je v tmavém režimu světlý text nečitelný
+  const wrap = $('#mapWrap'); wrap.style.cssText = 'min-height:auto;overflow-y:auto;background:var(--card)';
   if (!mapKept) mapKept = [...wrap.childNodes];
   wrap.innerHTML = `<div style="padding:18px"><div class="note info" style="margin-bottom:14px">${ico('M12 16v-4M12 8h.01M12 2a10 10 0 100 20 10 10 0 000-20z')}<div>${msg} Země můžeš odškrtávat i tady v seznamu.</div></div><div id="fbList"></div></div>`;
   $('#fbList').innerHTML = CONTS.map(ct => `<div style="margin-bottom:16px"><div style="font-weight:800;margin:6px 0 8px">${ct} <span class="faint" style="font-weight:600">(${CONT_TOT[ct]})</span></div><div class="row wrap" style="gap:6px">${COUNTRIES.filter(c => c.cont === ct).map(c => `<span class="pill ${visited.has(c.iso2) ? 'on' : ''}" data-fbiso="${c.iso2}">${flag(c.iso2)} ${c.cs}</span>`).join('')}</div></div>`).join('');

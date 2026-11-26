@@ -69,5 +69,7 @@ test('mapa světa, která se nenačetla, se zkusí znovu po připojení a při d
 test('seznam místo mapy obsah #mapWrap jen odloží (chip a přepínač mapy si nechají obsluhy) a mapRestore ho vrátí', () => {
   const fb = pick(/function mapFallback\(msg\) \{[\s\S]*?\n\}/);
   assert.match(fb, /if \(!mapKept\) mapKept = \[\.\.\.wrap\.childNodes\];/);
-  assert.match(pick(/function mapRestore\(\) \{[\s\S]*?\n\}/), /wrap\.replaceChildren\(\.\.\.mapKept\); mapKept = null;/);
+  // telefon: mapa má pevnou výšku a overflow:hidden – seznam se musí dát posouvat, na podkladu čitelném i v tmavém režimu
+  assert.match(fb, /wrap\.style\.cssText = '[^']*overflow-y:auto[^']*background:var\(--card\)/);
+  assert.match(pick(/function mapRestore\(\) \{[\s\S]*?\n\}/), /wrap\.removeAttribute\('style'\); wrap\.replaceChildren\(\.\.\.mapKept\); mapKept = null;/);
 });
