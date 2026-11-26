@@ -87,13 +87,16 @@
 /* odkaz = text barvou písma s podtržením (ne modrá) */
 :root[data-brand="letsi"] :is(.linkbtn,.section-head .link,.now-card a,.now-card .linkbtn,.foot-more>summary,.sc-go,.entry-detail a,.entry-card a){color:var(--text);text-decoration:underline;text-underline-offset:2px;text-decoration-thickness:1px}
 :root[data-brand="letsi"] :is(.trip-live .live-h,.day-now,.nw-d,.nw-rows .nw-day){color:var(--text)}
-/* plochy --grad (aktivní krok, den v týdnu, pořadí, skóre): text v protibarvě, bez barevné záře */
-:root[data-brand="letsi"] :is(.pill.on,.score-pill,.dow button.on,.ml-n,.dp-n,.stepbar .st.on span,.tf-n,.poi-acts a.go){color:var(--letsi-na-grad);box-shadow:none}
+/* plochy --grad a --accent (aktivní krok, den v týdnu, pořadí, skóre, kroky uvítání): text v protibarvě, bez barevné záře;
+   bílé písmo by v tmavém na Vápně (--accent) zmizelo */
+:root[data-brand="letsi"] :is(.pill.on,.score-pill,.dow button.on,.ml-n,.dp-n,.stepbar .st.on span,.tf-n,.poi-acts a.go,.wc-steps .wc-n){color:var(--letsi-na-grad);box-shadow:none}
 :root[data-brand="letsi"] .stepbar .st.on span{background:var(--grad)}
 :root[data-brand="letsi"] .brand-logo{box-shadow:none}
 :root[data-brand="letsi"] .brand-logo path{fill:var(--letsi-na-grad)}
 /* tenké ukazatele průběhu: v tmavém by Pistácie byla tenká limetková linka → barvou textu */
-:root[data-brand="letsi"] :is(.progress>span,.pbar span,.nav-item.active::before){background:var(--text)}
+:root[data-brand="letsi"] :is(.progress>span,.pbar span){background:var(--text)}
+/* pseudoprvek uvnitř :is() se nevybere nikdy – proto zvlášť (proužek u aktivní položky postranní lišty) */
+:root[data-brand="letsi"] .nav-item.active::before{background:var(--text)}
 /* výběr (dřív průsvitná modrá): pěna, obrys barvou textu */
 :root[data-brand="letsi"] :is(.qd.on,.fchip.af,.fchip.tf-toggle.on,.fchip[data-int].on,.fchip[data-tint].on,.tf-parts button.on,.nb-d.on,.lrow.sel,.mc-combo.sel,.gc-row.sel:has(input:checked),.ex-cats button.on,.rc-opt.on,.scal-btn[aria-expanded="true"]){background:var(--surface-2);border-color:var(--text)}
 :root[data-brand="letsi"] :is(.pi-chip,.w-tip.wait,.b.pin-b){background:var(--surface-2);border-color:var(--border);color:var(--text)}
@@ -146,6 +149,9 @@
 :root[data-brand="letsi"] .sc-d.r-out :is(span,small),:root[data-brand="letsi"][data-theme="dark"] .sc-d.r-out span{color:var(--bg)}
 :root[data-brand="letsi"] .sc-d:is(.r-back,.r-both) :is(span,small),:root[data-brand="letsi"][data-theme="dark"] .sc-d:is(.r-back,.r-both) span{color:#14161F}
 :root[data-brand="letsi"] .sc-d.a-out,:root[data-brand="letsi"] .sc-d.a-back{box-shadow:inset 0 0 0 1.5px var(--text)}
+/* víkend a svátek: #d6334f má na pěně noci na místě jen 4,0 : 1 (na kalendáři 4,4) → o stupeň tmavší (4,8 : 1);
+   dny tam a zpět mají písmo v protibarvě výš */
+:root[data-brand="letsi"][data-theme="light"] :is(.sc-w.wk,.sc-d:is(.wk,.hol):not(.r-out,.r-back,.r-both) span){color:#c22a45}
 
 /* ============ SPODNÍ LIŠTA: Vápno (v tmavém Noc), aktivní sekce tlačítkem ============ */
 :root[data-brand="letsi"] .mobile-nav{-webkit-backdrop-filter:none;backdrop-filter:none}

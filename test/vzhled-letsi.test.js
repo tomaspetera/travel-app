@@ -99,6 +99,10 @@ test('letsi.css: paleta – žádné Rajče, žádné přechody ani sklo, Pistá
   assert.doesNotMatch(src, /#df3a14|223,\s*58,\s*20/i, 'Rajče (slunce) přijde až s kukátkem');
   assert.doesNotMatch(src, /(linear|radial|conic)-gradient/);
   assert.doesNotMatch(src, /backdrop-filter:\s*(?!none)/, 'sklo');
+  // pseudoprvek uvnitř :is(…) prohlížeč nevybere (pravidlo by tiše neplatilo)
+  assert.doesNotMatch(src, /:is\([^{]*::/);
+  // čísla kroků uvítání mají pozadí --accent (v tmavém Vápno) – bílé písmo z atlas.css by na něm zmizelo
+  assert.match(src, /:is\([^)]*\.wc-steps \.wc-n\)\{color:var\(--letsi-na-grad\)/);
   // Pistácie jen jako plocha (background, fill, --proměnná pro plochu), nikdy color, border, outline ani stín
   for (const m of src.matchAll(/([a-z-]+)\s*:[^;{}]*#d6de82/gi)) assert.match(m[1], /^(background|fill|--grad|--grad-warm|--letsi-tlacitko|--letsi-pistacie)$/, m[0]);
 });
