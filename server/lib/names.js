@@ -303,6 +303,14 @@ export const COUNTRY_ALIASES = {
   'jizni afrika': 'ZA', jar: 'ZA', dominikana: 'DO',
 };
 
+// České názvy krajů (admin1), které data/places.json má jen anglicky – podtitulek návrhu „Crete, Řecko“ pak zní
+// „Kréta, Řecko“. Jen ty, které v datech opravdu jsou (Toskánsko, Sicílie, Bavorsko… už česky jsou).
+export const ADMIN1_CS = {
+  Crete: 'Kréta', 'South Aegean': 'Jižní Egeis', 'Balearic Islands': 'Baleáry', Corsica: 'Korsika', Sardinia: 'Sardinie',
+  Azores: 'Azory', Madeira: 'Madeira', Catalonia: 'Katalánsko', Lombardy: 'Lombardie', Peloponnese: 'Peloponés',
+  Attica: 'Attika', 'Ionian Islands': 'Jónské ostrovy', Istria: 'Istrie',
+};
+
 export function cityCs(enCity) {
   return CITY_CS[enCity] || enCity;
 }
