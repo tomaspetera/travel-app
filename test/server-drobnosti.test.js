@@ -77,3 +77,19 @@ test('lowcostOutage: Aviasales vynechaný po výpadku má odpočet pro „Zkusit
   const out = JSON.parse(JSON.stringify(ctx.window.SearchHelp.lowcostOutage([{ id: 'travelpayouts', outage: 'blocked', retryAfter: 60 }, { id: 'kiwi', outage: 'down' }])));
   assert.deepEqual(out, [{ id: 'travelpayouts', name: 'Aviasales', level: 'blocked', retryAfter: 60 }]);
 });
+
+test('lowcostBanner: jeden vynechaný zdroj „ho“ (ne „je“); prázdný výsledek bez „nejnižší cena může být nižší“', () => {
+  const ctx = { window: {} };
+  vm.runInNewContext(readFileSync(new URL('../public/js/searchhelp.js', import.meta.url), 'utf8'), ctx);
+  const fl = readFileSync(new URL('../public/js/flights.js', import.meta.url), 'utf8');
+  const a = fl.indexOf('  function lowcostBanner('), b = fl.indexOf('  function kiwiOnly(', a);
+  assert.ok(a >= 0 && b > a, 'lowcostBanner ve flights.js');
+  const banner = new Function('SearchHelp', 'lastResultAt', `${fl.slice(a, b)}; return lowcostBanner;`)(ctx.window.SearchHelp, Date.now());
+  const tp = { id: 'travelpayouts', outage: 'blocked', retryAfter: 60 };
+  const empty = banner({ providers: [tp], groups: [] });
+  assert.match(empty, /<b>Aviasales teď neodpověděl<\/b> – jeho lety ve výsledcích chybí\. Po výpadku ho Letsi na pár minut vynechává\./);
+  assert.match(empty, /disabled data-until="\d+">↻ Zkusit znovu za 60 s</);
+  assert.match(banner({ providers: [tp], groups: [{}] }), /\(často ty nejlevnější\) ve výsledcích chybí, takže skutečná nejnižší cena může být nižší\. Po výpadku ho Letsi/);
+  const two = banner({ providers: [{ id: 'ryanair', outage: 'blocked', retryAfter: 60 }, { id: 'wizzair', outage: 'blocked', retryAfter: 600 }], groups: [{}] });
+  assert.match(two, /<b>Ryanair a Wizz Air teď neodpověděly<\/b> – jejich lety .* Po výpadku je Letsi/);
+});
