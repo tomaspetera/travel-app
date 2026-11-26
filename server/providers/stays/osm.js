@@ -126,11 +126,22 @@ function mockRows(lat, lon) {
   ];
 }
 
+// Po chybě Nominatimu (timeout, 5xx, 429) se 2 min neptat u žádného místa: fronta je jedna pro celý server (1 dotaz
+// za 1,1 s) a hledání ubytování jiných míst by jinak čekala za dalšími timeouty; pravidla Nominatimu chtějí ustoupit.
+const DOWN_MS = 2 * 60e3;
+let downUntil = 0;
+/** Vynulování pojistky (testy). */
+export const resetNominatim = () => { downUntil = 0; };
+
 async function nominatim(q, box) {
   const qs = new URLSearchParams({ format: 'jsonv2', limit: '40', extratags: '1', bounded: '1', viewbox: box, q });
   return queue(async () => {
+    if (Date.now() < downUntil) throw new Error('Nominatim po chybě chvíli vynechán');
     try {
       return await request(`${API}?${qs}`, { headers: { 'User-Agent': UA, Accept: 'application/json' }, timeoutMs: TIMEOUT, retries: 0 });
+    } catch (e) {
+      downUntil = Date.now() + DOWN_MS;
+      throw e;
     } finally {
       await sleep(GAP_MS); // další dotaz (i z jiného hledání) nejdřív za 1,1 s
     }

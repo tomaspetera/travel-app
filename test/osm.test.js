@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { viewbox, mapOsm, rankOsm, osmLodging, MAX_KM, OSM_MAX, PHRASES } from '../server/providers/stays/osm.js';
+import { viewbox, mapOsm, rankOsm, osmLodging, resetNominatim, MAX_KM, OSM_MAX, PHRASES } from '../server/providers/stays/osm.js';
 import { searchStays } from '../server/lib/stays.js';
 import { config } from '../server/config.js';
 import { stubFetch, ymdPlus } from './helpers.js';
@@ -204,4 +204,22 @@ test('rankOsm: téměř stejný záznam (název začíná druhým, do 300 m) jen
     h('osm:node/4', 'Real', 39.5501, -8.9801), // krátký název se neslučuje
   ]);
   assert.deepEqual(out.map((x) => x.id), ['osm:way/2', 'osm:node/3', 'osm:node/4']);
+});
+
+test('OSM: výpadek Nominatimu – 2 min se neptá ani u jiných míst ve frontě (jinak by hledání čekala za timeouty)', async () => {
+  const stub = stubFetch(() => ({ status: 503, body: 'down' }));
+  const prev = config.mock;
+  config.mock = false;
+  try {
+    const at = (i) => ({ ...Q, lat: 37.1 + i / 100, lon: 14.9 });
+    const r = await Promise.allSettled([0, 1, 2].map((i) => osmLodging(at(i))));
+    assert.deepEqual(r.map((x) => x.status), ['rejected', 'rejected', 'rejected']);
+    assert.equal(stub.calls.length, 1, 'na Nominatim jen první dotaz');
+    await assert.rejects(osmLodging(at(3)), /Nominatim teď není dostupný/);
+    assert.equal(stub.calls.length, 1);
+  } finally {
+    config.mock = prev;
+    stub.restore();
+    resetNominatim();
+  }
 });
