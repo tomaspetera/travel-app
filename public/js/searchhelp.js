@@ -1947,6 +1947,55 @@
     const m = String(msg || '').trim() || 'Hledání selhalo';
     return `${/[.!?…]$/.test(m) ? m : m + '.'} Výsledky níž jsou jen průběžné – hledání se nedokončilo.`;
   }
+  /**
+   * Chyba hledání (bez signálu, 429) – dosavadní výsledky zůstanou pod hláškou zašedlé; věta řekne, z kdy jsou
+   * (at = ms), ať je nikdo nebere za výsledek hledání, které právě selhalo. Obnovené výsledky z jiného dne i s dnem
+   * („ze včera 18:20“) – samotný čas by vypadal jako dnešní.
+   */
+  function keptNote(at, now = at) {
+    const a = resultAge(at, now);
+    return a ? `Níže zůstávají výsledky ${a.z} ${a.when}.` : 'Níže zůstávají dřívější výsledky.';
+  }
+  /**
+   * Klepnutí na dlaždici „Nápady, kam letět“ (#flIdeas) spustí hledání jen mimo běžící hledání a ne hned po startu:
+   * formulář se po „Najít lety“ sbalí a druhé klepnutí (dvojklik, netrpělivost) by padlo na dlaždici pod prstem –
+   * spustilo by „Kamkoliv levně“ a zahodilo zadaný cíl. searchAt = čas spuštění hledání (ms).
+   */
+  const ideaClickOk = (running, searchAt, now) => !running && !(now - (searchAt || 0) < 1000);
+  /**
+   * „Nedávno“: dvě hledání se stejným štítkem („Praha → Řím · týden“) se liší termínem nebo cenovým stropem, který
+   * štítek nepíše – u takových doplnit rozmezí dní a „do X Kč“, ať jdou čipy rozlišit. items = [{ text, f }] →
+   * doplněk ke každému ('' nebo „ · 1.–15. 12.“). Rozmezí jen u volných termínů (přesná data a multi je v textu mají).
+   */
+  function recentNotes(items) {
+    const list = Array.isArray(items) ? items : [];
+    const range = f => (f && f.dateMode !== 'exact' && f.trip !== 'multi' && f.dFrom && f.dTo ? dmRange(f.dFrom, f.dTo) : '');
+    const price = f => (f && +f.maxPrice ? `do ${kc(+f.maxPrice)}` : '');
+    return list.map(x => {
+      const same = list.filter(y => y.text === x.text);
+      if (same.length < 2) return '';
+      const bits = [];
+      if (new Set(same.map(y => range(y.f))).size > 1 && range(x.f)) bits.push(range(x.f));
+      if (new Set(same.map(y => price(y.f))).size > 1 && price(x.f)) bits.push(price(x.f));
+      return bits.length ? ' · ' + bits.join(' · ') : '';
+    });
+  }
+  /**
+   * Sbalený výpis (.trip-mini): řádky se stejným dnem tam i zpět, trasou a nocemi vypadají stejně (liší se jen časem
+   * nebo aerolinkou) – vrátí Set id takových „dvojčat“, u nich řádek doplní časy odletu.
+   */
+  function miniTwins(list) {
+    const sig = t => [t.out.date, t.out.from, t.out.to, t.back ? `${t.back.date}|${t.back.from}|${t.back.to}` : '', t.nights].join('|');
+    const n = new Map();
+    for (const t of list || []) n.set(sig(t), (n.get(sig(t)) || 0) + 1);
+    return new Set((list || []).filter(t => n.get(sig(t)) > 1).map(t => t.id));
+  }
+  /** Časy odletu tam (a zpět) do sbaleného řádku: „6:00 / 21:50“; bez známého času nic. */
+  function miniTimes(t) {
+    const c = l => (l && l.hasTime !== false && hhmm(l) ? hhmm(l).replace(/^0(\d)/, '$1') : '');
+    const o = c(t.out), b = t.back ? c(t.back) : '';
+    return o && (!t.back || b) ? (b ? `${o} / ${b}` : o) : '';
+  }
 
   /** Nedávná hledání: nejnovější první, stejné hledání (podle klíče) jen jednou, nejvýš cap. */
   function recentAdd(list, e, key, cap = 5) {
@@ -2237,7 +2286,7 @@
     easter, czHolidays, longWeekend, longWeekends, radarPick, radarRes, radarRoute, placeGuess, isCached, liveKey, liveVerdict, livePick, holidayList, holidayDates, holidayOf, holidayHint, dmRange, dowList, dowBits, lwPrices, lwKeep,
     leaveDays, leaveTxt, leaveWindows, spanCal, SPAN_DOW,
     lastPack, lastLoad, savedWhen, resultAge, shownAt, ageNote, recentAdd, viewedAdd, viewedPick, weekendHabit, recentForm, DRAFT_MAX_AGE, formSig, formKey, draftPack, draftLoad, dataAge, tripMinutes, fastKey, nightsTxt, gridModel, gridSummary, gridTrips, cellTrips, dayCal,
-    partialHead, reusable, partialFail,
+    partialHead, reusable, partialFail, keptNote, ideaClickOk, recentNotes, miniTwins, miniTimes,
     NEW_MIN, wasThere, isNewCountry, newSplit, SCHENGEN, beforeFor,
     DEST_MAX, RADAR_N, RADAR_KEEP, destKeyOf, destKeys, destPref, destPrefSet, destTop, radarShown, prefGroups,
     destCenter, geoNames, geoCenter, stayPlan, smartDirect,
