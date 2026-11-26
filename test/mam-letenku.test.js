@@ -175,4 +175,7 @@ test('Přehled: „Letenku už mám“ vedle „Naplánovat celou dovolenou“ o
   for (const id of ['ownTo', 'ownOut', 'ownBack', 'ownPax', 'ownPrice', 'ownFrom']) assert.match(ht, new RegExp(`id="${id}"`));
   assert.match(ht, /if \(x\) start\(\{ \.\.\.x, step: 'route' \}\);/);
   assert.match(ht, /Count\.hit\('have_ticket_start'\)/);
+  // dvě pole vedle sebe: minmax(0,1fr) – s 1fr pole „Zpět“ (datum) na 412 px přetékalo z karty
+  const css = readFileSync(new URL('../public/css/trip.css', import.meta.url), 'utf8');
+  assert.match(css, /\.own-form \.own-row\{display:grid;grid-template-columns:minmax\(0,1fr\) minmax\(0,1fr\);/);
 });

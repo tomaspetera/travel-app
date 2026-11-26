@@ -766,6 +766,8 @@ table.cost tr.entry-tot td{font-weight:800;border-bottom:none}
 /* ✈️ Letenku už mám: formulář vlastního letu místo hledání (trip.js haveTicket) – dvě pole vedle sebe vejdou i na 360 px */
 .own-form .own-lead{margin:4px 0 6px;font-size:13.5px}
 .own-form .own-l,.own-form .own-row label{display:block;font-size:13px;font-weight:600;margin:12px 0 4px}
-.own-form .own-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+/* minmax(0,…): pole data má v mobilním prohlížeči pevnou šířku a v 1fr přetékalo z karty; pole dole v jedné řadě,
+   i když se popisek („Cena letenky za osobu nepovinné“) zalomí */
+.own-form .own-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;align-items:end}
 .own-form .own-row .input{display:block;width:100%;min-width:0;margin-top:4px;font-weight:400}
 .own-form small{font-weight:400;color:var(--muted)}
