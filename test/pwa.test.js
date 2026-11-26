@@ -705,6 +705,58 @@ test('service worker v akci: instalace ze sítě s ověřením, aktivace smaže 
   assert.equal(answer, 'v2');
 });
 
+test('písma vzhledu Letsi: nejsou v sadě pro instalaci (stahují se jen tomu, kdo vzhled používá), service worker je po prvním stažení uloží pro offline a po nové verzi znovu', async () => {
+  const LETSI = /^vendor\/fonts\/letsi\//;
+  // v seznamu ze serveru ani v RUNTIME_ASSETS – jinak by si ~330 kB stáhl každý, i bez vzhledu Letsi
+  const list = JSON.parse((await (await fetch(`${base}/sw.js`)).text()).match(/^const PRECACHE = (\[.*\]);/m)[1]);
+  assert.deepEqual([...list, ...RUNTIME_ASSETS].filter((u) => LETSI.test(u)), []);
+  const fonts = [...read('public/css/letsi.css').matchAll(/url\(\.\.\/(vendor\/fonts\/letsi\/[^)]+\.woff2)\)/g)].map((m) => m[1]);
+  assert.equal(fonts.length, 6);
+
+  const src = (build) => read('public/sw.js').replace(/^const BUILD = .*$/m, `const BUILD = '${build}';`).replace(/^const PRECACHE = .*$/m, `const PRECACHE = ${JSON.stringify(['./'])};`);
+  const sw = loadSw(src('v1'));
+  const { net, store, event } = sw;
+  net.files[SCOPE] = { body: '<html>v1</html>', type: 'text/html; charset=utf-8' };
+  for (const f of fonts) net.files[SCOPE + f] = { body: `písmo ${f}`, type: 'font/woff2' };
+  await Promise.all(event('install').waits);
+  await Promise.all(event('activate').waits);
+  assert.ok(fonts.every((f) => !store.get('atlas-v1').has(SCOPE + f)), 'instalace písma Letsi nestahuje');
+  const run = async (worker, f) => {
+    const ev = worker.event('fetch', { request: req(`/${f}`, { mode: 'cors' }) }); // @font-face ze stejného původu
+    assert.ok(ev.responded, `${f}: service worker se o písmo postará`);
+    const res = await ev.responded;
+    await Promise.all(ev.waits);
+    return res.text();
+  };
+
+  // první použití vzhledu online: ze sítě a uložit
+  for (const f of fonts) assert.equal(await run(sw, f), `písmo ${f}`);
+  for (const f of fonts) assert.equal(store.get('atlas-v1').get(SCOPE + f), `písmo ${f}`, `${f} uložené po prvním stažení`);
+  // chybějící písmo (404) se neuloží
+  delete net.files[SCOPE + fonts[0]];
+  store.get('atlas-v1').delete(SCOPE + fonts[0]);
+  await run(sw, fonts[0]);
+  assert.ok(!store.get('atlas-v1').has(SCOPE + fonts[0]));
+  net.files[SCOPE + fonts[0]] = { body: `písmo ${fonts[0]}`, type: 'font/woff2' };
+  await run(sw, fonts[0]);
+  // offline: z uložené kopie, žádné náhradní písmo
+  net.offline = true;
+  for (const f of fonts) assert.equal(await run(sw, f), `písmo ${f}`, `${f} offline`);
+
+  // nová verze aplikace smaže starou mezipaměť i s písmy – nic se nerozbije: online se při dalším použití stáhnou
+  // a uloží znovu (do nové sady se nepřenáší, ať je nedostane, kdo už vzhled Letsi nepoužívá)
+  const v2 = loadSw(src('v2'));
+  v2.store.set('atlas-v1', store.get('atlas-v1'));
+  Object.assign(v2.net, { files: net.files });
+  await Promise.all(v2.event('install').waits);
+  await Promise.all(v2.event('activate').waits);
+  assert.deepEqual([...v2.store.keys()], ['atlas-v2']);
+  for (const f of fonts) assert.equal(await run(v2, f), `písmo ${f}`);
+  assert.ok(fonts.every((f) => v2.store.get('atlas-v2').has(SCOPE + f)), 'po nové verzi znovu uložená');
+  v2.net.offline = true;
+  assert.equal(await run(v2, fonts[5]), `písmo ${fonts[5]}`);
+});
+
 test('service worker: instalace během nasazení – stránka od starého serveru (jiná X-Atlas-Build) se neuloží, instalace selže a zkusí se znovu', async () => {
   const src = read('public/sw.js').replace(/^const BUILD = .*$/m, "const BUILD = 'v2';").replace(/^const PRECACHE = .*$/m, `const PRECACHE = ${JSON.stringify(['./', 'js/app.js'])};`);
   const page = (build) => ({ body: `<html>${build}</html>`, type: 'text/html; charset=utf-8', headers: { 'x-atlas-build': build } });
