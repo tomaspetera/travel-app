@@ -161,10 +161,12 @@
       <div id="plusAfter"><button type="button" class="btn primary block" id="plusWant">Chci Plus</button></div>
     </div>`;
   }
+  /** Číslo dne od začátku cesty jako v Průběhu cesty (den bez programu se nevynechá); bez data odjezdu pořadí. */
+  const dayNo = (t, d, i) => (isYmd(t.start) && d >= t.start ? Math.round((Date.parse(d) - Date.parse(t.start)) / 864e5) + 1 : i + 1);
   /** Náhled sešitu z dat cesty (titul, termín, první dva dny programu) – žádný obrázek. */
   function sesitHtml(t, line) {
     const days = Object.keys(t.days && typeof t.days === 'object' ? t.days : {}).filter(d => isYmd(d) && Array.isArray(t.days[d]) && t.days[d].length).sort().slice(0, 2);
-    const dayHtml = days.length ? days.map((d, i) => `<div class="ss-day"><b>Den ${i + 1} · ${dm(d)}</b><ul>${t.days[d].slice(0, 4).map(x => `<li>${h(x)}</li>`).join('')}</ul></div>`).join('')
+    const dayHtml = days.length ? days.map((d, i) => `<div class="ss-day"><b>Den ${dayNo(t, d, i)} · ${dm(d)}</b><ul>${t.days[d].slice(0, 4).map(x => `<li>${h(x)}</li>`).join('')}</ul></div>`).join('')
       : '<p class="faint">Program po dnech doplní průvodce cestou.</p>';
     return `<div class="modal-body plus-page">
       <h3>📒 Sešit cesty</h3>
@@ -265,5 +267,5 @@
     list.querySelector('#morePlus').onclick = open;
   }
 
-  window.Plus = { NAME, YEAR_CZK, MONTH_CZK, PRICES, counts, countedTrips, needsGate, askDue, cardPick, cardText, termTxt, sesitLine, gateFlow, tripKey, open, sesit, sesitShown, gateNewTrip, renderCard, addToMenu };
+  window.Plus = { NAME, YEAR_CZK, MONTH_CZK, PRICES, counts, countedTrips, needsGate, askDue, cardPick, cardText, termTxt, sesitLine, sesitHtml, gateFlow, tripKey, open, sesit, sesitShown, gateNewTrip, renderCard, addToMenu };
 })();
