@@ -653,8 +653,9 @@
   // route = řádek u trasy na kole / pěšky (se dnem a tipem na lepší den), jinak štítek v nadpisu dne
   const wxSlot = (pt, date, route) => (window.Weather && pt && pt.lat != null && pt.lon != null
     ? (route ? `<div class="wx-day" data-wx="${esc(wxKey(pt, date))}"></div>` : `<span data-wx="${esc(wxKey(pt, date))}"></span>`) : '');
-  // CC BY 4.0 chce autora, odkaz na licenci a zmínku o úpravě (denní souhrny z hodinové předpovědi)
-  const WX_SRC = 'Počasí: <a href="https://www.met.no/en" target="_blank" rel="noopener">MET Norway</a> (<a href="https://creativecommons.org/licenses/by/4.0/deed.cs" target="_blank" rel="noopener">CC BY 4.0</a>, upraveno na denní souhrny)';
+  // CC BY 4.0 chce autora, odkaz na licenci a zmínku o úpravě (denní souhrny z hodinové předpovědi); text je ve
+  // weather.js, ať ho okno země (app.js paintWeather) uvádí stejně
+  const wxSrc = () => (window.Weather && window.Weather.src) || '';
   const WX_IN = ['V neděli', 'V pondělí', 'V úterý', 'Ve středu', 'Ve čtvrtek', 'V pátek', 'V sobotu'];
   const WX_BYL = ['byla', 'bylo', 'bylo', 'byla', 'byl', 'byl', 'byla'];
   const dow = ymd => new Date(ymd + 'T12:00:00').getDay();
@@ -1033,7 +1034,7 @@
     const paint = plan => {
       $('#tpPlan', host).innerHTML = (st.demo ? '<div class="faint" style="font-size:12px;margin-bottom:8px">⚠️ demo data</div>' : '') + planHtml(plan, center)
         + (spare(plan).length ? `<details class="more"><summary>Další místa v okolí (${spare(plan).length})</summary><div class="poi-list" style="margin-top:10px">${spare(plan).slice(0, 15).map(p => poiCard(p, { toggle: true, must: st.must, center })).join('')}</div></details>` : '')
-        + (window.Weather ? `<div class="faint" style="font-size:11.5px;margin-top:8px">${WX_SRC}</div>` : '');
+        + (window.Weather ? `<div class="faint" style="font-size:11.5px;margin-top:8px">${wxSrc()}</div>` : '');
       fillWx($('#tpPlan', host));
       if (onRural) onRural(isRural(plan));
       drawOnMap(st, center, st.items.filter(p => plan.days.some(d => d.items.some(q => q.id === p.id)) || p.category !== 'daytrip'), plan, p => { const el = $(`[data-poi="${CSS.escape(p.id)}"]`, host); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' }); });
@@ -1206,14 +1207,17 @@
       <div class="ex-cc-all" id="exCcAll">${all.map(c => tile(c.iso2)).join('')}</div>
       <div class="empty" id="exCcNone" hidden>Takovou zemi neznám – zkus její český nebo anglický název.</div>`;
   }
+  // Kódy zemí, jejichž název nebo přezdívka (CC_ALIAS: „usa“, „anglie“, „holandsko“) začíná psaným textem – dlaždice
+  // mají v data-ccn jen český a anglický název, „usa“ by jinak nenašlo nic, ač hlavní pole Objevuj USA zná
+  const ccAliasHits = f => new Set(f ? [...ccByName()].filter(([n]) => n.startsWith(f)).map(([, cc]) => cc) : []);
   function wirePicker(root) {
     const qi = $('#exCcQ', root);
     $$('[data-cc]', root).forEach(b => b.onclick = () => openWholeCountry(b.dataset.cc));
     if (!qi) return;
     qi.oninput = () => {
-      const f = foldName(qi.value);
+      const f = foldName(qi.value), al = ccAliasHits(f);
       let n = 0;
-      $$('#exCcAll [data-cc]', root).forEach(b => { const on = !f || b.dataset.ccn.split(' ').some(w => w.startsWith(f)) || b.dataset.ccn.startsWith(f); b.hidden = !on; if (on) n++; });
+      $$('#exCcAll [data-cc]', root).forEach(b => { const on = !f || b.dataset.ccn.split(' ').some(w => w.startsWith(f)) || b.dataset.ccn.startsWith(f) || al.has(b.dataset.cc); b.hidden = !on; if (on) n++; });
       const pop = $('#exCcPop', root); if (pop) pop.hidden = Boolean(f);
       const none = $('#exCcNone', root); if (none) none.hidden = n > 0;
     };
@@ -2551,7 +2555,7 @@
       <div class="faint hk-intro">🥾 ${n ? `Túra na každý den${plan.area ? ` · ${esc(plan.area.cs)}` : ''} – každý den jiný cíl, ✕ u cíle naplánuje jiný.` : 'Na túru tu nevyšel ani jeden den.'}</div>
       ${plan.days.map((d, i) => hikeDayHtml(d, i, center, plan)).join('')}
       ${spare.length ? `<details class="more"><summary>Další cíle v okolí (${spare.length})</summary><div class="hk-spare">${spare.map(s => `<div>${GOAL_ICON[s.kind] || '📍'} <b>${esc(s.name)}</b> <span class="faint">· ${esc(GOAL_KIND[s.kind] || '')}${s.d != null && plan.fromBase !== false ? ` · ${kmTxt(s.d)}` : ''}</span> <a class="linkbtn" href="${esc(safeUrl(mapyAt(s)))}" target="_blank" rel="noopener">Mapy.com ↗</a></div>`).join('')}</div></details>` : ''}
-      <div class="faint" style="font-size:11.5px;margin-top:8px">Provoz chat a lanovek ověř; v horách sleduj předpověď a značení. Data: Wikidata, BRouter a © OpenStreetMap. ${WX_SRC}.${footMore('Cíle: Wikidata (nejznámější vrcholy, hřbety, vodopády, jezera, skály, hrady a chaty v okolí), start u cíle: Wikidata, trasa tam a zpět: BRouter (profil pěší turistiky) nad © OpenStreetMap, občerstvení po cestě: © OpenStreetMap (Overpass). Čas chůze podle turistického vzorce DIN 33466 (4 km/h, 300 m stoupání a 500 m klesání za hodinu, kratší z obou časů se přičte polovinou), bez přestávek – na ně počítám ~20 %. Obtížnost: lehká do 3 h chůze a 400 m stoupání, náročná nad 6 h, 1 000 m stoupání nebo 20 km. Bez trasy odhad: vzdušná čára × 1,35 tam a zpět.')}</div>`;
+      <div class="faint" style="font-size:11.5px;margin-top:8px">Provoz chat a lanovek ověř; v horách sleduj předpověď a značení. Data: Wikidata, BRouter a © OpenStreetMap. ${wxSrc()}.${footMore('Cíle: Wikidata (nejznámější vrcholy, hřbety, vodopády, jezera, skály, hrady a chaty v okolí), start u cíle: Wikidata, trasa tam a zpět: BRouter (profil pěší turistiky) nad © OpenStreetMap, občerstvení po cestě: © OpenStreetMap (Overpass). Čas chůze podle turistického vzorce DIN 33466 (4 km/h, 300 m stoupání a 500 m klesání za hodinu, kratší z obou časů se přičte polovinou), bez přestávek – na ně počítám ~20 %. Obtížnost: lehká do 3 h chůze a 400 m stoupání, náročná nad 6 h, 1 000 m stoupání nebo 20 km. Bez trasy odhad: vzdušná čára × 1,35 tam a zpět.')}</div>`;
   }
   // Mapa túr: cíle očíslované po dnech, start u cíle, trasa dne plnou čarou (odhad čárkovaně start → cíl).
   function drawHikes(state, center, plan, onClick) {
@@ -2766,7 +2770,7 @@
       <div id="exMapSlot"></div>
       ${places}
       </div>
-      <div class="faint" style="font-size:11.5px;margin-top:10px">Zdroj: Wikidata a Wikipedie (CC BY-SA), mapa © OpenFreeMap, OpenMapTiles, OpenStreetMap. ${WX_SRC}. Otevírací doby ověř na webu místa.</div>`;
+      <div class="faint" style="font-size:11.5px;margin-top:10px">Zdroj: Wikidata a Wikipedie (CC BY-SA), mapa © OpenFreeMap, OpenMapTiles, OpenStreetMap. ${wxSrc()}. Otevírací doby ověř na webu místa.</div>`;
     fillWx($('#exPlanOut', body));
     const ms = exploreMap(p);
     $('#exMapSlot', body).replaceWith(ms.el);
@@ -3133,7 +3137,7 @@
     // jen pro testy (test/places-ui.test.js)
     _t: { hikesAt, wxAvgWhy, tripDropUndo, tripPlaces, ownPlaces, savedPlaces, tripDatesFor, inspSub, searchedPlaces, plural, placesTxt, mustTxt, inRadius, needsFetch, outsideIds, planIds, withPlanStops, enterAction, missNext, sugHtml, waitHtml, errLead, errHtml, httpErr, mustBtn, poiCard,
       uiSnapshot, uiRestore, okStart, pushRecent, samePlace, cleanPlace, getJson, firstSentence, descHtml, inclHtml, gq, poiQ, centerQ, gmDir, dayLbl, slug, gpxOf, SLOW_MS, UI_LS,
-      countryCs, stopQ, mapyDir, dayLinks, planHtml, tripHtml, MAPY_WP, emptyHtml, planEmptyHtml, variantTxt, routeHtml, ROUTE_VARIANTS, blankHtml, looksEnglish, surfaceRows, surfaceHtml,
+      countryCs, ccAliasHits, stopQ, mapyDir, dayLinks, planHtml, tripHtml, MAPY_WP, emptyHtml, planEmptyHtml, variantTxt, routeHtml, ROUTE_VARIANTS, blankHtml, looksEnglish, surfaceRows, surfaceHtml,
       afterDark, routeBack, sunSlot, sunHtml, fillSun, toHm, modeBtns, previewPick, previewCard, moreTxt, poiUrl, pvFor, PREVIEW_KM, ex, loadExplore,
       plannerEntry, findTripFor, mergeInto, busyDays, saveHtml, flyTarget, flyDates, idosUrl, idosOn, homeCity, prefsOf, makePlan, dropUndo, planTimes, tripTimes, roadSpan, carSkipFor,
       RADII, CITY_KM, COUNTRY, cityKm, farOn, withFar, driveMin, countryItems, countryCard, countryTarget, C_GROUPS, CC_CATS, countryPick, loadCountryCat, setRadius, paintCountry, loadFar,
