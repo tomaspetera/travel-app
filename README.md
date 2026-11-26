@@ -1369,8 +1369,9 @@ uložená data.
 certifikát vydává Render sám) a `PUBLIC_URL=https://letsi.cz` – obojí i v `render.yaml`. Stará adresa
 `atlas-letenky.onrender.com` stránky trvale (301) přesměruje na letsi.cz (`movedTo()` v `server/lib/seo.js`); API, soubory,
 `/healthz` a `sw.js` ne, takže otevřená záložka nebo aplikace na ploše ze staré adresy nespadne. Data v prohlížeči (cesty,
-nastavení) jsou vázaná na adresu – na letsi.cz se začíná načisto (kdo chce, přenese si je přes ⋯ Další → Přenos a záloha
-na staré adrese dřív, než ji otevře znovu).
+nastavení) jsou vázaná na adresu – na letsi.cz se začíná načisto. Data ze staré adresy se záměrně nepřenášejí (před
+spuštěním aplikace neměla veřejné uživatele): po přesměrování se na starou adresu online skoro nedá dostat, takže přenos
+přes ⋯ Další → Přenos a záloha tam nejde spolehlivě udělat. Testeři si cesty na letsi.cz založí znovu.
 
 | Co | Kde to změnit |
 |---|---|
@@ -1386,9 +1387,9 @@ worker se aktualizuje a aplikace na ploše si nový název vezme sama (Chrome ko
 
 **Vlastní doména (.cz):** Render → služba → **Settings → Custom Domains**, u registrátora DNS záznam podle Renderu
 (HTTPS zařídí Render), pak `PUBLIC_URL=https://…` v **Environment**. Uložené cesty a hlídané ceny jsou v prohlížeči
-pod adresou webu – na nové doméně je uživatel neuvidí. Starou adresu `…onrender.com` proto nepřesměrovávej (kanonická
-adresa vede vyhledávače na novou) a uživatelům doporuč přenos přes **💾 Přenos a záloha**: soubor stažený na staré
-adrese nahrají na nové.
+pod adresou webu – na nové doméně je uživatel neuvidí. Mají-li si je lidé přenést, nech starou adresu chvíli
+nepřesměrovanou (kanonická adresa vede vyhledávače na novou) a doporuč přenos přes **💾 Přenos a záloha**: soubor stažený
+na staré adrese nahrají na nové. U `letsi.cz` to neplatí – stará adresa se přesměrovává hned (viz Doména výš).
 
 ## Na počítači
 

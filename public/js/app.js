@@ -2050,9 +2050,10 @@ function paintMap() { if (mapSel) mapSel.classed('visited', function () { return
 async function initMap() {
   refreshStats(); mapAddWire();
   if (mapInited) return; mapInited = true;
-  try { await loadD3(); } catch (e) { return mapFallback('Mapové knihovny se nenačetly.'); }
+  try { await loadD3(); } catch (e) { return mapFailed('Mapové knihovny se nenačetly.'); }
   try {
     const world = await loadWorld();
+    mapRestore();
     const feats = topojson.feature(world, world.objects.countries).features;
     const svg = d3.select('#worldmap'), W = 960, H = 500;
     const proj = d3.geoNaturalEarth1().fitSize([W, H], { type: 'FeatureCollection', features: feats });
@@ -2068,7 +2069,14 @@ async function initMap() {
     $('#zoomOut').onclick = () => svg.transition().call(mapZoom.scaleBy, .6);
     $('#zoomReset').onclick = () => svg.transition().call(mapZoom.transform, d3.zoomIdentity);
     paintMap();
-  } catch (e) { mapFallback('Mapu se teď nepodařilo načíst.'); }
+  } catch (e) { mapFailed('Mapu se teď nepodařilo načíst.'); }
+}
+// mapa se nenačetla (offline, pomalá síť): seznam zemí místo ní a nový pokus po návratu připojení nebo při dalším
+// otevření Mapy – jeden pokus na každou z těch událostí, nic dokola
+function mapFailed(msg) {
+  mapInited = false;
+  if (window.Pwa && Pwa.whenOnline) Pwa.whenOnline('map', () => { if ($('#view-map.active')) initMap(); });
+  mapFallback(msg + ' Zkusím mapu načíst znovu, až budeš online nebo ji otevřeš znovu.');
 }
 /** Země pro „Přidat zemi…“ pod mapou: začátek názvu i dalšího slova („státy“, „Kong“), česky i anglicky – nejdřív
  *  ty, jejichž český název tak začíná; nejvýš 6. */
@@ -2109,8 +2117,18 @@ function mapPopover(e, iso) {
   $('#popDet').onclick = () => { p.classList.remove('show'); openCountry(iso); };
 }
 document.addEventListener('click', e => { const p = $('#mapPop'); if (p.classList.contains('show') && !p.contains(e.target) && !e.target.closest('.map-path')) p.classList.remove('show'); });
+// původní obsah #mapWrap (mapa, chip, tlačítka s obsluhami): seznam ho jen odloží, další pokus o mapu ho vrátí
+let mapKept = null;
+function mapRestore() {
+  if (!mapKept) return;
+  const wrap = $('#mapWrap'); wrap.removeAttribute('style'); wrap.replaceChildren(...mapKept); mapKept = null;
+  applyMapStyle(); refreshStats(); // přepínač a chip se mezitím nepřekreslovaly (nebyly v dokumentu)
+}
 function mapFallback(msg) {
-  const wrap = $('#mapWrap'); wrap.style.minHeight = 'auto';
+  // na telefonu má mapa pevnou výšku (340 px) a skrývá přesah – seznam se v ní musí dát posouvat; podklad karty, ne
+  // „moře“ mapy, na kterém je v tmavém režimu světlý text nečitelný
+  const wrap = $('#mapWrap'); wrap.style.cssText = 'min-height:auto;overflow-y:auto;background:var(--card)';
+  if (!mapKept) mapKept = [...wrap.childNodes];
   wrap.innerHTML = `<div style="padding:18px"><div class="note info" style="margin-bottom:14px">${ico('M12 16v-4M12 8h.01M12 2a10 10 0 100 20 10 10 0 000-20z')}<div>${msg} Země můžeš odškrtávat i tady v seznamu.</div></div><div id="fbList"></div></div>`;
   $('#fbList').innerHTML = CONTS.map(ct => `<div style="margin-bottom:16px"><div style="font-weight:800;margin:6px 0 8px">${ct} <span class="faint" style="font-weight:600">(${CONT_TOT[ct]})</span></div><div class="row wrap" style="gap:6px">${COUNTRIES.filter(c => c.cont === ct).map(c => `<span class="pill ${visited.has(c.iso2) ? 'on' : ''}" data-fbiso="${c.iso2}">${flag(c.iso2)} ${c.cs}</span>`).join('')}</div></div>`).join('');
   $$('[data-fbiso]').forEach(p => p.onclick = () => { const iso = p.dataset.fbiso; setVisited(iso, !visited.has(iso)); p.classList.toggle('on'); });
@@ -2118,6 +2136,9 @@ function mapFallback(msg) {
 
 /* ================= PLANNER ================= */
 function dateRange(a, b) { if (!a) return []; const out = []; let d = new Date(a), end = b ? new Date(b) : new Date(a); let n = 0; while (d <= end && n < 367) { out.push(d.toISOString().slice(0, 10)); d.setUTCDate(d.getUTCDate() + 1); n++; } return out; }
+// hlavní město („Lisabon“, „Řím“) z místních dat – pro cestu založenou bez sítě, kdy našeptávač míst neodpověděl;
+// jen přesná shoda (žádný začátek názvu)
+function capitalCountry(text) { const t = norm(text); return (t && COUNTRIES.find(c => norm(c.capCs) === t || norm(c.cap) === t)) || null; }
 function resolveCountry(text) { const t = norm(text); if (!t) return null; let c = COUNTRIES.find(c => norm(c.cs) === t || norm(c.en) === t); if (!c) c = COUNTRIES.find(c => norm(c.cs).startsWith(t) && t.length > 2); return c || null; }
 // Doprava uložená z průvodce cestou: let (✈️), nebo vlak/bus (text začíná 🚆).
 const planIco = f => /^🚆/u.test(String(f || '')) ? '🚆' : '✈️';
@@ -2254,8 +2275,8 @@ async function saveTrip(iso, flightTxt) {
         const top = (j.items || [])[0];
         if (top && !top.fuzzy && /^cc:[A-Z]{2}$/.test(top.id) && byIso[top.cc]) fiso = top.cc; // ne oprava překlepu
       }
-    } catch (e) { /* bez sítě nebo pomalý server: cesta bez země */ } finally { clearTimeout(tm); }
-    if (!fiso && !place) { const c = resolveCountry(f.dest); if (c) fiso = c.iso2; }
+    } catch (e) { /* bez sítě nebo pomalý server: země jen z místních dat (název, hlavní město) */ } finally { clearTimeout(tm); }
+    if (!fiso && !place) { const c = capitalCountry(f.dest) || resolveCountry(f.dest); if (c) fiso = c.iso2; }
   }
   const trip = { name: f.name, dest: f.dest || '—', iso: fiso || null, ...(place ? { place } : {}), start: f.start, end: f.end, pax: f.pax, budget: f.budget, flight: flightTxt, days: {}, checklist: PACK.map(t => ({ t, done: false })), notes: '' };
   const add = () => {
