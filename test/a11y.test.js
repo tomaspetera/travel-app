@@ -146,12 +146,12 @@ test('hlášky pro čtečku: toast (role status), začátek a konec hledání v 
   const el = { textContent: 'staré' };
   const ctx = vm.createContext({ $: () => el, setTimeout: (f) => timers.push(f), clearTimeout: () => {} });
   vm.runInContext(pick('say'), ctx);
-  ctx.say('Hledám nejlevnější lety…');
+  ctx.say('Hledám lety…');
   assert.equal(el.textContent, '', 'nejdřív prázdné…');
   timers.shift()();
-  assert.equal(el.textContent, 'Hledám nejlevnější lety…', '…pak hlášení');
+  assert.equal(el.textContent, 'Hledám lety…', '…pak hlášení');
   // hledání: start, konec (cíl a nejnižší cena z hlavičky výsledků) i chyba – průběh (až 4× za s) ne
-  assert.match(flightsJs, /btn\.innerHTML = '<span class="spin"><\/span> Hledám…';\n\s*say\('Hledám nejlevnější lety…'\);/);
+  assert.match(flightsJs, /btn\.innerHTML = '<span class="spin"><\/span> Hledám…';\n\s*say\('Hledám lety…'\);/);
   assert.match(flightsJs, /else renderResults\(\); sayDone\(\); \};/);
   assert.match(flightsJs, /\$\('#searchRetry'\)\.onclick = \(\) => startSearch\(\);\n\s*say\(msg\);/);
   assert.doesNotMatch(flightsJs.match(/function renderProgress\([\s\S]*?\n {2}\}/)[0], /say\(/);
