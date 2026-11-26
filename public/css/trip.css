@@ -705,8 +705,7 @@ table.cost tr.entry-tot td{font-weight:800;border-bottom:none}
   #view-trip{color-scheme:light}
   /* hlavička cesty má bílé písmo na fotce – na bílém papíře by nebylo vidět */
   #view-trip .trip-head,#view-trip .trip-head *{color:#000 !important;text-shadow:none !important}
-  /* dlouhý průběh se smí zalomit mezi stránkami (karty jinak ne – pretrip.css), den zůstane pohromadě */
-  .sum-tl{break-inside:auto !important}
+  /* dlouhý průběh se zalomí mezi stránkami jako ostatní karty (pretrip.css), den zůstane pohromadě */
   .tl-g{break-inside:avoid}
   .tl-gh{break-after:avoid}
 }

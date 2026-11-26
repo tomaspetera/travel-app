@@ -960,14 +960,16 @@
     const sum = root.querySelector('details.pt-packd > summary'), pk = boxes.filter(b => /^pack:/.test(b.dataset.ptk || ''));
     if (sum) sum.textContent = packTxt(pk.length, pk.filter(b => b.checked).length);
   }
-  /** Tisk jen karty „Před cestou“ (tisková CSS skryje zbytek stránky podle třídy na body). */
+  /** Rozbalí sbalené details v root (seznam věcí, Podrobnosti, „Na osobu po položkách“) – na papíře se rozkliknout nedají.
+      Vrátí funkci, která po tisku sbalí zase jen ty, které rozbalila. */
+  function unfold(root) {
+    const shut = root ? [...root.querySelectorAll('details:not([open])')] : [];
+    shut.forEach(d => { d.open = true; });
+    return () => shut.forEach(d => { d.open = false; });
+  }
+  /** Tisk jen karty „Před cestou“ (tisková CSS skryje zbytek stránky podle třídy na body; rozbalení řeší beforeprint). */
   function printList() {
     document.body.classList.add('pt-print');
-    // seznam věcí i podrobnosti se tisknou celé, i když jsou na obrazovce sbalené
-    const shut = [...document.querySelectorAll('#preTrip details:not([open])')];
-    shut.forEach(d => { d.open = true; });
-    const off = () => { document.body.classList.remove('pt-print'); shut.forEach(d => { d.open = false; }); window.removeEventListener('afterprint', off); };
-    window.addEventListener('afterprint', off);
     window.print();
   }
   if (typeof document !== 'undefined' && document.addEventListener) {
@@ -995,6 +997,11 @@
     document.addEventListener('toggle', e => {
       if (e.target && e.target.matches && e.target.matches('#preTrip details.pt-packd')) packOpen = e.target.open;
     }, true);
+    // beforeprint i u Ctrl+P / „Uložit jako PDF“ z prohlížeče, nejen u tlačítka Vytisknout – jinak by se vytisklo „23 položek ▾“;
+    // druhé beforeprint před afterprint (prohlížeč ho umí poslat znovu) nesmí přepsat seznam k sbalení
+    let refold = null;
+    window.addEventListener('beforeprint', () => { if (!refold) refold = unfold(document.querySelector('#view-trip')); });
+    window.addEventListener('afterprint', () => { if (refold) refold(); refold = null; document.body.classList.remove('pt-print'); });
     document.addEventListener('submit', e => {
       const f = e.target && e.target.closest ? e.target.closest('#preTrip [data-pt-add]') : null;
       if (!f) return;
@@ -1006,6 +1013,6 @@
   window.PreTrip = {
     set, load, ready, contextOf, defaultActs, summarize, monthsOf, insuranceNote, drivingOf, plugOf, idpPlan, todos, pack, bagTips, layers, reminders,
     plannerChecklist, savedKey, fromPlanner, toPlanner, linkSaved, html, tripKey, doneOf, setDone, copyDone, customOf, addCustom, delCustom, shareState, sanitize, adopt, ACTS,
-    exportDone, mergeDone,
+    exportDone, mergeDone, unfold,
   };
 })();
