@@ -8,7 +8,9 @@ import { readFileSync } from 'node:fs';
 
 process.env.ATLAS_MOCK = '1';
 const { createServer } = await import('../server/index.js');
-const { EVENTS, TTL_DAYS, MAX_BODY, clampDays, makeCounter, memoryCounts, upstashCounts } = await import('../server/lib/counts.js');
+const { EVENTS, SERVER_EVENTS, MAX_EVENTS, FLUSH_MS, TTL_DAYS, MAX_BODY, clampDays, makeCounter, memoryCounts, upstashCounts, statsKeyOk } = await import('../server/lib/counts.js');
+const { config } = await import('../server/config.js');
+const { searchEvent } = await import('../server/index.js');
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 let server, base;
@@ -22,9 +24,10 @@ after(() => server.close());
 const T0 = Date.UTC(2027, 0, 12, 10, 0, 0);
 const DAY = 86400e3;
 
-test('pevný seznam událostí: 33 názvů, jen ty se počítají', () => {
-  assert.equal(EVENTS.length, 33);
-  assert.equal(new Set(EVENTS).size, 33);
+test('pevný seznam událostí: jedinečné názvy, nejvýš MAX_EVENTS, jen ty se počítají', () => {
+  assert.equal(new Set(EVENTS).size, EVENTS.length);
+  assert.ok(EVENTS.length <= MAX_EVENTS && MAX_EVENTS === 150, `${EVENTS.length} názvů`);
+  assert.ok(SERVER_EVENTS.every((e) => EVENTS.includes(e)));
   for (const e of ['app_open', 'view_trips', 'search_done', 'buy_click', 'trip_saved', 'limit_shown', 'plus_offer_click', 'sesit_click', 'price_0', 'price_799', 'look_letsi']) assert.ok(EVENTS.includes(e), e);
   assert.ok(EVENTS.every((e) => /^[a-z0-9_]{3,20}$/.test(e)));
   const c = makeCounter(memoryCounts(), { now: () => T0 });
@@ -76,20 +79,52 @@ test('do úložiště jde jen klíč cnt:<den>:<událost> a počet – žádná 
   assert.doesNotMatch(read('server/lib/counts.js'), /clientIp|headers\[|user-agent|remoteAddress/i);
 });
 
-test('výpadek úložiště: událost se přijme, počet počká v paměti a zapíše se příště jednou', async () => {
+test('výpadek úložiště (B5): událost se přijme, nepovedená dávka se zahodí – nikdy se nepřičte dvakrát', async () => {
   let down = true;
   const mem = memoryCounts();
-  const store = { kind: 'flaky', add: async (...a) => { if (down) throw new Error('Upstash nedostupný'); return mem.add(...a); }, get: mem.get };
+  // Upstash přičetl, ale odpověď se ztratila (časový limit): vrácená dávka by se příště přičetla podruhé
+  const store = { kind: 'flaky', add: async (...a) => { await mem.add(...a); if (down) throw new Error('Upstash: odpověď se ztratila'); }, get: mem.get };
   const c = makeCounter(store, { now: () => T0 });
   assert.equal(c.hit('trip_saved'), true);
   await c.flush();
-  assert.deepEqual((await c.stats(1)).total, { trip_saved: 1 });
   c.hit('trip_saved');
   down = false;
   await c.flush();
   await c.flush();
-  assert.deepEqual((await c.stats(1)).total, { trip_saved: 2 });
-  assert.deepEqual(await mem.get(['cnt:2027-01-12:trip_saved']), [2]);
+  assert.deepEqual(await mem.get(['cnt:2027-01-12:trip_saved']), [2], 'každá událost jednou, ne 3');
+  // úplný výpadek: dávka je pryč (ztráta je menší zlo než zdvojení) a nic se neopakuje
+  let adds = 0;
+  const dead = makeCounter({ kind: 'dead', add: async () => { adds++; throw new Error('Upstash nedostupný'); }, get: async (keys) => keys.map(() => null) }, { now: () => T0 });
+  dead.hit('share');
+  await dead.flush();
+  assert.deepEqual((await dead.stats(1)).total, {});
+  await dead.flush();
+  assert.equal(adds, 1, 'zahozená dávka se nezkouší znovu');
+});
+
+test('rozpočet Upstash: zápis jednou za 30 min, nejvýš EVENTS.length párů v dávce, i s rezervou do 250 000 příkazů měsíčně', async () => {
+  assert.equal(FLUSH_MS, 30 * 60e3);
+  const N = EVENTS.length;
+  // INCRBY ≤ N × 49 oken (30 min, i s flush při SIGTERM) × 31 dní, EXPIRE ≤ N × 31, čtení statistik ≤ 336 denně
+  assert.ok(N * 31 * 49 + N * 31 + 31 * 336 <= 250000, `${N} názvů`);
+  assert.ok(MAX_EVENTS * 31 * 49 + MAX_EVENTS * 31 + 31 * 336 <= 250000, 'strop MAX_EVENTS se do rozpočtu vejde');
+  const calls = [];
+  const c = makeCounter({ kind: 'spy', add: async (pairs) => { calls.push(pairs); }, get: async (keys) => keys.map(() => null) }, { now: () => T0 });
+  for (let i = 0; i < 100; i++) for (const e of EVENTS) c.hit(e);
+  await c.flush();
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].length, N);
+  assert.ok(calls[0].every(([, n]) => n === 100));
+});
+
+test('klíč ke statistikám: jen Bearer se stejným klíčem, jiná délka nebo prázdný klíč = ne', () => {
+  assert.equal(statsKeyOk('Bearer tajny-klic', 'tajny-klic'), true);
+  for (const h of ['Bearer tajny-kli', 'Bearer tajny-klicX', 'bearer tajny-klic', 'tajny-klic', 'Basic tajny-klic', 'Bearer ', '', undefined, null]) {
+    assert.equal(statsKeyOk(h, 'tajny-klic'), false, String(h));
+  }
+  assert.equal(statsKeyOk('Bearer x', ''), false, 'bez klíče na serveru nic neodemkne');
+  assert.equal(statsKeyOk('Bearer žluť', 'žluť'), true, 'délka v bajtech, ne znacích');
+  assert.match(read('server/lib/counts.js'), /timingSafeEqual\(a, b\)/);
 });
 
 test('čtení, které předběhl zápis, se do mezipaměti neuloží – jinak by 5 minut chyběla zapsaná dávka', async () => {
@@ -183,16 +218,116 @@ test('POST /api/count: 204 bez těla, neznámá událost a neplatné tělo 400, 
   assert.equal((await (await fetch(`${base}/api/stats?days=x`)).json()).days.length, 30);
 });
 
+test('POST /api/count: stejná událost nejvýš 30× za 10 minut z adresy, jiná projde; serverové počty z prohlížeče ne', async () => {
+  const post = (e) => fetch(`${base}/api/count`, { method: 'POST', body: JSON.stringify({ e }) });
+  for (let i = 0; i < 30; i++) { const r = await post('trip_auto'); await r.arrayBuffer(); assert.equal(r.status, 204, `${i + 1}.`); }
+  const over = await post('trip_auto');
+  assert.equal(over.status, 429, '31. stejná událost');
+  assert.ok(Number(over.headers.get('retry-after')) > 0);
+  assert.equal((await post('trip_summary')).status, 204, 'jiná událost z téže adresy projde');
+  for (const e of SERVER_EVENTS) assert.equal((await post(e)).status, 400, `${e} počítá jen server`);
+  const total = (await (await fetch(`${base}/api/stats?days=2`)).json()).total;
+  assert.equal(total.trip_auto, 30);
+  assert.equal(total.trip_summary, 1);
+  for (const e of ['search_empty', 'search_busy', 'stay_empty']) assert.equal(total[e], undefined, e);
+});
+
 test('POST /api/count: nejvýš 120 za 10 minut z jedné adresy, pak 429', async () => {
-  const post = () => fetch(`${base}/api/count`, { method: 'POST', body: '{"e":"look_letsi"}' });
+  // různé události, ať limit adresa+událost (30) nezasáhne dřív
+  const names = EVENTS.filter((e) => !SERVER_EVENTS.includes(e));
+  const post = (i) => fetch(`${base}/api/count`, { method: 'POST', body: JSON.stringify({ e: names[i % names.length] }) });
   let ok = 0, last;
-  for (let i = 0; i < 130 && (!last || last.status !== 429); i++) { last = await post(); await last.arrayBuffer(); if (last.status === 204) ok++; }
+  for (let i = 0; i < 130 && (!last || last.status !== 429); i++) { last = await post(i); await last.arrayBuffer(); if (last.status === 204) ok++; }
   assert.equal(last.status, 429);
   assert.ok(Number(last.headers.get('retry-after')) > 0);
-  // do limitu se počítají i dotazy předchozího testu (stejná adresa) – dohromady právě 120
-  const total = (await (await fetch(`${base}/api/stats?days=2`)).json()).total;
-  assert.ok(ok > 0 && ok <= 120 && total.look_letsi === ok, `${ok} přijatých`);
+  // do limitu se počítají i dotazy předchozích testů (stejná adresa) – dohromady právě 120
+  assert.ok(ok > 0 && ok < 120, `${ok} přijatých`);
   assert.match(read('server/index.js'), /if \(rateLimited\(req, 120, countHits\)\)/);
+});
+
+/* ---------- serverové počty „kde to drhne“ a klíč ke statistikám ---------- */
+const totalNow = async () => (await (await fetch(`${base}/api/stats?days=2`)).json()).total;
+
+test('searchEvent: bez nabídek search_empty, když přitom neodpověděl žádný zdroj search_error, jinak nic', () => {
+  const ok = { state: 'done', error: null, outage: null };
+  assert.equal(searchEvent({ groups: [{}], providers: [ok] }), null);
+  assert.equal(searchEvent({ groups: [], providers: [ok, { state: 'error', error: 'Kiwi: 500', outage: 'down' }] }), 'search_empty', 'aspoň jeden zdroj odpověděl');
+  // tvar stavu zdroje ze server/lib/search.js (outageOf): část dotazů selhala = 'partial', zdroj ale odpověděl
+  assert.equal(searchEvent({ groups: [], providers: [{ state: 'partial', error: 'chyba HTTP 500', outage: 'partial' }, { state: 'error', error: 'x', outage: 'down' }] }), 'search_empty', 'částečný výpadek není chyba');
+  assert.equal(searchEvent({ groups: [], providers: [{ state: 'error', error: 'x', outage: 'down' }, { state: 'error', error: 'y', outage: 'blocked' }] }), 'search_error');
+  assert.equal(searchEvent({ mode: 'multi', combos: [], providers: [{ state: 'partial', error: '1. let: x', outage: 'down' }] }), 'search_error', 'cesta přes víc měst: výpadek ve všech úsecích');
+  assert.equal(searchEvent({ groups: [], providers: [] }), 'search_empty');
+  assert.equal(searchEvent({ mode: 'multi', groups: [], combos: [{}], providers: [ok] }), null, 'cesta přes víc měst má kombinace, ne skupiny');
+  assert.equal(searchEvent({ mode: 'multi', groups: [], combos: [], providers: [ok] }), 'search_empty');
+  assert.equal(searchEvent(null), null, 'nikdo nečekal – hledání neproběhlo');
+});
+
+test('serverové počty po odpovědích: js_error, search_limit, shared_open, shared_broken; háčky busy, empty, error a stay_empty', async () => {
+  const before = await totalNow();
+  const n = (t, e) => (t[e] || 0) - (before[e] || 0);
+  // přijaté hlášení chyby = js_error; zahozené (rozšíření prohlížeče, bez textu) ne
+  const rep = (b) => fetch(`${base}/api/client-error`, { method: 'POST', headers: { 'x-forwarded-for': '198.51.100.1' }, body: JSON.stringify(b) });
+  assert.equal((await rep({ msg: 'TypeError: x is undefined', src: 'app.js:1' })).status, 204);
+  assert.equal((await rep({ msg: '' })).status, 204);
+  // limit hledání z jedné adresy: druhé nové hledání 429 = search_limit
+  const limit = config.searchesPer10Min;
+  config.searchesPer10Min = 1;
+  try {
+    const search = (to) => fetch(`${base}/api/search`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-forwarded-for': '198.51.100.2' },
+      body: JSON.stringify({ from: ['ap:PRG'], to: [to], radiusKm: 0, dateFrom: new Date(Date.now() + 10 * DAY).toISOString().slice(0, 10), dateTo: new Date(Date.now() + 30 * DAY).toISOString().slice(0, 10), trip: 'oneway' }) });
+    const first = await search('ap:LIS');
+    assert.equal(first.status, 200);
+    await first.text();
+    const second = await search('ap:BCN');
+    assert.equal(second.status, 429);
+    await second.text();
+  } finally {
+    config.searchesPer10Min = limit;
+  }
+  // sdílený odkaz: otevřený 200 = shared_open, neexistující 404 = shared_broken
+  const made = await (await fetch(`${base}/api/share`, { method: 'POST', headers: { 'x-forwarded-for': '198.51.100.3' }, body: JSON.stringify({ k: 'trip', j: JSON.stringify({ v: 1, dest: { label: 'Lisabon', cc: 'PT' }, flight: { out: { from: 'PRG', to: 'LIS', date: '2027-02-03' }, back: { from: 'LIS', to: 'PRG', date: '2027-02-08' } }, route: { bases: [] } }) }) })).json();
+  assert.ok(made.id, JSON.stringify(made));
+  assert.equal((await fetch(`${base}/api/share/${made.id}`)).status, 200);
+  const missing = made.id.replace(/./, (c) => (c === 'A' ? 'B' : 'A'));
+  assert.equal((await fetch(`${base}/api/share/${missing}`)).status, 404);
+  const t = await totalNow();
+  assert.deepEqual([n(t, 'js_error'), n(t, 'search_limit'), n(t, 'shared_open'), n(t, 'shared_broken')], [1, 1, 1, 1]);
+  // stavy, které se v demu vyvolat nedají: háček přímo u odpovědi
+  const src = read('server/index.js');
+  assert.match(src, /if \(fresh && searchGate\.full\(\)\) \{\n    counter\.hit\('search_busy'\);\n    return sendJson\(req, res, 503, BUSY/);
+  assert.match(src, /if \(fresh && _searchClients\.full\(ip, config\.searchPerClient\)\) \{\n    counter\.hit\('search_limit'\);/);
+  assert.match(src, /const ev = searchEvent\(result\);\n      if \(ev\) counter\.hit\(ev\);/);
+  assert.match(src, /console\.error\('\[search\]', e\);\n      counter\.hit\('search_error'\);/);
+  assert.match(src, /if \(!stays\.items\.length && stays\.query\.nights <= 30\) counter\.hit\('stay_empty'\);\n    return sendJson\(req, res, 200, stays\);/);
+  // každý serverový název se někde opravdu počítá
+  for (const e of SERVER_EVENTS) assert.ok(src.includes(`counter.hit('${e}')`) || e === 'search_empty', e);
+});
+
+test('/api/stats: bez STATS_KEY veřejné jako dřív; s klíčem 401 bez něj / se špatným, 200 + no-store se správným, 10 špatných za hodinu', async () => {
+  const pub = await fetch(`${base}/api/stats?days=1`);
+  assert.equal(pub.status, 200);
+  assert.equal(pub.headers.get('cache-control'), 'public, max-age=300');
+  config.statsKey = 'klic-ke-statistikam-0123456789';
+  try {
+    const get = (auth, ip = '198.51.100.9') => fetch(`${base}/api/stats?days=1`, { headers: { 'x-forwarded-for': ip, ...(auth ? { authorization: auth } : {}) } });
+    const none = await get();
+    assert.equal(none.status, 401);
+    assert.equal(none.headers.get('www-authenticate'), 'Bearer');
+    assert.doesNotMatch(await none.text(), /days|total/);
+    const ok = await get('Bearer klic-ke-statistikam-0123456789');
+    assert.equal(ok.status, 200);
+    assert.equal(ok.headers.get('cache-control'), 'no-store', 'počty s klíčem nesmí zůstat ve sdílené mezipaměti');
+    assert.ok((await ok.json()).days.length === 1);
+    for (let i = 0; i < 10; i++) assert.equal((await get('Bearer spatny')).status, 401, `${i + 1}. špatný`);
+    const over = await get('Bearer spatny');
+    assert.equal(over.status, 429, '11. špatný pokus za hodinu');
+    assert.ok(Number(over.headers.get('retry-after')) > 0);
+    assert.equal((await get()).status, 401, 'dotaz bez klíče (první načtení stránky) do limitu nepočítá');
+    assert.equal((await get('Bearer spatny', '198.51.100.10')).status, 401, 'jiná adresa má vlastní limit');
+    assert.equal((await get('Bearer klic-ke-statistikam-0123456789')).status, 200, 'správný klíč projde');
+  } finally {
+    config.statsKey = '';
+  }
 });
 
 /* ---------- public/js/count.js ve falešném prohlížeči (node:vm) ---------- */
@@ -261,4 +396,60 @@ test('zapojení: count.js před app.js; app_open jednou při startu, sekce v go(
   assert.match(app, /async function boot\(\) \{\n  try \{ await start\(\); \} finally \{[^}]*\n    if \(window\.Count\) Count\.hit\('app_open'\);[^\n]*\n  \}\n\}/);
   assert.equal(app.match(/Count\.hit\('app_open'\)/g).length, 1);
   assert.match(app, /activeView = v;\n  if \(window\.Count\) Count\.view\(v, opts\.mine\);/);
+});
+
+/* ---------- stránka Statistiky: Kde to drhne a klíč (public/js/statistiky.js přes node:vm) ---------- */
+const STATS_SRC = read('public/js/statistiky.js');
+/** Stránka ve falešném prohlížeči: #stats, formulář klíče (zachytí obsluhu odeslání) a fetch s odpověďmi po řadě. */
+function statsPage(replies) {
+  const root = { innerHTML: '', setAttribute() {}, removeAttribute() {} };
+  const form = { addEventListener: (_, f) => { form.submit = f; } };
+  const input = { value: '', focus() {} };
+  const asked = [];
+  const c = {
+    window: {}, URLSearchParams, location: { search: '' }, history: { replaceState() {} },
+    document: { getElementById: (id) => ({ stats: root, statsKeyForm: form, statsKey: input })[id] || null, querySelectorAll: () => [] },
+    fetch: async (u, opts) => { asked.push({ u, auth: opts && opts.headers && opts.headers.Authorization }); return replies.shift(); },
+  };
+  vm.createContext(c);
+  vm.runInContext(STATS_SRC, c, { filename: 'statistiky.js' });
+  const send = async (value) => { input.value = value; form.submit({ preventDefault() {} }); await tick(); };
+  return { root, asked, send, S: c.window.Stats };
+}
+const tick = () => new Promise((r) => setTimeout(r, 10));
+
+test('statistiky rates(): na 100 v základu, seřazené, málo dat pod 30, bez základu jen počet; každý serverový název na stránce', () => {
+  const { S } = statsPage([{ ok: true, json: async () => ({ days: [], total: {} }) }]);
+  const total = { search_done: 200, search_empty: 30, search_limit: 3, search_error: 1, shared_open: 8, shared_broken: 2, app_open: 400, js_error: 4, stay_empty: 5 };
+  const r = JSON.parse(JSON.stringify(S.rates(total)));
+  assert.deepEqual(r.map((x) => [x.e, x.per100, x.few]), [
+    ['shared_broken', 20, true], ['search_empty', 15, false], ['search_limit', 1.5, false], ['js_error', 1, false],
+    ['search_error', 0.5, false], ['search_busy', 0, false], ['stay_empty', null, true],
+  ]);
+  assert.equal(r[0].base, 10, 'sdílené: otevřené + nefunkční');
+  assert.equal(r.at(-1).n, 5);
+  assert.ok(JSON.parse(JSON.stringify(S.rates({}))).every((x) => x.per100 === null && x.few), 'prázdná data: žádný poměr, žádná chyba');
+  for (const e of SERVER_EVENTS) assert.ok(STATS_SRC.includes(`'${e}'`), e);
+});
+
+test('statistiky: 401 → pole „Klíč ke statistikám“, klíč v hlavičce, špatný „Klíč nesedí.“, správný ukáže Kde to drhne', async () => {
+  const locked = { ok: false, status: 401, json: async () => ({}) };
+  const stats = { ok: true, status: 200, json: async () => ({ days: [{ day: '2027-01-12', counts: {} }], total: { search_done: 40, search_empty: 4 } }) };
+  const page = statsPage([locked, locked, stats]);
+  await tick();
+  assert.match(page.root.innerHTML, /<label for="statsKey">Klíč ke statistikám<\/label>/);
+  assert.match(page.root.innerHTML, /type="password" autocomplete="current-password"/);
+  assert.doesNotMatch(page.root.innerHTML, /Klíč nesedí/);
+  assert.equal(page.asked[0].auth, undefined, 'napoprvé bez klíče');
+  await page.send(' spatny ');
+  assert.equal(page.asked[1].auth, 'Bearer spatny');
+  assert.match(page.root.innerHTML, /Klíč nesedí\./);
+  await page.send('dobry-klic');
+  assert.equal(page.asked[2].auth, 'Bearer dobry-klic');
+  assert.deepEqual(page.asked.map((a) => a.u), ['api/stats?days=30', 'api/stats?days=30', 'api/stats?days=30']);
+  assert.match(page.root.innerHTML, /<h2>Kde to drhne<\/h2>/);
+  assert.match(page.root.innerHTML, /Hledání bez nabídek<\/th><td>10 %<\/td><td class="note">4 z 40<\/td>/);
+  assert.match(page.root.innerHTML, /poměr je proto přibližný/);
+  assert.doesNotMatch(page.root.innerHTML, /undefined|NaN|null/);
+  assert.doesNotMatch(STATS_SRC, /localStorage|sessionStorage|document\.cookie/, 'klíč jen v paměti stránky');
 });
