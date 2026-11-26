@@ -56,23 +56,25 @@ class El {
 }
 
 /** Prohlížeč pro kukatko.js: brand = data-brand, reduce = prefers-reduced-motion, hidden = document.hidden,
- *  q = odpovědi na složité selektory stránky ({ '.view.active': prvek, … }). */
-function browser({ brand = 'letsi', reduce = false, hidden = false, q = {} } = {}) {
-  const timers = [], frames = [], docListeners = [], created = [];
+ *  q = odpovědi na složité selektory stránky ({ '.view.active': prvek, … }), theme = data-theme, hour = hodina dne (null = skutečná). */
+function browser({ brand = 'letsi', reduce = false, hidden = false, q = {}, theme = null, hour = null } = {}) {
+  const timers = [], frames = [], docListeners = [], created = [], fns = [];
   const doc = { hidden, readyState: 'complete' };
   doc.documentElement = new El('html', doc);
   if (brand) doc.documentElement.setAttribute('data-brand', brand);
+  if (theme) doc.documentElement.setAttribute('data-theme', theme);
   doc.head = doc.documentElement.appendChild(new El('head', doc));
   doc.body = doc.documentElement.appendChild(new El('body', doc));
   doc.createElement = (t) => { created.push(t); return new El(t, doc); };
   doc.createElementNS = (ns, t) => new El(t, doc);
-  doc.addEventListener = (t) => docListeners.push(t);
+  doc.on = {};
+  doc.addEventListener = (t, fn) => { docListeners.push(t); (doc.on[t] ||= []).push(fn); };
   doc.getElementById = (id) => q[`#${id}`] || null;
   doc.querySelector = (s) => (s in q ? q[s] : doc.documentElement.querySelector(s));
   doc.querySelectorAll = (s) => doc.documentElement.querySelectorAll(s);
   const win = {
-    document: doc, Date, Math, Promise, JSON, String, console,
-    setTimeout: (fn, ms) => { timers.push(ms); return timers.length; }, clearTimeout: () => {},
+    document: doc, Date: hour === null ? Date : class extends Date { getHours() { return hour; } }, Math, Promise, JSON, String, console,
+    setTimeout: (fn, ms) => { timers.push(ms); fns.push(fn); return timers.length; }, clearTimeout: () => {},
     requestAnimationFrame: (fn) => { frames.push(fn); return frames.length; },
     matchMedia: (m) => ({ matches: /reduce/.test(m) ? reduce : false, addEventListener() {} }),
     MutationObserver: class { observe() {} },
@@ -80,7 +82,7 @@ function browser({ brand = 'letsi', reduce = false, hidden = false, q = {} } = {
   };
   win.window = win;
   vm.runInNewContext(JS, win, { filename: 'kukatko.js' });
-  return { win, doc, timers, frames, docListeners, created, K: win.Kukatko };
+  return { win, doc, timers, fns, frames, docListeners, created, K: win.Kukatko };
 }
 
 test('bez data-brand="letsi" nic: žádné Kukatko, posluchače, prvky ani stažené styly', () => {
@@ -209,11 +211,11 @@ test('slunce: nejvýš jedna tečka na stránce, těsně před nejlevnější ce
 });
 
 /** Živé kukátko v napodobeném prohlížeči. */
-function mountIn(opts) {
+function mountIn(opts = {}) {
   const b = browser(opts);
   const host = b.doc.body.appendChild(new El('span', b.doc));
   b.timers.length = 0;
-  const k = b.K.mount(host, { size: 48 });
+  const k = b.K.mount(host, { size: 48, usinaZa: opts.usinaZa });
   return { ...b, k };
 }
 
@@ -242,6 +244,24 @@ test('skrytá stránka nic neplánuje; viditelná naplánuje jedno mrknutí za 3
   timers.length = 0;
   k._planuj();
   assert.deepEqual(timers, []);
+});
+
+test('usínání ve tmě (chovani.md 10): v tmavém režimu po 20 s klidu Noc, klávesa ho probudí; ve světlém přes den neusne', () => {
+  // aplikace kukátko vytváří s usinaZa 20 s (Přehled i Lety)
+  assert.match(JS, /var USINA_ZA = 20000;/);
+  assert.match(JS, /window\.Kukatko\.mount\(host, \{[^}]*usinaZa: USINA_ZA/);
+  assert.ok(!mountIn({ theme: 'light', hour: 12, usinaZa: 20000 }).timers.includes(20000), 've dne ve světlém režimu žádný časovač');
+  assert.ok(!mountIn({ theme: 'dark', hour: 12 }).timers.includes(20000), 'bez usinaZa neusíná');
+  const b = mountIn({ theme: 'dark', hour: 12, usinaZa: 20000 });
+  const i = b.timers.indexOf(20000);
+  assert.ok(i >= 0, 'klid se počítá hned od zobrazení');
+  b.fns[i]();
+  assert.equal(b.k.stav, 'noc');
+  for (const fn of b.doc.on.keydown) fn({});
+  assert.equal(b.k.stav, 'koukam', 'klávesa ho probudí');
+  assert.ok(b.timers.lastIndexOf(20000) > i, 'a usínání začne počítat znovu');
+  // v noci (22–5 h) usíná i ve světlém režimu
+  assert.ok(mountIn({ theme: 'light', hour: 23, usinaZa: 20000 }).timers.includes(20000));
 });
 
 test('kukatko.css: každé pravidlo jen pod :root[data-brand="letsi"], bez přechodů barev, skla a cizích písem', () => {

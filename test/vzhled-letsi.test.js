@@ -1,5 +1,6 @@
-// Vzhled značky Letsi, kroky 1–3 (public/css/letsi.css): přepínač ?vzhled=letsi v úvodním skriptu index.html, barva
-// lišty prohlížeče a pravidla stylu – bez přepínače se aplikace nesmí změnit (každé pravidlo pod :root[data-brand="letsi"]),
+// Vzhled značky Letsi (public/css/letsi.css) je výchozí: úvodní skript index.html nastaví data-brand="letsi" všem kromě
+// nouzové volby ?vzhled=atlas (atlas_look = 'atlas'), barva lišty prohlížeče a pravidla stylu – ve vzhledu ATLASu se
+// aplikace nesmí změnit (každé pravidlo pod :root[data-brand="letsi"]),
 // paleta bez Rajčete, bez přechodů, modré a fialové, písma z vlastního serveru s licencí; krok 3 ikony, logo a favicon
 // z public/vendor/letsi/. Úvodní skript běží v node:vm s napodobeným prohlížečem.
 import { test } from 'node:test';
@@ -31,24 +32,26 @@ function boot(href, store = {}) {
   return { brand: attrs['data-brand'], theme: attrs['data-theme'], look: ls.atlas_look ?? null, url, bar: [...new Set(metas.map((m) => m.content))] };
 }
 
-test('přepínač: ?vzhled=letsi uloží volbu a nastaví data-brand, parametr z adresy zmizí', () => {
-  assert.deepEqual(boot('https://x.cz/?vzhled=letsi#flights'), { brand: 'letsi', theme: 'light', look: 'letsi', url: 'https://x.cz/#flights', bar: ['#F3F4F0'] });
+test('výchozí vzhled: bez volby data-brand="letsi" a lišta Vápno; ?vzhled=letsi smaže nouzovou volbu, parametr zmizí', () => {
+  assert.deepEqual(boot('https://x.cz/#dashboard'), { brand: 'letsi', theme: 'light', look: null, url: 'https://x.cz/#dashboard', bar: ['#F3F4F0'] });
+  assert.deepEqual(boot('https://x.cz/?vzhled=letsi#flights', { atlas_look: 'atlas' }), { brand: 'letsi', theme: 'light', look: null, url: 'https://x.cz/#flights', bar: ['#F3F4F0'] });
   // ostatní parametry adresy zůstanou
   assert.equal(boot('https://x.cz/?a=1&vzhled=letsi&b=2#trip').url, 'https://x.cz/?a=1&b=2#trip');
-  // uložená volba platí i bez parametru
+  // dřívější volba z doby přepínače (atlas_look = 'letsi') i neznámá hodnota = Letsi; neznámý parametr jen zmizí z adresy
   assert.deepEqual(boot('https://x.cz/', { atlas_look: 'letsi' }), { brand: 'letsi', theme: 'light', look: 'letsi', url: 'https://x.cz/', bar: ['#F3F4F0'] });
+  assert.deepEqual(boot('https://x.cz/?vzhled=neon'), { brand: 'letsi', theme: 'light', look: null, url: 'https://x.cz/', bar: ['#F3F4F0'] });
+  // bez localStorage (soukromé okno, zakázané úložiště) start nespadne a vzhled je Letsi
+  const attrs = {};
+  const w = { document: { documentElement: { setAttribute: (k, v) => { attrs[k] = v; } }, querySelectorAll: () => [] }, performance: { now: () => 0 } };
+  w.window = w; Object.defineProperty(w, 'localStorage', { get() { throw new Error('SecurityError'); } });
+  vm.runInNewContext(BOOT, w);
+  assert.equal(attrs['data-brand'], 'letsi');
 });
 
-test('přepínač: ?vzhled=atlas volbu smaže, bez volby žádný atribut (vzhled ATLASu beze změny)', () => {
-  assert.deepEqual(boot('https://x.cz/?vzhled=atlas', { atlas_look: 'letsi' }), { brand: undefined, theme: 'light', look: null, url: 'https://x.cz/', bar: ['#eef2fb'] });
-  assert.deepEqual(boot('https://x.cz/#dashboard'), { brand: undefined, theme: 'light', look: null, url: 'https://x.cz/#dashboard', bar: ['#eef2fb'] });
-  // neznámá hodnota nic neuloží (jen zmizí z adresy)
-  assert.deepEqual(boot('https://x.cz/?vzhled=neon'), { brand: undefined, theme: 'light', look: null, url: 'https://x.cz/', bar: ['#eef2fb'] });
-  // bez localStorage (soukromé okno, zakázané úložiště) start nespadne a motiv se nastaví
-  const r = (() => { const w = { document: { documentElement: { setAttribute() {} }, querySelectorAll: () => [] }, performance: { now: () => 0 } };
-    w.window = w; Object.defineProperty(w, 'localStorage', { get() { throw new Error('SecurityError'); } });
-    vm.runInNewContext(BOOT, w); return true; })();
-  assert.ok(r);
+test('nouzová cesta ?vzhled=atlas: uloží atlas_look = atlas, bez data-brand (vzhled ATLASu beze změny) – i při dalším otevření', () => {
+  assert.deepEqual(boot('https://x.cz/?vzhled=atlas'), { brand: undefined, theme: 'light', look: 'atlas', url: 'https://x.cz/', bar: ['#eef2fb'] });
+  assert.deepEqual(boot('https://x.cz/#dashboard', { atlas_look: 'atlas' }), { brand: undefined, theme: 'light', look: 'atlas', url: 'https://x.cz/#dashboard', bar: ['#eef2fb'] });
+  assert.deepEqual(boot('https://x.cz/', { atlas_look: 'atlas', atlas_v1: JSON.stringify({ theme: 'dark' }) }).bar, ['#080c1a']);
 });
 
 /** Seznam selektorů rozdělený jen podle čárek mimo závorky (:is(…, …) zůstane celé). */
@@ -86,7 +89,7 @@ function rules(css) {
   return { sels, at };
 }
 
-test('letsi.css: každé pravidlo je pod :root[data-brand="letsi"] – bez přepínače se nic nezmění', () => {
+test('letsi.css: každé pravidlo je pod :root[data-brand="letsi"] – ve vzhledu ATLASu (?vzhled=atlas) se nic nezmění', () => {
   const { sels, at } = rules(CSS);
   assert.ok(sels.length > 80, `${sels.length} selektorů`);
   assert.deepEqual(sels.filter((s) => !s.startsWith(':root[data-brand="letsi"]')), []);
@@ -162,12 +165,15 @@ test('letsi.css krok 2: žádná modrá ani fialová, ceny barvou textu, stupnic
   assert.match(src, /\[data-theme="dark"\] :is\(\.chip,[^)]*\)\{--faint:#A6ACB6\}/);
 });
 
-test('barva lišty prohlížeče: se vzhledem Letsi Vápno / Noc (úvodní skript i pwa.js), jinak beze změny', () => {
+test('barva lišty prohlížeče: výchozí Vápno / Noc (hlavička, úvodní skript i pwa.js), ve vzhledu ATLASu jeho barvy', () => {
   const bg = (t) => CSS.match(new RegExp(`\\[data-theme="${t}"\\]\\{[^}]*--bg:(#[0-9A-Fa-f]{6})`))[1];
   assert.deepEqual([bg('light'), bg('dark')], ['#F3F4F0', '#14161F']);
   assert.deepEqual(boot('https://x.cz/', { atlas_look: 'letsi' }).bar, [bg('light')]);
   assert.deepEqual(boot('https://x.cz/', { atlas_look: 'letsi', atlas_v1: JSON.stringify({ theme: 'dark' }) }).bar, [bg('dark')]);
-  assert.deepEqual(boot('https://x.cz/', { atlas_v1: JSON.stringify({ theme: 'dark' }) }).bar, ['#080c1a']);
+  assert.deepEqual(boot('https://x.cz/', { atlas_v1: JSON.stringify({ theme: 'dark' }) }).bar, [bg('dark')]);
+  assert.deepEqual(boot('https://x.cz/', { atlas_look: 'atlas', atlas_v1: JSON.stringify({ theme: 'dark' }) }).bar, ['#080c1a']);
+  // hlavička před skriptem (a bez skriptu): Noc / Vápno
+  assert.deepEqual([...INDEX.matchAll(/<meta name="theme-color" content="([^"]+)" media="\(prefers-color-scheme: (\w+)\)">/g)].map((m) => [m[2], m[1]]), [['dark', bg('dark')], ['light', bg('light')]]);
   const PWA = read('js/pwa.js');
   assert.match(PWA, new RegExp(`const THEME_LETSI = \\{ dark: '${bg('dark')}', light: '${bg('light')}' \\}`));
   assert.match(PWA, /dataset\.brand === 'letsi' \? THEME_LETSI : THEME/);
@@ -177,31 +183,16 @@ test('barva lišty prohlížeče: se vzhledem Letsi Vápno / Noc (úvodní skrip
 const SRC = CSS.replace(/\/\*[\s\S]*?\*\//g, '');
 const pub = (f) => new URL(`../public/${f}`, import.meta.url);
 
-/** Favicony v hlavičce po úvodním skriptu ([href, sizes] obou <link rel="icon">) – s uloženou volbou vzhledu, nebo bez. */
-function bootIcons(store = {}) {
-  const ls = { ...store };
-  const links = [...INDEX.matchAll(/<link rel="icon"([^>]*)>/g)].map((m) => ({
-    href: m[1].match(/href="([^"]+)"/)[1], sizes: (m[1].match(/sizes="([^"]+)"/) || [])[1], setAttribute(k, v) { this[k] = v; } }));
-  const win = {
-    URL, location: { href: 'https://x.cz/' }, history: { state: null, replaceState() {} },
-    localStorage: { getItem: (k) => (k in ls ? ls[k] : null), setItem: (k, v) => { ls[k] = String(v); }, removeItem: (k) => { delete ls[k]; } },
-    document: { documentElement: { setAttribute() {} }, querySelectorAll: (q) => (q === 'link[rel="icon"]' ? links : []) },
-    matchMedia: () => ({ matches: true }), performance: { now: () => 0 },
-  };
-  win.window = win;
-  vm.runInNewContext(BOOT, win);
-  return links.map((l) => [l.href.slice(0, 30), l.sizes]);
-}
-
-test('favicon: se vzhledem Letsi úvodní skript přepíše obě ikony na vendor/letsi, bez přepínače zůstanou ikony ATLASu', () => {
-  assert.deepEqual(bootIcons(), [['icons/icon-96.png', '96x96'], ['data:image/svg+xml,%3Csvg xmln', undefined]]);
-  assert.deepEqual(bootIcons({ atlas_look: 'letsi' }), [['vendor/letsi/favicon-32.png', '32x32'], ['vendor/letsi/favicon.svg', undefined]]);
-  for (const f of ['vendor/letsi/favicon-32.png', 'vendor/letsi/favicon.svg']) assert.ok(existsSync(pub(f)), f);
+test('favicon: Letsi přímo v hlavičce pro všechny (96 px pro vyhledávače, 32 px pro Safari, SVG), úvodní skript ho nemění', () => {
+  const links = [...INDEX.matchAll(/<link rel="icon"([^>]*)>/g)].map((m) => [m[1].match(/href="([^"]+)"/)[1], (m[1].match(/sizes="([^"]+)"/) || [])[1]]);
+  assert.deepEqual(links, [['icons/icon-96.png', '96x96'], ['vendor/letsi/favicon-32.png', '32x32'], ['vendor/letsi/favicon.svg', undefined]]);
+  for (const [f] of links) assert.ok(existsSync(pub(f)), f);
+  assert.doesNotMatch(BOOT, /link\[rel="icon"\]/);
 });
 
-test('vendor/letsi: každý soubor, na který letsi.css a úvodní skript odkazují, existuje a žádný soubor navíc', () => {
+test('vendor/letsi: každý soubor, na který letsi.css a index.html odkazují, existuje a žádný soubor navíc', () => {
   const css = [...SRC.matchAll(/url\(\.\.\/(vendor\/letsi\/[^)]+)\)/g)].map((m) => m[1]);
-  const boot = [...BOOT.matchAll(/'(vendor\/letsi\/[^']+)'/g)].map((m) => m[1]);
+  const boot = [...INDEX.matchAll(/href="(vendor\/letsi\/[^"]+)"/g)].map((m) => m[1]);
   const used = new Set([...css, ...boot]);
   assert.ok(used.size >= 20, `${used.size} souborů`);
   for (const f of used) assert.ok(existsSync(pub(f)), f);
@@ -213,16 +204,38 @@ test('vendor/letsi: každý soubor, na který letsi.css a úvodní skript odkazu
   for (const f of css.filter((x) => x.includes('/ikony/'))) assert.match(read(f), /stroke="currentColor"/, f);
 });
 
-test('bez přepínače se nic z vendor/letsi nestáhne: odkazy jen v pravidlech pod data-brand, ve skriptu za volbou, mimo sadu pro instalaci', async () => {
+test('obrázky a písma Letsi: v sadě pro instalaci (výchozí vzhled offline), ve vzhledu ATLASu se z CSS nic z nich nestáhne', async () => {
   // obrázek z CSS se stáhne, jen když pravidlo platí – každé pravidlo s url() na vendor/letsi je pod data-brand
   // (tělo bez „{“: u pravidla uvnitř @media se kontroluje jeho selektor, ne hlavička @media)
   for (const m of SRC.matchAll(/([^{}]*)\{[^{}]*url\(\.\.\/vendor\/letsi\//g)) assert.match(m[1].trim(), /^:root\[data-brand="letsi"\]/, m[1]);
-  // v HTML mimo úvodní skript žádný odkaz; ve skriptu až ve větvi atlas_look === 'letsi'
-  assert.doesNotMatch(INDEX.replace(BOOT, ''), /vendor\/letsi/);
-  const gate = BOOT.indexOf("if (localStorage.getItem('atlas_look') === 'letsi')");
-  assert.ok(gate > 0 && BOOT.indexOf('vendor/letsi') > gate);
-  const { shellAssets, RUNTIME_ASSETS } = await import('../server/lib/pwa.js');
-  assert.deepEqual([...shellAssets(INDEX), ...RUNTIME_ASSETS].filter((u) => u.includes('vendor/letsi')), []);
+  // v HTML jen favicon (platí pro oba vzhledy)
+  assert.deepEqual([...INDEX.matchAll(/vendor\/letsi\/[^"']+/g)].map((m) => m[0]), ['vendor/letsi/favicon-32.png', 'vendor/letsi/favicon.svg']);
+  // sada pro instalaci: všechno z url() v letsi.css (písma Unbounded a Onest, ikony, logo) a kukátko
+  const { serviceWorker, cssAssets } = await import('../server/lib/pwa.js');
+  const dirs = { publicDir: new URL('../public', import.meta.url).pathname, dataDir: new URL('../data', import.meta.url).pathname };
+  const list = serviceWorker(dirs).precache;
+  const need = cssAssets(CSS, 'css/letsi.css');
+  assert.ok(need.length >= 25 && need.some((u) => u.startsWith('vendor/fonts/letsi/')) && need.some((u) => u.startsWith('vendor/letsi/ikony/')), need.join());
+  for (const u of [...need, 'js/kukatko.js', 'css/kukatko.css']) assert.ok(list.includes(u), `v sadě chybí ${u}`);
+  // cssAssets: jen vlastní soubory vůči stylu, bez data:, #id a cizích webů, bez opakování
+  assert.deepEqual(cssAssets('a{b:url(../x/y.svg)}/* url(z.png) */c{d:url("e.woff2"),url(data:image/png;base64,AA),url(#g),url(https://f.cz/h.png),url(\'../x/y.svg\')}', 'css/s.css'),
+    ['x/y.svg', 'css/e.woff2']);
+  // Inter a Sora zůstávají: ve vzhledu ATLASu a na kartách ke sdílení (sharecard.js) je pořád něco používá
+  assert.match(read('js/sharecard.js'), /\['Sora', 'Inter'\]/);
+});
+
+test('manifest aplikace na ploše: název Letsi, barvy Vápno, ikony existují a mají uvedené rozměry', async () => {
+  const { manifestFor } = await import('../server/lib/seo.js');
+  const m = JSON.parse(manifestFor(read('manifest.webmanifest')));
+  assert.deepEqual([m.name, m.short_name], ['Letsi', 'Letsi']);
+  assert.deepEqual([m.theme_color, m.background_color], ['#F3F4F0', '#F3F4F0']);
+  const icons = [...m.icons, ...m.shortcuts.flatMap((s) => s.icons)];
+  assert.ok(icons.some((i) => i.sizes === '1024x1024') && icons.some((i) => i.purpose === 'maskable'));
+  for (const i of icons) {
+    const buf = readFileSync(pub(i.src));
+    assert.equal(`${buf.readUInt32BE(16)}x${buf.readUInt32BE(20)}`, i.sizes, i.src);
+  }
+  assert.ok(existsSync(pub('icons/apple-touch-icon.png')));
 });
 
 test('ikony Letsi: ikony lišt a tlačítek z index.html mají náhradu, velikosti podle sady, Lety = znak kukátka', () => {

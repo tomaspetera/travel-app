@@ -1,19 +1,20 @@
 #!/usr/bin/env node
 // Náhledový obrázek sdíleného odkazu (Open Graph a Twitter Card, 1200 × 630) do public/og-image.png: šablona v HTML
-// níž (barvy, přechod a vlaštovka jako ikona aplikace, písma Sora a Inter jako aplikace, texty ze server/brand.js)
-// vyfocená v Chromiu přes Playwright. Po přejmenování nebo změně sloganu v brand.js stačí skript spustit znovu:
+// níž v identitě Letsi 2.1 (plocha Pistácie, text Noc, logo a znak kukátka, písma Unbounded a Onest, texty ze
+// server/brand.js) vyfocená v Chromiu přes Playwright. Po přejmenování nebo změně sloganu v brand.js stačí skript
+// spustit znovu:
 //
 //   node scripts/build-og-image.mjs        (= npm run build:og)
 //
 // Playwright není závislost projektu (žádný npm install): skript ho vezme z globální instalace
-// (npm i -g playwright && npx playwright install chromium). Písma stáhne z Google Fonts jen pro znaky z textů (text=)
-// a vloží do šablony; bez sítě vyfotí se systémovým písmem a řekne to.
+// (npm i -g playwright && npx playwright install chromium). Písma bere z public/vendor/fonts/letsi a vloží je do
+// šablony jako data: – síť nepotřebuje.
 // Do PNG zapíše otisk šablony s texty (blok tEXt „og-source“) – test/seo.test.js podle něj pozná obrázek, který po
 // změně brand.js nebo šablony nikdo znovu nevygeneroval. Obrázek kreslí obecný náhled: sdílené odkazy do aplikace
 // (#trip=, #offer=…) nesou cestu za #, kterou roboti sociálních sítí nevidí.
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import zlib from 'node:zlib';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -25,53 +26,39 @@ export const OUT = path.join(root, 'public', BRAND.image.path);
 export const TEXT_KEY = 'og-source';
 
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-// vlaštovka z ikony aplikace (scripts/build-icons.mjs, favicon): horní křídlo bílé, spodní s 80 % krytím (přehyb)
-const SWALLOW = '<path d="M20 6 10 13 4 10z" fill="#fff"/><path d="M20 6 13 19 10 13z" fill="#fff" fill-opacity=".8"/>';
+// Logo (Noc, slunce Rajče nad i – jediné slunce v obrázku) jako v aplikaci; znak kukátka v pozitivu na Pistácii
+// (rám a zorničky Noc, okénka Vápno) je kopie letsi-znak.svg z balíku identity (znak/). Obojí na křivkách, bez písem.
+const svgFile = (f) => readFileSync(path.join(root, f), 'utf8').replace(/<title>[^<]*<\/title>/, '').replace(/\s+role="img"\s+aria-label="[^"]*"/, '').trim();
+const LOGO = svgFile('public/vendor/letsi/letsi-logo-hlavni.svg');
+const ZNAK = svgFile('scripts/letsi-znak.svg');
 
 /**
  * Šablona náhledu (bez písem – ta dosadí render místo FONTS). Text vlevo s okrajem 72 px (X ořízne na 2 : 1 jen
- * 15 px nahoře a dole), vpravo ikona aplikace s trasou letu. Slogan se zalomí za první dvě slova.
+ * 15 px nahoře a dole), vpravo velký znak kukátka. Jednolitá Pistácie, žádné přechody ani stíny.
  */
 export function ogHtml(brand = BRAND) {
-  const words = brand.tagline.split(' ');
-  const tagline = `${esc(words.slice(0, 2).join(' '))}<br><span class="grad">${esc(words.slice(2).join(' '))}</span>`;
   return `<!DOCTYPE html>
 <html lang="cs"><head><meta charset="UTF-8">
 <style>/*FONTS*/</style>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{width:${brand.image.width}px;height:${brand.image.height}px;overflow:hidden}
-body{position:relative;color:#eaf0ff;font-family:Inter,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
-  background:radial-gradient(760px 520px at 88% 8%,rgba(168,85,247,.42),transparent 62%),
-    radial-gradient(700px 520px at 62% 112%,rgba(34,211,238,.26),transparent 60%),
-    radial-gradient(560px 420px at -6% -12%,rgba(91,140,255,.22),transparent 60%),#080c1a}
-.grad{background:linear-gradient(135deg,#22d3ee 0%,#5b8cff 45%,#a855f7 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
-.text{position:absolute;left:72px;top:88px;width:780px}
-.brand{display:flex;align-items:center;gap:18px;font:800 46px/1 Sora,Inter,sans-serif;letter-spacing:.04em}
-.tile{width:64px;height:64px;border-radius:15px;background:linear-gradient(135deg,#22d3ee 0%,#5b8cff 45%,#a855f7 100%)}
-h1{margin-top:48px;font:800 68px/1.1 Sora,Inter,sans-serif;letter-spacing:-.015em}
-ul{margin-top:44px;list-style:none}
-li{display:flex;align-items:center;gap:16px;margin-top:18px;font:500 29px/1.2 Inter,sans-serif;color:#c9d3ee}
-li svg{flex:none;width:34px;height:34px}
-.art{position:absolute;right:0;top:0;width:470px;height:100%}
-.icon{position:absolute;left:150px;top:205px;width:230px;height:230px;border-radius:51px;
-  background:linear-gradient(135deg,#22d3ee 0%,#5b8cff 45%,#a855f7 100%);
-  box-shadow:0 40px 90px -30px rgba(91,140,255,.75),0 0 0 1px rgba(255,255,255,.12) inset}
+body{position:relative;background:#D6DE82;color:#14161F;font-family:Onest,"Segoe UI",Roboto,Arial,sans-serif}
+.text{position:absolute;left:72px;top:76px;width:700px}
+.logo{display:block;height:72px;width:auto}
+h1{margin-top:52px;font:700 58px/1.12 Letsi,Onest,sans-serif;letter-spacing:-.03em;text-wrap:balance}
+ul{margin-top:40px;list-style:none}
+li{display:flex;align-items:center;gap:16px;margin-top:14px;font:500 29px/1.2 Onest,sans-serif}
+li svg{flex:none;width:30px;height:30px}
+.znak{position:absolute;right:72px;top:50%;width:330px;height:auto;transform:translateY(-50%)}
 </style></head>
 <body>
 <div class="text">
-  <div class="brand"><svg class="tile" viewBox="-0.316 -0.866 25.532 25.532">${SWALLOW}</svg>${esc(brand.name)}</div>
-  <h1>${tagline}</h1>
-  <ul>${brand.points.map((p) => `<li><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="rgba(52,211,153,.16)"/><path d="m7 12.5 3.2 3.2L17 9" fill="none" stroke="#34d399" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>${esc(p)}</li>`).join('')}</ul>
+  ${LOGO.replace('<svg ', `<svg class="logo" aria-label="${esc(brand.name)}" `)}
+  <h1>${esc(brand.tagline)}</h1>
+  <ul>${brand.points.map((p) => `<li><svg viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5" fill="none" stroke="#14161F" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>${esc(p)}</li>`).join('')}</ul>
 </div>
-<div class="art">
-  <svg width="470" height="630" viewBox="0 0 470 630" fill="none">
-    <path d="M-30 560C70 520 120 470 180 430" stroke="rgba(234,240,255,.28)" stroke-width="3" stroke-dasharray="2 12" stroke-linecap="round"/>
-    <path d="M330 220C380 160 420 110 500 70" stroke="rgba(234,240,255,.28)" stroke-width="3" stroke-dasharray="2 12" stroke-linecap="round"/>
-    <circle cx="70" cy="527" r="7" fill="#22d3ee"/><circle cx="70" cy="527" r="16" stroke="rgba(34,211,238,.35)" stroke-width="2"/>
-  </svg>
-  <svg class="icon" viewBox="-0.316 -0.866 25.532 25.532">${SWALLOW}</svg>
-</div>
+${ZNAK.replace('<svg ', '<svg class="znak" aria-hidden="true" ')}
 </body></html>
 `;
 }
@@ -121,22 +108,6 @@ export function finishPng(png, key, value) {
   return Buffer.concat(out);
 }
 
-/** Sora a Inter z Google Fonts jen se znaky z textů, vložené jako data: (Chromium pak nic nestahuje). */
-async function fontsCss(brand) {
-  const chars = [...new Set([brand.name, brand.tagline, ...brand.points].join('') + '0123456789')].join('');
-  const api = `https://fonts.googleapis.com/css2?family=Inter:wght@500&family=Sora:wght@800&display=block&text=${encodeURIComponent(chars)}`;
-  // s User-Agentem prohlížeče dá Google WOFF2 (jinak TTF)
-  const ua = { 'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36' };
-  let css = await (await fetch(api, { headers: ua, signal: AbortSignal.timeout(15e3) })).text();
-  for (const [, url] of [...css.matchAll(/url\((https:[^)]+)\)/g)]) {
-    const res = await fetch(url, { headers: ua, signal: AbortSignal.timeout(15e3) });
-    if (!res.ok) throw new Error(`písmo ${res.status}`);
-    css = css.replace(url, `data:font/woff2;base64,${Buffer.from(await res.arrayBuffer()).toString('base64')}`);
-  }
-  if (!/@font-face/.test(css)) throw new Error('Google Fonts nevrátil @font-face');
-  return css;
-}
-
 /** Playwright z projektu, jinak z globální instalace (npm root -g). */
 async function playwright() {
   try {
@@ -147,19 +118,20 @@ async function playwright() {
   }
 }
 
+
+/** Unbounded (font-family Letsi, jako css/letsi.css) a Onest z public/vendor/fonts/letsi jako data: – Chromium nic nestahuje. */
+function fontsCss() {
+  const face = (family, weight, file) => `@font-face{font-family:'${family}';font-weight:${weight};font-display:block;src:url(data:font/woff2;base64,${readFileSync(path.join(root, 'public/vendor/fonts/letsi', file)).toString('base64')}) format('woff2')}`;
+  return [face('Letsi', 700, 'unbounded-700.woff2'), face('Onest', 500, 'onest-500.woff2')].join('\n');
+}
+
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  let fonts = '';
-  try {
-    fonts = await fontsCss(BRAND);
-  } catch (e) {
-    console.warn(`Písma Sora a Inter se nepodařilo stáhnout (${e.message}) – fotím se systémovým písmem.`);
-  }
   const { chromium } = await playwright();
   const browser = await chromium.launch();
   try {
     const { width, height } = BRAND.image;
     const page = await browser.newPage({ viewport: { width, height }, deviceScaleFactor: 1 });
-    await page.setContent(ogHtml(BRAND).replace('/*FONTS*/', () => fonts), { waitUntil: 'load' });
+    await page.setContent(ogHtml(BRAND).replace('/*FONTS*/', () => fontsCss()), { waitUntil: 'load' });
     await page.evaluate(() => document.fonts.ready);
     const png = finishPng(await page.screenshot({ type: 'png' }), TEXT_KEY, ogSource(BRAND));
     writeFileSync(OUT, png);

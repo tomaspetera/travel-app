@@ -8,14 +8,16 @@
 <!-- brand: titulek, popis, kanonickou adresu, náhled sdíleného odkazu (Open Graph, Twitter Card), název aplikace na ploše
      a JSON-LD sem dosadí server – název a popis ze server/brand.js, adresu z PUBLIC_URL (server/lib/seo.js headTags) -->
 <!-- /brand -->
-<!-- ikona i jako soubor: vyhledávače (ikona u výsledku) adresu data: nemusí vzít; stejná vlaštovka jako SVG pod ní -->
+<!-- favicon Letsi (kukátko na Pistácii): 96 px pro vyhledávače (ikona u výsledku chce násobek 48 px), 32 px pro Safari
+     (SVG favicon nebere), SVG kreslené do pixelů 16 × 16 pro ostatní prohlížeče -->
 <link rel="icon" href="icons/icon-96.png" sizes="96x96" type="image/png">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%2322d3ee'/%3E%3Cstop offset='1' stop-color='%23a855f7'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='24' height='24' rx='6' fill='url(%23g)'/%3E%3Cpath d='M20 6l-7 13-3-6-6-3z' fill='white'/%3E%3C/svg%3E">
-<!-- aplikace na ploše (PWA) a offline: manifest, ikony, barva lišty (pwa.js ji sladí s motivem ATLASu) -->
+<link rel="icon" href="vendor/letsi/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="icon" href="vendor/letsi/favicon.svg" type="image/svg+xml">
+<!-- aplikace na ploše (PWA) a offline: manifest, ikony, barva lišty (pwa.js ji sladí s motivem: Vápno / Noc) -->
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="atlas-build" content="dev"><!-- server dosadí verzi aplikace (server/lib/pwa.js serveIndex) -->
-<meta name="theme-color" content="#080c1a" media="(prefers-color-scheme: dark)">
-<meta name="theme-color" content="#eef2fb" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#14161F" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#F3F4F0" media="(prefers-color-scheme: light)">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <!-- ios-splash: úvodní obrazovky aplikace na ploše iPhonu a iPadu – scripts/build-icons.mjs -->
 <link rel="apple-touch-startup-image" media="(device-width: 320px) and (device-height: 568px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="icons/splash/640x1136.png">
@@ -69,27 +71,22 @@ if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configur
   var light = t === 'light', root = document.documentElement;
   root.setAttribute('data-theme', light ? 'light' : 'dark');
   root.setAttribute('data-map', s && s.mapStyle === 'dark' ? 'dark' : 'light');
-  var m = document.querySelectorAll('meta[name="theme-color"]');
-  for (var i = 0; i < m.length; i++) m[i].setAttribute('content', light ? '#eef2fb' : '#080c1a');
-  // Vzhled značky Letsi (krok 1, css/letsi.css): ?vzhled=letsi ho zapne, ?vzhled=atlas vypne; volba zůstane v prohlížeči
-  // (atlas_look). Parametr z adresy hned zmizí, aby se odkaz s ním nesdílel dál. Bez volby žádný atribut = vzhled ATLASu.
+  // Vzhled Letsi (css/letsi.css) je výchozí pro všechny. Nouzová cesta zpět ke vzhledu ATLASu: ?vzhled=atlas uloží
+  // volbu atlas_look = 'atlas', ?vzhled=letsi ji smaže. Parametr z adresy hned zmizí, aby se odkaz s ním nesdílel dál.
+  // Bez úložiště (soukromé okno, zakázané úložiště) platí výchozí Letsi.
+  var look = '';
   try {
     var u = new URL(location.href), v = u.searchParams.get('vzhled');
-    if (v === 'letsi') localStorage.setItem('atlas_look', 'letsi');
-    else if (v === 'atlas') localStorage.removeItem('atlas_look');
+    if (v === 'atlas') localStorage.setItem('atlas_look', 'atlas');
+    else if (v === 'letsi') localStorage.removeItem('atlas_look');
     if (v !== null) { u.searchParams.delete('vzhled'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }
-    if (localStorage.getItem('atlas_look') === 'letsi') {
-      root.setAttribute('data-brand', 'letsi');
-      for (i = 0; i < m.length; i++) m[i].setAttribute('content', light ? '#F3F4F0' : '#14161F'); // lišta Vápno / Noc (jako pwa.js)
-      // favicon Letsi (krok 3): adresy se přepíšou až tady, v hlavičce zůstávají ikony ATLASu – bez přepínače se tak
-      // nic z vendor/letsi nestáhne a service worker je nepřidá do sady pro instalaci všem (pwa.js shellAssets)
-      var ic = document.querySelectorAll('link[rel="icon"]');
-      if (ic.length === 2) {
-        ic[0].setAttribute('href', 'vendor/letsi/favicon-32.png'); ic[0].setAttribute('sizes', '32x32');
-        ic[1].setAttribute('href', 'vendor/letsi/favicon.svg');
-      }
-    }
+    look = localStorage.getItem('atlas_look');
   } catch (e) { }
+  var letsi = look !== 'atlas';
+  if (letsi) root.setAttribute('data-brand', 'letsi');
+  // lišta Vápno / Noc, ve vzhledu ATLASu jeho --bg (stejné barvy jako pwa.js THEME_LETSI a THEME)
+  var m = document.querySelectorAll('meta[name="theme-color"]');
+  for (var i = 0; i < m.length; i++) m[i].setAttribute('content', letsi ? (light ? '#F3F4F0' : '#14161F') : (light ? '#eef2fb' : '#080c1a'));
   window.atlasLaunchAt = performance.now(); // úvodní obrazovka se začne kreslit teď (vzlet vlaštovky – app.js launchDone)
 })();
 </script>
@@ -140,7 +137,7 @@ if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configur
 <link rel="stylesheet" href="css/flights.css">
 <link rel="stylesheet" href="css/trip.css">
 <link rel="stylesheet" href="css/pretrip.css">
-<!-- vzhled značky Letsi: všechna pravidla jen pod <html data-brand="letsi"> (přepínač ?vzhled=letsi v úvodním skriptu) -->
+<!-- vzhled Letsi (výchozí): všechna pravidla pod <html data-brand="letsi">, který úvodní skript nastaví všem kromě volby ?vzhled=atlas -->
 <link rel="stylesheet" href="css/letsi.css">
 <!-- desktopové styly (vše v @media od 1024 px): na telefonu neblokují první vykreslení, stáhnou se až po ostatním -->
 <link rel="stylesheet" href="css/desktop.css" media="(min-width:1024px)">
@@ -586,7 +583,7 @@ if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configur
 <script src="js/transfer.js"></script>
 <script src="js/plus.js"></script>
 <!-- kukátko, živý průvodce (vzhled Letsi, krok 4: js/kukatko.js, ten si přidá css/kukatko.css) – jen s data-brand="letsi";
-     bez přepínače se nestáhne nic, proto ho nenačítá značka se src, ale tenhle skript -->
+     ve vzhledu ATLASu (?vzhled=atlas) se nestáhne nic, proto ho nenačítá značka se src, ale tenhle skript -->
 <script>if (document.documentElement.getAttribute('data-brand') === 'letsi') document.body.appendChild(Object.assign(document.createElement('script'), { src: 'js/kukatko.js' }));</script>
 </body>
 </html>

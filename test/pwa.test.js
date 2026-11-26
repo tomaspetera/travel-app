@@ -14,7 +14,7 @@ process.env.ATLAS_MOCK = '1';
 const { createServer } = await import('../server/index.js');
 const { serviceWorker, serveIndex, shellAssets, manifestIcons, RUNTIME_ASSETS, versionAssets, contentVersion } = await import('../server/lib/pwa.js');
 const { inlineScriptHashes } = await import('../server/lib/security.js');
-const { ICONS, renderIcon, crc32, ANCHOR, BG, splashImages, splashLinks, solidPng } = await import('../scripts/build-icons.mjs');
+const { MASTERS, DERIVED, derivedPng, halve, crc32, BG, splashImages, splashLinks, solidPng } = await import('../scripts/build-icons.mjs');
 const { BRAND } = await import('../server/brand.js');
 
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
@@ -23,6 +23,7 @@ const read = (f) => readFileSync(path.join(ROOT, f), 'utf8');
 const INDEX = read('public/index.html');
 const CSS = read('public/css/atlas.css');
 const themeBg = (t) => CSS.match(new RegExp(`\\[data-theme="${t}"\\]\\{[^}]*--bg:(#[0-9a-f]{6})`))[1];
+const letsiBg = (t) => read('public/css/letsi.css').match(new RegExp(`\\[data-theme="${t}"\\]\\{[^}]*--bg:(#[0-9A-Fa-f]{6})`))[1];
 
 let server, base;
 before(async () => {
@@ -65,7 +66,7 @@ function readPng(buf, name) {
 }
 const alphaAt = (img, x, y) => img.px[(y * img.width + x) * 4 + 3];
 
-test('manifest: česky, standalone, barvy z atlas.css, ikony 192/512 i maskovatelná – existují a mají uvedené rozměry', async () => {
+test('manifest: česky, standalone, barvy Letsi (Vápno), ikony 192/512/1024 i maskovatelná – existují a mají uvedené rozměry', async () => {
   const r = await fetch(`${base}/manifest.webmanifest`);
   assert.equal(r.status, 200);
   assert.equal(r.headers.get('content-type'), 'application/manifest+json');
@@ -77,8 +78,10 @@ test('manifest: česky, standalone, barvy z atlas.css, ikony 192/512 i maskovate
   assert.ok(BRAND.name.length <= 12, 'pod ikonou na ploše se vejde celý');
   assert.ok(m.description.length > 40);
   assert.deepEqual([m.id, m.start_url, m.scope, m.display, m.lang], ['/', '/', '/', 'standalone', 'cs']);
-  assert.equal(m.theme_color, themeBg('dark'), 'výchozí motiv ATLASu je tmavý');
-  assert.equal(m.background_color, themeBg('dark'));
+  // Vápno = pozadí vzhledu Letsi ve světlém režimu (balík identity ikona/manifest.webmanifest)
+  assert.equal(m.theme_color, letsiBg('light'));
+  assert.equal(m.background_color, letsiBg('light'));
+  assert.equal(m.theme_color, '#F3F4F0');
   const any = m.icons.filter((i) => (i.purpose || 'any').split(' ').includes('any')).map((i) => i.sizes);
   assert.ok(any.includes('192x192') && any.includes('512x512'), 'instalovatelnost: ikony 192 a 512');
   assert.ok(m.icons.some((i) => i.purpose === 'maskable' && i.sizes === '512x512'), 'Android: maskovatelná ikona');
@@ -94,11 +97,11 @@ test('manifest: česky, standalone, barvy z atlas.css, ikony 192/512 i maskovate
     const opaque = img.px.every((v, i) => i % 4 !== 3 || v === 255);
     if (icon.purpose === 'maskable') {
       assert.ok(opaque, `${icon.src}: maskovatelná ikona bez průhlednosti (Android ji ořízne)`);
-      // úvodní obrazovka Chromu ji ukáže celou: rohy v barvě pozadí (splynou s background_color), jinak přechod
+      // Letsi: Pistácie do krajů (systém ořízne sám), znak kukátka uvnitř bezpečné zóny
       const rgbAt = (x, y) => { const o = (y * img.width + x) * 4; return '#' + [0, 1, 2].map((j) => img.px[o + j].toString(16).padStart(2, '0')).join(''); };
-      assert.equal(rgbAt(0, 0), m.background_color, `${icon.src}: roh = pozadí úvodní obrazovky`);
-      assert.equal(rgbAt(img.width - 1, img.height - 1), m.background_color);
-      // na ploše je vidět střed ikony (podle Androidu a Chromu 67–87 %): kruh 87 % i čtverec 80 % jen přechod
+      assert.equal(rgbAt(0, 0), '#d6de82', `${icon.src}: roh = Pistácie`);
+      assert.equal(rgbAt(img.width - 1, img.height - 1), '#d6de82');
+      // na ploše je vidět střed ikony (podle Androidu a Chromu 67–87 %): kruh 87 % i čtverec 80 % bez okraje v barvě pozadí
       const k = Math.round(img.width * (0.5 - 0.87 / 2 / Math.SQRT2)), q = Math.round(img.width * 0.1);
       assert.notEqual(rgbAt(k, k), m.background_color, `${icon.src}: na ploše žádný tmavý okraj (kruh)`);
       assert.notEqual(rgbAt(q, q), m.background_color, `${icon.src}: na ploše žádný tmavý okraj (čtverec)`);
@@ -110,28 +113,42 @@ test('manifest: česky, standalone, barvy z atlas.css, ikony 192/512 i maskovate
   }
 });
 
-test('ikony v public/icons/ odpovídají scripts/build-icons.mjs (po změně vzhledu stačí skript spustit znovu)', () => {
-  for (const icon of ICONS) {
-    const img = readPng(readFileSync(path.join(PUB, 'icons', icon.file)), icon.file);
-    assert.deepEqual([img.width, img.height], [icon.size, icon.size], icon.file);
-    assert.ok(Buffer.from(renderIcon(icon)).equals(Buffer.from(img.px)), `${icon.file}: pixely jako ze skriptu`);
+test('ikony v public/icons/: hotová PNG z balíku Letsi a zmenšeniny ze scripts/build-icons.mjs (po nové ikoně skript spustit znovu)', () => {
+  const size = { 'icon-1024.png': 1024, 'icon-192.png': 192, 'icon-maskable-512.png': 512, 'apple-touch-icon.png': 180 };
+  assert.deepEqual(Object.values(MASTERS).sort(), Object.keys(size).sort());
+  for (const [f, s] of Object.entries(size)) {
+    const img = readPng(readFileSync(path.join(PUB, 'icons', f)), f);
+    assert.deepEqual([img.width, img.height], [s, s], f);
   }
+  for (const d of DERIVED) {
+    const buf = readFileSync(path.join(PUB, 'icons', d.file));
+    assert.ok(buf.equals(derivedPng(d, path.join(PUB, 'icons'))), `${d.file}: jako ze skriptu (${d.from} na polovinu)`);
+    const img = readPng(buf, d.file), src = readPng(readFileSync(path.join(PUB, 'icons', d.from)), d.from);
+    assert.deepEqual([img.width * 2, img.height * 2], [src.width, src.height]);
+    // průhledné rohy i neprůhledný střed zůstanou (zmenšení váží barvu krytím – okraj dlaždice neztmavne)
+    assert.equal(alphaAt(img, 0, 0), 0);
+    assert.equal(alphaAt(img, img.width >> 1, img.height >> 1), 255);
+  }
+  // zmenšení: průměr 2 × 2 vážený krytím
+  const h = halve({ width: 2, height: 2, px: new Uint8Array([255, 0, 0, 255, 0, 0, 0, 0, 255, 0, 0, 255, 0, 0, 0, 0]) });
+  assert.deepEqual([...h.px], [255, 0, 0, 128]);
   // iOS: bez průhlednosti (průhledné místo by na ploše bylo černé), 180 × 180
   const apple = readPng(readFileSync(path.join(PUB, 'icons', 'apple-touch-icon.png')), 'apple-touch-icon.png');
   assert.equal(apple.width, 180);
   assert.equal(apple.color, 2, 'RGB bez průhlednosti');
 });
 
-test('iOS: úvodní obrazovky aplikace na ploše – jednobarevné v barvě #launch, rozlišení podle media, odkazy ze skriptu', async () => {
+test('iOS: úvodní obrazovky aplikace na ploše – jednobarevné ve Vápně, rozlišení podle media, odkazy ze skriptu', async () => {
   const imgs = splashImages();
   assert.equal(imgs.length, 31, '13 iPhonů na výšku + 9 iPadů na výšku i na šířku');
   assert.equal(new Set(imgs.map((s) => s.file)).size, imgs.length);
   assert.ok(INDEX.includes(splashLinks() + '\n'), 'odkazy v index.html = scripts/build-icons.mjs (npm run build:icons)');
   assert.equal((INDEX.match(/rel="apple-touch-startup-image"/g) || []).length, imgs.length);
-  // barva = pozadí úvodní obrazovky aplikace (#launch) = background_color v manifestu
+  // barva = Vápno: background_color v manifestu a pozadí úvodní obrazovky (#launch) vzhledu Letsi ve světlém režimu
   const hex = '#' + BG.map((v) => v.toString(16).padStart(2, '0')).join('');
-  assert.equal(INDEX.match(/#launch\{position:fixed;[^}]*background:(#[0-9a-f]{6})/)[1], hex);
-  assert.equal(JSON.parse(read('public/manifest.webmanifest')).background_color, hex);
+  assert.equal(hex, letsiBg('light').toLowerCase());
+  assert.equal(JSON.parse(read('public/manifest.webmanifest')).background_color.toLowerCase(), hex);
+  assert.match(read('public/css/letsi.css'), /:root\[data-brand="letsi"\] #launch\{background:var\(--bg\)/);
   for (const s of imgs) {
     // media: CSS rozměry displeje na výšku × poměr pixelů = rozměry obrázku v dané orientaci
     const [, w, h, r, o] = s.media.match(/^\(device-width: (\d+)px\) and \(device-height: (\d+)px\) and \(-webkit-device-pixel-ratio: ([23])\) and \(orientation: (portrait|landscape)\)$/).map((x, i) => (i && i < 4 ? +x : x));
@@ -161,23 +178,20 @@ test('iOS: úvodní obrazovky aplikace na ploše – jednobarevné v barvě #lau
   assert.ok(!serviceWorker({ publicDir: PUB, dataDir: path.join(ROOT, 'data') }).precache.some((u) => /splash/.test(u)));
 });
 
-test('boční panel: ikona ATLASu je stejná vlaštovka jako ikona aplikace a favicon', () => {
+test('boční panel: ve vzhledu ATLASu (?vzhled=atlas) zůstává vlaštovka, favicon je pro všechny Letsi', () => {
   const logo = INDEX.match(/<div class="brand-logo">([\s\S]*?)<\/div>/)[1];
-  // trojúhelníky horního a spodního (80 %) křídla = favicon „M20 6l-7 13-3-6-6-3z“ rozdělený přehybem
+  // trojúhelníky horního a spodního (80 %) křídla vlaštovky ATLASu rozdělené přehybem
   assert.match(logo, /<path d="M20 6 10 13 4 10z" fill="#fff"\/><path d="M20 6 13 19 10 13z" fill="#fff" fill-opacity="\.8"\/>/);
-  assert.match(INDEX, /<link rel="icon" href="data:image\/svg\+xml,[^"]*M20 6l-7 13-3-6-6-3z/);
-  // velikost a kotva jako ikona „any“ (build-icons.mjs) – v celém čtverci loga
-  const [x, y, w, h] = logo.match(/viewBox="([^"]+)"/)[1].split(' ').map(Number);
-  const plane = ICONS.find((i) => i.file === 'icon-192.png').plane;
-  assert.equal(w, h);
-  assert.ok(Math.abs(w - 24 / plane) < 0.001 && Math.abs(x + w / 2 - ANCHOR[0]) < 0.001 && Math.abs(y + h / 2 - ANCHOR[1]) < 0.001, `${x} ${y} ${w}`);
   assert.match(CSS, /\.brand-logo svg\{width:100%;height:100%\}/);
+  assert.deepEqual([...INDEX.matchAll(/<link rel="icon" href="([^"]+)"/g)].map((m) => m[1]), ['icons/icon-96.png', 'vendor/letsi/favicon-32.png', 'vendor/letsi/favicon.svg']);
+  assert.doesNotMatch(INDEX, /<link rel="icon" href="data:/);
 });
 
 test('index.html: manifest, barva lišty pro tmavý i světlý motiv, ikona pro iOS a pwa.js', () => {
   assert.match(INDEX, /<link rel="manifest" href="manifest\.webmanifest">/);
-  const metas = [...INDEX.matchAll(/<meta name="theme-color" content="(#[0-9a-f]{6})" media="\(prefers-color-scheme: (dark|light)\)">/g)];
-  assert.deepEqual(metas.map((x) => [x[2], x[1]]), [['dark', themeBg('dark')], ['light', themeBg('light')]]);
+  // výchozí vzhled Letsi: Noc / Vápno (úvodní skript je přepíše podle motivu a vzhledu)
+  const metas = [...INDEX.matchAll(/<meta name="theme-color" content="(#[0-9A-Fa-f]{6})" media="\(prefers-color-scheme: (dark|light)\)">/g)];
+  assert.deepEqual(metas.map((x) => [x[2], x[1]]), [['dark', letsiBg('dark')], ['light', letsiBg('light')]]);
   assert.match(INDEX, /<link rel="apple-touch-icon" href="icons\/apple-touch-icon\.png">/);
   // název pod ikonou na iPhonu (apple-mobile-web-app-title) dosadí server z server/brand.js – test/seo.test.js
   assert.match(INDEX, /<!-- brand\b[\s\S]*?<!-- \/brand -->/);
@@ -708,13 +722,12 @@ test('service worker v akci: instalace ze sítě s ověřením, aktivace smaže 
   assert.equal(answer, 'v2');
 });
 
-test('písma vzhledu Letsi: nejsou v sadě pro instalaci (stahují se jen tomu, kdo vzhled používá), service worker je po prvním stažení uloží pro offline a po nové verzi znovu', async () => {
-  const LETSI = /^vendor\/fonts\/letsi\//;
-  // v seznamu ze serveru ani v RUNTIME_ASSETS – jinak by si ~330 kB stáhl každý, i bez vzhledu Letsi
-  const list = JSON.parse((await (await fetch(`${base}/sw.js`)).text()).match(/^const PRECACHE = (\[.*\]);/m)[1]);
-  assert.deepEqual([...list, ...RUNTIME_ASSETS].filter((u) => LETSI.test(u)), []);
+test('písma vzhledu Letsi: vzhled je výchozí, proto jsou v sadě pro instalaci; service worker je i bez ní uloží po prvním stažení a po nové verzi znovu', async () => {
   const fonts = [...read('public/css/letsi.css').matchAll(/url\(\.\.\/(vendor\/fonts\/letsi\/[^)]+\.woff2)\)/g)].map((m) => m[1]);
   assert.equal(fonts.length, 6);
+  // v seznamu ze serveru (cssAssets z css/letsi.css): offline hned po první návštěvě, ne až po prvním použití písma
+  const list = JSON.parse((await (await fetch(`${base}/sw.js`)).text()).match(/^const PRECACHE = (\[.*\]);/m)[1]);
+  for (const f of fonts) assert.ok(list.includes(f), `v sadě chybí ${f}`);
 
   const src = (build) => read('public/sw.js').replace(/^const BUILD = .*$/m, `const BUILD = '${build}';`).replace(/^const PRECACHE = .*$/m, `const PRECACHE = ${JSON.stringify(['./'])};`);
   const sw = loadSw(src('v1'));

@@ -1,23 +1,20 @@
 #!/usr/bin/env node
-// Ikony aplikace na ploše (PWA) do public/icons/ – stejná značka jako favicon v index.html: čtverec s přechodem
-// barev ATLAS (--grad v public/css/atlas.css) a bílé papírové letadlo (odstín na spodním křídle = přehyb).
-// Bez závislostí: tvary se vykreslí po pixelech s vyhlazením (8 × 8 vzorků na pixel) a PNG se zakóduje přes node:zlib.
+// Ikony aplikace na ploše (PWA) do public/icons/ – ikona Letsi: kukátko na dlaždici Pistácie (balík identity Letsi 2.1,
+// složka ikona/). Hotová PNG z balíku se do public/icons/ kopírují beze změny (MASTERS); chybějící velikosti tenhle
+// skript dopočítá zmenšením na polovinu a nakreslí úvodní obrazovky iOS. Bez závislostí: PNG čte i zapisuje přes node:zlib.
 //
 //   node scripts/build-icons.mjs        (= npm run build:icons)
 //
-//  icon-192.png, icon-512.png  „any“ – zaoblený čtverec s průhlednými rohy (Chrome a Edge na počítači, Android bez masky)
-//  icon-maskable-512.png       „maskable“ – bez průhlednosti: přechod přes celou plochu, jen rohy zaoblené (0,17 strany)
-//                              v barvě pozadí aplikace (#080c1a), letadlo v bezpečné zóně. Na ploše a v přehledu aplikací
-//                              ho Android ořízne do kruhu či zaobleného čtverce (Xiaomi ukáže skoro celou plochu – rohy
-//                              ořízne zaoblením aspoň 0,17, takže je vidět jen přechod); na úvodní obrazovce ho Chrome
-//                              ukáže celý – tmavé rohy splynou s pozadím a zbude zaoblená ikona.
-//  apple-touch-icon.png        180 × 180 pro iPhone a iPad – bez průhlednosti (rohy zaoblí iOS sám)
-//  icon-96.png                 zkratky v manifestu (dlouhé podržení ikony na Androidu)
-//  splash/<š>x<v>.png          úvodní obrazovky aplikace na ploše iPhonu a iPadu (apple-touch-startup-image, viz SPLASH)
-//                              + jejich odkazy v public/index.html mezi značkami <!-- ios-splash --> a <!-- /ios-splash -->
+//  icon-1024.png, icon-192.png    „any“ – z balíku (ikona s průhlednými rohy)
+//  icon-maskable-512.png          „maskable“ – z balíku (icon-512-maskable.png): Pistácie do krajů, znak v bezpečné zóně
+//  apple-touch-icon.png           180 × 180 pro iPhone a iPad – z balíku (apple-touch-icon-180.png), bez průhlednosti
+//  icon-512.png                   „any“ – icon-1024.png zmenšená na polovinu (průměr 2 × 2 pixelů)
+//  icon-96.png                    zkratky v manifestu a ikona u výsledku vyhledávání – icon-192.png zmenšená na polovinu
+//  splash/<š>x<v>.png             úvodní obrazovky aplikace na ploše iPhonu a iPadu (apple-touch-startup-image, viz SPLASH)
+//                                 + jejich odkazy v public/index.html mezi značkami <!-- ios-splash --> a <!-- /ios-splash -->
 //
-// Výpočet je deterministický (jen sčítání, násobení a porovnání) – test/pwa.test.js ověřuje, že uložené PNG
-// odpovídají tomuto skriptu, takže po změně vzhledu stačí skript znovu spustit.
+// Výpočet je deterministický – test/pwa.test.js ověřuje, že uložené PNG odpovídají tomuto skriptu. Nová ikona z balíku:
+// zkopírovat MASTERS do public/icons/ pod jejich názvy a skript spustit znovu.
 import { writeFileSync, mkdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
@@ -26,32 +23,16 @@ import zlib from 'node:zlib';
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 export const OUT_DIR = path.join(root, 'public', 'icons');
 
-// --grad z atlas.css: linear-gradient(135deg, #22d3ee 0%, #5b8cff 45%, #a855f7 100%) – u čtverce z levého horního rohu do pravého dolního
-const STOPS = [[0, [0x22, 0xd3, 0xee]], [0.45, [0x5b, 0x8c, 0xff]], [1, [0xa8, 0x55, 0xf7]]];
-// Letadlo z faviconu (viewBox 24 × 24): M20 6 l-7 13 -3 -6 -6 -3 z → špička A, spodní křídlo B, přehyb C, horní křídlo D
-const A = [20, 6], B = [13, 19], C = [10, 13], D = [4, 10];
-const TOP_WING = [A, C, D]; // bílé
-const LOW_WING = [A, B, C]; // bílá s 80 % krytím – přehyb papíru
-const LOW_ALPHA = 0.8;
-// Kotva letadla: střed mezi středem obrysu (12; 12,5) a těžištěm plochy (12,9; 11,25) – opticky uprostřed.
-export const ANCHOR = [12.45, 11.9];
-
-/**
- * Ikony: soubor, rozměr, zaoblení rohů (podíl strany, 0 = celá plocha), velikost letadla (1 = jako ve faviconu),
- * volitelně okraj kolem čtverce s přechodem (podíl strany) a barva pozadí v něm (jinak průhledné).
- */
-export const BG = [0x08, 0x0c, 0x1a]; // --bg tmavého motivu = background_color v manifestu
-export const ICONS = [
-  { file: 'icon-192.png', size: 192, radius: 0.22, plane: 0.94 },
-  { file: 'icon-512.png', size: 512, radius: 0.22, plane: 0.94 },
-  { file: 'icon-96.png', size: 96, radius: 0.22, plane: 0.94 },
-  { file: 'icon-maskable-512.png', size: 512, radius: 0.17, plane: 0.72, bg: BG },
-  { file: 'apple-touch-icon.png', size: 180, radius: 0, plane: 0.86 },
-];
+// Vápno #F3F4F0 = pozadí aplikace ve světlém režimu = background_color v manifestu (úvodní obrazovka Androidu)
+export const BG = [0xf3, 0xf4, 0xf0];
+/** Hotové ikony z balíku Letsi (ikona/) → název v public/icons/. */
+export const MASTERS = { 'icon-1024.png': 'icon-1024.png', 'icon-192.png': 'icon-192.png', 'icon-512-maskable.png': 'icon-maskable-512.png', 'apple-touch-icon-180.png': 'apple-touch-icon.png' };
+/** Dopočítané ikony: soubor ← zdroj v public/icons/ zmenšený na polovinu. */
+export const DERIVED = [{ file: 'icon-512.png', from: 'icon-1024.png' }, { file: 'icon-96.png', from: 'icon-192.png' }];
 
 /*
  * Úvodní obrazovka aplikace na ploše iPhonu a iPadu: iOS ji ukáže od klepnutí na ikonu do prvního vykreslení stránky –
- * bez ní tam svítí bílá. Jen pozadí úvodní obrazovky aplikace (#launch v index.html, BG); ikonu a název dokreslí #launch
+ * bez ní tam svítí bílá. Jen pozadí Vápno (BG, jako #launch ve vzhledu Letsi ve světlém režimu); logo dokreslí #launch
  * hned po načtení. Poloha ikony na displeji záleží na výšce stavového řádku (styl „black“ posouvá stránku pod něj) –
  * obrázek s ikonou o kousek vedle by při prvním vykreslení poskočil. iOS vezme jen obrázek přesně v rozlišení displeje
  * (media v index.html), proto jeden na každý displej: [šířka, výška v CSS px na výšku, poměr pixelů, i na šířku?].
@@ -76,111 +57,6 @@ export const splashImages = () => SPLASH.flatMap(([w, h, ratio, both]) => ['port
 /** Odkazy na úvodní obrazovky do index.html (mezi značkami). */
 export const splashLinks = () => ['<!-- ios-splash: úvodní obrazovky aplikace na ploše iPhonu a iPadu – scripts/build-icons.mjs -->',
   ...splashImages().map((s) => `<link rel="apple-touch-startup-image" media="${s.media}" href="icons/${s.file}">`), '<!-- /ios-splash -->'].join('\n');
-
-const SS = 8; // vzorků na pixel v každém směru
-
-function gradient(t) {
-  for (let i = 1; i < STOPS.length; i++) {
-    const [t1, c1] = STOPS[i];
-    if (t <= t1 || i === STOPS.length - 1) {
-      const [t0, c0] = STOPS[i - 1];
-      const k = Math.min(1, Math.max(0, (t - t0) / (t1 - t0)));
-      return [0, 1, 2].map((j) => c0[j] + (c1[j] - c0[j]) * k);
-    }
-  }
-  return STOPS[0][1];
-}
-
-// Bod uvnitř trojúhelníku (stejné znaménko vektorových součinů; hrana se počítá dovnitř).
-function inTri(x, y, [a, b, c]) {
-  const d1 = (x - b[0]) * (a[1] - b[1]) - (a[0] - b[0]) * (y - b[1]);
-  const d2 = (x - c[0]) * (b[1] - c[1]) - (b[0] - c[0]) * (y - c[1]);
-  const d3 = (x - a[0]) * (c[1] - a[1]) - (c[0] - a[0]) * (y - a[1]);
-  return !((d1 < 0 || d2 < 0 || d3 < 0) && (d1 > 0 || d2 > 0 || d3 > 0));
-}
-
-function inRoundRect(x, y, w, r) {
-  if (r <= 0) return x >= 0 && y >= 0 && x <= w && y <= w;
-  if (x < 0 || y < 0 || x > w || y > w) return false;
-  const cx = x < r ? r : x > w - r ? w - r : x;
-  const cy = y < r ? r : y > w - r ? w - r : y;
-  const dx = x - cx, dy = y - cy;
-  return dx * dx + dy * dy <= r * r;
-}
-
-// Vzdálenost od hranice zaobleného čtverce (kladná venku, záporná uvnitř) a od úsečky – jen pro rozhodnutí,
-// který pixel leží u hrany a potřebuje vzorkování (výsledek to nemění, jen zrychlí).
-function roundRectDist(x, y, w, r) {
-  const qx = Math.abs(x - w / 2) - (w / 2 - r), qy = Math.abs(y - w / 2) - (w / 2 - r);
-  const ox = Math.max(qx, 0), oy = Math.max(qy, 0);
-  return Math.sqrt(ox * ox + oy * oy) + Math.min(Math.max(qx, qy), 0) - r;
-}
-function segDist(x, y, [u, v]) {
-  const dx = v[0] - u[0], dy = v[1] - u[1];
-  const t = Math.min(1, Math.max(0, ((x - u[0]) * dx + (y - u[1]) * dy) / (dx * dx + dy * dy)));
-  const ex = x - (u[0] + t * dx), ey = y - (u[1] + t * dy);
-  return Math.sqrt(ex * ex + ey * ey);
-}
-const EDGES = [[A, C], [C, D], [D, A], [A, B], [B, C]];
-const NEAR = 0.75; // px – víc než půl úhlopříčky pixelu: dál od všech hran mají všechny vzorky pixelu stejný výsledek
-
-/** Vykreslí ikonu → RGBA (Uint8Array, size × size × 4, nepremultiplikované). */
-export function renderIcon({ size, radius, plane, inset = 0, bg = null }) {
-  const px = new Uint8Array(size * size * 4);
-  const unit = (size / 24) * plane; // pixelů na jednotku faviconu
-  // souřadnice pixelu → souřadnice letadla (viewBox faviconu)
-  const toPlane = (v, i) => (v - size / 2) / unit + ANCHOR[i];
-  const r = radius * size;
-  const off = inset * size, w = size - 2 * off; // čtverec s přechodem: [off, off + w]
-  const inRect = (x, y) => inRoundRect(x - off, y - off, w, r);
-  const n = SS * SS;
-  for (let y = 0; y < size; y++) {
-    for (let x = 0; x < size; x++) {
-      const g = gradient((x + 0.5 + y + 0.5) / (2 * size));
-      let inside = 0, top = 0, low = 0;
-      const cu = toPlane(x + 0.5, 0), cv = toPlane(y + 0.5, 1);
-      const edge = ((r > 0 || off > 0) && Math.abs(roundRectDist(x + 0.5 - off, y + 0.5 - off, w, r)) < NEAR) || EDGES.some((e) => segDist(cu, cv, e) * unit < NEAR);
-      if (!edge) {
-        // celý pixel na jedné straně všech hran = stejně jako 8 × 8 vzorků se stejným výsledkem
-        if (inRect(x + 0.5, y + 0.5)) {
-          inside = n;
-          if (inTri(cu, cv, TOP_WING)) top = n;
-          else if (inTri(cu, cv, LOW_WING)) low = n;
-        }
-      } else {
-        for (let sy = 0; sy < SS; sy++) {
-          const yy = y + (sy + 0.5) / SS;
-          for (let sx = 0; sx < SS; sx++) {
-            const xx = x + (sx + 0.5) / SS;
-            if (!inRect(xx, yy)) continue;
-            inside++;
-            const u = toPlane(xx, 0), v = toPlane(yy, 1);
-            if (inTri(u, v, TOP_WING)) top++;
-            else if (inTri(u, v, LOW_WING)) low++;
-          }
-        }
-      }
-      const o = (y * size + x) * 4;
-      if (bg) {
-        // neprůhledná ikona: mimo čtverec barva pozadí, na hraně jejich směs
-        for (let j = 0; j < 3; j++) {
-          const lowC = g[j] + (255 - g[j]) * LOW_ALPHA;
-          px[o + j] = Math.round((g[j] * (inside - top - low) + 255 * top + lowC * low + bg[j] * (n - inside)) / n);
-        }
-        px[o + 3] = 255;
-        continue;
-      }
-      if (!inside) continue;
-      for (let j = 0; j < 3; j++) {
-        const lowC = g[j] + (255 - g[j]) * LOW_ALPHA;
-        const sum = g[j] * (inside - top - low) + 255 * top + lowC * low;
-        px[o + j] = Math.round(sum / inside);
-      }
-      px[o + 3] = Math.round((inside / n) * 255);
-    }
-  }
-  return px;
-}
 
 /* ---------- PNG ---------- */
 const CRC_TABLE = Array.from({ length: 256 }, (_, n) => {
@@ -260,12 +136,68 @@ export function encodePng(rgba, size) {
   ]);
 }
 
+/** PNG (8 bitů, RGB nebo RGBA, bez prokládání) → { width, height, px } s pixely RGBA. */
+export function decodePng(buf) {
+  let ihdr = null;
+  const idat = [];
+  for (let off = 8; off < buf.length;) {
+    const len = buf.readUInt32BE(off), type = buf.toString('ascii', off + 4, off + 8), data = buf.subarray(off + 8, off + 8 + len);
+    if (type === 'IHDR') ihdr = { width: data.readUInt32BE(0), height: data.readUInt32BE(4), depth: data[8], color: data[9], interlace: data[12] };
+    if (type === 'IDAT') idat.push(data);
+    off += 12 + len;
+  }
+  if (!ihdr || ihdr.depth !== 8 || ![2, 6].includes(ihdr.color) || ihdr.interlace) throw new Error('PNG: jen 8bitové RGB/RGBA bez prokládání');
+  const { width, height } = ihdr, bpp = ihdr.color === 6 ? 4 : 3, stride = width * bpp, raw = zlib.inflateSync(Buffer.concat(idat));
+  const px = new Uint8Array(width * height * 4);
+  let prev = new Uint8Array(stride);
+  for (let y = 0; y < height; y++) {
+    const f = raw[y * (stride + 1)], line = new Uint8Array(stride);
+    for (let i = 0; i < stride; i++) {
+      const a = i >= bpp ? line[i - bpp] : 0, b = prev[i], c = i >= bpp ? prev[i - bpp] : 0;
+      const pred = f === 0 ? 0 : f === 1 ? a : f === 2 ? b : f === 3 ? (a + b) >> 1 : paeth(a, b, c);
+      line[i] = (raw[y * (stride + 1) + 1 + i] + pred) & 0xff;
+    }
+    for (let x = 0; x < width; x++) for (let j = 0; j < 4; j++) px[(y * width + x) * 4 + j] = j < bpp ? line[x * bpp + j] : 255;
+    prev = line;
+  }
+  return { width, height, px };
+}
+
+/**
+ * Zmenšení na polovinu: průměr bloku 2 × 2. Barva vážená krytím (jinak by průhledné pixely rohů, které mají barvu
+ * černou, ztmavily okraj dlaždice).
+ */
+export function halve({ width, height, px }) {
+  const w = width >> 1, h = height >> 1, out = new Uint8Array(w * h * 4);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      let a = 0;
+      const c = [0, 0, 0];
+      for (const [dx, dy] of [[0, 0], [1, 0], [0, 1], [1, 1]]) {
+        const o = ((2 * y + dy) * width + 2 * x + dx) * 4;
+        a += px[o + 3];
+        for (let j = 0; j < 3; j++) c[j] += px[o + j] * px[o + 3];
+      }
+      const o = (y * w + x) * 4;
+      for (let j = 0; j < 3; j++) out[o + j] = a ? Math.round(c[j] / a) : 0;
+      out[o + 3] = Math.round(a / 4);
+    }
+  }
+  return { width: w, height: h, px: out };
+}
+
+/** Dopočítaná ikona z uložených souborů v dir → PNG. */
+export const derivedPng = ({ from }, dir = OUT_DIR) => {
+  const img = halve(decodePng(readFileSync(path.join(dir, from))));
+  return encodePng(img.px, img.width);
+};
+
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   mkdirSync(OUT_DIR, { recursive: true });
-  for (const icon of ICONS) {
-    const png = encodePng(renderIcon(icon), icon.size);
-    writeFileSync(path.join(OUT_DIR, icon.file), png);
-    console.log(`${icon.file}: ${icon.size}×${icon.size}, ${(png.length / 1024).toFixed(1)} kB`);
+  for (const d of DERIVED) {
+    const png = derivedPng(d);
+    writeFileSync(path.join(OUT_DIR, d.file), png);
+    console.log(`${d.file} ← ${d.from}: ${(png.length / 1024).toFixed(1)} kB`);
   }
   mkdirSync(path.join(OUT_DIR, 'splash'), { recursive: true });
   for (const s of splashImages()) writeFileSync(path.join(OUT_DIR, s.file), solidPng(s.width, s.height, BG));

@@ -12,6 +12,8 @@ const INDEX = read('index.html');
 const APP = read('js/app.js');
 const CSS = read('css/atlas.css');
 const bg = (t) => CSS.match(new RegExp(`\\[data-theme="${t}"\\]\\{[^}]*--bg:(#[0-9a-f]{6})`))[1];
+// výchozí vzhled je Letsi: lišta ve Vápně / Noci (--bg z letsi.css); --bg ATLASu jen s volbou ?vzhled=atlas
+const letsiBg = (t) => read('css/letsi.css').match(new RegExp(`\\[data-theme="${t}"\\]\\{[^}]*--bg:(#[0-9A-Fa-f]{6})`))[1];
 const BOOT = [...INDEX.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]).find((s) => s.includes("localStorage.getItem('atlas_v1')"));
 const pick = (...names) => names.map((n) => {
   const m = APP.match(new RegExp(`^(const ${n} = .*|function ${n}\\([^\\n]*\\})$`, 'm'));
@@ -42,15 +44,15 @@ function boot(stored, sys) {
 test('start: bez uloženého motivu podle systému (i barva lišty), zvolený nebo dřívější uložený motiv zůstane', () => {
   assert.ok(BOOT, 'skript s motivem v index.html');
   // nový uživatel: nic uloženého, nebo stav uložený už s motivem „podle systému“ (theme null)
-  assert.deepEqual(boot(undefined, 'light'), { theme: 'light', bar: [bg('light')] });
-  assert.deepEqual(boot(undefined, 'dark'), { theme: 'dark', bar: [bg('dark')] });
-  assert.deepEqual(boot({ theme: null, visited: [] }, 'light'), { theme: 'light', bar: [bg('light')] });
-  assert.deepEqual(boot('{poškozené', 'light'), { theme: 'light', bar: [bg('light')] });
+  assert.deepEqual(boot(undefined, 'light'), { theme: 'light', bar: [letsiBg('light')] });
+  assert.deepEqual(boot(undefined, 'dark'), { theme: 'dark', bar: [letsiBg('dark')] });
+  assert.deepEqual(boot({ theme: null, visited: [] }, 'light'), { theme: 'light', bar: [letsiBg('light')] });
+  assert.deepEqual(boot('{poškozené', 'light'), { theme: 'light', bar: [letsiBg('light')] });
   // prohlížeč bez prefers-color-scheme: jako dřív tmavý
-  assert.deepEqual(boot(undefined, null), { theme: 'dark', bar: [bg('dark')] });
+  assert.deepEqual(boot(undefined, null), { theme: 'dark', bar: [letsiBg('dark')] });
   // zvolený motiv (a výchozí tmavý uložený dřívější verzí – od zvoleného nejde odlišit) přebije systém
-  assert.deepEqual(boot({ theme: 'dark' }, 'light'), { theme: 'dark', bar: [bg('dark')] });
-  assert.deepEqual(boot({ theme: 'light' }, 'dark'), { theme: 'light', bar: [bg('light')] });
+  assert.deepEqual(boot({ theme: 'dark' }, 'light'), { theme: 'dark', bar: [letsiBg('dark')] });
+  assert.deepEqual(boot({ theme: 'light' }, 'dark'), { theme: 'light', bar: [letsiBg('light')] });
 });
 
 test('app.js: nový stav má motiv „podle systému“, themeOf = stejné pravidlo jako start v index.html', () => {

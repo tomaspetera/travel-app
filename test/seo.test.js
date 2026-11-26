@@ -69,7 +69,7 @@ test('stránka: titulek, popis, kanonická adresa, Open Graph a Twitter Card z b
   assert.ok(at > 0 && at < 4096 && at < html.indexOf('apple-touch-startup-image'), `og:image na ${at}. znaku`);
   assert.ok(!html.includes('<!-- brand') && !html.includes('<!-- /brand'), 'blok z index.html nahrazený celý');
   // ostatní základ pro vyhledávače a instalaci zůstává v index.html
-  assert.match(html, /<meta name="theme-color" content="#[0-9a-f]{6}" media="\(prefers-color-scheme: light\)">/);
+  assert.match(html, /<meta name="theme-color" content="#[0-9a-fA-F]{6}" media="\(prefers-color-scheme: light\)">/);
   assert.match(html, /<link rel="apple-touch-icon" href="icons\/apple-touch-icon\.png">/);
   assert.match(html, /<link rel="icon" href="icons\/icon-96\.png" sizes="96x96" type="image\/png">/);
   assert.match(html, /<meta name="viewport" content="width=device-width/);

@@ -82,7 +82,7 @@
     if (bud) this.clony = [ZAVRENO, ZAVRENO];                           // probuzení: start se zavřenými clonami
     this._ticho(true); this._zpet(); svg.getBoundingClientRect(); this._ticho();
     if (bud) this._pozdeji(function () { s.stav = 'noc'; s.state('koukam'); }, 150);
-    else this._planuj();
+    else { this._planuj(); this._usinani(); }   // klid se počítá od zobrazení, ne až od prvního doteku
   }
   var P = Kuk.prototype;
 
@@ -319,6 +319,7 @@
   //   to je nejlevnější cena celého hledání bez ohledu na řazení a filtry, proto k ní patří slunce.
   var CENA = '#results .res-head b.good';
   var HLEDAM_OD = 300;   // Hledám jen při skutečném načítání od 300 ms (chovani.md 6)
+  var USINA_ZA = 20000;  // ve tmě po 20 s klidu usne (výraz Noc, chovani.md 10); probudí ho klepnutí nebo klávesa
 
   /** Popis stránky z DOM → { sekce, hleda, chyba, prazdno, cena } (doc = document; v testu napodobený). */
   function popis(doc) {
@@ -429,7 +430,7 @@
       var host = kde === 'prehled' ? hostPrehled() : kde === 'lety' ? hostLety() : null;
       if (host) {
         // probuzení (clony nahoru) jen při otevření aplikace na Přehledu, ne při přechodu mezi obrazovkami
-        k = window.Kukatko.mount(host, { size: kde === 'prehled' ? 64 : 48, probud: prvni && kde === 'prehled', naStav: hlas });
+        k = window.Kukatko.mount(host, { size: kde === 'prehled' ? 64 : 48, probud: prvni && kde === 'prehled', usinaZa: USINA_ZA, naStav: hlas });
         vyraz = 'koukam';
       } else kde = null;
       prvni = false;
