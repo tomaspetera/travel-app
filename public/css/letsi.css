@@ -256,9 +256,10 @@
      který by service worker přidal do sady pro instalaci všem (server/lib/pwa.js shellAssets);
    – maska vezme z ikony jen tvar, barvu dodá currentColor: Noc, v tmavém režimu Vápno, neaktivní text-3 – jako sprite.
    Každá ikona je samostatné SVG (maska na #symbol ze spritu nefunguje). Původní cesty ATLASu se jen skryjí; aria-hidden
-   a aria-label tlačítek zůstávají z index.html a app.js. */
-:root[data-brand="letsi"] :is(.mobile-nav .mi,.nav-item,.more-tile .mt-ico,.icon-btn,.theme-toggle,.sf-ico,.sf-swap,.search-wide)>svg{-webkit-mask:var(--letsi-ikona) center/contain no-repeat;mask:var(--letsi-ikona) center/contain no-repeat;background:currentColor}
-:root[data-brand="letsi"] :is(.mobile-nav .mi,.nav-item,.more-tile .mt-ico,.icon-btn,.theme-toggle,.sf-ico,.sf-swap,.search-wide)>svg>*{display:none}
+   a aria-label tlačítek zůstávají z index.html a app.js. Maska se týká jen prvků, které mají náhradu níž: bez --letsi-ikona
+   by po skrytí cest zbyl plný čtverec barvy textu (proto ne obecně .icon-btn – křížky oken kreslí flights.js). */
+:root[data-brand="letsi"] :is(.mobile-nav .mi,.nav-item,.more-tile .mt-ico,#refreshBtn,#menuBtn,.icon-btn[aria-label="Zavřít"],.theme-toggle,.sf-ico,.sf-swap,.search-wide)>svg{-webkit-mask:var(--letsi-ikona) center/contain no-repeat;mask:var(--letsi-ikona) center/contain no-repeat;background:currentColor}
+:root[data-brand="letsi"] :is(.mobile-nav .mi,.nav-item,.more-tile .mt-ico,#refreshBtn,#menuBtn,.icon-btn[aria-label="Zavřít"],.theme-toggle,.sf-ico,.sf-swap,.search-wide)>svg>*{display:none}
 /* význam podle ikony.json; Lety = hledání → znak kukátka (README sady: „Hledat je znak kukátka, 27 px“; mono má okénka
    jako otvory, takže maska nechá rám a zorničky). Aktivní záložku nese barva a tučný popisek, ikona zůstává obrysová
    (pravidlo 7 sady; plné varianty má sada jen pro Hlídám, Odloženo, Chci tam, Místo a Pole) */
@@ -276,6 +277,7 @@
 :root[data-brand="letsi"] .sf-to .sf-ico>svg{--letsi-ikona:url(../vendor/letsi/ikony/prilet.svg)}
 :root[data-brand="letsi"] .sf-swap>svg{--letsi-ikona:url(../vendor/letsi/ikony/prohodit.svg)}
 :root[data-brand="letsi"] .search-wide>svg{--letsi-ikona:url(../vendor/letsi/ikony/lupa.svg)}
+:root[data-brand="letsi"] .icon-btn[aria-label="Zavřít"]>svg{--letsi-ikona:url(../vendor/letsi/ikony/zavrit.svg)}
 /* velikosti z README sady: 24 px lišty, 20 px pole a tlačítka, znak kukátka 27 px */
 :root[data-brand="letsi"] :is(.mobile-nav .mi,.nav-item)>svg{width:24px;height:24px}
 :root[data-brand="letsi"] .mobile-nav .mi[data-view="flights"]>svg{width:27px}

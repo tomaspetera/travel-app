@@ -244,6 +244,17 @@ test('ikony Letsi: ikony lišt a tlačítek z index.html mají náhradu, velikos
   assert.match(SRC, /\[data-theme="dark"\] #launch::before\{background-image:url\(\.\.\/vendor\/letsi\/letsi-logo-negativ\.svg\)\}/);
 });
 
+test('maska jen u ikon s náhradou: křížek Zavřít z flights.js má ikonu zavřít, ne plný čtverec barvy textu', () => {
+  // maska skryje cesty ATLASu a podloží barvu textu – bez --letsi-ikona zbude čtverec, proto ne obecně .icon-btn
+  const mask = SRC.split('\n').find((l) => l.includes('{-webkit-mask:var(--letsi-ikona)')).split('{')[0];
+  assert.doesNotMatch(mask, /\.icon-btn(?!\[aria-label="Zavřít"\])/);
+  assert.match(SRC, /\.icon-btn\[aria-label="Zavřít"\]>svg\{--letsi-ikona:url\(\.\.\/vendor\/letsi\/ikony\/zavrit\.svg\)\}/);
+  const js = readdirSync(pub('js')).filter((f) => f.endsWith('.js')).map((f) => read(`js/${f}`)).join('\n');
+  const btns = [...(INDEX + js).matchAll(/<button[^>]*class="icon-btn[^"]*"[^>]*>/g)].map((m) => m[0]);
+  assert.ok(btns.length >= 5, `${btns.length} tlačítek`);
+  for (const b of btns) assert.match(b, /id="(refreshBtn|menuBtn)"|aria-label="Zavřít"/, b);
+});
+
 /** <svg> v HTML bez jména pro čtečku: ikona musí mít aria-hidden (sama nebo předek), nebo tlačítko či odkaz aria-label. */
 function unlabeledSvgs(html) {
   const src = html.replace(/<!--[\s\S]*?-->/g, '').replace(/<(script|style)\b[\s\S]*?<\/\1>/g, '');
