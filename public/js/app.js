@@ -951,7 +951,7 @@ function showNow() {
    sady (O aplikaci ji ukazuje, uvítání nováčka se k ní váže). */
 const WN_ID = '2026-11-26c';
 const WHATS_NEW = [
-  ['✨', 'ATLAS je teď Letsi', 'nový vzhled, kukátko, které hledá s tebou, a nové ikony. Všechno ostatní zůstává – tvoje cesty i nastavení taky.'],
+  ['✨', 'ATLAS je teď Letsi', 'nový vzhled, kukátko, které hledá s tebou, nové ikony a adresa letsi.cz. Cesty a nastavení z dřívější adresy se sem samy nepřenesou – zálohu ze souboru obnovíš přes <b>Další</b> → <b>Přenos a záloha</b>.'],
   ['🤝', 'Pomáhat se zlepšováním', 'když chceš, zapni pod <b>Další</b> → <b>Pomáhat se zlepšováním</b>. Aplikace pak posílá, které obrazovky otevíráš a jaké hlavní akce děláš – nikdy co píšeš, kam jedeš, ceny ani nic o tobě. Záznam se smaže do 31 dnů a vypneš to tamtéž. Ve výchozím stavu je to vypnuté.'],
   ['⭐', 'Letsi Plus', 'podívej se, co zůstane zdarma a co chystáme navíc – a řekni nám, kolik by ti stálo za to. Najdeš ho pod <b>Další</b> → <b>Letsi Plus</b>.'],
   ['✈️', 'Letenku už máš?', 'na <b>Přehledu</b> doplníš zbytek cesty – trasu, ubytování i program.'],
@@ -992,16 +992,14 @@ const WHATS_NEW = [
   ['ℹ️', 'O aplikaci a soukromí', 'pod <b>Další</b>: odkud Letsi bere ceny a data, co se ukládá (jen v tomhle prohlížeči, žádné cookies ani sledování, pokud sám nezapneš Pomáhat se zlepšováním), jak se řadí výsledky a verze aplikace.'],
   ['📅', 'Připomínka hlídané ceny v kalendáři', 'na kartě hlídání na Přehledu je <b>📅 Připomínat</b> – stáhne událost do kalendáře na každé pondělí v 9:00 (nejvýš 8 týdnů, jen do odletu) s poslední nejnižší cenou. Odkaz v ní otevře Letsi přímo na tomhle hlídání a cenu zkontroluje znovu.'],
   ['📅', 'Termín letu v kalendáři', 'u každého letu tlačítko <b>📅 V kalendáři</b> – den odletu a návratu s časy, noci mezi nimi, víkendy a svátky; jedním klepnutím lety do kalendáře v mobilu (.ics). A <b>Kalendář</b> mají i výsledky Kamkoliv: v každém dni nejlevnější cíl, klepnutím na den všechny cíle s odletem ten den.'],
-  ['🏡', 'Ubytování s cenou na každém místě trasy', 'když TripAdvisor malé místo nezná (Pachino, Castelmezzano), ukážu hotely s cenou z nejbližšího okolí (Noto, Potenza) – s porovnáním webů a <b>Vybrat</b> s ověřením volna jako u prvního místa, na kartě „v okolí: Noto · 24 km“. Pod nimi penziony a agroturistiky přímo v místě z OpenStreetMap (bez ceny). Plánovač trasy teď radši volí místa, kde hotely s cenou jsou.'],
   ['🌙', 'V noci taxi za pevnou cenu', 'když přistáváš nebo vyrážíš na letiště před 5:00 či po 23:00 v Římě, Paříži, Madridu, Aténách, Florencii, Neapoli, Miláně nebo New Yorku, odhad ceny počítá úřední pevnou cenu taxi za auto (Fiumicino 55 €) místo MHD, která v noci nejezdí.'],
   ['🧭', 'Okruh po oblasti', '„Toskánsko na 4 dny“ v <b>Objevuj</b> naplánuje okruh, který zůstane v Toskánsku (ne Rimini ani Perugia) – stejně Apulie, Istrie, Algarve, Skotsko a Laponsko. Bazilika sv. Petra má v programu hodinu, ne půl, a se zájmem „s dětmi“ přibydou ZOO a parky.'],
-  ['🏝️', 'Hotely i u letišť na ostrovech', 'Tenerife Jih, Lanzarote, Gran Canaria nebo Rhodos – ubytování se hledá ve městě u letiště (dřív nic). <b>Vyber za mě</b> v Cestě ověří volno a vyprodaný hotel přeskočí.'],
+  ['🏝️', 'Hotely i u letišť na ostrovech', 'Tenerife Jih, Lanzarote, Gran Canaria nebo Rhodos – ubytování se hledá ve městě u letiště (dřív nic).'],
   ['⛽', 'Auto v cíli za skutečné ceny', 'palivo za cenu v zemi, kudy jedeš (všechny země EU), a mýtné na dálnicích v Itálii, Francii a Chorvatsku.'],
   ['🗓️', 'Celá sezóna u zemí', 'karty zemí ukazují všechny dobré měsíce („led–bře · čvc–zář“) a <b>Kam letos</b> řadí země mimo sezónu níž.'],
   ['🚕', 'Z letiště do města na 157 letištích', 'přibyly řecké a španělské ostrovy, Chorvatsko, Turecko, Pobaltí a Jordánsko; v Egyptě, Akabě a na Djerbě, kde autobus nejezdí, počítám taxi (cena za auto pro dva). U Stanstedu a dalších vidíš vedle ceny „od“ i běžnou cenu v den cesty (Stansted Express od 9,90 £, běžně 21 £).'],
   ['🚆', 'Vlak nebo bus místo letadla', 'cena konkrétního spoje za běžnou cenu (Praha–Vídeň ~500 Kč, ne akční 249) a čas i s cestou na nádraží. Auto na letiště počítá parkování podle ceníku letiště.'],
   ['🔄', 'Přepočítat po změně', 'když po hledání změníš v <b>Cestující, zavazadla a další</b> cestu na letiště (vlastní cenu, jízdné nebo auto), nad výsledky je <b>↻ Přepočítat</b>. Čipy 📝 a 🛂 u letu otevřou podmínky vstupu i na telefonu.'],
-  ['🏨', 'Ubytování s ověřeným volnem', 'když v Cestě klepneš na <b>Vybrat</b>, Letsi hned zjistí, jestli má hotel na tvoje dny pořád volno a za kolik – vyprodaný se nevybere. Hotely bez ceny na tvoje dny (často obsazené) jsou schované pod tlačítkem.'],
   ['🎫', 'Cesta na letiště za skutečné ceny', 'odhad teď počítá jízdenku na konkrétní spoj v danou hodinu (ne nejlevnější spoj dne), MHD z domova na nádraží a běžný čas jízdy – z Prahy do Pardubic ~240 Kč, do Brna ~350 Kč. V <b>Cestující, zavazadla a další</b> → ✏️ Jezdíš levněji? Uprav cenu uvidíš u každého letiště, z čeho odhad je.'],
   ['🚆', 'Reálnější časy cest', 'vlak mezi městy jede rychlotratí jen tam, kde opravdu vede (Barcelona → Valencie ~3 h 25, ne 2 h 10), jízdenky po Itálii, Španělsku a Francii za běžné ceny, autem na letiště podle skutečné rychlosti a „Vyraž z ubytování“ i s cestou na zastávku. Když brzy ráno vyrážíš na letiště ve svém městě a MHD ještě nejede, počítám v průběhu cesty s taxi 🚕.'],
   ['📝', 'Formulář před příletem', 'Thajsko (TDAC), Filipíny, Malajsie, Singapur, Korea, Indonésie a další chtějí online formulář – uvidíš to u letu, v Před cestou i v Co zařídit s odkazem na oficiální web.'],
@@ -1019,12 +1017,11 @@ const WHATS_NEW = [
   ['🗣️', 'Hledání rozumí víc', 'dny slovy („20. listopadu“, „koncem listopadu“), den odletu („v pátek“, „od pátku do neděle“), svátky („o Velikonocích“, „jarní prázdniny“, „na Valentýna“, „vánoční trhy“), šipku i pomlčku („Vídeň → Nice“, „Praha - Londýn“, i jen „Praha Londýn“), „bez kufru“, místní názvy („Roma“, „Wien“, „Lisboa“) a oblasti jako Toskánsko, Apulie, Dalmácie nebo Laponsko – v Letech i v Objevuj.'],
   ['📏', 'Kratší obrazovky', 'shrnutí cesty má <b>Uložit</b> a <b>Sdílet</b> hned pod „Co zarezervovat“, celý průběh a podrobnosti se rozbalí na klepnutí; Objevuj ukáže nejdřív 8 míst.'],
   ['📅', 'Plánovač a cesty přes víc měst', 'lety po řádcích, <b>Hledat lety</b> znovu najde stejnou trasu a <b>Ubytování</b> nabídne každé místo s jeho termínem.'],
-  ['✨', 'Vyber za mě', 'v Cestě přes víc míst vybere v kroku Ubytování jedním klepnutím hotel s nejlepším poměrem ceny a hodnocení v každém místě – změnit ho můžeš kdykoliv.'],
+  ['✨', 'Vyber za mě', 'v Cestě přes víc míst vybere v kroku Ubytování jedním klepnutím, kde budeš v každém místě bydlet – změnit to můžeš kdykoliv.'],
   ['↩', 'Pokračuj, kde jsi skončil', 'na Přehledu je rozpracovaná cesta (u kterého kroku jsi) a poslední hledání – jedním klepnutím zpátky. Cesta přes víc měst letadlem jde do průvodce i bez návratu domů.'],
   ['✨', 'Chytré hledání', 'do pole <b>Kam</b> napiš celou větu – „k moři v květnu do 5000“, „Řím na víkend ve dvou“, „z Vídně do Barcelony 12. 11. – 16. 11.“ – a nahoře uvidíš, jak jí rozumím. Prázdné pole nabídne tipy podle toho, co hledáš. V Objevuj třeba „Lisabon na 3 dny“ nebo „výlety z Brna“.'],
   ['🧳', 'Cesta přes víc měst letadlem', 'vyber v Letech <b>Víc měst</b> (třeba Praha → Řím → Barcelona → Praha) a <b>Naplánovat celou cestu</b>: v Cestě je trasa podle letů, ke každému městu ubytování a program, ve shrnutí všechny letenky.'],
   ['↺', 'Začít znovu', 'v Letech pod tlačítkem hledání, v Objevuj u místa (i ✕ v poli) a v Cestě nahoře vedle vlajky – vyprázdní, co si aplikace pamatuje.'],
-  ['🏨', 'Ubytování najde víc', 'v Cestě se ceny hotelů samy doplňují (TripAdvisor je u nového termínu zjišťuje pomalu) a hotely, ke kterým cena ještě nepřišla, uvidíš s běžnou cenou <b>od ~… Kč/noc</b> a odkazem na ceny na tvoje dny.'],
   ['💸', 'Nejlevnější nahoře', 'po hledání Kamkoliv jsou první 3 cíle velké karty s fotkou; detail země má nahoře fotku hlavního města.'],
   ['📅', 'Plánovač a Objevuj', 'cesty jako karty s fotkou cíle a štítkem „za 12 dní“; Objevuj s fotkou nahoře a hledáním na ní.'],
   ['🗺️', 'Mapa a Cesta v novém', 'mapa přes celý rámeček se štítkem „procestováno“ a seznamem navštívených zemí; v Cestě fotka cíle nahoře, kroky s popisky a let jako jízdenka.'],
@@ -1038,7 +1035,6 @@ const WHATS_NEW = [
   ['⭐', 'Moje cíle / 🙈 Nezajímá mě', 'v ⋯ na kartě; oblíbené s cenami v pruhu níž na Přehledu.'],
   ['🚆', 'Vlak a bus podle skutečných jízdenek', '„běžně ~X Kč (od ~Y)“; vlastní cenu cesty na letiště zadáš v Letech → Cestující, zavazadla a další → ✏️ Jezdíš levněji? Uprav cenu.'],
   ['🕘', 'Stáří cen', '„ceny z 14:32“ nad výsledky, po hodině upozornění a ↻ Hledat znovu; v průvodci „cena z …“.'],
-  ['🏨', 'Hotely s cenami', 'v průvodci Cesta → Ubytování: odkaz na web, kde je pokoj na tvoje dny volný, a ↻ Aktualizovat ceny.'],
 ];
 // Úplně nový uživatel (nic uloženého): místo seznamu novinek krátké „Vítej“ ve 3 krocích – novinky by ho jen zahltily.
 // Uvítání vydrží celou první návštěvu, dokud ho uživatel neskryje: atlas_wn = WN_ID + WN_NEW. Bez toho by po výběru
@@ -1096,7 +1092,7 @@ function renderWhatsNew() {
   const homeRow = window.Flights && Flights.homeFromChip && Flights.PlaceInput && !S.home?.from?.length
     ? `<div class="wc-home"><b id="wcHomeL">Odkud letíš?</b><div class="wc-chips">${SearchHelp.HOME_CITIES.map(c => `<button type="button" class="fchip" data-wch="${esc(c[0])}">${esc(c[0])}</button>`).join('')}<button type="button" class="fchip" data-wch="geo">📍 Moje poloha</button></div><div class="place-input wc-from" id="wcFrom"></div></div>` : '';
   el.innerHTML = `<h3 class="wc-h">👋 Vítej! Najdu levné letenky a poskládám z nich celou cestu.</h3>
-    <p class="faint wc-how" style="font-size:12.5px;margin:-6px 0 12px">Ceny porovnávám, letenku koupíš u aerolinky nebo prodejce. Zdarma a bez reklam.</p>
+    <p class="faint wc-how" style="font-size:12.5px;margin:-6px 0 12px">Ceny porovnávám, letenku koupíš u aerolinky nebo prodejce. Zdarma, bez placených pozic.</p>
     ${homeRow}
     <ol class="wc-steps">
       <li><span class="wc-n">1</span><div><b>Napiš, kam chceš</b><small>město, „kamkoliv“, nebo celou větu – třeba „k moři v květnu do 5000“</small></div></li>
