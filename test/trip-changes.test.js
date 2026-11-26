@@ -351,7 +351,7 @@ test('🧳 znovu uložená cesta bez dat „Před cestou“ (ještě se načíta
 test('🧳 Shrnutí: „Uloženo v Mých cestách“ uloží hned (na přání) a zůstane; sdílená „💾 Uložit do Mých cest“', () => {
   const c = load();
   const h = render(c, vie({ step: 'summary' }));
-  assert.match(h, /<button class="btn primary" id="sumSave">🧳 Uloženo v Mých cestách<\/button>/);
+  assert.match(h, /<button class="btn primary" id="sumSave"><span class="ico i-hotovo" aria-hidden="true"><\/span> Uloženo v Mých cestách<\/button>/);
   c.__els['#sumSave'].onclick();
   assert.deepEqual([c.S.trips.length, c.S.trips[0].auto, c.__go.length], [1, undefined, 0]);
   assert.deepEqual(plain(c.__toasts), ['Cesta uložena do Mých cest']);

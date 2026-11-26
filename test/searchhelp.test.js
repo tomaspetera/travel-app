@@ -1490,7 +1490,7 @@ test('„Odkud letíš?“ se nový uživatel ptá jedno místo: uvítání (či
   assert.doesNotMatch(fl.match(/radar-wait">([^']*)'/)[1], /\?/, 'věta bez otázky');
   assert.match(app, /if \(asked && window\.Flights && !S\.home\?\.from\?\.length\) Flights\.renderRadar\(\);/);
   // čip domova bez domova není další otázka a vede do pole (posun + kurzor), změna domova klávesnici neotvírá
-  assert.match(fl, /: '📍 Nastavit domov';/);
+  assert.match(fl, /: ikona\('domov'\) \+ ' Nastavit domov';/);
   assert.doesNotMatch(fl, /'📍 Odkud létáš\?'/);
   assert.match(fl, /chip\.onclick = \(\) => \{ go\('dashboard'\); setTimeout\(\(\) => homeAsk\(Boolean\(h\)\), 60\); \};/);
   const ask = fl.slice(fl.indexOf('function homeAsk(edit)'), fl.indexOf('function homeAsk(edit)') + 600);

@@ -262,7 +262,7 @@ test('krok Trasa: přepínač 🚗 / 🚆 u každého úseku s časem a cenou, p
   render(c, t);
   const list = sp(c.__els['#rtList'].innerHTML), tools = sp(c.__els['#rtTools'].innerHTML);
   assert.match(tools, /<button type="button" class="on" aria-pressed="true" disabled[^>]*>🔀 Kombinovaně<\/button>/);
-  assert.match(tools, /data-tr="car" class="">🚗 Autem/);
+  assert.match(tools, /data-tr="car" class=""><span class="ico i-auto" aria-hidden="true"><\/span> Autem/);
   // úsek z letiště vlakem (jízdenky za 2), přejezd autem (palivo), na letiště autem (palivo a mýtné)
   assert.match(list, /🚆 ~1 h 10 min vlakem \/ busem \(odhad\) · ~180 Kč za 2 os\./);
   assert.match(list, /<b>72 km · ~1 h 10 min autem · ~300 Kč<\/b> <span class="faint">\(podle trasy; 🚌 autobusem \/ minibusem ~1 h 35 min, ~180 Kč za 2 os\.\)<\/span>/);
@@ -317,7 +317,7 @@ test('Řím → Florencie → Benátky celé vlakem: beze změny – žádné au
   // krok Trasa: přepínač nahoře Vlakem, u úseků 🚆, žádný návrh ani dvě auta
   render(c, { ...t, step: 'route' });
   const list = sp(c.__els['#rtList'].innerHTML);
-  assert.match(sp(c.__els['#rtTools'].innerHTML), /data-tr="transit" class="on">🚆 Vlakem a busem/);
+  assert.match(sp(c.__els['#rtTools'].innerHTML), /data-tr="transit" class="on"><span class="ico i-vlak" aria-hidden="true"><\/span> Vlakem a busem/);
   assert.doesNotMatch(list, /rt-sug|car-split/);
   assert.match(list, /<b>Přejezdy celkem ~[^<]+ · ~2 640 Kč<\/b>/);
   // sdílený odkaz: výjimky úseků přežijí, nesmysly ne

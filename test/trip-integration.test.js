@@ -164,7 +164,7 @@ test('průvodce: zpět k letu s jiným termínem – poslední hlášení řekne
   // vlak 11.–15. 11., hotel vybraný na ty dny; let je 10.–14. 11.
   const t = trip({ route: null, step: 'flight', stay: { mode: 'pick', id: 'h1', name: 'Hotel Wien', totalCzk: 8000 }, car: { mode: 'manual', totalCzk: 3000, from: '2026-11-11T11:00', to: '2026-11-15T16:00', pickup: 'VIE', dropoff: 'VIE' } });
   const h = render(c, t);
-  assert.match(h, /✈️ Radši letět \(PRG → VIE\)/);
+  assert.match(h, /<span class="ico i-let" aria-hidden="true"><\/span> Radši letět \(PRG → VIE\)/);
   c.__els['#ovFly'].onclick();
   assert.equal(t.overland.on, false);
   assert.equal(t.stay, null, 'hotel na jiné dny se zahodí');

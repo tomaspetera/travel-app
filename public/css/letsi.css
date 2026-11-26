@@ -282,9 +282,6 @@
 :root[data-brand="letsi"] :is(.mobile-nav .mi,.nav-item)>svg{width:24px;height:24px}
 :root[data-brand="letsi"] .mobile-nav .mi[data-view="flights"]>svg{width:27px}
 :root[data-brand="letsi"] :is(.icon-btn,.theme-toggle,.sf-ico,.sf-swap)>svg{width:20px;height:20px}
-/* tlačítko polohy má v index.html jen 📍 (jméno nese aria-label): emoji schovat, ikona Moje poloha maskou */
-:root[data-brand="letsi"] #geoBtn{font-size:0}
-:root[data-brand="letsi"] #geoBtn::before{content:"";display:inline-block;width:20px;height:20px;vertical-align:middle;background:currentColor;-webkit-mask:url(../vendor/letsi/ikony/poloha.svg) center/contain no-repeat;mask:url(../vendor/letsi/ikony/poloha.svg) center/contain no-repeat}
 
 /* postranní panel (počítač): místo dlaždice s vlaštovkou a názvu malé logo, jednobarevné (README loga: lišta aplikace
    = logo-mala-mono, slunce patří nejlevnější ceně); barvou textu, v tmavém Vápno. Text „ATLAS“ zůstává pro čtečku. */

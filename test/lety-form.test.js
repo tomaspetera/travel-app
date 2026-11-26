@@ -19,7 +19,7 @@ test('sekce se jmenuje podle toho, co v ní je, a pole jdou podle důležitosti 
 });
 
 test('seznam letišť s vlastní cenou je sbalený pod jedním řádkem; styly sekce nesahají na jeho summary', () => {
-  assert.match(more, /<details class="gm-own" id="gmOwn" hidden><summary><span class="gm-own-t">✏️ Jezdíš levněji\? Uprav cenu<\/span><span class="faint" id="gmOwnSum"><\/span><\/summary>/);
+  assert.match(more, /<details class="gm-own" id="gmOwn" hidden><summary><span class="gm-own-t"><span class="ico i-upravit" aria-hidden="true"><\/span> Jezdíš levněji\? Uprav cenu<\/span><span class="faint" id="gmOwnSum"><\/span><\/summary>/);
   assert.ok(more.indexOf('id="gmOwnList"') > more.indexOf('id="gmOwn"'));
   // details.more summary (bez >) by vnořenému summary dal ikonu 🧳, šipku i odsazení hlavičky sekce
   assert.doesNotMatch(css, /details\.more(\[open\])? summary/);
