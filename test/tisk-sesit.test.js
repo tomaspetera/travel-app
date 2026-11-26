@@ -48,7 +48,8 @@ test('tisk: karta se smí zalomit mezi stránkami, pohromadě jen nadpis, řáde
   const css = read('public/css/pretrip.css').replace(/\/\*[\s\S]*?\*\//g, '');
   const print = css.slice(css.indexOf('@media print{'));
   const card = print.match(/\n\s*\.card\{([^}]*)\}/)[1];
-  assert.doesNotMatch(card, /break-inside:avoid/, 'celá karta posunutá na další stranu nechá skoro prázdnou stranu');
+  assert.match(card, /break-inside:avoid/, 'malá karta (výsledek letu) se nerozdělí na dvě strany');
+  assert.match(print, /\n\s*\.step-card\{break-inside:auto\}/, 'celá karta kroku posunutá na další stranu nechá skoro prázdnou stranu');
   assert.match(print, /\.card h3,\.card li,\.card tr\{break-inside:avoid\}/);
   assert.match(print, /\.card h3\{break-after:avoid\}/);
 });

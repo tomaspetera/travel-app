@@ -70,9 +70,10 @@
   /* plovoucí okna (Novinky, nová verze) mají position:fixed – vytiskla by se na každou stránku přes obsah */
   .wn-pop,.pwa-update,.sidebar,.topbar,.demo-banner,.mobile-nav,.modal-bg,.toast,.stepbar,.pt-tools .btn,.pt-acts,.pt-add,.pt-del{display:none !important}
   .app{display:block}
-  .card{box-shadow:none !important;-webkit-backdrop-filter:none !important;backdrop-filter:none !important;background:#fff !important;border-color:#bbb !important}
-  /* karta se smí zalomit mezi stránkami (celá posunutá na další stranu nechávala skoro prázdnou stranu); pohromadě
-     zůstanou jen drobnosti a nadpis se nezůstane viset sám dole */
+  .card{box-shadow:none !important;-webkit-backdrop-filter:none !important;backdrop-filter:none !important;background:#fff !important;border-color:#bbb !important;break-inside:avoid}
+  /* velká karta kroku (Shrnutí cesty) se smí zalomit mezi stránkami – celá posunutá na další stranu nechávala skoro
+     prázdnou stranu; malé karty (výsledek letu, cíl) zůstanou celé; pohromadě drobnosti a nadpis nezůstane viset sám dole */
+  .step-card{break-inside:auto}
   .card h3,.card li,.card tr{break-inside:avoid}
   .card h3{break-after:avoid}
   .pt-card a,[data-theme] .pt-card a{color:#000 !important}
