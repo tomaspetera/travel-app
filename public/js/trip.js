@@ -53,6 +53,10 @@
   let autoT = 0; // čekající uložení cesty do Mých cest (autoSoon)
   const MAX_BASES = 6;
   const BASE_COLORS = ['#5b8cff', '#f59e0b', '#22c55e', '#ec4899', '#14b8a6', '#a855f7'];
+  // barva místa trasy: ve vzhledu Letsi z palety Letsi jako dny v Objevuj (Places.dayCol), v ATLASu (a bez places.js) duha
+  const baseCol = i => (window.Places && Places.dayCol ? Places.dayCol(i, BASE_COLORS) : BASE_COLORS[i % BASE_COLORS.length]);
+  // kolečko s číslem: v Letsi číslo kontrastně (Noc na Pistácii, Vápno na Noci); ATLAS tmavé číslo z trip.css
+  const baseSty = i => { const c = baseCol(i), ink = window.Places && Places.dayInk ? Places.dayInk(c) : ''; return `background:${c}${ink ? `;color:${ink}` : ''}`; };
 
   /* ---------- pomocné ---------- */
   const T = () => S.trip;
@@ -1751,7 +1755,7 @@
       <div class="sc-head"><div><h3>${ikona('mapa')} Trasa podle letů</h3><div class="muted">${n} ${n <= 4 ? 'místa' : 'míst'} · ${nightsTxt(stayDates(t).nights)} · noci dávají data letů${f.back ? '' : ', v posledním místě zvolíš sám'} – ke každému místu pak vybereš ubytování a program.</div></div></div>
       <div class="ex-layout route-layout"><div><div class="route-list">
         ${legRow(f.out, '🛫', 'Let tam')}
-        ${r.bases.map((b, i) => `<div class="rb"><span class="rb-n" style="background:${BASE_COLORS[i % BASE_COLORS.length]}">${i + 1}</span><div class="rb-main"><div class="rb-name">${esc(b.name)}</div><div class="rb-dates">${dayLbl(dates[i].checkin)} – ${dayLbl(dates[i].checkout)}${hotelName(b.stay) ? ` · 🏨 ${esc(hotelName(b.stay))}` : ''}</div>${gap(i)}</div><div class="rb-nights"><span><b>${dates[i].nights}</b> ${nightWord(dates[i].nights)}</span></div></div>${i < n - 1 ? legRow(mid[i], '✈️', `${i + 2}. let`) : ''}`).join('')}
+        ${r.bases.map((b, i) => `<div class="rb"><span class="rb-n" style="${baseSty(i)}">${i + 1}</span><div class="rb-main"><div class="rb-name">${esc(b.name)}</div><div class="rb-dates">${dayLbl(dates[i].checkin)} – ${dayLbl(dates[i].checkout)}${hotelName(b.stay) ? ` · 🏨 ${esc(hotelName(b.stay))}` : ''}</div>${gap(i)}</div><div class="rb-nights"><span><b>${dates[i].nights}</b> ${nightWord(dates[i].nights)}</span></div></div>${i < n - 1 ? legRow(mid[i], '✈️', `${i + 2}. let`) : ''}`).join('')}
         ${f.back ? legRow(f.back, '🛬', 'Let zpět') : ''}
       </div>${f.back ? '' : oneWayField(t).replace('Kolik nocí zůstaneš?', `Kolik nocí zůstaneš v posledním místě (${esc(r.bases.at(-1).name)})?`).replace('margin-bottom:12px', 'margin:12px 0')}</div><div class="ex-map route-map" id="rtMap"></div></div>
       <div class="row wrap" style="gap:8px;margin-top:14px"><button class="btn primary" id="rtNext">Pokračovat k ubytování →</button></div></div>`;
@@ -1836,7 +1840,7 @@
     const n = t.route.bases.length;
     const why = [b.reason, b.highlights && b.highlights.length ? '👀 ' + b.highlights.join(', ') : ''].filter(Boolean).join(' · ');
     return `<div class="rb">
-      <span class="rb-n" style="background:${BASE_COLORS[i % BASE_COLORS.length]}">${i + 1}</span>
+      <span class="rb-n" style="${baseSty(i)}">${i + 1}</span>
       <div class="rb-main"><div class="rb-name">${esc(b.name)}</div>
         <div class="rb-dates">${dayLbl(d.checkin)} – ${dayLbl(d.checkout)}${hotelName(b.stay) ? ` · 🏨 ${esc(hotelName(b.stay) + nearOf(b.stay))}` : ''}</div>
         ${why ? `<div class="rb-why">${esc(why)}</div>` : ''}</div>
@@ -1972,7 +1976,7 @@
       routeMapPaint = Places.routeMap(el, { lat: a.lat, lon: a.lon, label: ov ? `🚆 ${ov.to.label}` : r.arrival ? `✈️ Přílet ${r.arrival.iata}` : r.bases[0].name, geo: true });
       routeMapPaint.el = el;
     }
-    const pts = r.bases.map((b, i) => ({ id: 'b' + i, lat: b.lat, lon: b.lon, color: BASE_COLORS[i % BASE_COLORS.length], num: i + 1, big: true, label: `${i + 1}. ${b.name} · ${nightsTxt(b.nights)}`, q: [b.name, b.country].filter(Boolean).join(', ') }));
+    const pts = r.bases.map((b, i) => ({ id: 'b' + i, lat: b.lat, lon: b.lon, color: baseCol(i), num: i + 1, big: true, label: `${i + 1}. ${b.name} · ${nightsTxt(b.nights)}`, q: [b.name, b.country].filter(Boolean).join(', ') }));
     const dep = backLeg(t) && (ov ? arr : r.departure);
     if (!ov && dep && (!r.arrival || dep.iata !== r.arrival.iata)) pts.push({ id: 'dep', lat: dep.lat, lon: dep.lon, color: '#a855f7', label: `✈️ Odlet ${dep.iata}`, q: `${dep.iata} airport` });
     routeMapPaint(pts, [arr, ...r.bases, dep].filter(Boolean).map(p => [p.lon, p.lat]));
@@ -2329,7 +2333,7 @@
 
   // Stav ubytování místa trasy (v záložkách a ve shrnutí).
   const stayState = s => !s ? 'nevybráno' : s.mode === 'links' ? 'jen odkazy' : s.mode === 'skip' ? 'neřeším' : s.name || 'vlastní ubytování';
-  const baseTabs = (r, i, done, attr) => `<div class="base-tabs">${r.bases.map((x, j) => `<button type="button" class="bt ${j === i ? 'on' : ''} ${done(x, j) ? 'done' : ''}" ${attr}="${j}"><span class="bt-n" style="background:${BASE_COLORS[j % BASE_COLORS.length]}">${done(x, j) ? '✓' : j + 1}</span><span class="bt-t"><b>${esc(x.name)}</b><small>${esc(attr === 'data-bt' ? stayState(x.stay) : nightsTxt(x.nights))}</small></span></button>`).join('')}</div>`;
+  const baseTabs = (r, i, done, attr) => `<div class="base-tabs">${r.bases.map((x, j) => `<button type="button" class="bt ${j === i ? 'on' : ''} ${done(x, j) ? 'done' : ''}" ${attr}="${j}"><span class="bt-n" style="${done(x, j) ? `background:${baseCol(j)}` : baseSty(j)}">${done(x, j) ? '✓' : j + 1}</span><span class="bt-t"><b>${esc(x.name)}</b><small>${esc(attr === 'data-bt' ? stayState(x.stay) : nightsTxt(x.nights))}</small></span></button>`).join('')}</div>`;
 
   function goStayBase(i) { stayIdx = i; stayView.n = 0; render(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
   // Po výběru: další místo bez ubytování (nejdřív za tímto), jinak dál k autu.

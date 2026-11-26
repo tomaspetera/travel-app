@@ -726,6 +726,9 @@ html:has(#modalBg.show) body{overflow:hidden} /* na body, ne na html: přejde na
 @media(max-width:360px){.mobile-nav .mi{padding:0 1px}.mobile-nav .mi span{font-size:10px;letter-spacing:-.02em}}
 @media(max-width:520px){.stat-grid{grid-template-columns:1fr 1fr}.dest-grid{grid-template-columns:1fr 1fr}
   .map-wrap{aspect-ratio:auto;height:340px;border-radius:24px}
+  /* celý svět se vejde na šířku (#worldmap meet) a nad a pod ním zbude moře: nahoře procento, dole ovládání v řádku –
+     svisle by zakrylo Austrálii a Nový Zéland */
+  .map-zoom{flex-direction:row}
   .map-layout>div:last-child>.card{border-radius:22px}
   .map-layout>div:last-child>.card:first-child{display:none} /* procento světa je na telefonu přímo na mapě */
   /* telefon: kratší Přehled – úvod bez odstavce, dlaždice, rychlé hledání a tipy v pruhu do strany */
