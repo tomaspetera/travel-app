@@ -1452,7 +1452,7 @@
     if (!navigator.geolocation) return fail('Prohlížeč nepodporuje polohu');
     toast('Zjišťuji polohu…');
     navigator.geolocation.getCurrentPosition(p => put(SearchHelp.myPlace(p.coords.latitude, p.coords.longitude)),
-      () => fail('Polohu se nepodařilo zjistit'), { timeout: 10000, maximumAge: 600000 });
+      e => fail(e && e.code === 1 ? 'Poloha je zakázaná – povol ji v nastavení prohlížeče, nebo napiš místo ručně' : 'Polohu se nepodařilo zjistit'), { timeout: 10000, maximumAge: 600000 });
   }
 
   /* ---------- domov (odkud obvykle létáš) ---------- */
