@@ -793,7 +793,7 @@
     const link = from ? ` · <a href="${esc(safeUrl(gmDir(from, [poiQ(p, center)], 'transit')))}" target="_blank" rel="noopener">spoje ↗</a>` : '';
     return `<div class="${cls}">${ico} ~${minTxt(Math.round(+r.transitMin))} ${how}${okMin(r.carMin) ? ` · 🚗 ~${minTxt(Math.round(+r.carMin))} autem` : ''} <span class="faint">(odhad)</span>${link}</div>`;
   }
-  const whyHtml = (p, cls = 'poi-inc') => (p.why ? `<div class="${cls}">✨ ${esc(p.why)}</div>` : '');
+  const whyHtml = (p, cls = 'poi-inc') => (p.why ? `<div class="${cls}">${esc(p.why)}</div>` : '');
   // Fotka místa jako vrstva nad ikonou druhu (CSS .poi-img.has-ph::after): než dorazí – nebo když nedorazí vůbec (slabý
   // signál, soubor smazaný na Wikimedii) – je vidět 🏰 ⛪ 🌲, ne prázdný šedý čtverec.
   // Autor a licence fotky z Commons (licence CC BY / CC BY-SA je chtějí): stejné nenápadné ⓘ jako u fotek měst –
@@ -1302,7 +1302,7 @@
           <div style="position:relative"><input class="input${ex.place ? ' has-clear' : ''}" id="exQ" placeholder="Lisabon, Francie, „Řím na 3 dny“" autocomplete="off" value="${esc(qLabel())}">${ex.place ? '<button type="button" class="in-clear" id="exClear" title="Začít znovu – zrušit místo i plány" aria-label="Začít znovu">✕</button>' : ''}<div class="pi-dd" id="exDd" tabindex="-1" hidden></div></div></div>
         <button class="btn ghost" id="exGeo" title="Moje poloha" style="align-self:end">${ikona('poloha')} Tady</button>
         <div class="field" style="margin:0"><label for="exRad">Okruh</label><select id="exRad">${RADII.map(r => `<option value="${r}" ${ex.radius === r ? 'selected' : ''}>${r} km</option>`).join('')}<option value="${COUNTRY}" ${ex.radius === COUNTRY ? 'selected' : ''}>🌍 Celá země</option></select></div>
-      </div><div class="ex-recent" id="exRecent" hidden></div>${ex.place || !window.Smart ? '' : `<div class="ex-try"><span class="faint">✨ Zkus:</span>${EX_TRY.map((x, i) => `<button type="button" class="fchip" data-extry="${i}">${esc(x)}</button>`).join('')}</div>`}</div>
+      </div><div class="ex-recent" id="exRecent" hidden></div>${ex.place || !window.Smart ? '' : `<div class="ex-try"><span class="faint">Zkus:</span>${EX_TRY.map((x, i) => `<button type="button" class="fchip" data-extry="${i}">${esc(x)}</button>`).join('')}</div>`}</div>
       <div id="exBody">${ex.place ? '' : ex.radius === COUNTRY ? pickerHtml() : inspHtml(insp)}</div>
       <button type="button" class="ex-back" id="exBack" hidden></button>`;
     wireExploreSearch(root);
@@ -1739,7 +1739,7 @@
       const wc = px && (px.cw ? px.cw.cc : wholeCountryOf(px));
       const catTxt = px && px.cw ? ` · ${(CC_CATS.find(c => c[0] === px.cw.cat) || ['', ''])[1]}` : '';
       dd.innerHTML = wc ? `<div class="pi-opt pi-smart on" data-smart="1"><span class="pi-flag">${flag(wc)}</span><span class="pi-t"><b>${esc(countryCs(wc))} – celá země${esc(catTxt)}</b><small>klepni nebo Enter – města, další cíle, UNESCO a národní parky</small></span><span class="pi-type">země</span></div>`
-        : px ? `<div class="pi-opt pi-smart on" data-smart="1"><span class="pi-flag">✨</span><span class="pi-t"><b>${esc([px.place ? `📍 ${smartNames.get(px.place) || px.place}` : `📍 ${ex.place.label}`, ...px.chips].join(' · '))}</b><small>klepni nebo Enter – najdu místo a naplánuju</small></span><span class="pi-type">plánovat</span></div>`
+        : px ? `<div class="pi-opt pi-smart on" data-smart="1"><span class="pi-flag">${ikona('kompas')}</span><span class="pi-t"><b>${esc([px.place ? `📍 ${smartNames.get(px.place) || px.place}` : `📍 ${ex.place.label}`, ...px.chips].join(' · '))}</b><small>klepni nebo Enter – najdu místo a naplánuju</small></span><span class="pi-type">plánovat</span></div>`
         : sugHtml(sugs, act, err);
       dd.hidden = false;
       // nenalezené místo: otázka pod hledáním, ne v nabídce – ta se při klepnutí jinam zavře a otázka by zmizela pod prstem

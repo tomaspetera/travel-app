@@ -291,7 +291,7 @@ test('odkaz, který by druhé zařízení po rozbalení odmítlo (víc než Shar
 test('počty a text „Přenese se“: české tvary, prázdné zařízení', () => {
   const c = B.counts({ trips: [1, 2], watch: [1], pins: [1], fav: [1, 2], mute: [1], visited: ['CZ', 'AT', 'DE'], home, own: { VIE: 350 } });
   assert.deepEqual(plain(c), { trips: 2, watch: 1, pins: 1, fav: 2, mute: 1, visited: 3, home: true, own: 1 });
-  assert.equal(B.countsTxt(c), '2 cesty · 1 hlídaná cena · 📌 1 odložená nabídka · ⭐ 2 moje cíle · 🙈 1 skryté město · 3 země na mapě · domov radaru · 🏠 vlastní cena na 1 letiště');
+  assert.equal(B.countsTxt(c), '2 cesty · 1 hlídaná cena · 📌 1 odložená nabídka · ⭐ 2 moje cíle · 🙈 1 skryté město · 3 země na mapě · domov (odkud létáš) · 🏠 vlastní cena na 1 letiště');
   assert.equal(B.countsTxt(B.counts({ trips: Array(5), watch: Array(12), pins: Array(5), fav: Array(5), mute: Array(5), visited: Array(5) })), '5 cest · 12 hlídaných cen · 📌 5 odložených nabídek · ⭐ 5 mých cílů · 🙈 5 skrytých měst · 5 zemí na mapě');
   const none = B.counts({ trips: [], watch: [], home: null });
   assert.ok(B.isEmpty(none));
@@ -338,7 +338,7 @@ test('prázdné zařízení: 📲 Přenést nabídne i obnovu ze souboru zálohy
   }
   // na telefonu je 💾 vždy v ⋯ Další (Moje cesty se bez uložené cesty neukážou), na počítači 📲 vlevo dole
   const bk = read('public/js/backup.js');
-  assert.match(bk, /otevři Letsi → ⋯ Další → 💾 Přenos a záloha → 📂 Obnovit ze zálohy \(na počítači vlevo dole 📲 Přenést do jiného zařízení/);
+  assert.match(bk, /otevři Letsi → ⋯ Další → 💾 Záloha do souboru → 📂 Obnovit ze zálohy \(na počítači vlevo dole 📲 Přenést do jiného zařízení/);
   assert.doesNotMatch(bk, /'Cesty nebo ⋯ Další'/);
 });
 

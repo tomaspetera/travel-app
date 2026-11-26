@@ -465,7 +465,7 @@
     return [c.trips ? pl(c.trips, 'cesta', 'cesty', 'cest') : '', c.watch ? pl(c.watch, 'hlídaná cena', 'hlídané ceny', 'hlídaných cen') : '',
       c.pins ? `📌 ${pl(c.pins, 'odložená nabídka', 'odložené nabídky', 'odložených nabídek')}` : '', c.fav ? `⭐ ${pl(c.fav, 'můj cíl', 'moje cíle', 'mých cílů')}` : '',
       c.mute ? `🙈 ${pl(c.mute, 'skryté město', 'skrytá města', 'skrytých měst')}` : '', c.visited ? `${pl(c.visited, 'země', 'země', 'zemí')} na mapě` : '',
-      c.home ? 'domov radaru' : '', c.own ? `🏠 vlastní cena na ${pl(c.own, 'letiště', 'letiště', 'letišť')}` : ''].filter(Boolean).join(' · ');
+      c.home ? 'domov (odkud létáš)' : '', c.own ? `🏠 vlastní cena na ${pl(c.own, 'letiště', 'letiště', 'letišť')}` : ''].filter(Boolean).join(' · ');
   }
   /**
    * 📲 Nahradit: v zařízení zůstane jen to, co nese přenos – jako sloučení do prázdného zařízení (stejná cesta či
@@ -549,7 +549,7 @@
     }
     if (inc.visited.length) parts.push(`${pl(inc.visited.length, 'země', 'země', 'zemí')} na mapě${df.visited.add ? ` (${df.visited.add} ${df.visited.add === 1 ? 'nová' : df.visited.add <= 4 ? 'nové' : 'nových'})` : ''}`);
     // stejný domov jako v zařízení „(už máš)“ – jinak by vedle „Všechno ze zálohy už v tomhle zařízení je“ vypadal jako novinka
-    if (inc.home) parts.push(`domov radaru ${homeTxt(inc.home)}${df.home.take || df.home.differs ? '' : ' (už máš)'}`);
+    if (inc.home) parts.push(`odkud létáš: ${homeTxt(inc.home)}${df.home.take || df.home.differs ? '' : ' (už máš)'}`);
     const nov = (n, a, b, c) => (n ? ` (${n} ${n === 1 ? a : n <= 4 ? b : c})` : '');
     if (inc.fav.length) parts.push(`⭐ ${pl(inc.fav.length, 'můj cíl', 'moje cíle', 'mých cílů')}${nov(df.dests.fav, 'nový', 'nové', 'nových')}`);
     if (inc.mute.length) parts.push(`🙈 ${pl(inc.mute.length, 'skryté město', 'skrytá města', 'skrytých měst')}${nov(df.dests.mute, 'nové', 'nová', 'nových')}`);
@@ -587,7 +587,7 @@
       : `${nothing ? '' : '<button type="button" class="btn primary" id="bkApply">Sloučit do tohoto zařízení</button>'}<button type="button" class="btn ghost" id="bkCancel">${nothing ? 'Zavřít' : 'Zrušit'}</button>`;
     body.innerHTML = `<p style="font-size:14px;margin-bottom:10px"><b>${from}${inc.at ? ' z ' + esc(new Date(inc.at).toLocaleString('cs-CZ', { day: 'numeric', month: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })) : ''}:</b> ${empty && link ? 'Odkaz je prázdný.' : summaryHtml(inc, df)}</p>
       ${df.trips.changed ? `<label class="bk-opt"><input type="checkbox" id="bkOver"> Přepsat změněné cesty verzí ${src} (${df.trips.changed})</label>` : ''}
-      ${df.home.differs ? `<label class="bk-opt"><input type="checkbox" id="bkHome"> Převzít domov radaru ${src} (${esc(homeTxt(inc.home))})</label>` : ''}
+      ${df.home.differs ? `<label class="bk-opt"><input type="checkbox" id="bkHome"> Převzít domov (odkud létáš) ${src} (${esc(homeTxt(inc.home))})</label>` : ''}
       ${df.watch.over ? `<div class="note warn" style="margin:8px 0">⚠️ <div>Hlídat jde nejvýš ${WATCH_CAP} hledání – ${pl(df.watch.over, 'se nevešlo', 'se nevešla', 'se nevešlo')}.</div></div>` : ''}
       ${df.dests.over ? `<div class="note warn" style="margin:8px 0">⚠️ <div>⭐ Moje cíle i 🙈 Nezajímá mě pojmou nejvýš ${DEST_MAX} měst – ${pl(df.dests.over, 'město se nevešlo', 'města se nevešla', 'měst se nevešlo')}.</div></div>` : ''}
       ${df.own.over ? `<div class="note warn" style="margin:8px 0">⚠️ <div>🏠 Vlastní cenu jde mít nejvýš u ${OWN_MAX} letišť – ${pl(df.own.over, 'letiště se nevešlo', 'letiště se nevešla', 'letišť se nevešlo')}.</div></div>` : ''}
@@ -622,7 +622,7 @@
     body.innerHTML = `<p style="font-size:14px;margin-bottom:10px"><b>Nahradit data v tomhle zařízení?</b> Zůstane jen to z odkazu: ${esc(countsTxt(counts(r)) || 'nic')}.</p>
       ${gone.length ? `<div class="note warn" style="margin:8px 0">⚠️ <div>Z tohoto zařízení zmizí ${esc(gone.join(', '))}.</div></div>` : '<div class="note info" style="margin:8px 0">ℹ️ <div>Nic se neztratí – všechno z tohoto zařízení odkaz má.</div></div>'}
       ${ls.changed ? `<div class="note warn" style="margin:8px 0">✏️ <div>${pl(ls.changed, 'cesta se přepíše', 'cesty se přepíšou', 'cest se přepíše')} verzí z odkazu.</div></div>` : ''}
-      <p class="faint" style="font-size:12.5px;margin-top:8px">Motiv a nastavení zařízení zůstanou${r.home && !inc.home ? ', domov radaru taky (odkaz žádný nemá)' : ''}. Hned po nahrazení to jde vrátit tlačítkem <b>Vrátit</b> v hlášce.</p>
+      <p class="faint" style="font-size:12.5px;margin-top:8px">Motiv a nastavení zařízení zůstanou${r.home && !inc.home ? ', domov (odkud létáš) taky (odkaz žádný nemá)' : ''}. Hned po nahrazení to jde vrátit tlačítkem <b>Vrátit</b> v hlášce.</p>
       <div class="bk-actions" style="margin-top:14px"><button type="button" class="btn warm" id="bkReplaceGo">Nahradit</button><button type="button" class="btn" id="bkSaveFirst">⬇️ Nejdřív stáhnout zálohu</button><button type="button" class="btn ghost" id="bkBack">Zpět</button></div>`;
     $('#bkReplaceGo').onclick = () => replaceNow(inc);
     $('#bkSaveFirst').onclick = () => { download(); toast('Záloha tohoto zařízení stažena'); };
@@ -700,7 +700,7 @@
     modalClose();
     repaint({ homeChanged, own: Boolean(df.own.add), dests: Boolean(df.dests.fav || df.dests.mute), pins: Boolean(df.pins.add || df.pins.newer) });
     const over = opts.overwrite ? df.trips.changed : 0;
-    const bits = [df.trips.add ? `+${pl(df.trips.add, 'cesta', 'cesty', 'cest')}` : '', over ? pl(over, 'cesta přepsána', 'cesty přepsány', 'cest přepsáno') : '', df.watch.add ? `+${pl(df.watch.add, 'hlídaná cena', 'hlídané ceny', 'hlídaných cen')}` : '', df.visited.add ? `+${pl(df.visited.add, 'země', 'země', 'zemí')}` : '', df.dests.fav ? `+${pl(df.dests.fav, 'můj cíl', 'moje cíle', 'mých cílů')}` : '', df.dests.mute ? `+${pl(df.dests.mute, 'skryté město', 'skrytá města', 'skrytých měst')}` : '', df.pins.add ? `+${pl(df.pins.add, 'odložená nabídka', 'odložené nabídky', 'odložených nabídek')}` : '', df.pins.newer ? `📌 novější cena u ${pl(df.pins.newer, 'odložené nabídky', 'odložených nabídek', 'odložených nabídek')}` : '', homeChanged ? 'domov radaru převzat' : '', df.pretrip ? `odškrtnutí „Před cestou“ u ${pl(df.pretrip, 'cesty', 'cest', 'cest')}` : '', df.refs ? `🔖 kódy rezervací u ${pl(df.refs, 'cesty', 'cest', 'cest')}` : '', df.own.add ? `🏠 vlastní cena na +${pl(df.own.add, 'letiště', 'letiště', 'letišť')}` : ''].filter(Boolean);
+    const bits = [df.trips.add ? `+${pl(df.trips.add, 'cesta', 'cesty', 'cest')}` : '', over ? pl(over, 'cesta přepsána', 'cesty přepsány', 'cest přepsáno') : '', df.watch.add ? `+${pl(df.watch.add, 'hlídaná cena', 'hlídané ceny', 'hlídaných cen')}` : '', df.visited.add ? `+${pl(df.visited.add, 'země', 'země', 'zemí')}` : '', df.dests.fav ? `+${pl(df.dests.fav, 'můj cíl', 'moje cíle', 'mých cílů')}` : '', df.dests.mute ? `+${pl(df.dests.mute, 'skryté město', 'skrytá města', 'skrytých měst')}` : '', df.pins.add ? `+${pl(df.pins.add, 'odložená nabídka', 'odložené nabídky', 'odložených nabídek')}` : '', df.pins.newer ? `📌 novější cena u ${pl(df.pins.newer, 'odložené nabídky', 'odložených nabídek', 'odložených nabídek')}` : '', homeChanged ? 'domov (odkud létáš) převzat' : '', df.pretrip ? `odškrtnutí „Před cestou“ u ${pl(df.pretrip, 'cesty', 'cest', 'cest')}` : '', df.refs ? `🔖 kódy rezervací u ${pl(df.refs, 'cesty', 'cest', 'cest')}` : '', df.own.add ? `🏠 vlastní cena na +${pl(df.own.add, 'letiště', 'letiště', 'letišť')}` : ''].filter(Boolean);
     toast(bits.length ? `${verb}: ${bits.join(', ')}` : 'Nic nového se nesloučilo');
   }
 
@@ -729,8 +729,8 @@
     if (window.Lazy && !Lazy.has('trip')) return Lazy.run('trip', open);
     const canShare = typeof navigator.share === 'function' && typeof File === 'function', link = Boolean(window.Transfer);
     modalOpen(`<div class="modal-body bk-modal">
-      <h3 style="margin-bottom:8px">💾 Přenos a záloha</h3>
-      <p class="muted" style="font-size:14px;margin-bottom:12px">🧳 Moje cesty, hlídané ceny, 📌 odložené nabídky, domov radaru, navštívené země, ⭐ moje cíle a 🙈 skrytá města, odškrtnuté položky „Před cestou“ a 🏠 vlastní ceny na letiště jsou jen v tomhle prohlížeči. Přenes je do telefonu nebo počítače ${link ? 'odkazem s QR kódem, nebo souborem' : 'souborem'} – nic se neukládá na server.</p>
+      <h3 style="margin-bottom:8px">💾 Záloha do souboru</h3>
+      <p class="muted" style="font-size:14px;margin-bottom:12px">🧳 Moje cesty, hlídané ceny, 📌 odložené nabídky, domov (odkud létáš), navštívené země, ⭐ moje cíle a 🙈 skrytá města, odškrtnuté položky „Před cestou“ a 🏠 vlastní ceny na letiště jsou jen v tomhle prohlížeči. Přenes je do telefonu nebo počítače ${link ? 'odkazem s QR kódem, nebo souborem' : 'souborem'} – nic se neukládá na server.</p>
       <div id="bkBody">
         <div class="bk-actions">
           ${link ? '<button type="button" class="btn primary" id="bkLink">📲 Přenést odkazem / QR kódem</button>' : ''}
@@ -740,7 +740,7 @@
           <input type="file" id="bkFile" accept=".json,.txt,application/json,text/plain" hidden>
         </div>
         <div class="faint" style="font-size:12.5px;margin-top:12px"><span id="bkStatus">${statusTxt()}</span><span id="bkStore"></span></div>
-        <div class="faint" style="font-size:12px;margin-top:8px">Soubor: na druhém zařízení otevři Letsi → ⋯ Další → 💾 Přenos a záloha → 📂 Obnovit ze zálohy (na počítači vlevo dole 📲 Přenést do jiného zařízení → soubor zálohy). Obnova nic nesmaže: přidá, co chybí. Nepřenáší se rozpracovaná cesta v průvodci (v Mých cestách je uložená), uložené výsledky hledání a radaru, nedávná hledání, paměť cen, Objevuj a motiv.</div>
+        <div class="faint" style="font-size:12px;margin-top:8px">Soubor: na druhém zařízení otevři Letsi → ⋯ Další → 💾 Záloha do souboru → 📂 Obnovit ze zálohy (na počítači vlevo dole 📲 Přenést do jiného zařízení → soubor zálohy). Obnova nic nesmaže: přidá, co chybí. Nepřenáší se rozpracovaná cesta v průvodci (v Mých cestách je uložená), uložené výsledky hledání i Kam letět levně, nedávná hledání, paměť cen, Objevuj a motiv.</div>
       </div></div>`);
     if (link) $('#bkLink').onclick = () => Transfer.open();
     if (canShare) $('#bkShare').onclick = () => share();
@@ -755,7 +755,7 @@
     const has = (S.trips || []).length || (S.watch || []).length;
     const n = S.backupAt ? daysAgo(S.backupAt) : null;
     const nudge = !has ? '' : n == null ? '<span class="faint">zatím bez zálohy – vše je jen v tomhle prohlížeči</span>' : n >= 30 ? `<span class="faint">poslední záloha před ${n} dny</span>` : '';
-    return `<div class="row wrap plan-tools"><button type="button" class="btn sm ghost" id="bkOpen">💾 Přenos a záloha</button>${nudge}</div>`;
+    return `<div class="row wrap plan-tools"><button type="button" class="btn sm ghost" id="bkOpen">💾 Záloha do souboru</button>${nudge}</div>`;
   }
 
   // 📲 přenos odkazem (transfer.js): stav zařízení k zabalení (cesty bez tripId dostanou pid jako u zálohy – bez razítka
