@@ -71,6 +71,15 @@ if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configur
   root.setAttribute('data-map', s && s.mapStyle === 'dark' ? 'dark' : 'light');
   var m = document.querySelectorAll('meta[name="theme-color"]');
   for (var i = 0; i < m.length; i++) m[i].setAttribute('content', light ? '#eef2fb' : '#080c1a');
+  // Vzhled značky Letsi (krok 1, css/letsi.css): ?vzhled=letsi ho zapne, ?vzhled=atlas vypne; volba zůstane v prohlížeči
+  // (atlas_look). Parametr z adresy hned zmizí, aby se odkaz s ním nesdílel dál. Bez volby žádný atribut = vzhled ATLASu.
+  try {
+    var u = new URL(location.href), v = u.searchParams.get('vzhled');
+    if (v === 'letsi') localStorage.setItem('atlas_look', 'letsi');
+    else if (v === 'atlas') localStorage.removeItem('atlas_look');
+    if (v !== null) { u.searchParams.delete('vzhled'); history.replaceState(history.state, '', u.pathname + u.search + u.hash); }
+    if (localStorage.getItem('atlas_look') === 'letsi') root.setAttribute('data-brand', 'letsi');
+  } catch (e) { }
   window.atlasLaunchAt = performance.now(); // úvodní obrazovka se začne kreslit teď (vzlet vlaštovky – app.js launchDone)
 })();
 </script>
@@ -121,6 +130,8 @@ if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configur
 <link rel="stylesheet" href="css/flights.css">
 <link rel="stylesheet" href="css/trip.css">
 <link rel="stylesheet" href="css/pretrip.css">
+<!-- vzhled značky Letsi: všechna pravidla jen pod <html data-brand="letsi"> (přepínač ?vzhled=letsi v úvodním skriptu) -->
+<link rel="stylesheet" href="css/letsi.css">
 <!-- desktopové styly (vše v @media od 1024 px): na telefonu neblokují první vykreslení, stáhnou se až po ostatním -->
 <link rel="stylesheet" href="css/desktop.css" media="(min-width:1024px)">
 <link rel="stylesheet" href="css/desktop-flights.css" media="(min-width:1024px)">

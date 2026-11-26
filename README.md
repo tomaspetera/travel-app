@@ -1425,6 +1425,20 @@ Program je přes celou šířku s mapou přilepenou vedle dnů a zastávkami dne
 vlevo průběh cesty, vstup a Co zařídit, vpravo cena, rezervace a tlačítka. Na telefonu je přehled skrytý (cena je
 v hlavičce) a rozvržení kroků stejné jako dřív.
 
+## Vzhled Letsi (zkušební přepínač)
+
+Aplikace se od ledna 2027 jmenuje Letsi. Barvy a písma nové identity (Letsi 2.1: Vápno, Noc, Pistácie; písma Onest
+a Unbounded) jsou zatím schované za přepínačem, aby se daly vyzkoušet na vlastním telefonu, než se zapnou všem:
+
+- `…/?vzhled=letsi` – zapne vzhled Letsi; volba se uloží v prohlížeči (`localStorage` `atlas_look`) a platí i po zavření,
+- `…/?vzhled=atlas` – vrátí vzhled ATLASu.
+
+Parametr z adresy po načtení zmizí, takže se odkaz s ním nesdílí dál. Úvodní skript v `public/index.html` (ten, co
+nastavuje motiv bez probliknutí) dá stránce `<html data-brand="letsi">` a všechna pravidla v `public/css/letsi.css` jsou
+jen pod tímto atributem – bez přepínače se aplikace nezmění. Platí pro světlý i tmavý režim. Písma jsou z vlastního
+serveru (`public/vendor/fonts/letsi/`, licence SIL OFL) a stáhnou se, jen když je vzhled zapnutý. Rajče (červená tečka
+„slunce“) a kurzíva „si“ v tomto kroku nejsou – přijdou s kukátkem.
+
 ## Odkazy do aplikací v telefonu
 
 Aplikace na cestování většinou veřejné API nemají, ATLAS je proto otevírá **odkazem**. Je-li aplikace v telefonu,
