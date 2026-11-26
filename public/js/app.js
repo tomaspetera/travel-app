@@ -2972,11 +2972,19 @@ function launchDone(now) {
   Promise.all([fonts, takeoff]).then(() => requestAnimationFrame(() => requestAnimationFrame(out)));
 }
 setTimeout(() => launchDone(true), Math.max(2000, 3100 - performance.now()));
+/* „Najít lety“ klepnuté během načítání (index.html ho zastavil): po startu hledat, pokud jsme zůstali na Přehledu
+   (ne pod sdílenou cestou z odkazu); bez obsluhy (flights.js se nenačetl) by se zase jen zastavilo. */
+function earlySearch() {
+  const hs = $('#heroSearch');
+  if (window.atlasEarlySubmit && hs && hs.onsubmit && activeView === 'dashboard') hs.dispatchEvent(new Event('submit', { cancelable: true }));
+  window.atlasEarlySubmit = false;
+}
 async function boot() {
   try { await start(); } finally {
     document.documentElement.classList.add('booted'); // Přehled je vykreslený – ukázat i sekce pod úvodem (atlas.css)
     launchDone();
     if (window.Lazy) Lazy.soon(); // průvodce, Objevuj a Před cestou, až prohlížeč nemá co dělat (lazy.js)
+    earlySearch(); // „Najít lety“ klepnuté během načítání
     setTimeout(whatsNewPop, 1200); // ✨ novinky od minula – až po úvodní animaci
     if (window.Count && document.documentElement.dataset.brand === 'letsi') Count.hit('look_letsi'); // kolik otevření je ve vzhledu Letsi
     if (window.Count) Count.hit('app_open'); // souhrnný počet otevření (count.js) – až po startu, nic nezdrží
