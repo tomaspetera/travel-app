@@ -364,3 +364,30 @@ test('chyby a varování: lem barvou chyby / okrem, text barvou písma na kartě
   // u nových pravidel hlídají testy výš pro celý soubor
   assert.doesNotMatch(SRC, /#(be123c|9f1239|b91c1c|fb7185|f7a6b3|f87171)\b|rgba\(\s*(251,\s*113|248,\s*113|251,\s*191)/i);
 });
+
+test('skóre a puntíky ceny na kartách cílů: vidět ve světlém i tmavém, vysvětlivka Naplánovat písmem textu', () => {
+  // skóre na fotce: bílé pozadí z atlas.css + protibarva (ve světlém Vápno) = neviditelné číslo → vlastní plocha i písmo;
+  // pravidlo musí stát až za společným :is(…,.score-pill,…), jinak by ho barva písma přebila
+  const pill = SRC.indexOf(':root[data-brand="letsi"] .dest[data-photo] .score-pill{background:#D6DE82;color:#14161F}');
+  assert.ok(pill > SRC.search(/:is\([^)]*\.score-pill[^)]*\)\{color:var\(--letsi-na-grad\)/), 'pravidlo pro fotku za společným');
+  assert.ok(contrast('#14161F', '#D6DE82') >= 4.5);
+  // jantarové puntíky: na kartě barvou textu, na tmavém panelu fotky (v obou režimech) Pistácie
+  assert.match(SRC, /\] \.dots\.warm i\.f\{background:var\(--text\)\}/);
+  assert.match(SRC, /\] \.dest-panel \.dots\.warm i\.f\{background:#D6DE82\}/);
+  // .ex-plan-hint v seznamu písma textu (ne v nadpisovém Unbounded z h3)
+  assert.match(SRC, /:is\([^)]*\.ex-plan-hint[^)]*\)\{font-family:var\(--letsi-pismo-text\)\}/);
+});
+
+test('tisk: tiskové tokeny přebijí tmavý režim Letsi, plovoucí okna (Novinky, nová verze) se netisknou', () => {
+  const pt = read('css/pretrip.css').replace(/\/\*[\s\S]*?\*\//g, '');
+  const print = pt.slice(pt.indexOf('@media print{'));
+  // letsi.css (načtený za pretrip.css) nastaví --text v :root[data-brand][data-theme] – tisk musí mít stejnou váhu a !important
+  assert.ok(INDEX.indexOf('rel="stylesheet" href="css/letsi.css"') > INDEX.indexOf('rel="stylesheet" href="css/pretrip.css"'));
+  const tok = print.match(/\n\s*([^{}]*:root\[data-brand\]\[data-theme\][^{}]*)\{([^}]*)\}/);
+  assert.ok(tok, 'tiskové tokeny pro :root[data-brand][data-theme]');
+  for (const [k, v] of [['text', '#000'], ['muted', '#333'], ['card', '#fff'], ['bg-grad', '#fff']]) assert.match(tok[2], new RegExp(`--${k}:${v} !important`), k);
+  // ve vzhledu Letsi tokeny v letsi.css nemají !important (jinak by tisk nevyhrál)
+  assert.doesNotMatch(SRC, /[{;]\s*--(text|muted|faint|card|border|border-2|surface|surface-2|bg-grad):[^;{}]*!important/);
+  const hide = print.match(/\n\s*([^{}]*\.sidebar[^{}]*)\{display:none !important\}/)[1].split(',');
+  for (const s of ['.wn-pop', '.pwa-update']) assert.ok(hide.includes(s), s);
+});
