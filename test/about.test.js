@@ -61,7 +61,7 @@ test('okno: zdroje dat, ukládání jen v prohlížeči, řazení, orientační 
   assert.match(html, /OpenFlights \(ODbL\)/);
   for (const u of ['https://opendatacommons.org/licenses/odbl/1-0/', 'https://openflights.org/data', 'https://twitter.github.io/twemoji', 'https://www.pexels.com']) assert.ok(html.includes(u), u);
   assert.match(html, /Twemoji \(CC BY 4\.0\)/);
-  assert.match(html, /ATLAS není spojen s žádnou leteckou společností ani prodejcem; ceny a odkazy jsou z veřejných a partnerských zdrojů\./);
+  assert.match(html, /Letsi není spojen s žádnou leteckou společností ani prodejcem; ceny a odkazy jsou z veřejných a partnerských zdrojů\./);
   assert.match(html, /localStorage/);
   assert.match(html, /<b>Žádné cookies ani sledování jednotlivců<\/b> – kromě záznamu návštěvy bez jména a IP adresy, pokud ho sám zapneš v Další \(Pomáhat se zlepšováním\)\. Počítám jen souhrnné denní počty \(kolikrát se otevřela aplikace, kolik proběhlo hledání, kolik cest vzniklo, kde aplikace nic nenašla nebo selhala a které možnosti lidé volí v krátkých otázkách\) – bez osobních údajů a bez vazby na tebe nebo tvoje zařízení\./);
   assert.equal(html.match(/[Žž]ádná aerolinka ani partner si za lepší pozici neplatí/g).length, 1, 'věta jednou');
@@ -76,17 +76,17 @@ test('okno: zdroje dat, ukládání jen v prohlížeči, řazení, orientační 
   assert.match(A.html({ version: '2026-10-22', build: '3f9a0c1b2d4e' }), /Verze 2026-10-22 · sestavení 3f9a0c1b2d4e<\/p>/);
   assert.match(A.html({ version: 'v', build: '<b>' }), /sestavení &lt;b&gt;/);
   assert.match(read('public/js/about.js'), /const buildNow = \(\) => \{ const m = document\.querySelector\('meta\[name="atlas-build"\]'\);/);
-  // „ATLAS není spojen…“ s mezerou pod drobným textem o licencích (odstavce v okně mají margin 0)
-  assert.match(html, /<p style="font-size:14px;margin-top:10px">ATLAS není spojen/);
+  // „Letsi není spojen…“ s mezerou pod drobným textem o licencích (odstavce v okně mají margin 0)
+  assert.match(html, /<p style="font-size:14px;margin-top:10px">Letsi není spojen/);
   assert.doesNotMatch(html, /mailto:|abMail/, 'bez adresy žádné 💬 Napsat nám');
   assert.doesNotMatch(A.html({ version: 'x', backup: false }), /abBk/, 'bez backup.js bez tlačítka zálohy');
 });
 
 test('💬 Napsat nám: mailto s verzí a obrazovkou v předmětu, jen s platnou adresou', () => {
   const url = A.mailto('atlas@example.org', '2026-10-22', 'Cesta');
-  assert.equal(url, `mailto:atlas@example.org?subject=${encodeURIComponent('ATLAS – zpětná vazba (verze 2026-10-22, obrazovka: Cesta)')}`);
+  assert.equal(url, `mailto:atlas@example.org?subject=${encodeURIComponent('Letsi – zpětná vazba (verze 2026-10-22, obrazovka: Cesta)')}`);
   const html = A.html({ version: '2026-10-22', email: 'atlas@example.org', screen: 'Cesta' });
-  assert.match(html, /id="abMail" href="mailto:atlas@example\.org\?subject=ATLAS%20%E2%80%93/);
+  assert.match(html, /id="abMail" href="mailto:atlas@example\.org\?subject=Letsi%20%E2%80%93/);
   assert.match(html, /💬 Napsat nám/);
   for (const bad of ['a@b.cz?bcc=x@y.cz', '"><img src=x>@a.cz', null, 42]) {
     assert.equal(A.mailto(bad, 'v', 's'), null, String(bad));
@@ -133,13 +133,13 @@ test('SUPPORT_URL jen platební odkaz Stripe; OPERATOR jeden řádek textu do 20
   assert.equal(cleanOperator(undefined), '');
 });
 
-test('okno: 💛 Podpořit ATLAS a provozovatel jen s platnými údaji; text se escapuje', () => {
+test('okno: 💛 Podpořit Letsi a provozovatel jen s platnými údaji; text se escapuje', () => {
   const none = A.html({ version: 'v' });
   assert.doesNotMatch(none, /abSupport|Provozovatel|Příspěvek/);
   const html = A.html({ version: 'v', support: 'https://buy.stripe.com/test_7sI4hY0abc', operator: 'Jan Novák, IČO 12345678' });
-  assert.match(html, /<a class="btn" id="abSupport" href="https:\/\/buy\.stripe\.com\/test_7sI4hY0abc" target="_blank" rel="noopener">💛 Podpořit ATLAS ↗<\/a>/);
+  assert.match(html, /<a class="btn" id="abSupport" href="https:\/\/buy\.stripe\.com\/test_7sI4hY0abc" target="_blank" rel="noopener">💛 Podpořit Letsi ↗<\/a>/);
   assert.match(html, /zaplatíš kartou na stránce Stripe/);
-  assert.match(html, /<b>Příspěvek<\/b> \(💛 Podpořit ATLAS\): platíš na stránce Stripe/, 'v soukromí, kdo platbu zpracovává');
+  assert.match(html, /<b>Příspěvek<\/b> \(💛 Podpořit Letsi\): platíš na stránce Stripe/, 'v soukromí, kdo platbu zpracovává');
   assert.match(html, /<h4 class="ab-h">Provozovatel<\/h4><p style="font-size:14px" id="abOp">Jan Novák, IČO 12345678<\/p>/);
   for (const bad of ['https://evil.cz/x', 'javascript:alert(1)', 42, null]) {
     assert.equal(A.okPay(bad), false, String(bad));
@@ -153,11 +153,11 @@ test('okno: 💛 Podpořit ATLAS a provozovatel jen s platnými údaji; text se 
   }
 });
 
-test('shrnutí cesty: věta 💛 Podpořit ATLAS jen s odkazem z /api/health (ověřeným About.okPay)', () => {
+test('shrnutí cesty: věta 💛 Podpořit Letsi jen s odkazem z /api/health (ověřeným About.okPay)', () => {
   const trip = read('public/js/trip.js');
   assert.match(trip, /<p class="faint sum-support" id="sumSupport" hidden><\/p>/);
   assert.match(trip, /if \(!el \|\| !About\.okPay\(url\)\) return;/);
-  assert.match(trip, /<a href="\$\{esc\(url\)\}" target="_blank" rel="noopener">💛 Podpořit ATLAS ↗<\/a>/);
+  assert.match(trip, /<a href="\$\{esc\(url\)\}" target="_blank" rel="noopener">💛 Podpořit Letsi ↗<\/a>/);
 });
 
 test('OPERATOR: pryč i C1 řídicí znaky a měkké rozdělení; zkrácení po znacích nerozpůlí emoji', () => {

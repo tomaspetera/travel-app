@@ -139,11 +139,11 @@ test('podvržený soubor: HTML, cizí klíče, __proto__ a špatné hodnoty se n
 });
 
 test('cizí soubory a novější verze: srozumitelná chyba', () => {
-  assert.throws(() => B.parse('{rozbité', deps), /není záloha ATLAS/);
-  assert.throws(() => B.parse('{"name":"Lisabon","days":{}}', deps), /^Error: Tohle není záloha ATLAS$/);
-  assert.throws(() => B.parse('[1,2]', deps), /není záloha ATLAS/);
-  assert.throws(() => B.parse(JSON.stringify({ app: 'atlas', v: 2, data: {} }), deps), /novější verze ATLAS/);
-  assert.throws(() => B.parse(JSON.stringify({ app: 'atlas', v: 0, data: {} }), deps), /není záloha ATLAS/);
+  assert.throws(() => B.parse('{rozbité', deps), /není záloha Letsi/);
+  assert.throws(() => B.parse('{"name":"Lisabon","days":{}}', deps), /^Error: Tohle není záloha Letsi$/);
+  assert.throws(() => B.parse('[1,2]', deps), /není záloha Letsi/);
+  assert.throws(() => B.parse(JSON.stringify({ app: 'atlas', v: 2, data: {} }), deps), /novější verze Letsi/);
+  assert.throws(() => B.parse(JSON.stringify({ app: 'atlas', v: 0, data: {} }), deps), /není záloha Letsi/);
   const empty = B.parse(JSON.stringify({ app: 'atlas', v: 1, data: {} }), deps);
   assert.deepEqual(plain(empty), { at: null, trips: [], watch: [], home: null, visited: [], fav: [], mute: [], pretrip: {}, own: {}, pins: [] });
 });

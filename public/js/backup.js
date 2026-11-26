@@ -233,9 +233,9 @@
   function parse(text, deps = DEPS()) {
     const d = { txt: defTxt, ...deps };
     let raw;
-    try { raw = JSON.parse(text); } catch (e) { throw new Error('Tohle není záloha ATLAS (soubor není čitelný)'); }
-    if (!obj(raw) || raw.app !== 'atlas' || !obj(raw.data)) throw new Error('Tohle není záloha ATLAS');
-    if (raw.v !== V) throw new Error(fin(raw.v) && raw.v > V ? 'Záloha je z novější verze ATLAS – aktualizuj aplikaci' : 'Tohle není záloha ATLAS');
+    try { raw = JSON.parse(text); } catch (e) { throw new Error('Tohle není záloha Letsi (soubor není čitelný)'); }
+    if (!obj(raw) || raw.app !== 'atlas' || !obj(raw.data)) throw new Error('Tohle není záloha Letsi');
+    if (raw.v !== V) throw new Error(fin(raw.v) && raw.v > V ? 'Záloha je z novější verze Letsi – aktualizuj aplikaci' : 'Tohle není záloha Letsi');
     const x = raw.data;
     const at = typeof raw.at === 'string' && !isNaN(Date.parse(raw.at)) ? Date.parse(raw.at) : null;
     const fav = dests(x.fav, d.txt); // město v obou seznamech zůstane ⭐
@@ -468,7 +468,7 @@
 
   /* ---------- okno ---------- */
   const ymd = (ms = Date.now()) => { const d = new Date(ms); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
-  const fileName = (ext = 'json') => `atlas-zaloha-${ymd()}.${ext}`;
+  const fileName = (ext = 'json') => `letsi-zaloha-${ymd()}.${ext}`;
   const dateTxt = ms => new Date(ms).toLocaleDateString('cs-CZ');
   const daysAgo = ms => Math.floor((Date.now() - ms) / 864e5);
   const agoTxt = ms => { const n = daysAgo(ms); return n <= 0 ? 'dnes' : n === 1 ? 'včera' : `před ${n} dny`; };
@@ -498,7 +498,7 @@
   async function share() {
     const file = new File([text()], fileName('txt'), { type: 'text/plain' });
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      try { await navigator.share({ files: [file], title: 'ATLAS – záloha' }); stamp(); toast('Záloha odeslána'); }
+      try { await navigator.share({ files: [file], title: 'Letsi – záloha' }); stamp(); toast('Záloha odeslána'); }
       catch (e) { if (e && e.name !== 'AbortError') { download(); toast('Záloha stažena – pošli si soubor do druhého zařízení (e-mail, Disk, Nearby Share)'); } }
       return;
     }
@@ -673,7 +673,7 @@
 
   function restore(file) {
     if (!file) return;
-    if (file.size > MAX_FILE) { toast('Soubor je moc velký – tohle není záloha ATLAS', 'err'); return; }
+    if (file.size > MAX_FILE) { toast('Soubor je moc velký – tohle není záloha Letsi', 'err'); return; }
     const r = new FileReader();
     r.onload = () => { try { preview(parse(String(r.result))); } catch (e) { toast(e.message || 'Zálohu se nepodařilo načíst', 'err'); } };
     r.onerror = () => toast('Soubor se nepodařilo přečíst', 'err');
@@ -707,7 +707,7 @@
           <input type="file" id="bkFile" accept=".json,.txt,application/json,text/plain" hidden>
         </div>
         <div class="faint" style="font-size:12.5px;margin-top:12px"><span id="bkStatus">${statusTxt()}</span><span id="bkStore"></span></div>
-        <div class="faint" style="font-size:12px;margin-top:8px">Soubor: na druhém zařízení otevři ATLAS → ⋯ Další → 💾 Přenos a záloha → 📂 Obnovit ze zálohy (na počítači vlevo dole 📲 Přenést do jiného zařízení → soubor zálohy). Obnova nic nesmaže: přidá, co chybí. Nepřenáší se rozpracovaná cesta v průvodci (v Mých cestách je uložená), uložené výsledky hledání a radaru, nedávná hledání, paměť cen, Objevuj a motiv.</div>
+        <div class="faint" style="font-size:12px;margin-top:8px">Soubor: na druhém zařízení otevři Letsi → ⋯ Další → 💾 Přenos a záloha → 📂 Obnovit ze zálohy (na počítači vlevo dole 📲 Přenést do jiného zařízení → soubor zálohy). Obnova nic nesmaže: přidá, co chybí. Nepřenáší se rozpracovaná cesta v průvodci (v Mých cestách je uložená), uložené výsledky hledání a radaru, nedávná hledání, paměť cen, Objevuj a motiv.</div>
       </div></div>`);
     if (link) $('#bkLink').onclick = () => Transfer.open();
     if (canShare) $('#bkShare').onclick = () => share();

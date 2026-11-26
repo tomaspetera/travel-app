@@ -148,7 +148,7 @@ if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configur
 <script src="js/flags.js"></script>
 </head>
 <body>
-<div id="launch" aria-hidden="true"><svg class="l-ico" viewBox="0 0 512 512"><defs><linearGradient id="launchG" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#22d3ee"/><stop offset=".45" stop-color="#5b8cff"/><stop offset="1" stop-color="#a855f7"/></linearGradient></defs><rect class="l-sq" width="512" height="512" rx="87.04" fill="url(#launchG)"/><g class="l-pp"><g class="l-paper"><path d="M372 165.4 218.4 272.9 126.2 226.8z" fill="#fff"/><path d="M372 165.4 264.4 365.1 218.4 272.9z" fill="#fff" fill-opacity=".8"/></g><path class="l-air" transform="translate(250 262) rotate(-38.5) scale(2.2) translate(-50 -50)" fill="#fff" d="M97 50C97 47 94 45.5 90 45.5H60L40 9H33L45 45.5H22L14 31H9L12 47L11 50L12 53L9 69H14L22 54.5H45L33 91H40L60 54.5H90C94 54.5 97 53 97 50Z"/></g></svg><svg class="l-jet" viewBox="0 0 100 100"><path fill="#fff" transform="rotate(-7 50 50)" d="M97 50C97 47 94 45.5 90 45.5H60L40 9H33L45 45.5H22L14 31H9L12 47L11 50L12 53L9 69H14L22 54.5H45L33 91H40L60 54.5H90C94 54.5 97 53 97 50Z"/></svg><b>ATLAS</b></div>
+<div id="launch" aria-hidden="true"><svg class="l-ico" viewBox="0 0 512 512"><defs><linearGradient id="launchG" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#22d3ee"/><stop offset=".45" stop-color="#5b8cff"/><stop offset="1" stop-color="#a855f7"/></linearGradient></defs><rect class="l-sq" width="512" height="512" rx="87.04" fill="url(#launchG)"/><g class="l-pp"><g class="l-paper"><path d="M372 165.4 218.4 272.9 126.2 226.8z" fill="#fff"/><path d="M372 165.4 264.4 365.1 218.4 272.9z" fill="#fff" fill-opacity=".8"/></g><path class="l-air" transform="translate(250 262) rotate(-38.5) scale(2.2) translate(-50 -50)" fill="#fff" d="M97 50C97 47 94 45.5 90 45.5H60L40 9H33L45 45.5H22L14 31H9L12 47L11 50L12 53L9 69H14L22 54.5H45L33 91H40L60 54.5H90C94 54.5 97 53 97 50Z"/></g></svg><svg class="l-jet" viewBox="0 0 100 100"><path fill="#fff" transform="rotate(-7 50 50)" d="M97 50C97 47 94 45.5 90 45.5H60L40 9H33L45 45.5H22L14 31H9L12 47L11 50L12 53L9 69H14L22 54.5H45L33 91H40L60 54.5H90C94 54.5 97 53 97 50Z"/></svg><b>Letsi</b></div>
 <div class="app">
   <!-- ===== SIDEBAR ===== -->
   <aside class="sidebar">
@@ -158,7 +158,7 @@ if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configur
         <svg viewBox="-0.316 -0.866 25.532 25.532" aria-hidden="true"><path d="M20 6 10 13 4 10z" fill="#fff"/><path d="M20 6 13 19 10 13z" fill="#fff" fill-opacity=".8"/></svg>
       </div>
       <div>
-        <div class="brand-name">ATLAS</div>
+        <div class="brand-name">Letsi</div>
         <div class="brand-tag">letenky odkudkoliv kamkoliv</div>
       </div>
     </div>
@@ -413,7 +413,7 @@ if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configur
 
           <div class="row wrap sf-actions" style="margin-top:16px">
             <button class="btn primary big" id="doSearch" type="submit">🔎 Najít nejlevnější lety</button>
-            <button class="btn ghost" id="watchBtn" type="button" title="Uložit hledání – cenu pak kontroluji sám, dokud máš ATLAS otevřený v prohlížeči">♡ Hlídat cenu</button>
+            <button class="btn ghost" id="watchBtn" type="button" title="Uložit hledání – cenu pak kontroluji, dokud máš aplikaci otevřenou v prohlížeči">♡ Hlídat cenu</button>
             <button class="btn ghost" id="formReset" type="button" title="Vyprázdnit formulář a schovat výsledky – odkud zůstane z domova">↺ Začít znovu</button>
             <label class="check-inline roll-opt" id="rollLbl" hidden><input type="checkbox" id="rollOn"> 📅 Hlídat s posouváním termínu</label>
             <button type="button" class="linkbtn guide-link" id="guideLink">💡 Jak hledat chytře</button>
@@ -435,11 +435,11 @@ if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configur
           <ol class="sg-list">
             <li><b>Buď flexibilní ± 3 dny.</b> U přesných dat zvol „± 3 dny“, nebo hledej „Flexibilně“ a otevři pohled 📅 Kalendář. Posun o den dva může ušetřit stovky, u dálkových letů i tisíce korun. U přesných dat ukáže pruh 📅 Nejbližší dny ceny okolních dnů, pokud je zná (hlavně Ryanair a Wizz Air) – jinak jiný den vyhledáš jedním kliknutím.</li>
             <li><b>Nejdřív celá země nebo světadíl, pak město.</b> Do „Kam“ napiš třeba „USA“ nebo „Asie“ – uvidíš, kam je to nejlevnější (New York, Miami, Bangkok…). Pak hledej to nejlevnější město na přesná data.</li>
-            <li><b>Přidej přestupní letiště – Vídeň, Mnichov, Berlín, Frankfurt.</b> Bývá odtud víc přímých dálkových letů a často i nižší ceny. U dálkových cílů je ATLAS přidává sám, jinak je zadej do „Odkud“ vedle svého města. Kolik zhruba stojí cesta na letiště, uvidíš u každé nabídky.</li>
+            <li><b>Přidej přestupní letiště – Vídeň, Mnichov, Berlín, Frankfurt.</b> Bývá odtud víc přímých dálkových letů a často i nižší ceny. U dálkových cílů je Letsi přidává automaticky, jinak je zadej do „Odkud“ vedle svého města. Kolik zhruba stojí cesta na letiště, uvidíš u každé nabídky.</li>
             <li><b>Zkus jednosměrné letenky každým směrem.</b> Hledej „Jen tam“ zvlášť tam a zvlášť zpět – dvě jednosměrné letenky bývají někdy levnější než zpáteční. Tam do New Yorku a zpět z Bostonu nebo cestu přes víc měst slož v <b>🗺️ Víc měst</b> (tlačítko ↩ Návrat z jiného města) – každý let hledám zvlášť a hlídám, aby na sebe navazovaly.</li>
-            <li><b>Dálkové lety rezervuj obvykle 2–5 měsíců předem</b> a hledání si ulož tlačítkem ♡ Hlídat cenu – ATLAS cenu kontroluje, dokud máš stránku otevřenou, a na Přehledu ukáže, když klesne.</li>
-            <li><b>Ověř cenu i jinde.</b> Kiwi.com neprodává všechny aerolinky (např. British Airways). U výsledků proklikni „Ověřit: Google Flights · Skyscanner“ – uvidíš i lety, které ATLAS nenajde.</li>
-            <li id="sgEntry"><b>Hlídej vstupní podmínky.</b> Do USA je nutná ESTA a do Kanady eTA (obě i když tam jen přestupuješ), do Británie ETA – vyřizuj je jen na oficiálních webech. ATLAS je ukáže u výsledků (🛂) a podrobně v detailu země.</li>
+            <li><b>Dálkové lety rezervuj obvykle 2–5 měsíců předem</b> a hledání si ulož tlačítkem ♡ Hlídat cenu – Letsi cenu kontroluje, dokud máš stránku otevřenou, a na Přehledu ukáže, když klesne.</li>
+            <li><b>Ověř cenu i jinde.</b> Kiwi.com neprodává všechny aerolinky (např. British Airways). U výsledků proklikni „Ověřit: Google Flights · Skyscanner“ – uvidíš i lety, které Letsi nenajde.</li>
+            <li id="sgEntry"><b>Hlídej vstupní podmínky.</b> Do USA je nutná ESTA a do Kanady eTA (obě i když tam jen přestupuješ), do Británie ETA – vyřizuj je jen na oficiálních webech. Letsi je ukáže u výsledků (🛂) a podrobně v detailu země.</li>
             <li><b>Odlet uprostřed týdne</b> (út–čt) bývá často levnější než v pátek nebo v neděli – není to ale pravidlo, záleží na trase a sezóně.</li>
           </ol>
         </details>

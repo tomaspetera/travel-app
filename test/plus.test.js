@@ -159,10 +159,10 @@ test('každá událost z plus.js je v seznamu EVENTS serveru; název placené ve
   for (const e of ['limit_shown', 'limit_plus', 'limit_download', 'limit_replace', 'plus_page', 'plus_offer_shown', 'plus_offer_click', 'sesit_shown', 'sesit_click']) assert.ok(all.includes(e), e);
   assert.deepEqual(all.filter((e) => !EVENTS.includes(e)), []);
   assert.match(SRC, /hit\(`price_\$\{b\.dataset\.price\}`\)/);
-  assert.equal(SRC.match(/ATLAS Plus/g).length, 1, 'jen const NAME');
+  assert.equal(SRC.match(/Letsi Plus/g).length, 1, 'jen const NAME');
   // po „Nechat si obě“ (Plus chystáme) zmizí věta o měsíčním předplatném a obnovení – nic takového zatím neběží
   assert.match(SRC, /thanks: \(\) => \{ if \(sheet\) \{ sheet\.querySelector\('\.plus-small'\)\.hidden = true;/);
-  assert.equal(P.NAME, 'ATLAS Plus');
+  assert.equal(P.NAME, 'Letsi Plus');
 });
 
 test('háčky: list jen u vědomého uložení nové cesty, nikdy u Objevuj, cesty od jiného, tichého ukládání a Dnes na cestě', () => {

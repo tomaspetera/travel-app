@@ -2282,7 +2282,7 @@
   // GPX pro navigaci (Mapy.com, Garmin, Komoot, Strava…).
   function gpxOf(r, name) {
     const pts = r.geometry.map(c => `<trkpt lat="${c[1]}" lon="${c[0]}">${c[2] != null ? `<ele>${c[2]}</ele>` : ''}</trkpt>`).join('\n');
-    return `<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="ATLAS" xmlns="http://www.topografix.com/GPX/1/1">\n<metadata><name>${esc(name)}</name></metadata>\n<trk><name>${esc(name)}</name><trkseg>\n${pts}\n</trkseg></trk>\n</gpx>\n`;
+    return `<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="Letsi" xmlns="http://www.topografix.com/GPX/1/1">\n<metadata><name>${esc(name)}</name></metadata>\n<trk><name>${esc(name)}</name><trkseg>\n${pts}\n</trkseg></trk>\n</gpx>\n`;
   }
   function downloadText(name, text, type) {
     const a = document.createElement('a');
@@ -2522,7 +2522,7 @@
     const h = d && d.hike;
     if (!h || !okGeom(h.geometry)) return;
     const name = `${h.goal.name}${h.start ? ` – z: ${h.start.name}` : ''} (${dayLbl(d.date).replace(/ /g, ' ')})`;
-    downloadText(`atlas-tura-${slug(h.goal.name)}-${d.date}.gpx`, gpxOf({ geometry: h.geometry }, name), 'application/gpx+xml');
+    downloadText(`letsi-tura-${slug(h.goal.name)}-${d.date}.gpx`, gpxOf({ geometry: h.geometry }, name), 'application/gpx+xml');
   }
   // Program je plán ve městě, ale okolí je hlavně příroda (Krkonoše z města v horách): nabídnout túry
   const isRural = plan => Boolean(plan && plan.kind !== 'hike' && (plan.days || []).some(d => d.rural));
@@ -3002,7 +3002,7 @@
     $('#exPlanTg', body).onclick = () => { const c = $('#exPlanCard', body), open = c.classList.contains('shut'); c.classList.toggle('shut', !open); ex.planOpen = open; };
     on('#routeOther', 'onclick', () => replan($('#routeOther'), { other: true }));
     on('#exRetry', 'onclick', () => replan(null, { other: er?.other }));
-    on('#routeGpx', 'onclick', () => downloadText(`atlas-${hikeMode ? 'pesky' : rr.kind === 'train' ? 'vlak-kolo' : 'kolo'}-${slug(p.label)}-${rr.km}km.gpx`, gpxOf(rr, routeName(rr, p)), 'application/gpx+xml'));
+    on('#routeGpx', 'onclick', () => downloadText(`letsi-${hikeMode ? 'pesky' : rr.kind === 'train' ? 'vlak-kolo' : 'kolo'}-${slug(p.label)}-${rr.km}km.gpx`, gpxOf(rr, routeName(rr, p)), 'application/gpx+xml'));
     $$('[data-drop]', body).forEach(b => b.onclick = () => dropUndo(st, b.dataset.drop, ex.plan, () => replan()));
     $$('[data-tdrop]', body).forEach(b => b.onclick = () => tripDropUndo(b.dataset.tdrop, trip,() => { onlyThisTrip(); replan(); }));
     $$('[data-tmust]', body).forEach(b => b.onclick = e => { e.stopPropagation(); ex.tripMust.add(b.dataset.tmust); ex.tripEx.delete(b.dataset.tmust); onlyThisTrip(); replan(); });

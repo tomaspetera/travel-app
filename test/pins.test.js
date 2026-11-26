@@ -291,7 +291,7 @@ test('shareText: čísla podle ceny, celkem pro 2 os., lety, jen tam, ⚠ po 24 
   const lines = txt.split('\n');
   assert.equal(lines[0], '✈️ Kam pojedeme? Vyber číslo (ceny za osobu):');
   assert.equal(lines[1], '');
-  assert.equal(lines.at(-1), '(ATLAS – ceny se mohou změnit, ověř je před nákupem)');
+  assert.equal(lines.at(-1), '(Letsi – ceny se mohou změnit, ověř je před nákupem)');
   // 1) jen tam 990 Kč, 2) Neapol 1 890, 3) radar 2 400
   assert.match(txt, /^1\) Neapol 🇮🇹 · pá 13\. 11\. · jen tam$/m);
   assert.match(txt, /^ {3}990 Kč\/os\. \(celkem 1\s980 Kč za 2 os\.\)$/m);

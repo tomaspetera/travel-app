@@ -1103,7 +1103,7 @@ test('↻ Aktualizovat ceny: nabídky zůstanou, dokud nepřijdou nové; nepoved
   const TR = [LIST_PRAGUE[2], [{ code: 'CtripTA', name: 'Trip.com', rate: 60 }, { code: 'Agoda', name: 'Agoda.com', rate: 70 }], now - 40 * 60e3];
   const BK = [LIST_PRAGUE[0], [{ code: 'BookingCom', name: 'Booking.com', rate: 70 }], now - 30 * 60e3];
   const first = xoteloReply([TR, BK]), fresh = xoteloReply([[BK[0], BK[1], now]]);
-  const NET = 'Server ATLAS je teď nedostupný – zkontroluj připojení k internetu a zkus to znovu.';
+  const NET = 'Server Letsi je teď nedostupný – zkontroluj připojení k internetu a zkus to znovu.';
   let reply = () => first;
   const c = loadTrip((u) => reply(u));
   const t = pragueTrip();
@@ -1197,7 +1197,7 @@ test('„Ceny z“ a poznámka o poplatcích jen z hotelů, které filtry ukazuj
 });
 
 test('nabídky ubytování se nenačetly: proč, další krok (vlastní cena) a ↻ Zkusit znovu, které se zeptá znovu', async () => {
-  const NET = 'Server ATLAS je teď nedostupný – zkontroluj připojení k internetu a zkus to znovu.';
+  const NET = 'Server Letsi je teď nedostupný – zkontroluj připojení k internetu a zkus to znovu.';
   const ok = xoteloReply([[LIST_PRAGUE[0], [{ code: 'BookingCom', name: 'Booking.com', rate: 70 }], Date.now()]]);
   let reply = () => { throw new Error(NET); };
   const c = loadTrip((u) => reply(u));
