@@ -5,7 +5,11 @@
    přechod. Pravidla palety: Pistácie vždy s Nocí; na Noci jen jako plná plocha nebo tlačítko (žádné tenké linky,
    obrysy, záře); žádné barevné přechody ani sklo; Rajče tu není vůbec (slunce přijde až s kukátkem); ceny barvou textu.
    Písma Onest (text) a Unbounded (nadpisy a ceny, v balíku rodina 'Letsi') z vlastního serveru, licence OFL
-   v public/vendor/fonts/letsi/. @font-face se stáhne, až když ho použije pravidlo – tedy jen ve vzhledu Letsi. */
+   v public/vendor/fonts/letsi/. @font-face se stáhne, až když ho použije pravidlo – tedy jen ve vzhledu Letsi.
+   Unbounded je zmenšený na latinku s češtinou (z 96 na 28 kB na řez – stahuje se souběžně se skripty, které oživují
+   Přehled): pyftsubset --unicodes="U+0000-017F,U+0192,U+0218-021B,U+0237,U+02C6-02DD,U+2000-206F,U+20A0-20CF,
+   U+2100-215F,U+2190-21FF,U+2200-22FF,U+25A0-27BF,U+FB01-FB02,U+FEFF,U+FFFD" --layout-features='*' --name-IDs='*'
+   --name-languages='*' --notdef-outline --flavor=woff2; ostatní znaky (azbuka, vietnamština) vysází Onest. */
 @font-face{font-family:'Onest';font-style:normal;font-weight:400;font-display:swap;src:url(../vendor/fonts/letsi/onest-400.woff2) format('woff2')}
 @font-face{font-family:'Onest';font-style:normal;font-weight:500;font-display:swap;src:url(../vendor/fonts/letsi/onest-500.woff2) format('woff2')}
 @font-face{font-family:'Onest';font-style:normal;font-weight:600;font-display:swap;src:url(../vendor/fonts/letsi/onest-600.woff2) format('woff2')}
@@ -69,6 +73,10 @@
 :root[data-brand="letsi"] :is(.pp,.lr-p b,.w-p,.cmp-price b,.radar-card .rc-price,.mc-cp b,.gb-col b,.fav-p b,.drop-price,.res-top-c .rt-price,.st-price .pp,table.cost tr.tot td,.alt-p,.ov-sum b,.th-total .tt,.pp-guess,.stat .val){font-variant-numeric:tabular-nums}
 /* Unbounded je o ~15 % širší než Sora: velké titulky o stupeň menší, ať se na 412 px nelámou hůř než dnes */
 :root[data-brand="letsi"] .hero h1{font-size:30px;font-weight:600}
+/* místo pro kukátko vlevo od titulku už před načtením skriptů: js/kukatko.js ho vloží (třída kuk-s, 64 px, znak 244 × 178)
+   až po startu a formulář pod titulkem by poskočil o ~18 px přesně ve chvíli, kdy jde Přehled poprvé použít */
+:root[data-brand="letsi"] .hero h1{display:flex;align-items:center;gap:12px}
+:root[data-brand="letsi"] .hero h1:not(.kuk-s)::before{content:"";flex:none;width:64px;aspect-ratio:244/178}
 :root[data-brand="letsi"] .fl-hero h1{font-size:26px;font-weight:600}
 :root[data-brand="letsi"] .page-title,:root[data-brand="letsi"] .topbar h1{letter-spacing:-.03em}
 @media(max-width:1023px){

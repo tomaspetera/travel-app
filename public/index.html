@@ -92,6 +92,16 @@ if (!Object.hasOwn) Object.hasOwn = function (o, k) { return Object.prototype.ha
 if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configurable: true, writable: true, value: function (i) { i = Math.trunc(i) || 0; if (i < 0) i += this.length; return this[i]; } });
 </script>
 <script>
+/* „Najít lety“ klepnuté dřív, než se načtou skripty: formulář na Přehledu nemá action, prohlížeč by ho odeslal na /?
+   a celé načítání by začalo znovu. Dokud obsluhu nepřevezme flights.js (onsubmit), odeslání zastavit a zapamatovat –
+   app.js boot ho po startu zopakuje. */
+document.addEventListener('submit', function (e) {
+  if (e.target.id !== 'heroSearch' || e.target.onsubmit) return;
+  e.preventDefault();
+  window.atlasEarlySubmit = true;
+}, true);
+</script>
+<script>
 /* Motiv, mapa a barva lišty hned při startu (ne až po načtení skriptů) – bez probliknutí; dál je hlídá app.js a pwa.js.
    Motiv zvolený přepínačem, jinak (nový uživatel – uložený motiv nemá) podle systému; stejně jako app.js themeOf. */
 (function () {
