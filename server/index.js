@@ -43,6 +43,7 @@ import { BRAND } from './brand.js';
 import { mapyOn, mapyReady, mapyStatus, parseTile, mapyTile } from './lib/mapy.js';
 import { cleanReport, recordClientError, clientErrorCount, MAX_BODY as CLIENT_ERR_MAX } from './lib/clienterr.js';
 import { RateLimiter } from './lib/ratelimit.js';
+import { upstashCounts, memoryCounts, makeCounter, clampDays, MAX_BODY as COUNT_MAX } from './lib/counts.js';
 import { upstashStore, memoryStore, cachedStore, createShare, loadShare, sharePage, inviteMeta, invitePage, ogPhoto, PREVIEW_BOT, PREVIEW_CSP, MAX_JSON as SHARE_MAX, ID_RE as SHARE_ID } from './lib/shortlinks.js';
 import { sharedRuns, gate, perClient, recentResults, breathe } from './lib/crowd.js';
 import { SECURITY_HEADERS, API_CSP, clientIp, crossSite } from './lib/security.js';
@@ -222,6 +223,10 @@ const shareGetLimited = (req, id) => !shareStore.has('s:' + id) && rateLimited(r
 const PREVIEW_BUILD = { 'X-Atlas-Build': 'preview', 'Content-Security-Policy': PREVIEW_CSP };
 // fotka cíle do náhledu odkazu: z mezipaměti fotek, nová nejvýš 3 s (odkaz bez fotky má obecný náhled ATLASu)
 const previewPhoto = async (place) => ogPhoto(String(((await Promise.race([cityPhotos([place]), new Promise((r) => setTimeout(() => r(null), 3000))])) || {}).photos?.[place] || ''));
+// Souhrnné denní počty (server/lib/counts.js): Upstash, jinak paměť procesu. Počítadlo dostane jen název události –
+// adresa slouží jen limitu (countHits), nikam se neukládá.
+const counter = makeCounter(config.upstashUrl && config.upstashToken ? upstashCounts(config.upstashUrl, config.upstashToken) : memoryCounts());
+const countHits = new RateLimiter(); // události z prohlížeče (/api/count): 120 za 10 minut z jedné adresy
 const wxHits = new RateLimiter(); // předpověď mimo mezipaměť serveru (MET Norway)
 const fxHits = new RateLimiter(); // kurzy pro okno země (/api/fx): klient je bere jednou denně, 60 za 10 minut stačí
 // clientIp (server/lib/security.js): na Renderu adresa od Cloudflare, ne podvrhnutelná první z X-Forwarded-For
@@ -613,6 +618,29 @@ async function route(req, res) {
     if (line) console.warn(line);
     res.writeHead(204, { 'Cache-Control': 'no-store' });
     return res.end();
+  }
+  if (p === '/api/count') {
+    // Souhrnné počítání (public/js/count.js): { e: 'search_done' } → +1 k dennímu součtu události, nic dalšího se
+    // z požadavku nečte ani neukládá. Odpověď bez obsahu; klient na ni nečeká.
+    if (req.method !== 'POST') return sendJson(req, res, 405, { error: 'Jen POST' }, { Allow: 'POST' });
+    if (rateLimited(req, 120, countHits)) return sendJson(req, res, 429, { error: 'Příliš mnoho požadavků' });
+    let b;
+    try {
+      b = JSON.parse((await readBody(req, COUNT_MAX)) || 'null');
+    } catch (e) {
+      return badBody(req, res, e);
+    }
+    if (!counter.hit(b && b.e)) return sendJson(req, res, 400, { error: 'Neznámá událost' });
+    res.writeHead(204, { 'Cache-Control': 'no-store' });
+    return res.end();
+  }
+  if (p === '/api/stats') {
+    // Denní součty událostí za posledních ?days= dní (1–90, výchozí 30) – jen čísla, žádné osobní údaje
+    try {
+      return sendJson(req, res, 200, await counter.stats(clampDays(url.searchParams.get('days'))), { 'Cache-Control': 'public, max-age=300' });
+    } catch (e) {
+      return sendJson(req, res, 503, { error: 'Počty teď nejsou dostupné.' });
+    }
   }
   if (p === '/api/share') {
     // Krátký odkaz na sdílenou cestu nebo plán (server/lib/shortlinks.js): { k: 'trip' | 'plan', j: JSON } → { id }
@@ -1238,7 +1266,9 @@ if (process.argv[1] && path.resolve(process.argv[1]) === path.join(config.root, 
   // Hosting při nasazení nové verze posílá SIGTERM – dokonči rozběhnuté požadavky a skonči.
   const shutdown = (sig) => {
     console.log(`${sig}: ukončuji server…`);
-    server.close(() => process.exit(0));
+    // počty z posledních minut by s procesem zmizely – konec až po jejich zápisu (nejvýš 10 s, viz níž)
+    const counted = counter.flush();
+    server.close(() => counted.finally(() => process.exit(0)));
     setTimeout(() => process.exit(0), 10000).unref();
   };
   process.on('SIGTERM', () => shutdown('SIGTERM'));

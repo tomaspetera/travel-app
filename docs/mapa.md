@@ -144,6 +144,7 @@ Navigační mapa repozitáře: kde co je a jak to spolu souvisí, aby se kód da
 - Název aplikace, doména → `server/brand.js`: `BRAND`; `server/config.js`: `cleanSiteUrl()` (PUBLIC_URL)
 - 💬 Napsat nám / 💛 Podpořit / provozovatel → `server/config.js`: `cleanEmail()`, `cleanPayUrl()`, `cleanOperator()`; `public/js/about.js`: `okEmail()`, `okPay()`
 - Chyby z prohlížeče v logu Renderu → `public/js/errlog.js`: `report()`, `makeReport()`; `server/lib/clienterr.js`: `cleanReport()`, `recordClientError()`
+- Souhrnné denní počty bez sledování lidí (co lidé v aplikaci dělají) → `public/js/count.js`: `hit()`, `view()`; `server/lib/counts.js`: `EVENTS`, `makeCounter()`; zapojení `go()` a `boot()` v `public/js/app.js`; čtení GET `/api/stats`
 
 ## Tok dat
 - **Start serveru**: `npm start` → `server/index.js` (listen jen jako vstupní skript) → `createServer()` → `server.listen(config.port, config.host)` → `warmUp()`: `loadRates()` → `loadPlaces()` → mimo DEMO `refreshFuel()` + sítě aerolinek → SIGTERM/SIGINT: `server.close()`, po 10 s exit.
@@ -166,6 +167,8 @@ Tabulka odpovídá pořadí větví v `route()` (`server/index.js`). Limity jsou
 | GET `/api/diag` | ostrý test zdrojů (aerolinky, hotely, Wikidata) | `server/index.js` `diagnose()` | hits (SEARCH_RATE_LIMIT), cache 5 min; na produkci jen výjimečně |
 | GET `/api/health` | stav: demo, zdroje, fx, cache, fronta hledání, clientErrors, shortLinks, mapy; feedback/support/operator z env | `server/index.js` `searchStats()`, `providerStatus()`, `mapyStatus()`, `fxInfo()` | bez limitu; bezpečná kontrola produkce |
 | POST `/api/client-error` | chyba z prohlížeče → řádek do logu, 204 | `server/lib/clienterr.js` `cleanReport()`, `recordClientError()` | ≤ 4 kB, 30/h (clientErrs); jiná metoda 405 |
+| POST `/api/count` | souhrnné počítání {e: událost z `EVENTS`} → +1 k dennímu součtu, 204 | `server/lib/counts.js` `makeCounter()` → `hit()` | ≤ 256 B, 120/10 min (countHits); neznámá událost 400; jiná metoda 405; IP ani hlavičky se neukládají |
+| GET `/api/stats` | denní součty událostí za ?days= (1–90, výchozí 30) → {days: [{day, counts}], total} | `server/lib/counts.js` `stats()`, `clampDays()` | bez limitu (úložiště nejvýš 1× za 5 min); public 5 min; výpadek úložiště 503 |
 | POST `/api/share` | uloží krátký odkaz {k: trip/plan, j} → {id} | `server/lib/shortlinks.js` `createShare()`; fotka náhledu `previewPhoto()` (`server/index.js`) | 30/h (shareHits); bez úložiště 503; jiná metoda 405 |
 | GET `/api/share/<id>` | obsah krátkého odkazu {k, j} | `server/lib/shortlinks.js` `loadShare()` | shareGets 60/10 min jen mimo mezipaměť (`shareGetLimited()`); public 1 den; 404 |
 | GET `/api/places` | našeptávač Odkud/Kam (q, near, role, remote, nature) | `server/lib/places.js` `suggest()` | bez limitu (bez sítě) |
@@ -225,6 +228,7 @@ Tabulka odpovídá pořadí větví v `route()` (`server/index.js`). Limity jsou
 - `server/lib/cars.js` – půjčení auta: validace dotazu a odkazy na srovnávače, bez cen a sítě. Klíčové: `searchCars()`, `normalizeCarQuery()`, `CarQueryError`.
 - `server/lib/clienterr.js` – chyby z prohlížeče: vyčistit, řádek do logu Renderu, posledních 50 v paměti. Klíčové: `cleanReport()`, `recordClientError()`, `clientErrorCount()`, `MAX_BODY`.
 - `server/lib/climate.js` – dlouhodobé podnebí z `data/climate.json` (líně): bod, letiště, země, měsíc, „za teplem“. Klíčové: `climateAt()`, `airportClimate()`, `monthClimate()`, `countryClimate()`, `seasonMonth()`, `warmAirports()`, `warmShare()`, `mainAirport()`, `sourceText()`.
+- `server/lib/counts.js` – souhrnné denní počty událostí bez osobních údajů: klíč cnt:<den UTC>:<událost>, Upstash (TTL 400 dní) nebo paměť; zápis po dávkách jednou za 10 min. Klíčové: `EVENTS`, `makeCounter()` (`hit()`, `flush()`, `stats()`), `upstashCounts()`, `memoryCounts()`, `clampDays()`, `MAX_BODY`.
 - `server/lib/crowd.js` – ochrana při návalu: sdílené běhy, fronta, hotové výsledky, strop na adresu, střídání práce na vlákně. Klíčové: `sharedRuns()`, `gate()`, `recentResults()`, `perClient()`, `breathe()`.
 - `server/lib/dates.js` – data YYYY-MM-DD počítaná v UTC a převody časových pásem. Klíčové: `todayYmd()`, `addDays()`, `daysBetween()`, `chunkRange()`, `clampRange()`, `localToUtcMs()`, `utcToLocalIso()`, `flightMinutes()`.
 - `server/lib/daytrips.js` – řazení a popis jednodenních výletů (význam, dosah, důvod); volá ho jen `server/lib/poi.js`. Klíčové: `rankTrips()`, `reachOf()`, `whyOf()`, `parseGoNext()`, `CLASSICS`.
@@ -284,6 +288,7 @@ Tabulka odpovídá pořadí větví v `route()` (`server/index.js`). Limity jsou
 - `public/js/alerts.js` – ♡ hlídané ceny, čistá logika: kdy kontrolovat a upozornit, historie, klouzavý termín, tip kdy koupit, .ics připomínka. Klíčové: `scheduler()`, `dueWatches()`, `applyCheck()`, `shouldNotify()`, `upsertWatch()`, `mergeWatches()`, `buyTip()`, `remindEvent()`, `CFG`, `PV`.
 - `public/js/app.js` – jádro (globální skript, ne IIFE): pomocníci, stav S, navigace a Zpět, motiv, Přehled, Co je nového, fotky, Doporučení, Země, mapa světa, Moje cesty, odkazy v #hash, start. Klíčové: `esc()`, `save()`, `go()`, `histPop()`, `modalOpen()`, `toast()`, `renderDash()`, `openCountry()`, `initMap()`, `myTrips()`, `openTrip()`, `boot()`. API: `api/photos`, `api/climate`, `api/weather`, `api/fx`, `api/places`, `api/share/<id>`, `data/countries.json`.
 - `public/js/backup.js` – 💾 záloha a obnova všech dat (JSON v:1), náhled, Sloučit/Nahradit; jádro i pro 📲 přenos. Klíčové: `open()`, `pack()`, `parse()`, `match()`, `diff()`, `merge()`, `replace()`, `preview()`, `apply()`, `restore()`, `cleanRefs()`, `snapshot()`.
+- `public/js/count.js` – souhrnné počítání: pošle jen název události (sendBeacon, jinak fetch keepalive), nic neukládá do prohlížeče, offline nic. Klíčové: `hit()`, `view()`, `viewEvent()`. API: POST `api/count`.
 - `public/js/data.js` – statická data jako globální const: nálady, kódy počasí, tipy, seznamy balení. Klíčové: `VIBES`, `WC`, `wIco()`, `TIPS`, `PACK`, `PACK_OUT`, `PACK_BIKE`, `packFor()`.
 - `public/js/entry.js` – 🛂 vstupní podmínky pro občany ČR: čipy, detail země, Před cestou, přestupy, připomínky. Klíčové: `load()`, `get()`, `cardChip()`, `flightChip()`, `detailHtml()`, `checklistHtml()`, `transitHtml()`, `reminders()`, `costs()`. API: `data/entry.json`.
 - `public/js/errlog.js` – nezachycené chyby → server (bez #hash, max 1 za 10 s a 20 za relaci, ≤ 2 kB); načítá se v head před skripty aplikace. Klíčové: `makeReport()`, `report()`, `scrub()`, `limiter()`. API: POST `api/client-error`.
@@ -367,7 +372,7 @@ Skripty (vše `node scripts/…`; README ## Data a licence má příkazy pro akt
 - Lety – skládání a cena: `test/engine.test.js`, `test/kamkoliv-mix.test.js`, `test/kamkoliv-mixpool.test.js`, `test/multi.test.js`, `test/longhaul.test.js`, `test/hubs.test.js`, `test/roundtrip-link.test.js`, `test/dategrid.test.js`, `test/dst.test.js`, `test/pricecheck.test.js`
 - Radar a nával: `test/radar.test.js`, `test/radar-slim.test.js`, `test/swr.test.js`, `test/crowd.test.js`, `test/crowd-client.test.js`, `test/scale.test.js`, `test/overload-client.test.js`
 - Server – HTTP, bezpečnost, PWA, SEO: `test/server.test.js` (vzor serveru), `test/security.test.js`, `test/seo.test.js`, `test/pwa.test.js`, `test/startup.test.js`, `test/lazy.test.js`, `test/scriptload.test.js`
-- Server – další služby: `test/clienterr.test.js`, `test/about.test.js`, `test/shortlinks.test.js`, `test/invite-link.test.js`, `test/weather-met.test.js`, `test/photos.test.js`, `test/mapy.test.js`
+- Server – další služby: `test/clienterr.test.js`, `test/pocitadla.test.js`, `test/about.test.js`, `test/shortlinks.test.js`, `test/invite-link.test.js`, `test/weather-met.test.js`, `test/photos.test.js`, `test/mapy.test.js`
 - Doprava: `test/access.test.js`, `test/applinks.test.js`, `test/arrival.test.js`, `test/fuel.test.js`, `test/fuel-api.test.js`, `test/ground.test.js`, `test/ground-api.test.js`, `test/ground-ui.test.js`, `test/transfers.test.js`
 - Místa a našeptávač: `test/suggest.test.js`, `test/places-search.test.js`, `test/places-missing.test.js`, `test/czech-names.test.js`, `test/nature.test.js`, `test/places-ui.test.js`, `test/objevuj-poradi.test.js`, `test/objevuj-drobnosti.test.js`
 - POI, výlety, program, túry: `test/poi.test.js`, `test/country.test.js`, `test/daytrips.test.js`, `test/regions.test.js`, `test/roadtrip.test.js`, `test/itinerary.test.js`, `test/program.test.js`, `test/hours.test.js`, `test/hikeplan.test.js`, `test/hikeplan-ui.test.js`, `test/trailhead.test.js`, `test/bike.test.js`
@@ -402,7 +407,7 @@ Skripty (vše `node scripts/…`; README ## Data a licence má příkazy pro akt
 - Žádné push ani keep-alive: hlídání a `checkVersion()` běží jen při otevřené stránce, Notification až po klepnutí (`askNotif()`); náhradou je 🕘 Od minula.
 
 ### Server a API
-- Router je řetězec if v `route()` a na pořadí záleží: `/api/search` a `/api/tiles/mapy/` jsou na konci, pak catch-all 404 JSON. POST-only endpointy na GET vrátí 404 „Neznámý endpoint“, ne 405 (405 mají jen `/api/client-error` a `/api/share`).
+- Router je řetězec if v `route()` a na pořadí záleží: `/api/search` a `/api/tiles/mapy/` jsou na konci, pak catch-all 404 JSON. POST-only endpointy na GET vrátí 404 „Neznámý endpoint“, ne 405 (405 mají jen `/api/client-error`, `/api/count` a `/api/share`).
 - Klient volá API relativně (`'api/…'` bez lomítka) – volajícího hledej `grep -rn "api/název" public/js`, ne `/api/`.
 - Každé `/api/*` má `API_CSP`; Sec-Fetch-Site: cross-site (mimo navigaci) → 403. curl a testy bez té hlavičky projdou.
 - Limity jsou jen v paměti procesu (`RateLimiter`, okno 10 min; clientErrs a shareHits 1 h) podle `clientIp()` (na Renderu CF-Connecting-IP); restart a nasazení je vynuluje; 429 nese Retry-After.
@@ -463,7 +468,8 @@ Skripty (vše `node scripts/…`; README ## Data a licence má příkazy pro akt
 - Z `data/` jdou přes HTTP jen `data/countries.json` a `data/entry.json`; `public/data/pretrip.json` jde jako běžný soubor z public/; ostatní data zná jen server.
 - html/js/css jdou s no-cache (levné 304 přes ETag), immutable na rok jen s ?v= shodným s obsahem. /c/ a /j/ mají X-Atlas-Build: preview a robotům (PREVIEW_BOT) se neposílá meta refresh.
 - Krátké odkazy jen s UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN (DEMO = paměť); bez nich `/api/share` 503, /c/ 404 a aplikace pošle dlouhý odkaz. Strop Upstash 500 000 příkazů/měsíc šetří `cachedStore()` a shareGets.
-- Data za # se na server neposílají a errlog je maže; na serveru se ukládá jen cesta/plán krátkým odkazem (400 dní) a jen po vědomém sdílení.
+- Počítadla (`/api/count`) se o strop Upstash dělí s krátkými odkazy: do úložiště se nepíše při každé události, ale jednou za 10 min po dávkách (`makeCounter()` → `flush()`, i při SIGTERM). Nová událost = doplnit do `EVENTS`; nikdy k ní neukládat adresu, zařízení ani identifikátor (slib v O aplikaci, `test/pocitadla.test.js`).
+- Data za # se na server neposílají a errlog je maže; na serveru se ukládá jen cesta/plán krátkým odkazem (400 dní) a jen po vědomém sdílení, a souhrnné denní počty událostí (400 dní, bez osobních údajů).
 - Po změně `server/brand.js` nebo šablony `ogHtml()` (`scripts/build-og-image.mjs`) spusť `npm run build:og`, jinak padá `test/seo.test.js`; ikony jen přes `npm run build:icons` (`test/pwa.test.js`); manifest je bez name záměrně.
 
 ### Cizí služby

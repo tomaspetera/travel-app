@@ -1,5 +1,5 @@
 // ℹ️ O aplikaci a soukromí (public/js/about.js přes node:vm) a 💬 Napsat nám: feedback v /api/health jen
-// s FEEDBACK_EMAIL. Hlídá i to, co okno slibuje o soukromí – žádné cookies ani analytika v kódu.
+// s FEEDBACK_EMAIL. Hlídá i to, co okno slibuje o soukromí – žádné cookies ani sledovací skripty v kódu.
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
@@ -63,7 +63,7 @@ test('okno: zdroje dat, ukládání jen v prohlížeči, řazení, orientační 
   assert.match(html, /Twemoji \(CC BY 4\.0\)/);
   assert.match(html, /ATLAS není spojen s žádnou leteckou společností ani prodejcem; ceny a odkazy jsou z veřejných a partnerských zdrojů\./);
   assert.match(html, /localStorage/);
-  assert.match(html, /žádné cookies, analytika ani měření návštěvnosti/);
+  assert.match(html, /<b>Žádné cookies ani sledování jednotlivců\.<\/b> Počítám jen souhrnné denní počty \(kolikrát se otevřela aplikace, kolik proběhlo hledání, kolik cest vzniklo\) – bez osobních údajů a bez vazby na tebe nebo tvoje zařízení\./);
   assert.equal(html.match(/[Žž]ádná aerolinka ani partner si za lepší pozici neplatí/g).length, 1, 'věta jednou');
   assert.match(html, /vždy ji ověř u partnera/);
   // RateLimiter (server/lib/ratelimit.js) maže adresu nejpozději po okně; nejdelší okno je hodina (hlášení chyb, odkazy)
@@ -95,11 +95,13 @@ test('💬 Napsat nám: mailto s verzí a obrazovkou v předmětu, jen s platnou
   assert.match(A.html({ version: '<img src=x>' }), /Verze &lt;img src=x&gt;/, 'verze se escapuje');
 });
 
-test('soukromí podle kódu: v aplikaci žádné cookies, analytika ani měřicí skripty; e-mail nikde natvrdo', () => {
+test('soukromí podle kódu: v aplikaci žádné cookies ani cizí měřicí skripty; e-mail nikde natvrdo', () => {
   const files = readdirSync(new URL('../public/js/', import.meta.url)).filter((f) => f.endsWith('.js')).map((f) => `public/js/${f}`);
   for (const f of [...files, 'public/index.html']) {
     const src = read(f);
-    assert.doesNotMatch(src, /document\.cookie|sendBeacon|gtag\(|google-analytics|googletagmanager|plausible|matomo|hotjar/i, f);
+    assert.doesNotMatch(src, /document\.cookie|gtag\(|google-analytics|googletagmanager|plausible|matomo|hotjar/i, f);
+    // sendBeacon jen v count.js: posílá samotný název události k dennímu součtu (test/pocitadla.test.js)
+    if (f !== 'public/js/count.js') assert.doesNotMatch(src, /sendBeacon/, f);
     assert.doesNotMatch(src, /mailto:[\w.+-]+@/i, `${f}: žádná adresa v kódu`);
   }
   assert.doesNotMatch(read('server/index.js'), /set-cookie/i, 'server cookies nenastavuje');

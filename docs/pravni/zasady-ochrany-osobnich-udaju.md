@@ -19,19 +19,21 @@ Pověřence pro ochranu osobních údajů nemáme jmenovaného (není povinný).
 
 ## 2. Krátce
 
-- ATLAS nemá účty, registraci ani přihlášení. **Nepoužívá cookies, analytiku ani měření návštěvnosti.**
+- ATLAS nemá účty, registraci ani přihlášení. **Nepoužívá cookies a nesleduje jednotlivce.** Počítá jen souhrnné
+  denní počty – kolikrát se otevřela aplikace, kolik proběhlo hledání, kolik cest vzniklo (bod 3.6).
 - Tvoje cesty, hlídané ceny, oblíbená místa a nastavení jsou **jen v tvém prohlížeči** na tvém zařízení. Na server se
   neposílají.
 - Server ATLASu dostane jen to, co potřebuje k odpovědi (např. odkud a kam hledáš let), a tvou IP adresu, kterou
   krátce drží v paměti kvůli ochraně proti přetížení.
-- Na serveru se trvale ukládá jen cesta, kterou **sám sdílíš krátkým odkazem** – na 400 dní.
+- Na serveru se trvale ukládá jen cesta, kterou **sám sdílíš krátkým odkazem** – na 400 dní – a souhrnné denní počty
+  bez osobních údajů.
 - Letenky ani ubytování neprodáváme. Když klepneš na odkaz k rezervaci, přejdeš na web prodejce a platí jeho zásady.
 
 ## 3. Co přijímá server ATLASu a jak dlouho to drží
 
 ### 3.1 IP adresa – ochrana proti přetížení
 
-Server u většiny dotazů (hledání letů, ubytování, fotky, počasí, mapy, sdílení, hlášení chyb) počítá, kolik požadavků
+Server u většiny dotazů (hledání letů, ubytování, fotky, počasí, mapy, sdílení, hlášení chyb, souhrnné počítání) počítá, kolik požadavků
 přišlo z jedné adresy, a nad limitem další na chvíli odmítne. K tomu si pamatuje IP adresu (u IPv6 jen síť /64,
 tedy prvních 64 bitů) a časy posledních požadavků z ní.
 
@@ -130,6 +132,32 @@ bodu 3.3, **IP adresy ani obsah hledání sám nezapisuje**.
 
 > Kde v kódu: `render.yaml` (`region: frankfurt`), `server/lib/security.js` (komentář u `clientIp()`: na Renderu
 > Cloudflare a hlavička `CF-Connecting-IP`), výpisy `console.*` v `server/index.js` – žádný neobsahuje IP adresu.
+
+### 3.6 Souhrnné denní počty
+
+Abychom věděli, které části aplikace lidé používají a co zlepšit, počítá server, **kolikrát za den** se něco stalo:
+otevření aplikace, otevření sekce (Přehled, Lety, Cesty, Objevuj, Svět), proběhlé hledání, klepnutí na ověření ceny
+nebo na odkaz k prodejci, založení a uložení cesty, sdílení, export do kalendáře a klepnutí u nabídky placené verze
+(včetně toho, jakou cenu bys byl ochotný zaplatit).
+
+- **Co se posílá:** jen název události z pevného seznamu (např. `search_done`). Neposílá se, co jsi hledal, kam
+  jedeš, ani nic o tobě.
+- **Co se ukládá:** jedno číslo na den a událost (např. „12. 1. 2027 – hledání: 148“). Neukládá se IP adresa, údaje
+  o prohlížeči ani zařízení, čas jednotlivé události ani žádný identifikátor. Události nejde spojit mezi sebou ani
+  s tebou – nejde zjistit, kdo co dělal, ani že dvě události udělal tentýž člověk.
+- **V tvém zařízení:** nic. Počítání nepoužívá cookies, úložiště prohlížeče ani jiný identifikátor a bez připojení
+  se nepočítá.
+- **IP adresa** poslouží jen ochraně proti přetížení podle bodu 3.1 (nejvýš 120 událostí za 10 minut z jedné adresy);
+  k počtům se neukládá.
+- **Kde a jak dlouho:** databáze Upstash Redis (jako krátké odkazy), 400 dní, pak je Upstash sám smaže; počty
+  z posledních nejvýš 10 minut čekají na zápis v paměti serveru. Součty jsou veřejné (`/api/stats`).
+- **Právní základ:** souhrnné počty nejsou osobní údaje – nevztahují se k určené ani určitelné osobě. Samotné
+  přijetí požadavku (IP adresa) viz bod 3.1. [ověřit – viz Otázky, bod 13]
+
+> Kde v kódu: `public/js/count.js` (`hit()` – tělo `{ e }`, žádné úložiště prohlížeče), `server/lib/counts.js`
+> (`EVENTS`, `makeCounter()` – klíč `cnt:<den UTC>:<událost>`, `TTL_DAYS = 400`; `hit()` dostane jen název události),
+> `server/index.js` obsluha `/api/count` (limit `countHits`, tělo nejvýš 256 bajtů) a `/api/stats`,
+> `test/pocitadla.test.js`.
 
 ## 4. Co zůstává jen ve tvém zařízení
 
@@ -309,3 +337,7 @@ Zásady můžeme upravit, když se změní aplikace nebo předpisy. Aktuální z
     potřeba?
 12. **Stripe** – je provozovatel vůči Stripe samostatným správcem, nebo Stripe zpracovatelem? Který subjekt Stripe
     (Irsko / USA) je smluvní stranou podle účtu provozovatele?
+13. **Souhrnné denní počty bez souhlasu** (bod 3.6). Server počítá jen denní součty událostí bez IP adresy,
+    identifikátoru a bez čehokoli uloženého v zařízení (žádné cookies ani localStorage). Stačí to k závěru, že nejde
+    o osobní údaje ani o přístup do koncového zařízení podle § 89 odst. 3 ZEK, takže souhlas není potřeba? Vadí, že
+    jsou součty veřejné?
