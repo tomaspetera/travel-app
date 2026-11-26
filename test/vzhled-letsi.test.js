@@ -215,7 +215,8 @@ test('vendor/letsi: každý soubor, na který letsi.css a úvodní skript odkazu
 
 test('bez přepínače se nic z vendor/letsi nestáhne: odkazy jen v pravidlech pod data-brand, ve skriptu za volbou, mimo sadu pro instalaci', async () => {
   // obrázek z CSS se stáhne, jen když pravidlo platí – každé pravidlo s url() na vendor/letsi je pod data-brand
-  for (const m of SRC.matchAll(/([^{}]*)\{[^}]*url\(\.\.\/vendor\/letsi\//g)) assert.match(m[1].trim(), /^:root\[data-brand="letsi"\]/, m[1]);
+  // (tělo bez „{“: u pravidla uvnitř @media se kontroluje jeho selektor, ne hlavička @media)
+  for (const m of SRC.matchAll(/([^{}]*)\{[^{}]*url\(\.\.\/vendor\/letsi\//g)) assert.match(m[1].trim(), /^:root\[data-brand="letsi"\]/, m[1]);
   // v HTML mimo úvodní skript žádný odkaz; ve skriptu až ve větvi atlas_look === 'letsi'
   assert.doesNotMatch(INDEX.replace(BOOT, ''), /vendor\/letsi/);
   const gate = BOOT.indexOf("if (localStorage.getItem('atlas_look') === 'letsi')");
@@ -242,6 +243,26 @@ test('ikony Letsi: ikony lišt a tlačítek z index.html mají náhradu, velikos
   assert.match(SRC, /\.brand-name\{[^}]*letsi-logo-mala-mono\.svg/);
   assert.match(SRC, /\] #launch::before\{[^}]*letsi-logo-hlavni\.svg/);
   assert.match(SRC, /\[data-theme="dark"\] #launch::before\{background-image:url\(\.\.\/vendor\/letsi\/letsi-logo-negativ\.svg\)\}/);
+});
+
+test('logo v horní liště: jen na Přehledu a jen bez postranního panelu, jednobarevné, bez vlivu na výšku lišty', () => {
+  const m = SRC.match(/@media\(max-width:860px\)\{\s*(:root\[data-brand="letsi"\] \.main:has\(#view-dashboard\.active\) #pageTitle)\{([^}]*)\}\s*\}/);
+  assert.ok(m, 'pravidlo pro #pageTitle na Přehledu v @media do 860 px');
+  // postranní panel s logem se skrývá právě do 860 px – logo nikdy dvakrát
+  assert.match(read('css/atlas.css'), /@media\(max-width:860px\)\{\s*\.app\{grid-template-columns:1fr\}\s*\.sidebar\{display:none\}/);
+  const body = m[2];
+  // malé jednobarevné logo (bez slunce) barvou textu, text zůstává pro čtečku
+  assert.match(body, /mask:url\(\.\.\/vendor\/letsi\/letsi-logo-mala-mono\.svg\)/);
+  assert.match(body, /background:currentColor/);
+  assert.match(body, /font-size:0/);
+  const fills = new Set([...read('vendor/letsi/letsi-logo-mala-mono.svg').matchAll(/fill="([^"]+)"/g)].map((f) => f[1]));
+  assert.deepEqual([...fills], ['#14161F'], 'logo v liště jednou barvou, bez slunce');
+  // výška pod tlačítky lišty (40 px) a šířka v poměru loga – lišta ani tlačítka se neposunou
+  const w = Number(body.match(/width:(\d+)px/)[1]), h = Number(body.match(/height:(\d+)px/)[1]);
+  assert.ok(h < 40, `výška ${h}`);
+  assert.ok(Math.abs(w / h - 4072.5 / 875.5) < 0.05, `poměr ${w}/${h}`);
+  // název sekce je v liště prvek #pageTitle (index.html), Přehled je sekce #view-dashboard uvnitř .main
+  assert.match(INDEX, /<div class="main">[\s\S]*id="pageTitle"[\s\S]*id="view-dashboard"/);
 });
 
 test('maska jen u ikon s náhradou: křížek Zavřít z flights.js má ikonu zavřít, ne plný čtverec barvy textu', () => {
