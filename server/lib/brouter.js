@@ -4,7 +4,7 @@
 import { request, limiter } from './http.js';
 
 export const BROUTER = (process.env.BROUTER_URL || 'https://brouter.de/brouter').replace(/\/$/, '');
-export const UA = 'ATLAS-travel/2.0 (https://github.com/tomaspetera/travel-app; hobby travel planner)';
+export const UA = 'Letsi/2.0 (+https://letsi.cz; travel planner)';
 const limit = limiter(1);
 const MAX_QUEUE = 20; // víc čekajících dotazů = přetížení (nebo zneužití) – raději hned odmítnout
 let lastCall = 0;

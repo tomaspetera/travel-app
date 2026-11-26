@@ -29,6 +29,8 @@ export function normalizeStayQuery(raw = {}) {
   // z přetočeného data, ale do odkazů na weby (Booking, Google Hotels…) a na Xotelo by šel neplatný termín.
   if (addDays(checkin, 0) !== checkin || addDays(checkout, 0) !== checkout) throw new StayQueryError('Neplatné datum příjezdu nebo odjezdu.');
   if (checkin < addDays(todayYmd(), -1)) throw new StayQueryError('Datum příjezdu je v minulosti.');
+  // horní mez: hotely prodávají nejvýš ~rok a půl dopředu; 9999-12-01 by jen poslalo zbytečný dotaz na Xotelo a neplatné odkazy
+  if (checkin > addDays(todayYmd(), 550)) throw new StayQueryError('Datum příjezdu je moc daleko – ubytování jde hledat nejvýš rok a půl dopředu.');
   const nights = daysBetween(checkin, checkout);
   if (nights < 1 || nights > 45) throw new StayQueryError('Pobyt musí mít 1 až 45 nocí.');
   const lat = Number(raw.lat);

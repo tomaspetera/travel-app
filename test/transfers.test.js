@@ -182,7 +182,7 @@ test('driveRoute: dotaz na BRouter (car-fast), rozbor, mezipaměť bez ohledu na
     assert.equal(u.origin + u.pathname, 'https://brouter.de/brouter');
     assert.equal(u.searchParams.get('profile'), 'car-fast');
     assert.equal(u.searchParams.get('lonlats'), '20.99,10.12|21.4,10.5', 'body zaokrouhlené na ~1 km');
-    assert.match(stub.calls[0].init.headers['User-Agent'], /ATLAS-travel/);
+    assert.match(stub.calls[0].init.headers['User-Agent'], /^Letsi\//);
     assert.deepEqual(await driveRoute(b, a), r, 'zpět = tam, z mezipaměti');
     assert.deepEqual(cachedRoute({ lat: 10.121, lon: 20.991 }, b), r);
     assert.equal(stub.calls.length, 1);

@@ -79,7 +79,7 @@ test('findPlaces: Wikidata + popisy z Wikipedie, výlety mimo město, User-Agent
     // bez článku o městě na Wikivoyage (Milán tu nemá ?wv) se doporučení „Go next“ nehledají
     assert.equal(sparql.length, 5, 'město + zoo/parky + výlety + UNESCO + klasické výlety');
     assert.equal(sparql.filter((c) => decodeURIComponent(c.url).includes('wd:Q43501')).length, 1, 'zoo a parky zvlášť');
-    assert.match(sparql[0].init.headers['User-Agent'], /^ATLAS-travel\/.*github\.com/);
+    assert.match(sparql[0].init.headers['User-Agent'], /^Letsi\/.*letsi\.cz/);
     const duomo = items.find((p) => p.id === 'Q18068');
     assert.equal(duomo.extract, 'Milánská katedrála je gotická katedrála v Miláně.');
     // fotky jen jako náhled na kartě: 330 px (standardní šířka Wikimedie), ne 500 – polovina dat na mobilu
@@ -90,7 +90,7 @@ test('findPlaces: Wikidata + popisy z Wikipedie, výlety mimo město, User-Agent
     // autor a licence z Commons – jeden dotaz na obě fotky; fotka s licencí bez komerčního užití se nepoužije
     const commons = stub.calls.filter((c) => c.url.startsWith('https://commons.wikimedia.org/'));
     assert.equal(commons.length, 1);
-    assert.match(commons[0].init.headers['User-Agent'], /^ATLAS-travel\//);
+    assert.match(commons[0].init.headers['User-Agent'], /^Letsi\//);
     assert.deepEqual(new URL(commons[0].url).searchParams.get('titles').split('|').sort(), ['File:Castello NC.jpg', 'File:Duomo di Milano.jpg']);
     assert.deepEqual(duomo.imageCredit, { by: 'Jan Novák', lic: 'CC BY-SA 4.0', lu: 'https://creativecommons.org/licenses/by-sa/4.0', pg: 'https://commons.wikimedia.org/wiki/File:Duomo_di_Milano.jpg' });
     const castle = items.find((p) => p.id === 'Q5');
@@ -203,7 +203,7 @@ test('Wikivoyage: doporučená místa (see/do) dostanou body a značku, výpadek
     const items = await findPlaces({ lat: 45.4642 + 1e-4, lon: 9.19, radiusKm: 10, dayTrips: false });
     assert.equal(items.find((p) => p.id === 'Q18068').wikivoyage, true);
     assert.ok(!items.find((p) => p.id === 'Q1060').wikivoyage);
-    assert.ok(stub.calls.some((c) => c.url.includes('wikivoyage') && c.init.headers['User-Agent'].startsWith('ATLAS-travel/')));
+    assert.ok(stub.calls.some((c) => c.url.includes('wikivoyage') && c.init.headers['User-Agent'].startsWith('Letsi/')));
   } finally {
     stub.restore();
   }
@@ -655,7 +655,7 @@ test('creditImages: autor a licence z Commons jedním dotazem a z mezipaměti; s
     assert.equal(stub.calls.length, 1, 'jeden dotaz na všechny soubory');
     const qs = new URL(stub.calls[0].url).searchParams;
     assert.equal(qs.get('iiextmetadatafilter'), 'Artist|LicenseShortName|LicenseUrl');
-    assert.match(stub.calls[0].init.headers['User-Agent'], /^ATLAS-travel\//);
+    assert.match(stub.calls[0].init.headers['User-Agent'], /^Letsi\//);
   } finally {
     stub.restore();
   }

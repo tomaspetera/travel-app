@@ -89,7 +89,7 @@ test('OSM: dotaz na Nominatim – vlastní User-Agent, viewbox, bounded, extrata
     assert.equal(u.origin + u.pathname, 'https://nominatim.openstreetmap.org/search');
     assert.deepEqual([u.searchParams.get('q'), u.searchParams.get('bounded'), u.searchParams.get('extratags'), u.searchParams.get('format'), u.searchParams.get('viewbox')], ['hotel', '1', '1', 'jsonv2', viewbox(37.0648, 14.9019)]);
     assert.deepEqual(stub.calls.map((c) => new URL(c.url).searchParams.get('q')), PHRASES);
-    assert.match(stub.calls[0].init.headers['User-Agent'], /^ATLAS-travel\//);
+    assert.match(stub.calls[0].init.headers['User-Agent'], /^Letsi\//);
   } finally {
     config.mock = prev;
     stub.restore();
@@ -185,7 +185,7 @@ test('searchStays: bez Xotela (XOTELO=off) ubytování z OpenStreetMap dál – 
     // jen Nominatim (žádné Xotelo), fráze po sobě s vlastním User-Agentem
     assert.ok(stub.calls.every((c) => c.url.startsWith('https://nominatim.openstreetmap.org/search?')), stub.calls.map((c) => c.url).join(' '));
     assert.deepEqual(stub.calls.map((c) => new URL(c.url).searchParams.get('q')), PHRASES);
-    assert.ok(stub.calls.every((c) => /^ATLAS-travel\//.test(c.init.headers['User-Agent'])));
+    assert.ok(stub.calls.every((c) => /^Letsi\//.test(c.init.headers['User-Agent'])));
     // jiný termín na stejném místě: z mezipaměti, bez dalšího dotazu na Nominatim
     const again = await searchStays({ ...raw, checkout: ymdPlus(34) });
     assert.deepEqual([again.items.length, stub.calls.length], [3, PHRASES.length]);

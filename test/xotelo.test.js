@@ -315,7 +315,7 @@ test('ceny 1 h v mezipaměti podle hotelu, termínu, dospělých a pokojů, s č
     const u = new URL(stub.calls[0].url);
     assert.equal(u.origin + u.pathname, 'https://data.xotelo.com/api/rates');
     assert.deepEqual(['hotel_key', 'chk_in', 'chk_out', 'currency', 'adults', 'rooms'].map((k) => u.searchParams.get(k)), ['g274707-d1235795', q.checkin, q.checkout, 'EUR', '2', '1']);
-    assert.match(stub.calls[0].init.headers['User-Agent'], /^ATLAS-travel\//);
+    assert.match(stub.calls[0].init.headers['User-Agent'], /^Letsi\//);
     await hotelRates('g274707-d1235795', { ...q, rooms: 2, adults: 3 });
     await hotelRates('g274707-d1235795', { ...q, checkout: ymdPlus(13) });
     assert.equal(stub.calls.length, 3, 'jiné pokoje / termín = nový dotaz');
@@ -519,7 +519,7 @@ test('celé hledání bez sítě: Wikidata (Praha bez P3134) → tabulka → sez
       const wd = stub.calls.filter((c) => c.url.startsWith('https://query.wikidata.org/'));
       assert.equal(wd.length, 1, 'jen podle ID GeoNames – Praha je v tabulce, okolí se nehledá');
       assert.match(decodeURIComponent(wd[0].url), /wdt:P1566 "3067696"/);
-      assert.match(wd[0].init.headers['User-Agent'], /^ATLAS-travel\//);
+      assert.match(wd[0].init.headers['User-Agent'], /^Letsi\//);
       const rates = stub.calls.filter((c) => c.url.includes('/api/rates?'));
       assert.equal(rates.length, 12);
       assert.ok(rates.every((c) => /adults=2&rooms=1/.test(c.url)));
