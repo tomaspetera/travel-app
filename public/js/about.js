@@ -71,9 +71,21 @@
     return `mailto:${email}?subject=${encodeURIComponent(subject(version, screen))}`;
   }
 
+  /** Správce údajů, kontakt, stížnost u ÚOOÚ a odkazy na plné zásady a podmínky (server/lib/pravni.js vykreslí
+      docs/pravni/*.md) – vždy, i bez /api/health: informační povinnost (čl. 13 GDPR) nesmí záviset na odpovědi
+      serveru. Jméno a e-mail jen z prostředí (OPERATOR, FEEDBACK_EMAIL), v kódu nejsou; bez nich zástupný text. */
+  function legal(op, email) {
+    const btn = 'style="width:100%;justify-content:center;margin-top:6px" target="_blank" rel="noopener"';
+    return `<h4 class="ab-h">Správce údajů a právní texty</h4>
+      <p style="font-size:14px">Správce osobních údajů: <b id="abOp">${op ? h(op) : 'provozovatel Letsi'}</b>${op ? '' : ' <span class="faint">(jméno a IČO doplníme)</span>'}. Kontakt: ${email ? `<a id="abContact" href="mailto:${h(email)}">${h(email)}</a>` : '<span class="faint">e-mail doplníme</span>'}. Stížnost můžeš podat u <a href="https://uoou.gov.cz/" target="_blank" rel="noopener">Úřadu pro ochranu osobních údajů</a>.</p>
+      <a class="btn ghost" id="abPrivacy" href="/soukromi" ${btn}>Zásady ochrany osobních údajů ↗</a>
+      <a class="btn ghost" id="abTerms" href="/podminky" ${btn}>Podmínky užívání ↗</a>`;
+  }
+
   /** Obsah okna (čistá funkce – test/about.test.js). email = feedback.email z /api/health (jinak bez tlačítka),
-      support = support.url (💛 Podpořit ATLAS), operator = provozovatel – obojí z /api/health, jinak se neukáže;
-      backup = je k dispozici 💾 Přenos a záloha; health = celé /api/health (zdroje, provize), null = ještě není;
+      support = support.url (💛 Podpořit ATLAS; jinak se neukáže), operator = provozovatel (jinak zástupný text
+      v legal()) – obojí z /api/health; backup = je k dispozici 💾 Přenos a záloha; health = celé /api/health
+      (zdroje, provize), null = ještě není;
       help = stav přepínače Pomáhat se zlepšováním (true / false), null = bez přepínače (count.js ho neumí). */
   function html({ version = '', build = '', email = null, screen = '', backup = true, support = null, operator = '', health = null, help = null } = {}) {
     const mail = mailto(email, version, screen), pay = okPay(support) ? support : null, earn = earnings(health);
@@ -81,6 +93,7 @@
     return `<div class="modal-body about-modal">
       <h3 style="margin-bottom:8px">ℹ️ O aplikaci a soukromí</h3>
       <p style="font-size:14px">Letsi najde levné letenky ze všech letišť ve tvém okolí a poskládá z nich celou cestu – ubytování, dopravu na letiště i na místě, program a shrnutí s odkazy k rezervaci. Je zdarma, bez účtu a bez registrace. Letenky ani hotely neprodává: rezervuješ vždy přímo u aerolinky nebo partnera.</p>
+      ${legal(op, okEmail(email) ? email : '')}
       <h4 class="ab-h">Jak to funguje a z čeho žiju</h4>
       <p style="font-size:14px">Ceny porovnávám, letenku i ubytování koupíš vždy přímo u aerolinky nebo prodejce. Hledání a plánování je zdarma a bez reklamních bannerů. <b>Žádná aerolinka ani partner si za lepší pozici neplatí.</b>${earn ? ` ${earn}` : ''}</p>
       <h4 class="ab-h">Odkud jsou data</h4>
@@ -107,7 +120,6 @@
       <p style="font-size:14px">Letsi je zdarma a bez reklam v pořadí výsledků. Jestli ti to pomohlo, můžeš poslat dobrovolný příspěvek – částku si zvolíš, zaplatíš kartou na stránce Stripe.</p>
       <a class="btn" id="abSupport" href="${h(pay)}" target="_blank" rel="noopener">💛 Podpořit Letsi ↗</a>` : ''}
       ${mail ? `<a class="btn primary" id="abMail" href="${h(mail)}">💬 Napsat nám</a>` : ''}
-      ${op ? `<h4 class="ab-h">Provozovatel</h4><p style="font-size:14px" id="abOp">${h(op)}</p>` : ''}
       <p class="faint" style="font-size:12.5px;margin-top:12px">Verze ${h(version || '?')}${build ? ` · sestavení ${h(build)}` : ''}</p>
     </div>`;
   }
@@ -162,5 +174,5 @@
     }
   }
 
-  window.About = { open, html, mailto, subject, addToMenu, okPay, SOURCES, sources, earnings };
+  window.About = { open, html, legal, mailto, subject, addToMenu, okPay, SOURCES, sources, earnings };
 })();

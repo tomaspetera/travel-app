@@ -143,7 +143,7 @@ test('robots.txt a sitemap.xml: 200, správný typ, vše povolené, mapa webu s 
   assert.equal(s.headers.get('content-type'), 'application/xml; charset=utf-8');
   const xml = await s.text();
   assert.match(xml, /^<\?xml version="1\.0" encoding="UTF-8"\?>\n<urlset xmlns="http:\/\/www\.sitemaps\.org\/schemas\/sitemap\/0\.9">/);
-  assert.deepEqual([...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]), [`${config.publicUrl}/`], 'jediná stránka – sekce aplikace jsou za #');
+  assert.deepEqual([...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]), [`${config.publicUrl}/`, `${config.publicUrl}/soukromi`, `${config.publicUrl}/podminky`], 'stránka aplikace (sekce jsou za #) a právní texty');
 });
 
 test('neznámá adresa mimo API: česká stránka 404 s odkazem do aplikace; stránka aplikace, API a soubory beze změny', async () => {

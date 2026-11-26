@@ -39,6 +39,7 @@ import { groundQuery, groundInfo, GroundError } from './lib/ground.js';
 import { fuelInfo, fuelText, refreshFuel } from './lib/fuel.js';
 import { serveIndex, serveServiceWorker, contentVersion } from './lib/pwa.js';
 import { headTags, robotsTxt, sitemapXml, sendGenerated, serveManifest, serveNotFound, movedTo } from './lib/seo.js';
+import { serveLegal } from './lib/pravni.js';
 import { BRAND } from './brand.js';
 import { mapyOn, mapyReady, mapyStatus, parseTile, mapyTile } from './lib/mapy.js';
 import { cleanReport, recordClientError, clientErrorCount, MAX_BODY as CLIENT_ERR_MAX } from './lib/clienterr.js';
@@ -1256,6 +1257,8 @@ async function route(req, res) {
   // Vyhledávače a náhledy odkazů (server/lib/seo.js): adresa webu z PUBLIC_URL, název a popis z server/brand.js
   if (p === '/robots.txt') return sendGenerated(req, res, 200, robotsTxt(config.publicUrl), { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'public, max-age=3600' });
   if (p === '/sitemap.xml') return sendGenerated(req, res, 200, sitemapXml(config.publicUrl), { 'Content-Type': 'application/xml; charset=utf-8', 'Cache-Control': 'public, max-age=3600' });
+  // Zásady ochrany osobních údajů a podmínky užívání z docs/pravni/*.md, provozovatel a e-mail z prostředí (pravni.js)
+  if ((p === '/soukromi' || p === '/podminky') && serveLegal(req, res, p, path.join(config.root, 'docs', 'pravni'), { operator: config.operator, email: config.feedbackEmail })) return;
   if (p === '/manifest.webmanifest' && serveManifest(req, res, path.join(PUBLIC, 'manifest.webmanifest'))) return;
   // Krátký odkaz na sdílenou cestu: náhled odkazu (cíl, termín, fotka) a přesměrování do aplikace na /#s=<id>
   if (/^\/c\/[A-Za-z0-9]{8}$/.test(p) && shareStore) {

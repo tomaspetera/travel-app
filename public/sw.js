@@ -46,8 +46,8 @@ let freshUntil = 0;
 /**
  * Kam s požadavkem (čistá funkce – test/pwa.test.js):
  *   null     nechat být: vyřídí ho prohlížeč sám a nic se neukládá (API, POST, cizí weby, sw.js, /healthz, Range,
- *            krátký odkaz /c/<id>, stránka statistiky.html se svým skriptem – není to stránka aplikace: uložila by se
- *            místo ní pod adresu rozsahu a offline by se otevírala ona)
+ *            krátký odkaz /c/<id>, stránka statistiky.html se svým skriptem, právní texty /soukromi a /podminky – není
+ *            to stránka aplikace: uložila by se místo ní pod adresu rozsahu a offline by se otevírala ona)
  *   'page'   navigace na stránku aplikace: síť, offline poslední uložená stránka
  *   'asset'  soubor aplikace: síť, offline uložená kopie
  * req = { method, url, mode, headers }, scope = adresa rozsahu service workeru (registration.scope).
@@ -63,7 +63,7 @@ function route(req, scope) {
   }
   if (url.origin !== base.origin || !url.pathname.startsWith(base.pathname)) return null;
   const rel = url.pathname.slice(base.pathname.length);
-  if (/^(?:api(?:\/|$)|[cj]\/|healthz$|sw\.js$|statistiky\.html$|js\/statistiky\.js$)/.test(rel)) return null;
+  if (/^(?:api(?:\/|$)|[cj]\/|healthz$|sw\.js$|statistiky\.html$|soukromi$|podminky$|js\/statistiky\.js$)/.test(rel)) return null;
   if (req.headers && typeof req.headers.get === 'function' && req.headers.get('range')) return null;
   return req.mode === 'navigate' ? 'page' : 'asset';
 }

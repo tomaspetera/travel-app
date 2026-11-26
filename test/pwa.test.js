@@ -528,6 +528,8 @@ test('service worker – směrování (čistá funkce): API, POST, cizí weby a 
   // stránka Statistiky pro majitele taky není aplikace: uložená pod adresu rozsahu by se offline otevírala místo ní
   assert.equal(route('/statistiky.html?dni=7', { mode: 'navigate' }), null);
   assert.equal(route('/js/statistiky.js'), null);
+  // právní texty (server/lib/pravni.js) taky ne – po jejich otevření by se offline místo aplikace ukázaly zásady
+  for (const u of ['/soukromi', '/podminky']) assert.equal(route(u, { mode: 'navigate' }), null, u);
   assert.equal(route('/css/c/x.css'), 'asset', 'jen /c/ na začátku rozsahu');
   for (const u of ['https://tiles.openfreemap.org/planet/1/2/3.pbf', 'https://fonts.googleapis.com/css2?family=Inter', 'https://fonts.gstatic.com/s/inter.woff2',
     'https://api.open-meteo.com/v1/forecast?x=1', 'https://www.booking.com/x', 'http://atlas.test/js/app.js', 'https://atlas.test:8443/js/app.js']) {

@@ -83,11 +83,11 @@ export function movedTo({ host, method, path, search = '', dest }, publicUrl, { 
 
 export const robotsTxt = (base) => `User-agent: *\nAllow: /\n\nSitemap: ${urlAt(base, 'sitemap.xml')}\n`;
 
-/** sitemap.xml: jediná veřejná stránka – sekce aplikace jsou za # (roboti je neuvidí jako samostatné stránky). */
+/** sitemap.xml: stránka aplikace (sekce jsou za # – roboti je neuvidí jako samostatné stránky) a právní texty
+    (server/lib/pravni.js LEGAL – tady vypsané, aby se moduly navzájem nenačítaly). */
 export const sitemapXml = (base) => `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url><loc>${esc(urlAt(base))}</loc></url>
-</urlset>
+${['', 'soukromi', 'podminky'].map((rel) => `  <url><loc>${esc(urlAt(base, rel))}</loc></url>\n`).join('')}</urlset>
 `;
 
 /**
