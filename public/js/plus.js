@@ -199,7 +199,7 @@
 
   /** Stránka ⭐ Plus (okno): tabulka Zdarma × Plus a „Chci Plus“. */
   function open() {
-    modalOpen(pageHtml());
+    modalOpen(pageHtml(), { x: true });
     hit('plus_page'); hit('plus_offer_shown');
     q('#plusWant').onclick = () => { hit('plus_offer_click'); after(q('#plusAfter'), 'Plus chystáme na jaro – dáme vědět tady v aplikaci.'); };
   }
@@ -207,7 +207,7 @@
   function sesit(t) {
     if (!t) return;
     const dest = placeOf(t);
-    modalOpen(sesitHtml(t, sesitLine(dest, countryOf(t.iso), genOf(dest))));
+    modalOpen(sesitHtml(t, sesitLine(dest, countryOf(t.iso), genOf(dest))), { x: true });
     q('#sesitWant').onclick = () => { hit('sesit_click'); after(q('#plusAfter'), 'Sešit chystáme na jaro – dáme vědět tady v aplikaci.'); };
   }
   const sesitSeen = new Set();
@@ -261,8 +261,17 @@
 
   /** Položka v ⋯ Další (app.js openMore). */
   function addToMenu(list) {
-    list.insertAdjacentHTML('beforeend', `<button type="button" class="btn ghost" id="morePlus">⭐ ${h(NAME)} <span class="faint">co je zdarma a co v Plus</span></button>`);
+    list.insertAdjacentHTML('beforeend', `<button type="button" class="btn ghost" id="morePlus"><span class="ico i-oblibene" aria-hidden="true"></span> ${h(NAME)} <span class="faint">co je zdarma a co v Plus</span></button>`);
     list.querySelector('#morePlus').onclick = open;
+  }
+  // Počítač a tablet nemají ⋯ Další: odkaz v postranním panelu pod přepínačem motivu jako O aplikaci (about.js) –
+  // jinak by stránka Zdarma × Plus s otázkou na cenu na počítači nešla otevřít. V node testu (vm) DOM není.
+  if (typeof document !== 'undefined') {
+    const toggle = document.querySelector('#themeToggle');
+    if (toggle && !document.querySelector('#sidePlus')) {
+      toggle.insertAdjacentHTML('afterend', `<button type="button" class="theme-toggle side-about" id="sidePlus"><span class="ico i-oblibene" aria-hidden="true"></span> ${h(NAME)}</button>`);
+      document.querySelector('#sidePlus').onclick = open;
+    }
   }
 
   window.Plus = { NAME, YEAR_CZK, MONTH_CZK, PRICES, counts, countedTrips, needsGate, askDue, cardPick, cardText, termTxt, sesitLine, gateFlow, tripKey, open, sesit, sesitShown, gateNewTrip, renderCard, addToMenu };

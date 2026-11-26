@@ -90,7 +90,7 @@
       <h4 class="ab-h">Co se ukládá a kam</h4>
       <ul class="ab-list">
         <li><b>Jen v tomhle prohlížeči na tomhle zařízení</b> (localStorage): cesty, hlídané ceny, odložené nabídky, domov, navštívené země, oblíbená a skrytá místa, poslední i rozepsané hledání a nastavení. Na jiné zařízení je přeneseš odkazem s QR kódem (📲 Přenést do jiného zařízení) nebo zálohou.</li>
-        <li><b>Na serveru nic o tobě</b>: žádný účet ani profil. <b>Žádné cookies ani sledování jednotlivců</b> – kromě záznamu návštěvy bez jména a IP adresy, pokud ho sám zapneš v Další (Pomáhat se zlepšováním). Počítám jen souhrnné denní počty (kolikrát se otevřela aplikace, kolik proběhlo hledání, kolik cest vzniklo, kde aplikace nic nenašla nebo selhala a které možnosti lidé volí v krátkých otázkách) – bez osobních údajů a bez vazby na tebe nebo tvoje zařízení. Jinak jen cesty, které sám sdílíš krátkým odkazem (níže).</li>
+        <li><b>Na serveru nic o tobě</b>: žádný účet ani profil. <b>Žádné cookies ani sledování jednotlivců</b> – kromě záznamu návštěvy bez jména a IP adresy, pokud ho sám zapneš (Pomáhat se zlepšováním – přepínač níž v tomhle okně). Počítám jen souhrnné denní počty (kolikrát se otevřela aplikace, kolik proběhlo hledání, kolik cest vzniklo, kde aplikace nic nenašla nebo selhala a které možnosti lidé volí v krátkých otázkách) – bez osobních údajů a bez vazby na tebe nebo tvoje zařízení. Jinak jen cesty, které sám sdílíš krátkým odkazem (níže).</li>
         <li><b>Co se na server posílá</b> – jen to, co je potřeba k odpovědi: u hledání letů odkud, kam, termín, počet cestujících, zavazadla a cesta na letiště (i 🏠 vlastní ceny); u ubytování místo, termín a počet hostů; v Objevuj místo a volby plánu; polohu, jen když sám použiješ 📍 Moje poloha nebo Moje okolí. Server odpovědi chvíli drží v mezipaměti (bez vazby na tebe) a IP adresu si kvůli limitům požadavků pamatuje nejdéle hodinu od posledního požadavku (u hledání 10 minut), pak ji sám smaže.</li>
         <li><b>Přímo z prohlížeče</b> se načítají mapy (OpenFreeMap) a fotky (Unsplash, Pexels, Wikimedia) – tyhle služby vidí tvou IP adresu jako u každého webu. Počasí, kurzy a hledání míst jdou přes server Letsi, tvou adresu tedy nevidí.</li>
         <li><b>Krátký odkaz na sdílenou cestu</b> (letsi.cz/c/…): když klepneš na Poslat kamarádům nebo Sdílet plán, cesta se uloží na serveru na 400 dní, aby šel odkaz otevřít – bez jména a kódů rezervací, nic dalšího se k němu neukládá. Bez krátkého odkazu (i u odkazu 📲 přenosu) nese data část adresy za #, kterou prohlížeč na server neposílá. Po klepnutí na odkaz k rezervaci jsi na webu partnera a platí jeho pravidla.</li>
@@ -125,7 +125,7 @@
   function open() {
     const version = versionNow(), build = buildNow(), screen = screenNow();
     const paint = (o = {}) => {
-      modalOpen(html({ version, build, screen, backup: Boolean(window.Backup), help: window.Count && Count.consent ? Count.helping() : null, ...o }));
+      modalOpen(html({ version, build, screen, backup: Boolean(window.Backup), help: window.Count && Count.consent ? Count.helping() : null, ...o }), { x: true });
       if (typeof helpSwitch === 'function') helpSwitch(document.querySelector('#abHelp')); // stejný přepínač jako v Další (app.js)
       const bk = document.querySelector('#abBk');
       if (bk) bk.onclick = () => { modalClose(); Backup.open(); };
