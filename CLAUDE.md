@@ -1,6 +1,6 @@
-# ATLAS – pravidla pro Clauda
+# Letsi (dříve ATLAS) – pravidla pro Clauda
 
-ATLAS je česká PWA na levné letenky a plánování cest (živě https://atlas-letenky.onrender.com, nasazení na Render
+Letsi (dříve ATLAS) je česká PWA na levné letenky a plánování cest (živě https://letsi.cz, nasazení na Render
 po sloučení do `main`). Hlavní uživatel ji používá na telefonu (~412 px, světlý režim), web na počítači je druhý.
 
 ## Kód

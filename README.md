@@ -1195,7 +1195,7 @@ Zkopíruj `.env.example` na `.env`:
 | `PHOTOS_RATE_LIMIT` | `60` | max. dotazů na fotky měst (`/api/photos`, dávka až 30 karet) z jedné IP za 10 minut – jen ty, které nejdou celé z mezipaměti serveru (Wikimedia, Pexels, Unsplash mají strop pro celý server) |
 | `WEATHER_RATE_LIMIT` | `300` | max. míst s předpovědí z MET Norway (`/api/weather`) z jedné IP za 10 minut, jen mimo mezipaměť serveru; nad limitem je místo bez předpovědi (aplikace ukáže dlouhodobý průměr) |
 | `FEEDBACK_EMAIL` | – | volitelné: adresa pro **💬 Napsat nám** v *⋯ Další → ℹ️ O aplikaci a soukromí* (mailto s předmětem „ATLAS – zpětná vazba (verze …, obrazovka: …)“). `/api/health` ji pošle jako `feedback: { email }` jen když je nastavená a platná (jedna adresa); bez ní tlačítko chybí. Adresa jen tady, v kódu žádná |
-| `PUBLIC_URL` | `https://atlas-letenky.onrender.com` | veřejná adresa webu (bez `/` na konci) pro kanonickou adresu, náhledy sdílených odkazů a `sitemap.xml` – až bude vlastní doména, stačí ji nastavit tady (viz [Přejmenování a doména](#přejmenování-a-doména)); výchozí je `url` v `server/brand.js` |
+| `PUBLIC_URL` | `https://letsi.cz` (v `render.yaml`) | veřejná adresa webu (bez `/` na konci) pro kanonickou adresu, náhledy sdílených odkazů a `sitemap.xml` – až bude vlastní doména, stačí ji nastavit tady (viz [Přejmenování a doména](#přejmenování-a-doména)); výchozí je `url` v `server/brand.js` |
 | `ATLAS_MOCK` | `0` | `1` = demo data (totéž co `npm run demo`) |
 
 ### Počasí (MET Norway)
@@ -1364,8 +1364,11 @@ identity; výchozí vzhled Letsi s kukátkem (nouzová cesta ke starému vzhledu
 Technické názvy (`atlas_*` v prohlížeči, `ATLAS_MOCK`, mezipaměť `atlas-…`) zůstávají – jejich změna by lidem smazala
 uložená data.
 
-**Zbývá:** doména `letsi.cz` (registrace u WEDOS), na Renderu **Custom Domains** a pak proměnná `PUBLIC_URL` – postup níž.
-Do té doby web běží na `atlas-letenky.onrender.com`.
+**Doména (hotovo 26. 11. 2026):** `letsi.cz` registrovaná u WEDOS (DNS: záznam A `216.24.57.1`, CNAME `www` →
+`atlas-letenky.onrender.com`), na Renderu v **Custom Domains** `letsi.cz` i `www.letsi.cz` (www přesměruje na letsi.cz,
+certifikát vydává Render sám) a `PUBLIC_URL=https://letsi.cz` – obojí i v `render.yaml`. Stará adresa
+`atlas-letenky.onrender.com` běží dál; data v prohlížeči (cesty, nastavení) jsou ale vázaná na adresu – kdo začal na staré,
+přenese si je přes ⋯ Další → Přenos a záloha.
 
 | Co | Kde to změnit |
 |---|---|
