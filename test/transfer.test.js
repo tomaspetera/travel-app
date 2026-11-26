@@ -18,7 +18,7 @@ const ctx = {
 };
 ctx.window = ctx;
 vm.createContext(ctx);
-for (const f of ['planshare.js', 'searchhelp.js', 'pins.js', 'sharelink.js', 'backup.js', 'qr.js', 'transfer.js']) vm.runInContext(read(`public/js/${f}`), ctx, { filename: f });
+for (const f of ['planshare.js', 'searchhelp.js', 'offershare.js', 'pins.js', 'sharelink.js', 'backup.js', 'qr.js', 'transfer.js']) vm.runInContext(read(`public/js/${f}`), ctx, { filename: f });
 const { Backup: B, Transfer: T, ShareLink, QR, Pins: P } = ctx;
 const plain = (v) => JSON.parse(JSON.stringify(v));
 ctx.Backup.incoming = (inc) => shown.push(inc);

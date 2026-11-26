@@ -10,6 +10,7 @@ const ctx = { console };
 ctx.window = ctx;
 vm.createContext(ctx);
 vm.runInContext(read('public/js/searchhelp.js'), ctx, { filename: 'searchhelp.js' });
+vm.runInContext(read('public/js/offershare.js'), ctx, { filename: 'offershare.js' });
 vm.runInContext(read('public/js/pins.js'), ctx, { filename: 'pins.js' });
 const P = ctx.Pins;
 const plain = (v) => JSON.parse(JSON.stringify(v)); // objekty z jiného vm kontextu
@@ -153,6 +154,11 @@ test('clean: cizí vstup – tvary, odkazy jen http(s), čas ne z budoucnosti, b
   assert.equal(c.pinnedAt, c.at, 'čas odložení z budoucnosti → čas ceny');
   assert.deepEqual([c.t.bookUrl, c.t.out.bookUrl], [null, null]);
   assert.equal(c.t.back.bookUrl, 'https://www.ryanair.com/script', 'jen http(s), bez znaků pro HTML');
+  // záloha / přenos odkazem od cizího člověka: Koupit jen u prodejců, kam vedou odkazy aplikace (OfferShare.safeLink)
+  for (const u of ['https://ryanair.com.evil.example/pay', 'https://www.ryanair.com@evil.example/', 'http://www.ryanair.com/']) {
+    const e = plain(ok); e.t.bookUrl = u;
+    assert.equal(P.clean([e], opts)[0].t.bookUrl, null, u);
+  }
   assert.equal(c.t.out.carrierName, 'Ryanscriptair');
   assert.equal(c.t.priceLevel, undefined);
   assert.deepEqual(c.t.deal, { level: 'normal', score: 0 });

@@ -93,7 +93,9 @@
     : typeof v === 'boolean' || v == null ? v
     : Array.isArray(v) ? v.slice(0, 200).map(x => gen(x, key))
     : typeof v === 'object' ? Object.fromEntries(Object.entries(v).slice(0, 200).filter(([k]) => /^[\w-]{1,40}$/.test(k) && !BAD_KEY(k)).map(([k, x]) => [k, gen(x, k)])) : null);
-  const http = u => (typeof u === 'string' && /^https?:\/\//i.test(u) ? u : null);
+  // Koupit jen u prodejců, kam vedou odkazy aplikace (OfferShare.safeLink): záloha i přenos odkazem (📲) může přijít
+  // od cizího člověka a odložená nabídka by jinak mohla vést na podvodnou stránku. Bez offershare.js odkaz pryč.
+  const http = u => (window.OfferShare ? window.OfferShare.safeLink(u) : null);
   const legOk = l => obj(l) && isIata(l.from) && isIata(l.to) && isYmd(l.date) && (l.dep == null || typeof l.dep === 'string') && (l.arr == null || typeof l.arr === 'string');
   // úroveň ceny jen ve tvaru, který bere průvodce (Trip.sanitizeTrip); statistika jen čísla a data (cleanPriceStats)
   const plOk = pl => obj(pl) && ['low', 'normal', 'high'].includes(pl.level) && typeof pl.reason === 'string' && fin(pl.ref, 0, 1e7) && fin(pl.vsRef, -100, 1e5) && (pl.pos == null || fin(pl.pos, 0, 100));

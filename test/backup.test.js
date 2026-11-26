@@ -11,6 +11,7 @@ ctx.window = ctx;
 vm.createContext(ctx);
 vm.runInContext(read('public/js/planshare.js'), ctx, { filename: 'planshare.js' });
 vm.runInContext(read('public/js/searchhelp.js'), ctx, { filename: 'searchhelp.js' });
+vm.runInContext(read('public/js/offershare.js'), ctx, { filename: 'offershare.js' });
 vm.runInContext(read('public/js/pins.js'), ctx, { filename: 'pins.js' });
 vm.runInContext(read('public/js/backup.js'), ctx, { filename: 'backup.js' });
 const B = ctx.Backup;
