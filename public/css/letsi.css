@@ -296,3 +296,28 @@
 :root[data-brand="letsi"] #launch :is(.l-ico,.l-jet,b){display:none}
 :root[data-brand="letsi"] #launch::before{content:"";position:absolute;left:50%;top:45%;width:288px;height:64px;margin:-32px 0 0 -144px;background:url(../vendor/letsi/letsi-logo-hlavni.svg) center/contain no-repeat}
 :root[data-brand="letsi"][data-theme="dark"] #launch::before{background-image:url(../vendor/letsi/letsi-logo-negativ.svg)}
+
+/* ============ CHYBY A VAROVÁNÍ (manuál Letsi 2.1: hláška o chybě) ============
+   Chyba = text Noc (v tmavém Vápno) na kartě s lemem 2 px Sušené rajče. Růžová plocha s karmínovým textem z ATLASu
+   v paletě není a plné Rajče je slunce – to se při chybě rozsvítit nesmí (nejlevnější cena, ne problém). Barvu nese
+   jen lem a ikona, text zůstává barvou písma, takže čitelnost nezávisí na odstínu. V tmavém je Sušené rajče na kartě
+   jen ~2,3 : 1 – lem by zmizel, proto světlejší odstín (5,1 : 1 i na pěně #2A2E3A). Varování stejně, ale jemněji:
+   lem 1 px okrovou, žádná žlutá plocha. Kontrasty počítá test/vzhled-letsi.test.js. */
+:root[data-brand="letsi"][data-theme="light"]{--letsi-chyba:#A92A0C;--letsi-varovani:#8A5A00;--bad:#A92A0C;--bad-ink:#A92A0C}
+:root[data-brand="letsi"][data-theme="dark"]{--letsi-chyba:#E8836B;--letsi-varovani:#E0B04A;--bad:#E8836B;--bad-ink:#E8836B}
+/* hlášky (chyba hledání a „Příliš mnoho…“ v #progress, chyby zdrojů, Objevuj, bezpečnost země): lem 2 px místo
+   1 px, o 1 px menší odsazení – hláška při přepnutí vzhledu neposkočí */
+:root[data-brand="letsi"] :is(.note.bad,.note.warn,.route-sum.warn,.w-tip.late){background:var(--card);color:var(--text)}
+:root[data-brand="letsi"] .note.bad{border:2px solid var(--letsi-chyba);padding:12px 14px}
+:root[data-brand="letsi"] .note.bad svg{color:var(--letsi-chyba)}
+:root[data-brand="letsi"] :is(.note.warn,.route-sum.warn,.w-tip.late){border:1px solid var(--letsi-varovani)}
+:root[data-brand="letsi"] .dp-f.warn{border-color:var(--letsi-varovani)}
+/* štítky (vízum, náročnost, „nutné“, dražší): bílý štítek s lemem a textem barvou písma (lem vnitřním stínem – štítek
+   nezvětší) */
+:root[data-brand="letsi"] :is(.ec-hard,.b.ec-hard,.hk-d3,.pt-v-must,.b.dear){background:var(--card);box-shadow:inset 0 0 0 1.5px var(--letsi-chyba);color:var(--text)}
+:root[data-brand="letsi"] :is(.ec-visa,.b.ec-visa,.b.warn,.hk-d2,.pt-v-rec,.pt-lv){background:var(--card);box-shadow:inset 0 0 0 1px var(--letsi-varovani);color:var(--text)}
+/* krátké chybové texty bez rámečku (stav zdroje v průběhu hledání, zdražení u hlídání, smazat cestu): Sušené rajče
+   jako text (6,9 : 1 na bílé) místo karmínu, který světlý režim ATLASu píše natvrdo; průběh zdroje s chybou plnou barvou */
+:root[data-brand="letsi"][data-theme="light"] :is(.bad,.w-stats .bad,.trip-del,.kv .safe-bad,.pc-trend.up b){color:var(--bad-ink)}
+:root[data-brand="letsi"] .trip-del{border-color:var(--border-2)}
+:root[data-brand="letsi"] .prow.error .pbar span{background:var(--letsi-chyba)}

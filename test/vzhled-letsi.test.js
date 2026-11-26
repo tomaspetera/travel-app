@@ -279,3 +279,52 @@ test('ikony v index.html: aria-hidden, nebo tlačítko s aria-label (mapa světa
   assert.deepEqual(unlabeledSvgs('<button><svg viewBox="0 0 24 24"></svg></button>'), ['viewBox="0 0 24 24"']);
   assert.deepEqual(unlabeledSvgs(INDEX).filter((a) => !a.includes('id="worldmap"')), []);
 });
+
+// ============ Chyby a varování podle manuálu: text barvou písma, lem Sušené rajče / okr, žádná růžová plocha ============
+/** Kontrastní poměr dvou hex barev #RRGGBB podle WCAG 2.x (relativní jas sRGB). */
+function contrast(a, b) {
+  const lum = (hex) => {
+    const [r, g, bl] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255)
+      .map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+    return 0.2126 * r + 0.7152 * g + 0.0722 * bl;
+  };
+  const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p);
+  return (x + 0.05) / (y + 0.05);
+}
+
+test('contrast: známé dvojice (černá na bílé 21 : 1, Noc na Vápnu ~16 : 1)', () => {
+  assert.equal(Math.round(contrast('#000000', '#FFFFFF')), 21);
+  assert.equal(contrast('#FFFFFF', '#FFFFFF'), 1);
+  const nv = contrast('#14161F', '#F3F4F0');
+  assert.ok(nv > 16 && nv < 17, String(nv));
+});
+
+test('chyby a varování: lem barvou chyby / okrem, text barvou písma na kartě, kontrast výpočtem v obou režimech', () => {
+  const v = (theme, name) => SRC.match(new RegExp(`\\[data-theme="${theme}"\\]\\{[^}]*--${name}:(#[0-9A-Fa-f]{6})`))[1];
+  // Sušené rajče podle manuálu ve světlém; v tmavém světlejší odstín (Sušené rajče samo má na tmavé kartě < 3 : 1)
+  assert.equal(v('light', 'letsi-chyba'), '#A92A0C');
+  assert.ok(contrast('#A92A0C', v('dark', 'card')) < 3, 'proto světlejší odstín v tmavém');
+  for (const t of ['light', 'dark']) {
+    const card = v(t, 'card'), text = v(t, 'text'), pena = v(t, 'surface-2');
+    // text hlášky: barva písma na kartě aspoň 4,5 : 1
+    assert.ok(contrast(text, card) >= 4.5, `${t}: text ${contrast(text, card).toFixed(2)}`);
+    for (const k of ['letsi-chyba', 'letsi-varovani']) {
+      const c = v(t, k);
+      // lem nejméně 3 : 1; barva chyby slouží i jako krátký text (stav zdroje, zdražení), proto na kartě a stránce 4,5 : 1
+      for (const bg of [card, v(t, 'bg')]) assert.ok(contrast(c, bg) >= 4.5, `${t} ${k} ${c} na ${bg}: ${contrast(c, bg).toFixed(2)}`);
+      assert.ok(contrast(c, pena) >= 3, `${t} ${k} na pěně ${contrast(c, pena).toFixed(2)}`);
+    }
+    // --bad-ink (text chyb v ATLASu) a --bad (plochy) míří na barvu chyby, ne na karmín ani růžovou
+    assert.equal(v(t, 'bad-ink'), v(t, 'letsi-chyba'));
+    assert.equal(v(t, 'bad'), v(t, 'letsi-chyba'));
+  }
+  // hláška o chybě: karta, text barvou písma, lem 2 px a ikona barvou chyby; varování jemněji 1 px
+  assert.match(SRC, /\] :is\(\.note\.bad,\.note\.warn,[^)]*\)\{background:var\(--card\);color:var\(--text\)\}/);
+  assert.match(SRC, /\] \.note\.bad\{border:2px solid var\(--letsi-chyba\)/);
+  assert.match(SRC, /\] \.note\.bad svg\{color:var\(--letsi-chyba\)\}/);
+  assert.match(SRC, /\] :is\(\.note\.warn,[^)]*\)\{border:1px solid var\(--letsi-varovani\)\}/);
+  assert.match(SRC, /\] :is\(\.ec-hard,[^)]*\.b\.dear\)\{background:var\(--card\);box-shadow:inset 0 0 0 1\.5px var\(--letsi-chyba\);color:var\(--text\)\}/);
+  // karmín a růžová ATLASu (ani jako průsvitná plocha) se ve vzhledu Letsi neobjeví; Rajče, přechody a data-brand
+  // u nových pravidel hlídají testy výš pro celý soubor
+  assert.doesNotMatch(SRC, /#(be123c|9f1239|b91c1c|fb7185|f7a6b3|f87171)\b|rgba\(\s*(251,\s*113|248,\s*113|251,\s*191)/i);
+});
