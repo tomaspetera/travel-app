@@ -117,15 +117,12 @@
   #heroBox p{margin-top:6px;max-width:760px;font-size:15px}
   #heroBox .hero-search2{margin-top:18px}
   #heroBox .smart-try{margin-top:12px}
-  /* 🧳 Naplánovat celou dovolenou a ✈️ Letenku už mám: od 1280 px vpravo nahoře vedle nadpisu – pod příklady vět by
-     úvod zvýšil o řádek a první řada radaru by na 1366 × 768 spadla pod ohyb; užší počítač je má pod příklady jako
-     telefon. Druhé tlačítko je tu zkrácené („✈️ Letenku už mám →“): s celým textem zabrala obě ~600 px a nadpis se
-     mezi 1280 a ~1440 px (v písmu Letsi) lámal na dva řádky; pod sebou by zase zasahovala do pole hledání. */
+  /* 🧳 Naplánovat celou dovolenou a ✈️ Letenku už mám: pod příklady vět jako na telefonu, od 1280 px vedle sebe (obě
+     i s celým textem ~600 px, úvod je o řádek nižší než pod sebou). Dřív stála vpravo nahoře vedle nadpisu, ale v kódu
+     jsou až za hledáním a Tab z příkladů vět skákal zpátky nahoru; přesun v kódu by pořadí rozbil zase na telefonu
+     a užším počítači, kde jsou dole. */
   @media (min-width:1280px){
-    #heroBox .hero-plans{position:absolute;top:0;right:0;margin-top:0;flex-direction:row}
-    #heroBox .hero-plan .hp-more{display:none}
-    #heroBox h1,#heroBox p{max-width:min(760px,calc(100% - 270px))}
-    #heroBox h1{max-width:calc(100% - 490px)}
+    #heroBox .hero-plans{flex-direction:row}
   }
   /* klávesa „/“ skočí do pole Kam (app.js) – nenápadná nápověda u popisku Kam */
   .hero-search2 .hs-field:nth-child(2) .hs-lab::after{content:"/";display:inline-grid;place-items:center;min-width:16px;height:16px;

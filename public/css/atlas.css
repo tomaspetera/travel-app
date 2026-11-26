@@ -170,6 +170,10 @@ a{color:inherit}
 .icon-btn:hover{color:var(--text);border-color:var(--border-2)}
 .icon-btn svg{width:19px;height:19px}
 .content{padding:6px 26px 60px;max-width:1280px;width:100%}
+.content:focus{outline:none} /* cíl odkazu Přeskočit na obsah – rámeček by obtáhl celou stránku */
+/* Přeskočit na obsah: mimo obrazovku, dokud na něj nepřijde Tab (index.html, první prvek stránky) */
+.skip{position:absolute;left:-9999px;top:8px;z-index:400;padding:10px 16px;border-radius:12px;background:var(--text);color:var(--bg);font-weight:700;text-decoration:none}
+.skip:focus{left:16px;outline:2px solid var(--text);outline-offset:2px}
 .view{display:none;animation:fade .45s var(--ease)}
 .view.active{display:block}
 @keyframes fade{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
