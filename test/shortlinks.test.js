@@ -19,7 +19,7 @@ test('uložení a načtení cesty; náhled z cíle a termínu; neplatná cesta o
   const r = await S.loadShare(st, id);
   assert.equal(r.k, 'trip');
   assert.equal(r.j, json);
-  assert.deepEqual(r.m, { title: 'Tirana 3.–8. 11.', desc: 'Let, ubytování a program po dnech – otevři cestu v ATLASu a ulož si ji.', img: 'https://images.pexels.com/x.jpg?w=1200&h=630' });
+  assert.deepEqual(r.m, { title: 'Tirana 3.–8. 11.', desc: 'Let, ubytování a program po dnech – otevři cestu v Letsi a ulož si ji.', img: 'https://images.pexels.com/x.jpg?w=1200&h=630' });
   assert.equal(await S.loadShare(st, 'neniTady'), null);
   assert.equal(await S.loadShare(st, '../../x'), null);
   for (const [k, j] of [['trip', '{"flight":{}}'], ['trip', 'nejson'], ['trip', '[1]'], ['offer', json], ['trip', 'x'.repeat(S.MAX_JSON + 1)]]) {

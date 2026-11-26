@@ -435,7 +435,7 @@ export function links(a, b, date, adults = 1) {
   }
   if (a.fb && b.fb) {
     const qs = new URLSearchParams({ departureCity: a.fb, arrivalCity: b.fb, ...(d ? { rideDate: dmy(d, true) } : {}), adult: String(n) });
-    out.push({ id: 'flixbus', name: 'FlixBus', note: 'jen odkaz – ceny ATLAS nenačítá', url: `https://shop.flixbus.cz/search?${qs}` });
+    out.push({ id: 'flixbus', name: 'FlixBus', note: 'jen odkaz – ceny Letsi nenačítá', url: `https://shop.flixbus.cz/search?${qs}` });
   }
   const iq = new URLSearchParams({ f: localName(a), t: localName(b), ...(d ? { date: dmy(d), time: '7:00' } : {}), submit: 'true' });
   out.push({ id: 'idos', name: 'IDOS', note: 'vlaky ČD i zahraniční, autobusy · jen odkaz', url: `https://idos.cz/vlakyautobusy/spojeni/?${iq}` });

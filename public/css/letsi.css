@@ -1,11 +1,11 @@
-/* Letsi – vzhled značky, krok 1: barvy a písma za přepínačem (identita Letsi 2.1, paleta „Měkká pistácie v Noci“).
-   Zapíná se adresou ?vzhled=letsi (úvodní skript v index.html → <html data-brand="letsi">), vypíná ?vzhled=atlas.
-   Každé pravidlo je pod :root[data-brand="letsi"], takže bez přepínače se aplikace nezmění ani o pixel (hlídá
+/* Letsi – vzhled značky, výchozí pro všechny: barvy a písma (identita Letsi 2.1, paleta „Měkká pistácie v Noci“).
+   Úvodní skript v index.html nastaví <html data-brand="letsi"> vždy, kromě nouzové volby ?vzhled=atlas (?vzhled=letsi
+   ji smaže). Každé pravidlo je pod :root[data-brand="letsi"], takže ve vzhledu ATLASu se nezmění ani pixel (hlídá
    test/vzhled-letsi.test.js). Přepisuje proměnné z atlas.css a místa, kde je ve stylech natvrdo modrá, fialová nebo
    přechod. Pravidla palety: Pistácie vždy s Nocí; na Noci jen jako plná plocha nebo tlačítko (žádné tenké linky,
    obrysy, záře); žádné barevné přechody ani sklo; Rajče tu není vůbec (slunce přijde až s kukátkem); ceny barvou textu.
    Písma Onest (text) a Unbounded (nadpisy a ceny, v balíku rodina 'Letsi') z vlastního serveru, licence OFL
-   v public/vendor/fonts/letsi/. @font-face se stáhne, až když ho použije pravidlo – tedy jen se zapnutým vzhledem. */
+   v public/vendor/fonts/letsi/. @font-face se stáhne, až když ho použije pravidlo – tedy jen ve vzhledu Letsi. */
 @font-face{font-family:'Onest';font-style:normal;font-weight:400;font-display:swap;src:url(../vendor/fonts/letsi/onest-400.woff2) format('woff2')}
 @font-face{font-family:'Onest';font-style:normal;font-weight:500;font-display:swap;src:url(../vendor/fonts/letsi/onest-500.woff2) format('woff2')}
 @font-face{font-family:'Onest';font-style:normal;font-weight:600;font-display:swap;src:url(../vendor/fonts/letsi/onest-600.woff2) format('woff2')}

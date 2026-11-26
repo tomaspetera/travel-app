@@ -516,7 +516,7 @@ test('statické soubory, data a ochrana proti path traversal', async () => {
   const html = await fetch(`${base}/`);
   assert.equal(html.status, 200);
   const page = await html.text();
-  assert.match(page, /<title>ATLAS/);
+  assert.match(page, /<title>Letsi/);
   assert.ok(page.indexOf('js/alerts.js') > 0 && page.indexOf('js/alerts.js') < page.indexOf('js/flights.js'), 'hlídání cen se načte před flights.js');
   assert.equal((await fetch(`${base}/js/alerts.js`)).status, 200);
   assert.ok(page.indexOf('js/searchhelp.js') > 0 && page.indexOf('js/searchhelp.js') < page.indexOf('js/flights.js'), 'pomoc s výsledky se načte před flights.js');

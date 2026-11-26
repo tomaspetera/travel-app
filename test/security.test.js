@@ -160,12 +160,12 @@ test('aplikace nemá obsluhy událostí v HTML (onclick="…" atd.) ani javascri
   }
 });
 
-test('API z cizího webu (Sec-Fetch-Site: cross-site) 403, z ATLASu a otevření odkazem ano', async () => {
+test('API z cizího webu (Sec-Fetch-Site: cross-site) 403, z aplikace a otevření odkazem ano', async () => {
   // surové požadavky: fetch v Node si Sec-Fetch-Mode nastaví sám
   const cross = { 'sec-fetch-site': 'cross-site', 'sec-fetch-mode': 'no-cors' };
   const r = await raw('/api/client-error', { method: 'POST', headers: { ...cross, 'content-type': 'text/plain' }, body: JSON.stringify({ msg: 'cizí' }) });
   assert.equal(r.status, 403);
-  assert.match(JSON.parse(r.body).error, /jen z aplikace ATLAS/);
+  assert.match(JSON.parse(r.body).error, /jen z aplikace Letsi/);
   assert.equal((await raw('/api/poi?lat=50&lon=14', { headers: { ...cross, 'x-forwarded-for': '10.88.0.1' } })).status, 403);
   assert.equal((await raw('/api/health', { headers: { 'sec-fetch-site': 'cross-site', 'sec-fetch-mode': 'navigate' } })).status, 200, 'odkaz z jiného webu');
   assert.equal((await raw('/api/health', { headers: { 'sec-fetch-site': 'same-origin', 'sec-fetch-mode': 'cors' } })).status, 200);

@@ -69,7 +69,7 @@ test('stránka: titulek, popis, kanonická adresa, Open Graph a Twitter Card z b
   assert.ok(at > 0 && at < 4096 && at < html.indexOf('apple-touch-startup-image'), `og:image na ${at}. znaku`);
   assert.ok(!html.includes('<!-- brand') && !html.includes('<!-- /brand'), 'blok z index.html nahrazený celý');
   // ostatní základ pro vyhledávače a instalaci zůstává v index.html
-  assert.match(html, /<meta name="theme-color" content="#[0-9a-f]{6}" media="\(prefers-color-scheme: light\)">/);
+  assert.match(html, /<meta name="theme-color" content="#[0-9a-fA-F]{6}" media="\(prefers-color-scheme: light\)">/);
   assert.match(html, /<link rel="apple-touch-icon" href="icons\/apple-touch-icon\.png">/);
   assert.match(html, /<link rel="icon" href="icons\/icon-96\.png" sizes="96x96" type="image\/png">/);
   assert.match(html, /<meta name="viewport" content="width=device-width/);
@@ -96,6 +96,12 @@ test('JSON-LD WebApplication: jen stálá fakta (zdarma, česky), žádná hodno
   const evil = headTags('https://a.cz', { ...BRAND, description: '</script><img src=x onerror=alert(1)>"&', title: 'A"<b>' });
   assert.ok(!/<\/script><img/.test(evil) && !evil.includes('<b>') && evil.includes('content="&lt;/script&gt;&lt;img src=x onerror=alert(1)&gt;&quot;&amp;"'));
   assert.equal((evil.match(/<\/script>/g) || []).length, 1);
+});
+
+test('texty značky poctivě pro čistý režim: ceny jen orientační z mezipaměti, bez jmen aerolinek a slibů', () => {
+  // slib „nejlevnější“, „živé“ nebo „aktuální“ ceny a jména aerolinek by v náhledu odkazu a ve vyhledávači neplatily
+  const texts = [BRAND.name, BRAND.title, BRAND.description, BRAND.appDescription, BRAND.tagline, ...BRAND.points, BRAND.image.alt];
+  for (const t of texts) assert.doesNotMatch(t, /nejlevn|živ|aktuáln|ryanair|wizz|kiwi|easyjet|smartwings|ATLAS/i, t);
 });
 
 test('PUBLIC_URL: vlastní doména (.cz) v kanonické adrese, náhledu, robots.txt i sitemap.xml; neplatná → výchozí z brand.js', async () => {
@@ -178,6 +184,23 @@ test('neznámá adresa mimo API: česká stránka 404 s odkazem do aplikace; str
   // „//“ (roboti, překlep) URL nepřečte: 400 jako poškozená adresa, ne chyba serveru 500 s výpisem do logu
   const slashes = await fetch(`${base}//`);
   assert.deepEqual([slashes.status, slashes.headers.get('content-type'), await slashes.text()], [400, 'text/plain; charset=utf-8', 'Neplatná adresa.']);
+});
+
+test('přejmenování na Letsi: stránka 404, náhledy sdílených odkazů a právní texty už „ATLAS“ jako název nemají', async () => {
+  // 404 bere název jen z brand.js – natvrdo v ní starý název zůstat nesmí (adresy a klíče malými písmeny nevadí)
+  const page = notFoundHtml({ ...BRAND, name: 'Letsi' });
+  assert.doesNotMatch(page, /ATLAS/);
+  assert.ok(page.includes('Otevřít Letsi'));
+  const { sharePage, invitePage } = await import('../server/lib/shortlinks.js');
+  for (const html of [sharePage('Ab3kQ9xZ', { m: {} }, 'https://letsi.example', 'https://letsi.example/og.png'), invitePage('zAbcdefgh', { title: 'Jede někdo se mnou?', desc: 'x' }, 'https://letsi.example', 'https://letsi.example/og.png')]) {
+    assert.doesNotMatch(html, /ATLAS/);
+    assert.match(html, /<meta property="og:site_name" content="Letsi">/);
+  }
+  for (const f of ['docs/pravni/zasady-ochrany-osobnich-udaju.md', 'docs/pravni/podminky-uzivani.md']) {
+    const md = read(f).toString();
+    assert.doesNotMatch(md, /ATLAS/, f);
+    assert.match(md, /^# .+ – Letsi \(návrh pro advokáta\)/, f);
+  }
 });
 
 test('manifest: název a popis z brand.js (v souboru nejsou – jedno místo), instalace: ikony, start, rozsah, jazyk', async () => {

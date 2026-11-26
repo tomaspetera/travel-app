@@ -72,7 +72,7 @@ test('Jak to funguje a z čeho žiju: nad zdroji, věta o provizi podle affiliat
   assert.doesNotMatch(on, /provizi z nich nemám/);
   const off = A.html({ version: 'v', health: TP_ONLY });
   assert.match(off, /Odkazy na prodejce jsou obyčejné odkazy, provizi z nich nemám\./);
-  assert.doesNotMatch(off, /můžu dostat provizi|může ATLAS dostat provizi/);
+  assert.doesNotMatch(off, /můžu dostat provizi|může Letsi dostat provizi/);
   const none = A.html({ version: 'v' });
   assert.doesNotMatch(none, /provizi/, 'bez health se o provizi nic netvrdí');
   for (const html of [on, off, none]) {

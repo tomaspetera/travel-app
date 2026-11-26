@@ -3,15 +3,15 @@
    fetch“. Bez service workeru (http mimo localhost, starý prohlížeč) funguje vše jako dřív, jen bez offline režimu. */
 (function () {
   const OFFLINE_MSG = 'Jsi offline – připoj se k internetu a zkus to znovu.';
-  const DOWN_MSG = 'Server ATLAS je teď nedostupný – zkontroluj připojení k internetu a zkus to znovu.';
+  const DOWN_MSG = 'Server Letsi je teď nedostupný – zkontroluj připojení k internetu a zkus to znovu.';
   // Slabý signál (v zahraničí „čárky“ bez dat): požadavek, na který nepřijde ani hlavička odpovědi, by jinak visel
   // donekonečna – spinner bez konce, a kde aplikace stejný dotaz podruhé nespouští (stav serveru, ubytování), ani nejde
   // zkusit znovu. Limit pokryje probouzení uspaného serveru (Render zdarma ~1 min) i pomalý výpočet (místa v okolí přes
   // minutu); stream hledání po hlavičce hlídá stejně dlouhá pauza bez dat (readOrStall).
   const API_WAIT = 120e3;
-  const SLOW_MSG = 'Server ATLAS přes 2 minuty neodpovídá – spojení je nejspíš moc slabé. Zkus to znovu.';
+  const SLOW_MSG = 'Server Letsi přes 2 minuty neodpovídá – spojení je nejspíš moc slabé. Zkus to znovu.';
   const THEME = { dark: '#080c1a', light: '#eef2fb' }; // --bg motivů z atlas.css = barva lišty a okna aplikace
-  const THEME_LETSI = { dark: '#14161F', light: '#F3F4F0' }; // vzhled Letsi (?vzhled=letsi): Noc a Vápno = --bg z letsi.css
+  const THEME_LETSI = { dark: '#14161F', light: '#F3F4F0' }; // vzhled Letsi (výchozí): Noc a Vápno = --bg z letsi.css
 
   /** Požadavek na API ATLASu (adresa pod api/ vůči stránce). */
   function isApi(input, base) {
@@ -196,7 +196,7 @@
   /* 4) ➕ Přidat ATLAS na plochu – v postranním panelu (počítač, tablet) a v nabídce „Více“ (mobil). Chrome, Edge
         a Android: dialog prohlížeče (beforeinstallprompt); iPhone a iPad: krátký návod. Z plochy se nenabízí.
         Ikona ➕, ne 📲 – ta patří k 📲 Přenést do jiného zařízení hned vedle v nabídce. */
-  const LABEL = '➕ Přidat ATLAS na plochu';
+  const LABEL = '➕ Přidat Letsi na plochu';
   let promptEvent = null;
   const standaloneMq = window.matchMedia ? window.matchMedia('(display-mode: standalone)') : null;
   const mode = () => installMode({
@@ -224,7 +224,7 @@
   window.addEventListener('appinstalled', () => {
     promptEvent = null;
     paintInstall();
-    if (typeof toast === 'function') toast('ATLAS je na ploše – otevřeš ho jako aplikaci');
+    if (typeof toast === 'function') toast('Hotovo – Letsi najdeš na ploše jako aplikaci');
   });
   if (standaloneMq && standaloneMq.addEventListener) standaloneMq.addEventListener('change', paintInstall);
   paintInstall();
@@ -244,11 +244,11 @@
     if (typeof modalOpen !== 'function') return;
     const close = typeof ico === 'function' ? ico('M18 6L6 18M6 6l12 12') : '×';
     modalOpen(`<div class="modal-hero"><div class="mh-bg"></div><button class="modal-close" data-close aria-label="Zavřít">${close}</button>
-      <div class="modal-hero-inner"><h2 class="pwa-h">➕ ATLAS na plochu</h2><div class="pwa-sub">iPhone a iPad · pár vteřin</div></div></div>
+      <div class="modal-hero-inner"><h2 class="pwa-h">➕ Letsi na plochu</h2><div class="pwa-sub">iPhone a iPad · pár vteřin</div></div></div>
       <div class="modal-body"><ol class="pwa-steps">
         <li>Klepni na <b>Sdílet</b> ${SHARE_ICO} – v Safari dole uprostřed, na iPadu nahoře vedle adresy.</li>
         <li>Sjeď níž a vyber <b>Přidat na plochu</b>.</li>
-        <li>Potvrď <b>Přidat</b>. ATLAS se pak otevře jako aplikace přes celou obrazovku a uložené cesty a plány uvidíš i bez internetu.</li>
+        <li>Potvrď <b>Přidat</b>. Letsi se pak otevře jako aplikace přes celou obrazovku a uložené cesty a plány uvidíš i bez internetu.</li>
       </ol></div>`);
   }
 
@@ -330,7 +330,7 @@
       updBar = document.createElement('div');
       updBar.className = 'pwa-update';
       updBar.setAttribute('role', 'status');
-      updBar.innerHTML = '<span>✨ Je k dispozici nová verze ATLASu</span><button type="button" class="btn sm primary">Obnovit</button><button type="button" class="pwa-x" aria-label="Zavřít" title="Později">×</button>';
+      updBar.innerHTML = '<span>✨ Je k dispozici nová verze Letsi</span><button type="button" class="btn sm primary">Obnovit</button><button type="button" class="pwa-x" aria-label="Zavřít" title="Později">×</button>';
       updBar.querySelector('.btn').onclick = () => reloadFresh();
       updBar.querySelector('.pwa-x').onclick = () => { updBar.hidden = true; dismissed = updBar.dataset.build; };
       document.body.append(updBar);
@@ -347,7 +347,7 @@
       Promise.resolve(later)
         .then(() => sw.register('sw.js', { updateViaCache: 'none' }))
         .then((r) => { reg = r; })
-        .catch((e) => console.warn('ATLAS: service worker se nepodařilo zaregistrovat –', e && e.message));
+        .catch((e) => console.warn('Letsi: service worker se nepodařilo zaregistrovat –', e && e.message));
     }
     if (!nativeFetch) return;
     // verze stránky: dosazená serverem do stránky (i u uložené kopie); u starší stránky bez ní ze sítě = verze na

@@ -57,7 +57,7 @@ test('jen tam, jedna letenka na obě cesty a Aviasales (přestupy neznámé)', (
   assert.equal(o.nights, undefined, 'noci jen u zpáteční');
   assert.deepEqual(o.out, { from: 'PRG', to: 'NAP', date: '2026-11-13', stops: null, air: 'W6' }, 'bez časů a bez „přímý“');
   assert.deepEqual(o.buy, [[t.bookUrl, 'travelpayouts', 'all']]);
-  assert.match(text(o), /^✈️ Neapol · pá 13\. 11\. · jen tam\n1 290 Kč\/os\. \(celkem 2 580 Kč za 2 os\.\)\ntam PRG → NAP · W6\n\(ATLAS – cena se mohla změnit/);
+  assert.match(text(o), /^✈️ Neapol · pá 13\. 11\. · jen tam\n1 290 Kč\/os\. \(celkem 2 580 Kč za 2 os\.\)\ntam PRG → NAP · W6\n\(Letsi – cena se mohla změnit/);
 });
 
 test('text do zprávy: termín, noci, cena, lety s časy a aerolinka', () => {
@@ -66,7 +66,7 @@ test('text do zprávy: termín, noci, cena, lety s časy a aerolinka', () => {
     '✈️ Neapol · pá 13. 11. – ne 15. 11. · 2 noci',
     '1 290 Kč/os. (celkem 2 580 Kč za 2 os.)',
     'tam 06:10 PRG → NAP přímý · zpět 21:40 NAP → PRG přímý · Ryanair',
-    '(ATLAS – cena se mohla změnit, ověř ji před nákupem)',
+    '(Letsi – cena se mohla změnit, ověř ji před nákupem)',
   ].join('\n'));
 });
 

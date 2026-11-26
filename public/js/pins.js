@@ -304,7 +304,7 @@
         ...(a ? [`   ${a.day ? `⚠ cena ${a.z} ${a.txt} – může být jiná` : `cena ${a.z} ${a.txt}`}`] : []),
         `   ${shareLink(p)}`, '');
     });
-    out.push('(ATLAS – ceny se mohou změnit, ověř je před nákupem)');
+    out.push('(Letsi – ceny se mohou změnit, ověř je před nákupem)');
     return out.join('\n');
   }
 

@@ -122,7 +122,7 @@ Navigační mapa repozitáře: kde co je a jak to spolu souvisí, aby se kód da
 - Odkazy v adrese při startu → `public/js/app.js`: `shortFromHash()`, `importPlanFromHash()`, `openOfferFromHash()`, `openJedFromHash()`, `openWatchFromHash()`
 - 💾 Záloha do souboru → `public/js/backup.js`: `pack()`, `parse()`, `merge()`, `preview()`, `apply()`, `restore()`
 - 📲 Přenos do jiného zařízení → `public/js/transfer.js`: `open()`, `fromHash()`, `receive()`; `public/js/qr.js`: `encode()`, `svg()`
-- Service worker, offline: co obsluhuje (`route()`: API, /c/, /j/ ne), kdy ukládá (`networkFirst()`, `remember()`) → `public/sw.js`; co předem uloží (PRECACHE = `shellAssets()` ze stránky + `RUNTIME_ASSETS`), BUILD a otisky souborů → `server/lib/pwa.js`: `serviceWorker()`, `contentVersion()`
+- Service worker, offline: co obsluhuje (`route()`: API, /c/, /j/ ne), kdy ukládá (`networkFirst()`, `remember()`) → `public/sw.js`; co předem uloží (PRECACHE = `shellAssets()` ze stránky + `RUNTIME_ASSETS` + `cssAssets()` = písma a obrázky z url() ve stylech), BUILD a otisky souborů → `server/lib/pwa.js`: `serviceWorker()`, `contentVersion()`
 - Nová verze, offline pruh, instalace, české chyby sítě → `public/js/pwa.js`: `checkVersion()`, `install()`, `httpError()`, `netError()`, `whenOnline()`
 - Odložené moduly a knihovny map → `public/js/lazy.js`: `need()`, `run()`, `soon()`, `url()`
 - Navigace, Zpět, okno, hlášky, stav S, motiv → `public/js/app.js`: `go()`, `buildNav()`, `histPop()`, `histSub()` (krok uvnitř sekce: Zpět z 🔎 Prozkoumat na přehled země), `modalOpen()`, `modalClose()`, `toast()`, `save()`, `applyTheme()`
@@ -263,7 +263,7 @@ Tabulka odpovídá pořadí větví v `route()` (`server/index.js`). Limity jsou
 - `server/lib/places.js` – našeptávač míst, geokódování z `data/places.json`, převod výběru na letiště. Klíčové: `suggest()`, `localScored()`, `rank()`, `loadPlaces()`, `geocode()`, `geocodePlaces()`, `geocodeExplore()`, `englishName()`, `describe()`, `resolveOrigins()`, `resolveDestinations()`.
 - `server/lib/poi.js` – zajímavá místa z Wikidat, Wikipedie a Wikivoyage: okolí, výlety, města pro trasu, celá země. Klíčové: `findPlaces()`, `findTrips()`, `findTowns()`, `countryHighlights()`, `countryCategory()`, `groupBindings()`, `scorePlace()`, `wdqs()`, `enrich()`, `placesCached()`, `mockPlaces()`, `UA`.
 - `server/lib/pricelevel.js` – „Je to dobrá cena?“: statistika cen a úroveň ceny (zrcadlo `public/js/pricecheck.js`). Klíčové: `priceLevelOf()`, `levelOf()`, `priceStats()`, `referencePrice()`, `refOf()`.
-- `server/lib/pwa.js` – `public/sw.js` s verzí podle obsahu a seznamem pro offline; `public/index.html` s otisky ?v=, head značkami a CSP. Klíčové: `serveIndex()`, `serveServiceWorker()`, `serviceWorker()`, `versionAssets()`, `shellAssets()`, `contentVersion()`, `RUNTIME_ASSETS`.
+- `server/lib/pwa.js` – `public/sw.js` s verzí podle obsahu a seznamem pro offline; `public/index.html` s otisky ?v=, head značkami a CSP. Klíčové: `serveIndex()`, `serveServiceWorker()`, `serviceWorker()`, `versionAssets()`, `shellAssets()`, `cssAssets()`, `contentVersion()`, `RUNTIME_ASSETS`.
 - `server/lib/ratelimit.js` – klouzavé okno požadavků na IP s omezenou pamětí; `sweep()` každých 30 s smaže adresy mimo okno (slib v O aplikaci). Klíčové: `RateLimiter`, `hit()`, `sweep()`, `prune()`.
 - `server/lib/regions.js` – hranice oblastí z `data/regions.json` pro okruh jen v oblasti. Klíčové: `hasRegion()`, `inRegion()`, `keepInRegion()`.
 - `server/lib/roadtrip.js` – výlety z místa: jednodenní smyčky nebo vícedenní okruh, autem nebo vlakem/busem (odhad). Klíčové: `planTrips()`, `bestDayLoop()`, `planLoop()`, `splitDays()`, `TRANSPORT`, `INTERESTS`, `overnightUrl()`.
@@ -338,13 +338,13 @@ Tabulka odpovídá pořadí větví v `route()` (`server/index.js`). Limity jsou
 - `public/css/trip.css` – průvodce `.trip-*`, ubytování, Shrnutí, Objevuj `.ex-*`, místa `.poi`, trasa, auto, MapLibre, Moje cesty `.mt-*`, štítek reklama `.ad-tag`.
 - `public/css/pretrip.css` – Před cestou `.pt-*` a tisk jen karty (`@media print`).
 - `public/css/kukatko.css` – vzhled a pohyb kukátka (rám Noc / v tmavém Vápno, slunce Rajče, štítek „Mám to“ v Pistácii), vše pod `:root[data-brand="letsi"]`; načítá ho jen `public/js/kukatko.js`.
-- `public/css/letsi.css` – vzhled značky Letsi, krok 1 (barvy a písma Onest + Unbounded): vše jen pod `:root[data-brand="letsi"]`, zapíná `?vzhled=letsi` (úvodní skript v `public/index.html`, klíč `atlas_look`), vypíná `?vzhled=atlas`; písma `public/vendor/fonts/letsi/` (OFL); krok 3 ikony, logo a znak maskou (`--letsi-ikona`) ze souborů `public/vendor/letsi/`, favicon přepíše úvodní skript. Test `test/vzhled-letsi.test.js`.
+- `public/css/letsi.css` – vzhled značky Letsi, výchozí pro všechny (barvy a písma Onest + Unbounded): vše jen pod `:root[data-brand="letsi"]`, který úvodní skript v `public/index.html` nastaví vždy, kromě nouzové volby `?vzhled=atlas` (klíč `atlas_look` = `atlas`, `?vzhled=letsi` ji smaže); písma `public/vendor/fonts/letsi/` (OFL); krok 3 ikony, logo a znak maskou (`--letsi-ikona`) ze souborů `public/vendor/letsi/`; favicon Letsi je přímo v hlavičce. Test `test/vzhled-letsi.test.js`.
 - `public/css/pwa.css` – offline pruh `.pwa-bar`, instalace, lišta nové verze `.pwa-update`, lišta Novinky `.wn-pop`.
 - `public/css/desktop.css` – společný desktop od 1024 px: kontejner `--content-max`, mřížka `.d-grid`, nadpisy, karty.
 - `public/css/desktop-flights.css` – desktop Lety, Přehled a Země (výsledky ve dvou sloupcích od 1200 px, radar, filtry Zemí).
 - `public/css/desktop-explore.css` – desktop Objevuj (seznam a přilepená mapa), plánovač, Doporučení, Mapa, okna ve dvou sloupcích.
 - `public/css/desktop-trip.css` – desktop průvodce: lišta kroků, od 1280 px krok a Přehled cesty vpravo (`#tripAside`), Shrnutí ve dvou sloupcích.
-- `public/vendor/` – knihovny bez npm: `maplibre/` (MapLibre GL 5.24.0), `d3.min.js` 7.9.0, `topojson-client.min.js`, `countries-110m.json` (mapa světa, v PRECACHE), `flags/` (Twemoji), `fonts/` (Inter, Sora, Caveat, OFL; `fonts/letsi/` Onest a Unbounded jen pro `css/letsi.css`), `letsi/` (ikony rozhraní, logo, znak a favicon z identity Letsi 2.1 jen pro vzhled Letsi, původ v `letsi/README.md`); licence `public/vendor/LICENSES.txt`.
+- `public/vendor/` – knihovny bez npm: `maplibre/` (MapLibre GL 5.24.0), `d3.min.js` 7.9.0, `topojson-client.min.js`, `countries-110m.json` (mapa světa, v PRECACHE), `flags/` (Twemoji), `fonts/` (Inter, Sora, Caveat, OFL; `fonts/letsi/` Onest a Unbounded pro `css/letsi.css` a náhledový obrázek), `letsi/` (ikony rozhraní, logo, znak a favicon z identity Letsi 2.1, původ v `letsi/README.md`); licence `public/vendor/LICENSES.txt`.
 - `public/icons/` – ikony PWA (icon-96/192/512, maskable, apple-touch) a `splash/` (31 obrazovek iOS), generuje `scripts/build-icons.mjs`; vedle `public/og-image.png` (náhled odkazu, `scripts/build-og-image.mjs`).
 - `public/data/pretrip.json` – data Před cestou (EHIC, DROZD, řidičák, zásuvky, telefony; ověřeno 2026-10), čte `public/js/pretrip.js`, v PRECACHE.
 
@@ -374,8 +374,9 @@ Skripty (vše `node scripts/…`; README ## Data a licence má příkazy pro akt
 - `scripts/build-ground.mjs` – `data/ground.json`; `npm run build:ground` [--max 400] [--fresh]; RegioJet; UUID FlixBusu jen pevně z dřívějších dat (z FlixBusu nic nestahuje); `main()` běží už importem.
 - `scripts/build-places.mjs` – `data/places.json`; `node scripts/build-places.mjs [--cache <adresář>]`; GeoNames ~630 MB; `selectPlace()`, `pickName()`, `MUST`, `mustFind()`.
 - `scripts/build-regions.mjs` – `data/regions.json`; `NODE_USE_ENV_PROXY=1 node scripts/build-regions.mjs [klíč…]`; Nominatim; nová oblast i do `server/lib/names.js` REGIONS.
-- `scripts/build-icons.mjs` – `public/icons/*.png` a blok `<!-- ios-splash -->` v `public/index.html`; `npm run build:icons`; bez sítě.
-- `scripts/build-og-image.mjs` – `public/og-image.png`; `npm run build:og`; globální Playwright + Chromium, písma z Google Fonts jen při sestavení; otisk `ogSource()`.
+- `scripts/build-icons.mjs` – `public/icons/*.png` (hotová PNG z balíku identity Letsi `ikona/` kopíruje beze změny, zbylé velikosti dopočítá) a blok `<!-- ios-splash -->` v `public/index.html`; `npm run build:icons`; bez sítě.
+- `scripts/build-og-image.mjs` – `public/og-image.png` v identitě Letsi; `npm run build:og`; globální Playwright + Chromium, písma Unbounded a Onest z `public/vendor/fonts/letsi` (bez sítě); otisk `ogSource()`.
+- `scripts/letsi-znak.svg` – znak kukátka v pozitivu (balík identity, `znak/`) pro náhledový obrázek.
 - `scripts/load-test.mjs` – zátěžový test vlastního DEMO serveru (fáze health, static, search-*, users); `node scripts/load-test.mjs` (env ONLY, USERS, CPU_QUOTA…); bez sítě, nikdy proti produkci; výsledky do `docs/skalovani.md`.
 
 ## Testy
@@ -401,7 +402,7 @@ Skripty (vše `node scripts/…`; README ## Data a licence má příkazy pro akt
 - Sdílení, záloha, přenos: `test/sharelink.test.js`, `test/sharecard.test.js`, `test/offershare.test.js`, `test/share-codes.test.js`, `test/backup.test.js`, `test/transfer.test.js`, `test/qr.test.js`
 - ⭐ Plus (falešné dveře, počítání cest, otázka na cenu, karta sešitu): `test/plus.test.js`
 - „Mám letenku“, „Koupeno?“ a zapojení počítadel (každá událost na jednom místě): `test/mam-letenku.test.js`
-- Vzhled, přístupnost, telefon a počítač: `test/a11y.test.js`, `test/css-ph.test.js`, `test/dark-visual.test.js`, `test/vzhled-letsi.test.js` (přepínač vzhledu Letsi, pravidla letsi.css), `test/kukatko.test.js` (kukátko za přepínačem: stavy z DOM, jedno slunce, omezený pohyb), `test/desktop.test.js`, `test/desktop-trip.test.js`, `test/modal-scroll.test.js`, `test/phone-text.test.js`, `test/phone-visual.test.js`, `test/theme.test.js`, `test/history.test.js`, `test/newcomer.test.js`
+- Vzhled, přístupnost, telefon a počítač: `test/a11y.test.js`, `test/css-ph.test.js`, `test/dark-visual.test.js`, `test/vzhled-letsi.test.js` (výchozí vzhled Letsi a nouzová cesta ?vzhled=atlas, manifest, offline sada, pravidla letsi.css), `test/kukatko.test.js` (kukátko: stavy z DOM, jedno slunce, omezený pohyb, usínání ve tmě), `test/desktop.test.js`, `test/desktop-trip.test.js`, `test/modal-scroll.test.js`, `test/phone-text.test.js`, `test/phone-visual.test.js`, `test/theme.test.js`, `test/history.test.js`, `test/newcomer.test.js`
 - Data, skripty a tahle mapa: `test/data.test.js`, `test/climate.test.js`, `test/places-build.test.js`, `test/mapa.test.js`
 
 ## Nasazení a nastavení

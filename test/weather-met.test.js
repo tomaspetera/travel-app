@@ -126,7 +126,7 @@ test('mezipaměť podle podmínek MET: User-Agent s odkazem, nejdřív za 3 h, p
     const pts = [[50.09, 14.42], [41.9, 12.5]];
     const [prg, rome] = await weatherAt(pts);
     assert.equal(calls.length, 2);
-    assert.match(calls[0].headers['User-Agent'], /^ATLAS\/2\.0 https:\/\/\S+$/, 'název aplikace a odkaz, kde je kontakt');
+    assert.match(calls[0].headers['User-Agent'], /^Letsi\/2\.0 https:\/\/\S+$/, 'název aplikace a odkaz, kde je kontakt');
     assert.equal(calls[0].url.origin + calls[0].url.pathname, 'https://api.met.no/weatherapi/locationforecast/2.0/complete');
     assert.equal(calls[0].url.search, '?lat=50.09&lon=14.42');
     assert.equal(prg.tz, 'Europe/Prague');

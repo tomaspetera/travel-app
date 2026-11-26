@@ -1,6 +1,6 @@
 /* Kukátko Letsi · vzhled a pohyb (vzhled Letsi, krok 4; patří k js/kukatko.js). Převzaté z balíku identity 2.1
    (kukatko/kukatko.css) a přizpůsobené ATLASu. Soubor načítá js/kukatko.js až se vzhledem Letsi, a přesto je každé
-   pravidlo pod :root[data-brand="letsi"] – bez přepínače by se nic nezměnilo, ani kdyby se soubor načetl.
+   pravidlo pod :root[data-brand="letsi"] – ve vzhledu ATLASu by se nic nezměnilo, ani kdyby se soubor načetl.
    Barvy 2.1: rám a zorničky Noc, okénka Vápno (otvory do plochy); v tmavém režimu Vápno a okénka do pozadí; slunce
    v oku a u ceny Rajče (--letsi-slunce), na obrazovce jen jedno. Tokeny --letsi-kukatko* letsi.css zatím nemá, proto
    platí hodnoty za čárkou. Motiv řídí <html data-theme> (úvodní skript ho nastaví vždy), ne prefers-color-scheme.

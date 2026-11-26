@@ -1942,7 +1942,7 @@
       // můžou být starší než hledání.
       const age = SearchHelp.resultAge(lastResultAt, Date.now()), at = age ? `<span class="ps-at">hledáno ${esc(age.when)}</span>` : '';
       host.innerHTML = `<details class="card progress-card done"${bad ? ' open' : ''}><summary class="ph">✓ ${head}${found ? `<span class="faint ps-found"> · ${found}</span>` : ''}<span class="ps-more faint">${at}<span class="ps-pd">${at ? ' · ' : ''}podrobnosti</span></span></summary>${rows}${disabled}</details>`
-        + (more ? `<div class="more-routes"><button type="button" class="btn sm" id="moreRoutes" title="Na jedno hledání smí ATLAS na ${esc(shopName(more.id))} jen omezený počet dotazů – další hledání vezme nejdřív trasy, na které nedošlo">Prohledat zbylé trasy ${esc(shopName(more.id))} (${more.coverage.skipped})</button></div>` : '');
+        + (more ? `<div class="more-routes"><button type="button" class="btn sm" id="moreRoutes" title="Na jedno hledání smí Letsi na ${esc(shopName(more.id))} jen omezený počet dotazů – další hledání vezme nejdřív trasy, na které nedošlo">Prohledat zbylé trasy ${esc(shopName(more.id))} (${more.coverage.skipped})</button></div>` : '');
       const mr = $('#moreRoutes', host); if (mr) mr.onclick = () => rerun();
       return;
     }
@@ -2280,7 +2280,7 @@
       </div>
       ${view.timeOpen ? timePanel(res, SearchHelp.timeStats(base), th) : ''}
       ${originCard(res)}
-      <div class="faint rank-note"${view.sort === 'best' ? ' title="Doporučené počítá s cenou i s cestou na letiště a do města, časem na cestě, nočními odjezdy, tím, kolik zbude času na místě, a cenou pod obvyklou; další cíl ze stejné země dá o kus níž."' : ''}>Pořadí určuje jen zvolené řazení – žádná aerolinka ani partner si za lepší pozici neplatí.${view.sort === 'best' ? ' Doporučené počítá i s cestou na letiště a do města a s časy letů; proč je cíl výš, řekne ✓ u nabídky.' : ''}${health?.affiliate ? ' Odkazy na Aviasales jsou partnerské (affiliate, <span class="ad-tag">reklama</span>): při nákupu přes ně může ATLAS dostat provizi, cenu to pro tebe nemění.' : ''}</div>
+      <div class="faint rank-note"${view.sort === 'best' ? ' title="Doporučené počítá s cenou i s cestou na letiště a do města, časem na cestě, nočními odjezdy, tím, kolik zbude času na místě, a cenou pod obvyklou; další cíl ze stejné země dá o kus níž."' : ''}>Pořadí určuje jen zvolené řazení – žádná aerolinka ani partner si za lepší pozici neplatí.${view.sort === 'best' ? ' Doporučené počítá i s cestou na letiště a do města a s časy letů; proč je cíl výš, řekne ✓ u nabídky.' : ''}${health?.affiliate ? ' Odkazy na Aviasales jsou partnerské (affiliate, <span class="ad-tag">reklama</span>): při nákupu přes ně může Letsi dostat provizi, cenu to pro tebe nemění.' : ''}</div>
       </div>
       ${onlyFilled ? `<div class="note info tf-filled" style="margin-bottom:14px">🔀 <div><b>Filtrům času a přestupů nevyhoví žádná z nalezených kombinací celá</b> – lety tam a zpět, které jim vyhoví, jsem spároval sám (${plural(filledNow.length, 'dvojice', 'dvojice', 'dvojic')} dvou samostatných letenek, každou kupuješ zvlášť).</div></div>` : ''}
       ${nearbyHtml(res, thin)}
@@ -2461,7 +2461,7 @@
     if (!t.out.live || (t.back && !t.back.live)) out.push(SearchHelp.isCached(t) ? liveBadge(t) : cacheTag([t.out, t.back].find(l => l && l.arrUnknown) || (!t.out.live ? t.out : t.back)));
     // u dvou aerolinek jméno té, jejíž cena je z paměti (stáří = nejstarší z obou letů)
     const age = memAge(t), ml = age && [t.out, t.back].find(l => l && +l.memAgeMin === age);
-    if (age) out.push(`<span class="b warn" title="${esc(shopName((ml || t.out).provider))}: tuhle trasu ATLAS prohledal ${Alerts.agoTxt(age * 60e3)} – na jedno hledání smí jen omezený počet dotazů, trasy se proto střídají. Aktuální cenu ukáže rezervace.">⏱ cena ${Alerts.agoTxt(age * 60e3)}</span>`);
+    if (age) out.push(`<span class="b warn" title="${esc(shopName((ml || t.out).provider))}: tahle trasa je prohledaná ${Alerts.agoTxt(age * 60e3)} – na jedno hledání smí jen omezený počet dotazů, trasy se proto střídají. Aktuální cenu ukáže rezervace.">⏱ cena ${Alerts.agoTxt(age * 60e3)}</span>`);
     if (t.back && t.back.to !== t.out.from) out.push(`<span class="b info" title="Návrat na jiné letiště než odlet">↩ návrat do ${t.back.to}</span>`);
     // zpět z jiného letiště – štítek cesty „zpět na letiště X“ už to říká
     if (t.back && t.back.from !== t.out.to && arr.length < 2) out.push(`<span class="b info" title="Zpět z jiného letiště v cílové oblasti">✈ zpět z ${t.back.from}</span>`);
@@ -2472,7 +2472,7 @@
     // „ideální sezóna“ je dlouhodobá – vedle předpovědi by jí mohla odporovat, s předpovědí zmizí
     const ws = wxOf(t, g), wait = !ws && wxWait(t, g);
     const s = g && !ws ? seasonOk(g.dest.cc, t.out.date) : null;
-    if (s === true) out.push(`<span class="b good${wait ? ' clim' : ''}" title="Podle ATLAS je to ideální období pro tuto zemi">📅 ideální sezóna</span>`);
+    if (s === true) out.push(`<span class="b good${wait ? ' clim' : ''}" title="Podle Letsi je to ideální období pro tuto zemi">📅 ideální sezóna</span>`);
     if (ws) out.push(wxChip(ws, ws.text));
     else if (wait) out.push(`<span class="wx-slot" data-wxt="${idx}"></span>`);
     // řazení „Nejtepleji“ jde podle dlouhodobého průměru – ten zůstane vidět i vedle předpovědi
@@ -2643,7 +2643,7 @@
     for (const l of [t.out, t.back].filter(Boolean)) { const e = Ics.checkinEvent({ ...brief(l), carrier: l.carrier || l.carrierName }); if (e) ev.push(e); }
     return ev;
   }
-  const scalIcs = (t, dest) => withMod('trip', () => icsDownload(`atlas-${dest}-${t.out.date}`, scalEvents(t, dest), { name: dest }));
+  const scalIcs = (t, dest) => withMod('trip', () => icsDownload(`letsi-${dest}-${t.out.date}`, scalEvents(t, dest), { name: dest }));
   /** Klepnutí na „📅 V kalendáři“ v nabídce výpisu: kalendář vloží / schová bez překreslení výpisu. */
   function scalToggle(b) {
     const i = +b.dataset.scal, r = rowRegistry[i]; if (!r) return;
@@ -2889,7 +2889,7 @@
       ${res.demo ? '<div class="note warn" style="margin-bottom:14px">⚠️ <div><b>DEMO data</b> – ceny i lety jsou vymyšlené, slouží jen k vyzkoušení aplikace.</div></div>' : ''}
       ${res.fx && res.fx.source === 'approx' && !res.demo ? '<div class="note warn" style="margin-bottom:14px">💱 <div>Kurzy měn se nepodařilo načíst – přepočet do Kč je orientační.</div></div>' : ''}
       <div class="note info mc-note">🎫 <div><b>Každý let je samostatná letenka</b> – kupuješ je zvlášť, tlačítkem u každého letu.
-        <details class="mc-why"><summary>Co to znamená?</summary>Když se jeden let zpozdí nebo ho zruší, další aerolinka na tebe nečeká a peníze nevrací. ATLAS proto páruje lety s rezervou: na stejném letišti aspoň 3 h (jiné letiště téhož města 5 h), z jiného města nejdřív další den a aspoň 8 h po příletu.</details></div></div>`;
+        <details class="mc-why"><summary>Co to znamená?</summary>Když se jeden let zpozdí nebo ho zruší, další aerolinka na tebe nečeká a peníze nevrací. Letsi proto páruje lety s rezervou: na stejném letišti aspoň 3 h (jiné letiště téhož města 5 h), z jiného města nejdřív další den a aspoň 8 h po příletu.</details></div></div>`;
     const steps = `<div class="legs-bar"><span class="faint">Vyber let v každém kroku – cena celé cesty se přepočítá a lety, které na výběr nenavazují, zešednou s důvodem.</span>${any ? '<button type="button" class="linkbtn" data-mclear="1">Zrušit výběr</button>' : ''}</div>
       <div class="mc-cols">${legs.map((l, i) => mCol(res, i, picks, plan)).join('')}</div>`;
     const title = full ? 'Vybraná cesta' : any ? 'Nejlevnější cesta s vybranými lety' : 'Nejlevnější celá cesta';
@@ -3143,7 +3143,7 @@
     ...opts.map((o, i) => Ics.flightEvent(Trip.legBrief(o.out), { url: o.bookUrl || o.out.bookUrl || undefined, note: `${i + 1}. let z ${n} · ${route} · samostatná letenka` }))];
     // „🛂 Vyřídit ESTA (USA)“ před prvním odletem – země cesty i přestupy s registrací
     if (window.Entry) ev.push(...Entry.reminders(mCountries(res), opts[0].out.date, fmtYMD(new Date()), mVia(res, opts)));
-    icsDownload(`atlas-${route}`, ev, { name: route });
+    icsDownload(`letsi-${route}`, ev, { name: route });
   }
 
   /* ---------- přesná data: nejbližší dny (±3) ---------- */
@@ -3574,7 +3574,7 @@
     const down = out.filter(x => x.level !== 'partial'), part = out.filter(x => x.level === 'partial');
     const names = xs => xs.map(x => x.name).join(' a ');
     const txt = [
-      down.length ? `<b>${names(down)} teď ${down.length > 1 ? 'neodpověděly' : 'neodpověděl'}</b> – ${down.length > 1 ? 'jejich' : 'jeho'} lety (často ty nejlevnější) ve výsledcích chybí, takže skutečná nejnižší cena může být nižší.${down.some(x => x.level === 'blocked') ? ' Po výpadku je ATLAS na pár minut vynechává.' : ''}` : '',
+      down.length ? `<b>${names(down)} teď ${down.length > 1 ? 'neodpověděly' : 'neodpověděl'}</b> – ${down.length > 1 ? 'jejich' : 'jeho'} lety (často ty nejlevnější) ve výsledcích chybí, takže skutečná nejnižší cena může být nižší.${down.some(x => x.level === 'blocked') ? ' Po výpadku je Letsi na pár minut vynechává.' : ''}` : '',
       part.length ? `<b>${names(part)} ${part.length > 1 ? 'odpověděly' : 'odpověděl'} jen zčásti</b> – některé ${part.length > 1 ? 'jejich' : 'jeho'} lety můžou chybět.` : '',
     ].filter(Boolean).join(' ');
     // všechny vynechané po výpadku (Wizz Air po 429 až 10 min): nové hledání by je stejně přeskočilo – tlačítko po odpočtu
@@ -3589,7 +3589,7 @@
     const left = k.level === 'blocked' ? Math.ceil((lastResultAt + k.retryAfter * 1000 - Date.now()) / 1000) : 0;
     const txt = k.level === 'partial'
       ? `<b>Kiwi.com odpovědělo jen zčásti</b> – ${k.failed ? `${plural(k.failed, 'dotaz', 'dotazy', 'dotazů')} ${k.failed === 1 ? 'selhal' : k.failed <= 4 ? 'selhaly' : 'selhalo'}` : 'část dotazů nestihlo'}, takže některé lety (hlavně jiných aerolinek a s přestupem) můžou chybět.`
-      : `<b>Kiwi.com teď neodpovědělo</b> – ${who ? (res.mode === 'route' ? `vidíš jen nejlevnější let dne od ${who}` : `vidíš jen nabídky ${who}`) : 'lety ostatních aerolinek (i dálkové) teď chybí'}.${k.level === 'blocked' ? ' Po výpadku ho ATLAS na chvíli vynechává.' : ''}`;
+      : `<b>Kiwi.com teď neodpovědělo</b> – ${who ? (res.mode === 'route' ? `vidíš jen nejlevnější let dne od ${who}` : `vidíš jen nabídky ${who}`) : 'lety ostatních aerolinek (i dálkové) teď chybí'}.${k.level === 'blocked' ? ' Po výpadku ho Letsi na chvíli vynechává.' : ''}`;
     return `<div class="note ${k.level === 'partial' ? 'warn' : 'bad'} kiwi-note"><span>📡</span><div>${txt}</div><button type="button" class="btn sm" id="kiwiRetry"${left > 0 ? ` disabled data-until="${lastResultAt + k.retryAfter * 1000}"` : ''}>↻ Zkusit znovu${left > 0 ? ` za ${left} s` : ''}</button></div>`;
   }
   function filterChips(chips) {
@@ -4109,27 +4109,27 @@
     // 2) průměrná cena na vzdálenost (prahy jako distanceLevel: výhodná ≥ ~41 % pod, dražší > 25 % nad)
     const vs = pl.vsRef <= -5 ? `o <b>${-pl.vsRef} %</b> levnější` : pl.vsRef >= 5 ? `o <b>${pl.vsRef} %</b> dražší` : 'zhruba stejně drahá';
     const dist = t.distanceKm ? `<p>Na ${t.distanceKm.toLocaleString('cs')}\u00a0km ${ret ? 'tam i zpět' : 'jedním směrem'} stojí letenka v průměru kolem <b>${czk(pl.ref)}</b>/os. Tahle je ${vs}.
-      <span class="faint">Nízkonákladovky bývají pod průměrem běžně – za výhodnou ATLAS bere letenku zhruba od 40 % pod ním, za dražší než obvykle od 25 % nad ním. Hrubé pravidlo podle vzdálenosti, ne podle konkrétní trasy.</span></p>`
+      <span class="faint">Nízkonákladovky bývají pod průměrem běžně – za výhodnou Letsi bere letenku zhruba od 40 % pod ním, za dražší než obvykle od 25 % nad ním. Hrubé pravidlo podle vzdálenosti, ne podle konkrétní trasy.</span></p>`
       : '<p>Vzdálenost letu neznám.</p>';
     // 3) paměť cen v tomto prohlížeči
     const route = `${t.out.from} → ${label}, odlet v ${month}, ${ret ? 'zpáteční' : 'jen tam'}`;
     let memo;
-    if (!mem) memo = `<p>Na trase <b>${esc(route)}</b> zatím ATLAS žádné ceny nemá. Ukládá si nejlevnější letenky z každého hledání a příště porovná.</p>`;
+    if (!mem) memo = `<p>Na trase <b>${esc(route)}</b> zatím Letsi žádné ceny nemá. Ukládá si nejlevnější letenky z každého hledání a příště porovná.</p>`;
     else {
       const tr = mem.trend;
       const arrow = tr ? { down: '↓ zlevňuje', flat: '→ beze změny', up: '↑ zdražuje' }[tr.dir] : '';
       const when = tr ? (tr.days ? `o ${plural(tr.days, 'den', 'dny', 'dní')} dřív` : 'dřív téhož dne') : '';
       // trasu zná jen z posledních ~24 h (často jen z tohoto hledání) – nepředstírat dlouhou historii
-      const o = x.otherMin, oTxt = o ? `<span class="faint">${o.kind === 'other' ? 'V jiném hledání téže trasy' : 'Dřív na trase'} viděl i ${czk(o.czk)}/os. (${PriceCheck.agoTxt(o.ago)}).</span>` : '';
-      if (x.vsMem == null) memo = `<p>Tohle hledání ATLAS v paměti zatím nemá, takže letenku napřímo srovnat nemá s čím. ${x.cheapestSeen ? 'Levnější letenku na trase ale zatím neviděl.' : oTxt}</p>`;
+      const o = x.otherMin, oTxt = o ? `<span class="faint">${o.kind === 'other' ? 'V jiném hledání téže trasy' : 'Dřív na trase'} byla letenka i za ${czk(o.czk)}/os. (${PriceCheck.agoTxt(o.ago)}).</span>` : '';
+      if (x.vsMem == null) memo = `<p>Tohle hledání Letsi v paměti zatím nemá, takže letenku napřímo srovnat nemá s čím. ${x.cheapestSeen ? 'Levnější letenka na trase ale zatím nebyla.' : oTxt}</p>`;
       else {
         const low = x.scoped ? mem.scopeMin : mem.min, lowAgo = x.scoped ? mem.scopeAgo : mem.ago, inSearch = x.scoped ? ' v tomhle hledání' : '';
-        memo = `<p>${mem.sinceDays > 0 ? `Nejlevnější letenka${inSearch}, co ATLAS na trase <b>${esc(route)}</b> viděl: <b>${czk(low)}</b>/os. (${PriceCheck.agoTxt(lowAgo)}, trasu sleduje ${plural(mem.sinceDays, 'den', 'dny', 'dní')}).`
-            : `Trasu <b>${esc(route)}</b> ATLAS sleduje teprve od dneška – nejlevnější letenka${inSearch}, co na ní zatím viděl: <b>${czk(low)}</b>/os.`}
+        memo = `<p>${mem.sinceDays > 0 ? `Nejlevnější letenka${inSearch} na trase <b>${esc(route)}</b>, kterou Letsi zná:<b>${czk(low)}</b>/os. (${PriceCheck.agoTxt(lowAgo)}, trasu sleduje ${plural(mem.sinceDays, 'den', 'dny', 'dní')}).`
+            : `Trasu <b>${esc(route)}</b> Letsi sleduje teprve od dneška – nejlevnější letenka${inSearch}, kterou na ní zatím zná:<b>${czk(low)}</b>/os.`}
           ${x.vsMem <= 0 ? 'Tahle je zatím nejlevnější.' : `Tahle je o ${x.vsMem} % dražší.`} ${oTxt}</p>`;
       }
       memo += `${tr ? `<p class="pc-trend ${tr.dir}"><b>${arrow}</b> – nejlevnější letenka stejného hledání ${when}: ${czk(tr.prev)} → teď ${czk(tr.cur)} (${tr.pct > 0 ? '+' : tr.pct < 0 ? '−' : ''}${Math.abs(tr.pct)} %)</p>`
-        : '<p class="faint">Trend (↓ / → / ↑) se ukáže, až stejné hledání zopakuješ později (za 6 h a víc) – třeba když ho uložíš ♡ a ATLAS ho bude kontrolovat.</p>'}`;
+        : '<p class="faint">Trend (↓ / → / ↑) se ukáže, až stejné hledání zopakuješ později (za 6 h a víc) – třeba když ho uložíš ♡ a Letsi ho bude kontrolovat.</p>'}`;
     }
     // 4) čas do odletu
     const left = days == null ? '' : days <= 0 ? 'Odlet je dnes.' : days === 1 ? 'Odlet je zítra.'
@@ -4142,12 +4142,12 @@
         <div class="pc-verdict"><span class="b ${cls}">${txt}</span><span>${esc(pl.reason)}</span></div>
         ${sec('📊', `Oproti ostatním nabídkám do cíle ${esc(label)} v tomto hledání`, search)}
         ${sec('📏', 'Oproti průměrné ceně na tuto vzdálenost', dist)}
-        ${sec('🧠', 'Co ATLAS na této trase viděl <small class="faint">(v tomto prohlížeči)</small>', memo)}
+        ${sec('🧠', 'Dřívější ceny na této trase <small class="faint">(v tomto prohlížeči)</small>', memo)}
         ${left ? sec('📅', 'Do odletu', `<p>${left}</p>`) : ''}
         ${adv ? `<div class="note info pc-advice">💡<div><b>Co s tím?</b> ${esc(adv.text)}</div></div>` : ''}
         ${cache ? '<div class="note warn pc-advice">⏱<div>Cena je orientační: našli ji jiní cestující v posledních 48 hodinách. Před nákupem ji ověř.</div></div>' : ''}
         <div class="row wrap pc-act">${!inResults ? '' : isWatched(lastForm || getForm()) ? '<button type="button" class="btn" id="pcWatch" disabled title="Hledání už je v hlídaných cenách na Přehledu">✓ Tohle hledání už hlídáš</button>' : '<button type="button" class="btn primary" id="pcWatch">♡ Hlídat cenu tohoto hledání</button>'}<button type="button" class="btn ghost" data-close>Zavřít</button></div>
-        <p class="faint pc-foot">Je to odhad, ne předpověď. ATLAS porovnává cenu letenek na osobu (bez dopravy na letiště a zavazadel) s ostatními nabídkami tohoto hledání, s hrubou průměrnou cenou na vzdálenost a s cenami, které viděl v tomto prohlížeči. Jak se cena dál vyvine, dopředu nikdo neví.</p>
+        <p class="faint pc-foot">Je to odhad, ne předpověď. Letsi porovnává cenu letenek na osobu (bez dopravy na letiště a zavazadel) s ostatními nabídkami tohoto hledání, s hrubou průměrnou cenou na vzdálenost a s cenami uloženými v tomto prohlížeči. Jak se cena dál vyvine, dopředu nikdo neví.</p>
       </div>`;
   }
 
@@ -4375,7 +4375,7 @@
     // jen výzva k hlídání – „🧒 přidej děti“ má stejnou třídu a zůstane
     nudge = null; document.getElementById('nudgeWatch')?.closest('.watch-nudge')?.remove();
     updateWatchBadges(); updateWatchBtn();
-    toast(r.dup ? `Tohle hledání už hlídáš na Přehledu${b ? ` – cena teď ${czk(b.czk)}/os.` : ''}` : roll ? `Hlídám na Přehledu, dokud máš ATLAS otevřený – termín se posouvá s časem (${Alerts.rollTxt(wf, today(), { now: false })})` : 'Hledání uloženo – cenu hlídám na Přehledu, dokud máš ATLAS otevřený');
+    toast(r.dup ? `Tohle hledání už hlídáš na Přehledu${b ? ` – cena teď ${czk(b.czk)}/os.` : ''}` : roll ? `Hlídám na Přehledu, dokud máš aplikaci otevřenou – termín se posouvá s časem (${Alerts.rollTxt(wf, today(), { now: false })})` : 'Hledání uloženo – cenu hlídám na Přehledu, dokud máš aplikaci otevřenou');
   }
   /** Tlačítko ♡ pod formulářem: hlídané hledání → „♥ Hlídáš“ (klik ukáže hlídané ceny na Přehledu). */
   function updateWatchBtn() {
@@ -4455,17 +4455,17 @@
   function tipHtml(w, st) {
     const b = w.best || {};
     const t = Alerts.buyTip(st, { days: Alerts.depDays(w, today()), level: b.lvl || null, lvlWhy: b.lvlWhy || '', target: w.target });
-    return t ? `<div class="w-tip ${t.kind}" title="Jen odhad z cen, které ATLAS při kontrolách viděl, a z dní do odletu – jistotu nedává nikdo"><span class="w-tk">💡 Tip:</span> ${esc(t.text)}<small>${esc(t.why)}</small></div>` : '';
+    return t ? `<div class="w-tip ${t.kind}" title="Jen odhad z cen nalezených při kontrolách a z dní do odletu – jistotu nedává nikdo"><span class="w-tk">💡 Tip:</span> ${esc(t.text)}<small>${esc(t.why)}</small></div>` : '';
   }
   function watchBar() {
     const n = {
       default: '<button type="button" class="btn sm ghost" id="notifBtn" title="Upozornit i oznámením v prohlížeči">🔔 Upozorňovat</button>',
       granted: '<span class="w-ntf">🔔 Upozornění v prohlížeči jsou zapnutá.</span>',
-      denied: '<span class="w-ntf">🔕 Upozornění má prohlížeč pro ATLAS zablokovaná – povolíš je v nastavení webu (ikona vedle adresy).</span>',
+      denied: '<span class="w-ntf">🔕 Upozornění má prohlížeč pro Letsi zablokovaná – povolíš je v nastavení webu (ikona vedle adresy).</span>',
       unsupported: '<span class="w-ntf">Tento prohlížeč upozornění neumí – zlevnění uvidíš tady a u položky Přehled.</span>',
       phone: '', // telefon: ani tlačítko, ani dotaz na povolení
     }[notifOk()];
-    return `<div class="watch-bar"><span title="Každé hledání kontroluji automaticky zhruba jednou za 6 h – ale jen dokud máš ATLAS otevřený v prohlížeči a panel není schovaný na pozadí. Zavřená stránka nehlídá nic.">🔄 Kontroluji samo zhruba každých 6 h, dokud máš ATLAS otevřený.</span>${n}</div>`;
+    return `<div class="watch-bar"><span title="Každé hledání kontroluji automaticky zhruba jednou za 6 h – ale jen dokud máš aplikaci otevřenou v prohlížeči a panel není schovaný na pozadí. Zavřená stránka nehlídá nic.">🔄 Kontroluji samo zhruba každých 6 h, dokud máš aplikaci otevřenou.</span>${n}</div>`;
   }
   function watchCard(w, now = Date.now()) {
     const h = Alerts.epoch(w.history), own = h.length && h[0].own; // od nového základu (změna 🏠 vlastní ceny na letiště, 🙈, ceny jen za letenku – w.rebWhy)
@@ -4577,7 +4577,7 @@
     // kolik pondělí do odletu (nejvýš 8) – dřív hláška slibovala vždy „8 týdnů“ a u odletu před pondělím přišla až po něm
     const n = Alerts.remindCount(w.form, Alerts.nextMonday9(Date.now()).slice(0, 10));
     if (!n) { toast('Do odletu už žádné pondělí není – připomínka by přišla až po odletu'); return; }
-    Ics.download(`atlas-hlidani-${w.label || id}`, [Alerts.remindEvent(w, { appUrl: location.origin + location.pathname })]);
+    Ics.download(`letsi-hlidani-${w.label || id}`, [Alerts.remindEvent(w, { appUrl: location.origin + location.pathname })]);
     toast(`Připomínka stažena – otevři ji v kalendáři (${n === 1 ? 'v pondělí v 9:00' : `každé pondělí v 9:00, ${n}×${Alerts.rolls(w.form) ? '' : ' do odletu'}`})`);
   }
   /**
@@ -4711,7 +4711,7 @@
     toast(`${why === 'target' ? '🎯' : '📉'} ${w.label}: ${czk(cur)}${more ? ' · ' + more : ''}`);
     if (notifOk() !== 'granted') return;
     try {
-      const n = new Notification(why === 'target' ? `ATLAS: ${czk(cur)} – pod tvou cenou` : `ATLAS: cena klesla na ${czk(cur)}`, { body: `${w.label} · ${subOf(w) || ''}${more ? `\n${more}` : ''}\nKlikni a otevřu hledání.`, tag: 'atlas-watch-' + w.id });
+      const n = new Notification(why === 'target' ? `Letsi: ${czk(cur)} – pod tvou cenou` : `Letsi: cena klesla na ${czk(cur)}`, { body: `${w.label} · ${subOf(w) || ''}${more ? `\n${more}` : ''}\nKlikni a otevřu hledání.`, tag: 'atlas-watch-' + w.id });
       n.onclick = () => { window.focus(); n.close(); openWatch(w.id); };
     } catch (e) { } // např. Android Chrome umí upozornění jen přes service worker
   }
@@ -4740,7 +4740,7 @@
     const list = S.watch || [], n = Alerts.droppedCount(list, today());
     // všechna proběhlá: hlídat nejde nic – ne „Hlídám“
     const live = list.some(w => !Alerts.isPast(w.form, today()));
-    return n ? `<b class="good">📉 Zlevnilo od minule: ${n}</b>` : !list.length ? 'Ulož hledání tlačítkem ♡' : live ? 'Hlídám, dokud máš ATLAS otevřený' : 'Termíny proběhly – smaž je, nebo zapni 📅 posouvání';
+    return n ? `<b class="good">📉 Zlevnilo od minule: ${n}</b>` : !list.length ? 'Ulož hledání tlačítkem ♡' : live ? 'Hlídám, dokud máš aplikaci otevřenou' : 'Termíny proběhly – smaž je, nebo zapni 📅 posouvání';
   }
   /** „Od minula: 📉 Brno → Řím −380 Kč · 🎯 Londýn pod tvou cenou · 📡 radar: 3 cíle levněji“ hned pod hledáním. */
   function renderNews() {
@@ -5468,7 +5468,7 @@
     const wf = watchFormTo(d), wOn = wf.from.length > 0 && isWatched(wf);
     modalOpen(`<div class="modal-body dm-modal"><h3>${flag(d.cc)} ${esc(d.label)}</h3>
       <div class="dm-acts"><button type="button" class="btn${p === 'fav' ? '' : ' primary'}" data-dmp="${p === 'fav' ? '' : 'fav'}">${p === 'fav' ? '⭐ Odebrat z mých cílů' : '⭐ Chci tam'}</button><button type="button" class="btn" data-dmp="${p === 'mute' ? '' : 'mute'}">${p === 'mute' ? '👀 Zase ukazovat' : '🙈 Nezajímá mě'}</button>${pin ? `<button type="button" class="btn" id="dmPin">${Pins.has(pinList(), pin) ? '📌 Odebrat z odložených' : `<span>📌 Odložit nabídku · <span class="dp-nw">${czk(Pins.price(pin))}</span> · <span class="dp-nw">${esc(pinWhen(pin))}</span></span>`}</button>` : ''}<button type="button" class="btn" id="dmWatch"${wOn ? ' disabled title="Hledání sem už hlídáš – Přehled → 🔔 Hlídané ceny"' : ''}>${wOn ? '♥ Cenu sem už hlídáš' : '♡ Hlídat cenu sem'}</button></div>
-      <p class="faint dm-note">⭐ Moje cíle mají štítek ⭐ a na Přehledu nejnižší cenu, kterou ATLAS viděl. S 🙈 se město v radaru ani v Kamkoliv neukáže – hledání přímo sem ho ukáže vždy.${pin ? ' 📌 Odložit schová nabídku k porovnání (Přehled → 📌 Odložené nabídky).' : ''} ♡ Hlídat cenu sem najde lety (termíny jako radar) a když zlevní, uvidíš to na Přehledu.</p>
+      <p class="faint dm-note">⭐ Moje cíle mají štítek ⭐ a na Přehledu nejnižší cenu, kterou Letsi zná. S 🙈 se město v radaru ani v Kamkoliv neukáže – hledání přímo sem ho ukáže vždy.${pin ? ' 📌 Odložit schová nabídku k porovnání (Přehled → 📌 Odložené nabídky).' : ''} ♡ Hlídat cenu sem najde lety (termíny jako radar) a když zlevní, uvidíš to na Přehledu.</p>
       <div class="dm-foot"><button type="button" class="linkbtn" id="dmEdit">Upravit seznamy (⭐ ${pl.fav.length} · 🙈 ${pl.mute.length})</button><button type="button" class="btn ghost sm" id="dmClose">Zavřít</button></div></div>`);
     $$('[data-dmp]', $('#modal')).forEach(b => b.onclick = () => {
       const which = b.dataset.dmp || null, nx = SearchHelp.destPrefSet(prefLists(), d, which);
@@ -5536,14 +5536,14 @@
     const store = PriceCheck.load(), now = Date.now(), q = favQuery();
     const tile = (x, i) => {
       const s = PriceCheck.seenMin(store, x.key, now), mi = s && +s.month.slice(5, 7) - 1, mon = s && MNS_FULL[mi];
-      const tip = s ? `Nejlevnější zpáteční letenka na osobu, kterou ATLAS v tomhle zařízení viděl: ${czk(s.czk)} z ${s.from}, odlet ${MNS_LOC[mi]}, ${PriceCheck.agoTxt(s.ago)}.` : 'ATLAS sem v tomhle zařízení zatím žádnou cenu neviděl.';
+      const tip = s ? `Nejlevnější zpáteční letenka na osobu, kterou Letsi v tomhle zařízení zná:${czk(s.czk)} z ${s.from}, odlet ${MNS_LOC[mi]}, ${PriceCheck.agoTxt(s.ago)}.` : 'Sem zatím v tomhle zařízení žádná cena není.';
       return `<button type="button" class="fav-i" data-fs="${i}" title="${esc(tip)} Klepnutím hledáš sem – termíny jako radar."><span class="fav-n">${flag(x.cc)} <b>${esc(x.label)}</b></span>`
         + (s ? `<span class="fav-p">letenka od <b>${czk(s.czk)}</b></span><span class="fav-w">z ${esc(s.from)} · ${mon} · ${PriceCheck.agoTxt(s.ago)}</span>` : '<span class="fav-w">zatím neviděno</span>') + '</button>';
     };
     host.innerHTML = `<div class="section-head"><h2>⭐ Moje cíle${pl.fav.length ? ` <span class="faint" style="font-size:13px;font-weight:600">· ${pl.fav.length}</span>` : ''}</h2><button type="button" class="link" id="favEdit">Upravit →</button></div>
       <div class="card fav-card">${pl.fav.length ? `<div class="fav-strip">${pl.fav.map(tile).join('')}</div>
         <div class="fav-foot"><button type="button" class="btn primary sm" id="favGo">🔎 Hledat moje cíle</button><span class="faint">${esc(favNames(pl.fav))} · ${esc(q.sub.split(' · ').slice(1).join(' · '))}</span></div>
-        <div class="faint fav-note" title="Jen letenka – bez cesty na letiště, do města a zavazadel; s odletem od tohoto měsíce. Telefon a počítač mají každý svou paměť cen.">Cena = nejlevnější zpáteční letenka na osobu, jakou ATLAS viděl v tomhle zařízení.</div>`
+        <div class="faint fav-note" title="Jen letenka – bez cesty na letiště, do města a zavazadel; s odletem od tohoto měsíce. Telefon a počítač mají každý svou paměť cen.">Cena = nejlevnější zpáteční letenka na osobu, jakou Letsi zná z tohohle zařízení.</div>`
         : '<div class="faint">Zatím žádné – přidáš je přes ⋯ u karty radaru nebo u cíle v Kamkoliv (⭐ Chci tam).</div>'}
         ${pl.mute.length ? `<div class="faint fav-mute">🙈 Nezajímá mě – v radaru a v Kamkoliv skryto: ${plural(pl.mute.length, 'město', 'města', 'měst')}</div>` : ''}</div>`;
     $('#favEdit').onclick = () => prefsEdit();
@@ -5904,7 +5904,7 @@
     const tpOn = on('travelpayouts'), liteOn = on('liteapi'), xoOn = on('xotelo'), staysOn = liteOn || xoOn;
     // Xotelo po chybách (429, odmítá dotazy, výpadek) na chvíli vynechané – ne „✓ zapnuté“
     const xoBlocked = health && health.providers.find(p => p.id === 'xotelo' && p.enabled && p.blocked);
-    const title = tpOn ? (staysOn ? 'Zdroje cen jsou zapnuté' : 'Hotely s cenou přímo v ATLASu') : `Zapnout všechny aerolinky${staysOn ? '' : ' a hotely'}`;
+    const title = tpOn ? (staysOn ? 'Zdroje cen jsou zapnuté' : 'Hotely s cenou přímo v Letsi') : `Zapnout všechny aerolinky${staysOn ? '' : ' a hotely'}`;
     const sub = tpOn ? (staysOn ? 'aerolinky i hotely' : 'volitelné – bez toho funguje všechno, hotel jen vybereš u partnerů') : `easyJet, Vueling, Lufthansa, Emirates, Qatar, Turkish…${staysOn ? '' : ' + hotely s hodnocením'} – zdarma, asi 5 minut`;
     // kroky pro ostrý klíč LiteAPI (bez Xotela nutné, s ním volitelné)
     const liteSteps = `<ol class="guide">
@@ -5915,7 +5915,7 @@
     modalOpen(`<div class="modal-hero"><div class="mh-bg"></div><button class="modal-close" data-close aria-label="Zavřít">${ico('M18 6L6 18M6 6l12 12')}</button>
       <div class="modal-hero-inner"><h2 style="font-size:23px">${title}</h2><div style="opacity:.85;font-size:13px">${sub}</div></div></div>
       <div class="modal-body">
-        ${tpOn ? `<div class="note good" style="margin-bottom:12px">✓ <div>${srcOkHtml()}</div></div>` : `<p class="muted" style="font-size:14px;margin-bottom:12px">Ryanair a Wizz Air ATLAS hledá přímo. Ostatní aerolinky (nízkonákladové i dálkové lety s přestupy) přidá bezplatný přístup k datům <b>Travelpayouts / Aviasales</b>:</p>
+        ${tpOn ? `<div class="note good" style="margin-bottom:12px">✓ <div>${srcOkHtml()}</div></div>` : `<p class="muted" style="font-size:14px;margin-bottom:12px">Ryanair a Wizz Air Letsi hledá přímo. Ostatní aerolinky (nízkonákladové i dálkové lety s přestupy) přidá bezplatný přístup k datům <b>Travelpayouts / Aviasales</b>:</p>
         <ol class="guide">
           <li>Zaregistruj se zdarma na <a href="https://www.travelpayouts.com/" target="_blank" rel="noopener">travelpayouts.com</a> (stačí e-mail).</li>
           <li>V profilu otevři <b>Profile → API token</b> (nebo Tools → API) a zkopíruj <b>API token</b>.</li>
@@ -5925,12 +5925,12 @@
         <div class="note info" style="margin-top:12px">ℹ️ <div>Ceny z Travelpayouts pocházejí z hledání ostatních uživatelů za poslední dny – u výsledků jsou označené jako „orientační“ a před nákupem je ověř. Pokud budeš chtít z odkazů provize, doplň i <code>TRAVELPAYOUTS_MARKER</code> (tvoje partnerské ID).</div></div>
         <p class="muted" style="font-size:14px;margin:12px 0 8px"><b>Živé ceny všech aerolinek k vybranému letu</b> (Kiwi.com) jsou zapnuté samy – klíč nepotřebují.</p>`}
         <h3 id="guideStays" style="font-size:16px;margin:18px 0 8px">🏨 Hotely s cenou a hodnocením</h3>
-        ${liteOn ? '<div class="note good">✓ <div><b>Zapnuté</b> – u ubytování ATLAS ukazuje hotely s cenou a hodnocením přímo (LiteAPI).</div></div>'
-          : xoOn ? `${xoBlocked ? `<div class="note warn">⚠️ <div><b>Zapnuté, ale teď nefunguje</b> – Xotelo ${esc(xoBlocked.reason || 'hlásí chyby')}. Hledání ubytování zatím nabídne jen odkazy na partnery; ATLAS to zkusí znovu sám${xoBlocked.retryAfter ? ` za ${Math.max(1, Math.round(xoBlocked.retryAfter / 60))} min` : ''}.</div></div>`
-            : '<div class="note good">✓ <div><b>Zapnuté, bez klíče</b> – u ubytování ATLAS ukazuje hotely s hodnocením a orientačními cenami z TripAdvisoru (Booking, Agoda, Trip.com…) přes bezplatné neoficiální API Xotelo. Tady není co nastavovat.</div></div>'}
+        ${liteOn ? '<div class="note good">✓ <div><b>Zapnuté</b> – u ubytování Letsi ukazuje hotely s cenou a hodnocením přímo (LiteAPI).</div></div>'
+          : xoOn ? `${xoBlocked ? `<div class="note warn">⚠️ <div><b>Zapnuté, ale teď nefunguje</b> – Xotelo ${esc(xoBlocked.reason || 'hlásí chyby')}. Hledání ubytování zatím nabídne jen odkazy na partnery; Letsi to zkusí znovu automaticky${xoBlocked.retryAfter ? ` za ${Math.max(1, Math.round(xoBlocked.retryAfter / 60))} min` : ''}.</div></div>`
+            : '<div class="note good">✓ <div><b>Zapnuté, bez klíče</b> – u ubytování Letsi ukazuje hotely s hodnocením a orientačními cenami z TripAdvisoru (Booking, Agoda, Trip.com…) přes bezplatné neoficiální API Xotelo. Tady není co nastavovat.</div></div>'}
         <details class="more" style="margin-top:10px"><summary>Volitelně: LiteAPI místo TripAdvisoru</summary>
           <p class="muted" style="font-size:13px;margin:8px 0">Ostrý klíč LiteAPI má přednost: ceny přímo k rezervaci a později i možnost provizí (u Xotela provize nebudou). Kdyby Xotelo přestalo fungovat, zůstanou odkazy na partnery.</p>${liteSteps}</details>`
-          : `<p class="muted" style="font-size:13px;margin-bottom:8px"><b>Volitelné.</b> Bez klíče ATLAS u ubytování nabídne předvyplněné hledání na Booking.com (hodnocení 8+, od nejlevnějšího), Airbnb, Google Hotels a dalších – stačí to. Ceny a hodnocení hotelů přímo v průvodci ${health && health.providers.some(p => p.id === 'xotelo') ? 'zapne buď TripAdvisor přes Xotelo (bez klíče – na serveru ho vypnula proměnná <code>XOTELO=off</code>, stačí ji odebrat), nebo ostrý klíč LiteAPI' : 'přidá klíč LiteAPI'}:</p>${liteSteps}`}
+          : `<p class="muted" style="font-size:13px;margin-bottom:8px"><b>Volitelné.</b> Bez klíče Letsi u ubytování nabídne předvyplněné hledání na Booking.com (hodnocení 8+, od nejlevnějšího), Airbnb, Google Hotels a dalších – stačí to. Ceny a hodnocení hotelů přímo v průvodci ${health && health.providers.some(p => p.id === 'xotelo') ? 'zapne buď TripAdvisor přes Xotelo (bez klíče – na serveru ho vypnula proměnná <code>XOTELO=off</code>, stačí ji odebrat), nebo ostrý klíč LiteAPI' : 'přidá klíč LiteAPI'}:</p>${liteSteps}`}
       </div>`);
   }
   window.showSetupGuide = (section) => {
@@ -5948,7 +5948,7 @@
       const bits = [r.etaCostEur != null && eur >= 0 ? `~${eur} €` : '', r.transitEta === true ? 'i na přestup' : r.transitEta ? 'i na přestup s pasovou kontrolou' : ''].filter(Boolean);
       return `${esc(Entry.regName(r))}${bits.length ? ` (${bits.join(', ')})` : ''}`;
     };
-    el.innerHTML = `<b>Hlídej vstupní podmínky.</b> Do USA potřebuješ ${reg('US')}, do Kanady ${reg('CA')}, do Británie ${reg('GB')}. Vyřizuj je jen na oficiálních webech (zprostředkovatelé si účtují víc). ATLAS je ukáže u výsledků (🛂) a podrobně v detailu země – zdroj MZV ČR, ověřeno ${esc(Entry.checkedTxt() + Entry.ageTxt())}.`;
+    el.innerHTML = `<b>Hlídej vstupní podmínky.</b> Do USA potřebuješ ${reg('US')}, do Kanady ${reg('CA')}, do Británie ${reg('GB')}. Vyřizuj je jen na oficiálních webech (zprostředkovatelé si účtují víc). Letsi je ukáže u výsledků (🛂) a podrobně v detailu země – zdroj MZV ČR, ověřeno ${esc(Entry.checkedTxt() + Entry.ageTxt())}.`;
   }
 
   /* Pruh „Čekám na server“ s letadlem (uspaný server na Renderu zdarma): 'wait' ukázat, 'ok' doletět a zmizet, jinak zmizet. */
@@ -5961,7 +5961,7 @@
       bar.id = 'wakeBar';
       bar.className = 'wake-bar';
       bar.setAttribute('role', 'status');
-      bar.innerHTML = `<div class="wake-track" aria-hidden="true"><svg class="wake-jet" viewBox="0 0 100 100"><path fill="currentColor" d="${JET}"/></svg></div><span><b>Čekám na server ATLASu…</b> Na bezplatném hostingu usíná, probudí se do půl minuty. Uložené cesty fungují hned.</span>`;
+      bar.innerHTML = `<div class="wake-track" aria-hidden="true"><svg class="wake-jet" viewBox="0 0 100 100"><path fill="currentColor" d="${JET}"/></svg></div><span><b>Čekám na server Letsi…</b> Na bezplatném hostingu usíná, probudí se do půl minuty. Uložené cesty fungují hned.</span>`;
       const demo = $('#demoBanner'), main = $('.main');
       if (demo) demo.after(bar); else if (main) main.prepend(bar);
       return;
@@ -5994,7 +5994,7 @@
       if (window.Entry && h.fx) Entry.setRate(h.fx.eurCzk); // vstupní poplatky v € → Kč
     };
     let wasDown = false;
-    const down = e => { if (!e.offline) { wasDown = true; toast('Server ATLAS neodpovídá – vyhledávání letů nepůjde', 'err'); } }; // offline: pruh „Jsi offline“ (pwa.js)
+    const down = e => { if (!e.offline) { wasDown = true; toast('Server Letsi neodpovídá – vyhledávání letů nepůjde', 'err'); } }; // offline: pruh „Jsi offline“ (pwa.js)
     // Stav serveru nedorazil (start bez spojení, server se probouzí / nasazuje, 5xx): znovu po návratu online, po úspěšném
     // hledání, jinak za 15 s, 30 s … nejdéle 5 min – zdroje cen, DEMO, jména aerolinek ve výsledcích. Čeká vždy jen jeden pokus.
     let wait = 15000;
@@ -6004,7 +6004,7 @@
         clearTimeout(t); window.removeEventListener('online', go); healthNow = null;
         warm().then(x => {
           useHealth(x); renderSources();
-          if (wasDown) { wasDown = false; toast('Server ATLAS zase odpovídá'); }
+          if (wasDown) { wasDown = false; toast('Server Letsi zase odpovídá'); }
           if (!lastResult || !$('#results').children.length) return;
           rerender(true);
           // řádek „✓ Prohledáno … · Demo Air 132“ po hledání: jména obchodů místo id (rozbalení zůstane)

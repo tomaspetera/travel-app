@@ -15,9 +15,12 @@ import { pageCsp } from './security.js';
 // země (přehled, plánovač), vstupní podmínky, karta „Co zařídit a co sbalit“ a mapa navštívených zemí. data/…
 // jako server: ze složky data/ (countries.json, entry.json), a když tam soubor není, z public/data/ (pretrip.json).
 // Písma Inter a Sora (styly v css/ je berou přes @font-face, ne přes <link> v index.html) – bez nich by offline hned
-// po první návštěvě aplikace měla náhradní písmo.
+// po první návštěvě aplikace měla náhradní písmo (vzhled ATLASu, karty ke sdílení). Kukátko vzhledu Letsi (výchozí):
+// kukatko.js načte vložený skript v index.html a ten si přidá kukatko.css – shellAssets je ve stránce nevidí.
+// Písma a obrázky, které styly berou přes url() (Unbounded, Onest, ikony a logo Letsi), přidá cssAssets.
 export const RUNTIME_ASSETS = ['data/countries.json', 'data/entry.json', 'data/pretrip.json', 'vendor/countries-110m.json',
-  'vendor/fonts/inter-v20-latin.woff2', 'vendor/fonts/inter-v20-latin-ext.woff2', 'vendor/fonts/sora-v17-latin.woff2', 'vendor/fonts/sora-v17-latin-ext.woff2'];
+  'vendor/fonts/inter-v20-latin.woff2', 'vendor/fonts/inter-v20-latin-ext.woff2', 'vendor/fonts/sora-v17-latin.woff2', 'vendor/fonts/sora-v17-latin-ext.woff2',
+  'js/kukatko.js', 'css/kukatko.css'];
 const LINK_RELS = /^(?:stylesheet|manifest|icon|shortcut icon|apple-touch-icon)$/i;
 
 /** Hodnota atributu ze značky (v uvozovkách, apostrofech i bez nich), nebo undefined. */
@@ -85,6 +88,21 @@ export function versionAssets(html, versionOf) {
   // u <script> jen začátek značky – text vloženého skriptu (i s „<script src=…>“ v řetězci) zůstane, jak je
   return html.replace(/<!--[\s\S]*?-->|(<script\b[^>]*>)([\s\S]*?<\/script\s*>)|<link\b[^>]*>/gi, (m, start, rest) => (
     m.startsWith('<!--') ? m : start ? tag(start, true) + rest : tag(m, false)));
+}
+
+/**
+ * Místní soubory, které styl stahuje přes url() (písma z @font-face, obrázky a masky ikon) jako adresy vůči kořeni –
+ * prohlížeč je stáhne až s pravidlem, které je použije, takže by offline chyběly. Bez data:, #id a cizích webů.
+ */
+export function cssAssets(css, cssRel) {
+  const base = new URL(cssRel, 'http://atlas.invalid/');
+  const out = [];
+  for (const m of css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/url\(\s*(["']?)([^"')]+)\1\s*\)/g)) {
+    if (FOREIGN.test(m[2])) continue;
+    const rel = new URL(m[2], base).pathname.slice(1);
+    if (rel && !out.includes(rel)) out.push(rel);
+  }
+  return out;
 }
 
 /** Ikony z manifestu (i u zkratek) jako adresy vůči kořeni – Chrome je čte i offline (okno a ikona aplikace). */
@@ -175,7 +193,9 @@ export function serviceWorker({ publicDir, dataDir, salt = '' }) {
   const shell = shellAssets(html);
   const icons = shell.filter((u) => u.endsWith('.webmanifest') && fileFor(u, dirs))
     .flatMap((u) => manifestIcons(readFileSync(fileFor(u, dirs).abs, 'utf8'), u));
-  const precache = ['./', ...[...shell, ...icons, ...RUNTIME_ASSETS].filter((u, i, all) => all.indexOf(u) === i && fileFor(u, dirs))];
+  const fromCss = shell.filter((u) => /\.css(?:\?|$)/.test(u) && fileFor(u, dirs))
+    .flatMap((u) => cssAssets(readFileSync(fileFor(u, dirs).abs, 'utf8'), u));
+  const precache = ['./', ...[...shell, ...icons, ...RUNTIME_ASSETS, ...fromCss].filter((u, i, all) => all.indexOf(u) === i && fileFor(u, dirs))];
   const tpl = readFileSync(path.join(publicDir, 'sw.js'), 'utf8');
   if (!BUILD_RE.test(tpl) || !PRECACHE_RE.test(tpl)) throw new Error('public/sw.js: chybí řádek „const BUILD = …;“ nebo „const PRECACHE = […];“');
   const body = Buffer.from(tpl
