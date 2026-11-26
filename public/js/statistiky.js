@@ -257,7 +257,8 @@
      Návštěva = [[sekund od začátku, událost], …]. Vyhodnocuje se jen souhrnně – jednotlivé návštěvy stránka neukazuje. */
   const TOP = 10;
   /** Události návštěvy bez opakování hned po sobě (dvakrát Lety za sebou je pro cestu jeden krok). */
-  const names = (v) => (Array.isArray(v) ? v : []).map((x) => (Array.isArray(x) ? String(x[1]) : '')).filter((e, i, a) => e && e !== a[i - 1]);
+  // app_open je na začátku každé návštěvy (hned po prvním view_*) – cestu jen prodlužoval, nic neříká
+  const names = (v) => (Array.isArray(v) ? v : []).map((x) => (Array.isArray(x) ? String(x[1]) : '')).filter((e) => e !== 'app_open').filter((e, i, a) => e && e !== a[i - 1]);
   /** Nejčastější hodnoty: [[klíč, počet, % ze všech]] sestupně, nejvýš TOP. */
   function top(keys) {
     const m = new Map();
@@ -286,9 +287,25 @@
     return { n: len.length, median: len.length ? median(len.map((x) => [x, 1])) : null };
   }
 
+  // názvy událostí v cestách česky podle tabulek výše (jinak syrový název); MAIN až na konci – vyhraje u trip_started…
+  const LABELS = new Map([
+    ...TRIP_FUNNEL.flatMap(([e, r, l]) => [[e, `Průvodce: ${l}`], ...(r ? [[r, `Průvodce: ↺ znovu na kroku ${l}`]] : [])]),
+    ...TRIP_AUTO.map(([e, l]) => [e, `⚡ Poskládej – ${l}`]),
+    ...FL_RANK.opts.map(([e, l]) => [e, `Proklik k prodejci: nabídka ${l}`]),
+    ...FL_FIX.map(([e, , l]) => [e, `Prázdný výsledek: ${l}`]),
+    ...EXPLORE.map(([e, , l]) => [e, `Objevuj: ${l}`]),
+    ...[...SNAGS, ...FL_SNAGS, ...FL_RES, ...TRIP_MORE].map(([e, , l]) => [e, l]),
+    ...RAGE.map(([e, l]) => [e, `Opakované klepnutí – ${l}`]),
+    ...VIEWS, ...MAIN,
+  ]);
+  const label = (e) => LABELS.get(e) || e;
+  // v den spuštění by prázdná tabulka vypadala jako porucha. Záznam odejde až při skrytí aplikace (count.js onHide),
+  // server ho zapíše po dávce (FLUSH_MS = 30 min v server/lib/counts.js) a čtení drží 10 min (traces.js cacheMs)
+  const NO_VISITS = 'Zatím žádné návštěvy. Záznam odejde, až člověk aplikaci zavře nebo přepne jinam, a zapisuje se s odstupem – nová návštěva se tu objeví zhruba do 40 minut.';
+
   window.Stats = { MAIN, PRICES, DOORS, VIEWS, TABLE, SNAGS, PERIODS, FEW, num, pct, totals, funnel, rates, median, survey, doors, dayRows, period, fmtNum, fmtPct, fmtKc, fmtDay };
   Object.assign(window.Stats, { QUESTIONS, dist });
-  Object.assign(window.Stats, { RAGE, names, top, exits, lastSteps, topPaths, after, visitStats });
+  Object.assign(window.Stats, { RAGE, names, top, exits, lastSteps, topPaths, after, visitStats, label, NO_VISITS });
   Object.assign(window.Stats, { FL_SNAGS, FL_FIX, FL_RES, FL_RANK });
   Object.assign(window.Stats, { TRIP_FUNNEL, TRIP_AUTO, TRIP_MORE, EXPLORE, tripFunnel });
 
@@ -352,9 +369,7 @@
       + section('Po dnech', daily, 'Dny podle UTC, nejnovější nahoře. Otevř. = otevření, Hled. = hledání, Ověř. = ověření ceny, Prokl. = proklik k prodejci, Prův. = průvodce, Ulož. = uložená cesta.');
   }
 
-  // názvy událostí v cestách česky podle tabulek výše (jinak syrový název)
-  const LABELS = new Map([...MAIN, ...VIEWS, ...SNAGS.map(([e, , l]) => [e, l]), ...RAGE.map(([e, l]) => [e, `Opakované klepnutí – ${l}`])]);
-  const lbl = (path) => path.split(' → ').map((e) => LABELS.get(e) || e).join(' → ');
+  const lbl = (path) => path.split(' → ').map(label).join(' → ');
   const fmtSec = (s) => (s === null ? '–' : s < 90 ? `${Math.round(s)} s` : `${Math.round(s / 60)} min`);
   function renderTraces(box, data, total) {
     const visits = (data && Array.isArray(data.visits)) ? data.visits : [];
@@ -362,11 +377,11 @@
     const list = (rows) => (rows.length ? table(rows.map(([k, n, p]) => row(lbl(k), fmtNum(n), fmtPct(p)))) : '<p>Zatím žádné návštěvy.</p>');
     const rage = table(RAGE.map(([e, l]) => row(l, fmtNum(num(total, e)), null)));
     box.innerHTML = section('Cesty návštěv', `<p>Návštěv: <b>${fmtNum(vs.n)}</b>. Medián délky: <b>${fmtSec(vs.median)}</b>.</p>`
-      + (vs.n < FEW ? `<p class="warn">Návštěv je zatím málo (méně než ${FEW}) – na závěr to nestačí.</p>` : '')
-      + '<h3>Kde návštěvy končí</h3>' + list(exits(visits))
-      + '<h3>Co dělali před odchodem</h3>' + list(lastSteps(visits, 3))
-      + '<h3>Jak návštěvy začínají</h3>' + list(topPaths(visits, 4))
-      + '<h3>Co následovalo po opakovaném klepnutí</h3>' + list(after(visits, (e) => e.startsWith('rage_')))
+      + (!vs.n ? `<p>${NO_VISITS}</p>` : (vs.n < FEW ? `<p class="warn">Návštěv je zatím málo (méně než ${FEW}) – na závěr to nestačí.</p>` : '')
+        + '<h3>Kde návštěvy končí</h3>' + list(exits(visits))
+        + '<h3>Co dělali před odchodem</h3>' + list(lastSteps(visits, 3))
+        + '<h3>Jak návštěvy začínají</h3>' + list(topPaths(visits, 4))
+        + '<h3>Co následovalo po opakovaném klepnutí</h3>' + list(after(visits, (e) => e.startsWith('rage_'))))
       + '<h3>Opakované klepnutí podle sekce</h3>' + rage,
     `Jen od lidí, kteří v aplikaci sami zapnuli Pomáhat se zlepšováním, za posledních ${data && data.days ? data.days : '–'} dní (záznamy se mažou do 31 dnů). Jen souhrny – jednotlivé návštěvy se neukazují. Procento je ze všech návštěv, po opakovaném klepnutí ze všech opakovaných klepnutí.`);
   }

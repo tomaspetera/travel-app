@@ -212,6 +212,9 @@ function helpSwitch(b) {
   b.onclick = () => {
     const on = !Count.helping();
     Count.consent(on);
+    // volba padla tady → karta „Pomůžeš mi…?“ na Přehledu pryč, jinak by její „Ne, díky“ souhlas potichu zrušilo
+    const card = $('#whatsNew');
+    if (card && $('[data-help]', card)) { card.hidden = true; card.innerHTML = ''; }
     b.setAttribute('aria-checked', String(on));
     $('.faint', b).textContent = on ? 'zapnuto' : 'vypnuto';
     toast(on ? 'Zapnuto. Díky, že pomáháš!' : 'Vypnuto. Záznam téhle návštěvy jsem smazal.');
@@ -374,6 +377,8 @@ const flMark = () => { const r = $('#results'); return (r && r.firstElementChild
 const flKeep = (y, mark) => (y > 0 && mark ? { y, mark } : null);
 const flBack = (kept, mark, busy) => (kept && mark && kept.mark === mark && !busy ? kept.y : null);
 document.addEventListener('submit', () => { flKept = null; }, true);
+// Cesta bez rozpracované cesty ukáže Moje cesty, jsou-li nějaké (trip.js render) – ve statistikách jako Moje cesty
+const tripMine = (trip, trips) => !trip && Array.isArray(trips) && trips.some(Boolean);
 function go(v, opts = {}) {
   // Plánovač je 🧳 Moje cesty v záložce Cesta: staré odkazy (#planner, zástupce na ploše) i „Otevřít plán →“ vedou
   // na seznam cest – i když je v průvodci rozpracovaná cesta
@@ -387,7 +392,7 @@ function go(v, opts = {}) {
   if (v === 'flights') flKept = null;
   if (flY != null) opts = { ...opts, keepScroll: true };
   activeView = v;
-  if (window.Count) Count.view(v, opts.mine); // souhrnný počet otevření sekce (count.js) – bez údajů o uživateli
+  if (window.Count) Count.view(v, opts.mine || (v === 'trip' && tripMine(S.trip, S.trips))); // souhrnný počet otevření sekce (count.js) – bez údajů o uživateli
   if (v !== 'dashboard') nowAsk = false;
   $$('.view').forEach(s => s.classList.toggle('active', s.id === 'view-' + v));
   // aktivní sekce i pro čtečku obrazovky (aria-current) – jen barvou by ji nepoznala
@@ -1174,7 +1179,8 @@ function helpCard(el) {
     if (on) toast('Zapnuto. Díky! Vypnout to jde kdykoli v Další nebo v O aplikaci a soukromí.');
     else say('Dobře, nic nezaznamenávám. Změnit to jde v Další nebo v O aplikaci a soukromí.'); // karta tiše zmizí – čtečka by nevěděla, že volba platí
   });
-  $('#helpMore', el).onclick = () => { if (window.About) About.open(); };
+  // rovnou k přepínači – v okně je až dole pod zdroji a daty
+  $('#helpMore', el).onclick = () => { if (!window.About) return; About.open(); const b = $('#abHelp'); if (b) b.scrollIntoView({ block: 'center' }); };
 }
 /* Lišta „Co je nového“ po aktualizaci: novinky od posledního otevření, jednou – atlas_wn_top = „WN_ID\nnázev“
    nejnovější novinky, kterou už uživatel viděl. Při startu se ukážou jen novější (nejvýš WN_POP, zbytek „a 2 další ›“)

@@ -102,16 +102,16 @@
    */
   function gateFlow(trips, newTrip, today, io) {
     if (!needsGate(trips, newTrip, today)) { io.proceed(false); return null; }
-    const cur = countedTrips(trips, today)[0], name = placeOf(cur);
+    const list = countedTrips(trips, today), cur = list[0], name = placeOf(cur);
     let done = false;
     const go = () => { if (!done) { done = true; io.proceed(true); } };
-    io.show(sheetHtml(cur));
+    io.show(sheetHtml(cur, list.length));
     io.hit('limit_shown');
     return {
       cur,
       choose(c) {
         if (done) return;
-        if (c === 'plus') { io.hit('limit_plus'); go(); io.thanks(); }
+        if (c === 'plus') { io.hit('limit_plus'); go(); io.thanks(list.length); }
         else if (c === 'download') { io.hit('limit_download'); io.download(); io.close(); go(); }
         else if (c === 'replace') {
           io.hit('limit_replace');
@@ -124,13 +124,15 @@
   }
 
   /* ---------- HTML ---------- */
-  function sheetHtml(cur) {
-    const name = h(placeOf(cur)), term = termTxt(cur);
+  // n = kolik započítaných cest už je: kdo jich má víc (uložené před limitem), tomu „jednu“ a „obě“ lhaly
+  const uloz = n => (n <= 4 ? `uložené ${n} cesty` : `uložených ${n} cest`);
+  function sheetHtml(cur, n = 1) {
+    const name = h(placeOf(cur)), term = termTxt(cur), dot = term.endsWith('.') ? '' : '.';
     return `<div class="modal-body plus-sheet">
-      <h3>Místo pro jednu cestu máš obsazené</h3>
-      <p>Zdarma si tu držíš jednu cestu – teď <b>${name}</b> ${h(term)}${term.endsWith('.') ? '' : '.'}</p>
+      <h3>${n > 1 ? 'Zdarma je místo pro jednu cestu' : 'Místo pro jednu cestu máš obsazené'}</h3>
+      <p>${n > 1 ? `Teď tu máš ${uloz(n)}, nejbližší <b>${name}</b> ${h(term)}${dot}` : `Zdarma si tu držíš jednu cestu – teď <b>${name}</b> ${h(term)}${dot}`}</p>
       <div class="plus-acts">
-        <button type="button" class="btn primary" data-pl="plus">Nechat si obě · Plus ${kc(YEAR_CZK)} na rok</button>
+        <button type="button" class="btn primary" data-pl="plus">Nechat si ${n > 1 ? 'všechny' : 'obě'} · Plus ${kc(YEAR_CZK)} na rok</button>
         <button type="button" class="btn" data-pl="download">Stáhnout ${name} do souboru a začít novou</button>
         <button type="button" class="btn ghost" data-pl="replace">Nahradit ${name} novou cestou</button>
       </div>
@@ -213,8 +215,9 @@
     q('#sesitWant').onclick = () => { hit('sesit_click'); after(q('#plusAfter'), 'Sešit chystáme na jaro – dáme vědět tady v aplikaci.'); };
   }
   const sesitSeen = new Set();
-  /** Tlačítko 📒 Sešit cesty ve Shrnutí bylo vidět – počítá se jednou za otevření aplikace pro danou cestu. */
+  /** 📒 Sešit cesty byl vidět (tlačítko ve Shrnutí, karta na Přehledu) – počítá se jednou za otevření aplikace pro danou cestu. */
   function sesitShown(id) {
+    id = String(id); // Shrnutí posílá t.created (číslo), karta tripKey (text) – táž cesta se nesmí započítat dvakrát
     if (sesitSeen.has(id)) return;
     sesitSeen.add(id); hit('sesit_shown');
   }
@@ -231,7 +234,8 @@
       show: html => { modalOpen(html); sheet = q('#modal .plus-sheet'); },
       hit,
       // „Nebo 149 Kč na měsíc. Obnovení vypneš…“ pod odpovědí, že Plus ještě není, by sliboval předplatné, které neběží
-      thanks: () => { if (sheet) { sheet.querySelector('.plus-small').hidden = true; after(sheet.querySelector('.plus-acts'), 'Plus chystáme na jaro. Do té doby si nech obě cesty zdarma – zůstanou ti.'); } },
+      // nadpis „máš obsazené“ a počet cest by pod odpovědí „nech si je“ odporovaly – cesta se už uložila (proceed před thanks)
+      thanks: n => { if (sheet) { sheet.querySelector('.plus-small').hidden = true; sheet.querySelector('h3').textContent = 'Cesta se uložila'; sheet.querySelector('h3 + p').hidden = true; after(sheet.querySelector('.plus-acts'), `Plus chystáme na jaro. Do té doby si nech ${n > 1 ? 'všechny' : 'obě'} cesty zdarma – zůstanou ti.`); } },
       download: () => { if (window.Backup && Backup.download) { Backup.download(); toast('Záloha stažena – cesta v ní je'); } },
       close: () => modalClose(),
       confirm: msg => confirm(msg),
@@ -246,6 +250,17 @@
     return true;
   }
 
+  /**
+   * Karta sešitu byla vidět → sesit_shown (jednou za načtení a cestu, stejný klíč jako Shrnutí: tripId). Až když je
+   * opravdu na obrazovce – klepnutí z karty se počítají, a bez zobrazení by zájem o Sešit vyšel přehnaně vysoký.
+   */
+  let cardIO = null;
+  function cardSeen(el, key) {
+    if (cardIO) cardIO.disconnect();
+    if (typeof IntersectionObserver === 'undefined') { sesitShown(key); return; }
+    cardIO = new IntersectionObserver(es => { if (es.some(e => e.isIntersecting)) { cardIO.disconnect(); sesitShown(key); } });
+    cardIO.observe(el);
+  }
   /** Karta na Přehledu (el = #plusCard); first = první návštěva (uvítání) – žádná nabídka. */
   function renderCard(el, first) {
     if (!el) return;
@@ -258,6 +273,7 @@
     el.innerHTML = `<span class="dt-ic" aria-hidden="true">📒</span><div class="dt-b">${h(cardText(pick, genOf(placeOf(pick.trip))))}
       <div class="plus-card-acts"><button type="button" class="btn sm" id="plusCardGo">Ukázat</button><button type="button" class="btn sm ghost" id="plusCardX">Teď ne</button></div></div>`;
     q('#plusCardGo').onclick = () => sesit(pick.trip);
+    cardSeen(el, tripKey(pick.trip));
     q('#plusCardX').onclick = () => { store.set(CARD_KEY, JSON.stringify([...hidden, tripKey(pick.trip)].slice(-30))); el.hidden = true; };
   }
 
