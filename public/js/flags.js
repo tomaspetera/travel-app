@@ -39,7 +39,7 @@
   // deklaruje css/atlas.css (Inter 400–800, Sora 600–800, každá váha zvlášť); rozsah „100 900“ nestačí.
   // Vzhled Letsi (css/letsi.css) píše text v 'Onest' a nadpisy a ceny v 'Letsi'; jejich řezy „700 900“
   // tu jsou jako 700, 800 a 900 zvlášť ze stejného důvodu. Bez vzhledu Letsi se nic nestáhne navíc –
-  // prohlížeč písmo stáhne, až když v té rodině opravdu vykresluje vlajku. Hlídá test/flags.test.js.
+  // prohlížeč písmo stáhne, až když v té rodině opravdu vykresluje vlajku. Hlídá test/startup.test.js.
   const faces = [['Inter', [400, 500, 600, 700, 800]], ['Sora', [600, 700, 800]],
     ['Onest', [400, 500, 600, 700, 800, 900]], ['Letsi', [600, 700, 800, 900]], ['Twemoji Country Flags', [400]]];
   const style = document.createElement('style');
