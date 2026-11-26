@@ -14,7 +14,7 @@ process.env.ATLAS_MOCK = '1';
 const { createServer } = await import('../server/index.js');
 const { serviceWorker, serveIndex, shellAssets, manifestIcons, RUNTIME_ASSETS, versionAssets, contentVersion } = await import('../server/lib/pwa.js');
 const { inlineScriptHashes } = await import('../server/lib/security.js');
-const { MASTERS, DERIVED, derivedPng, halve, crc32, BG, splashImages, splashLinks, solidPng } = await import('../scripts/build-icons.mjs');
+const { MASTERS, DERIVED, derivedPng, halve, crc32, BG, BG_DARK, splashImages, splashLinks, solidPng } = await import('../scripts/build-icons.mjs');
 const { BRAND } = await import('../server/brand.js');
 
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
@@ -138,9 +138,9 @@ test('ikony v public/icons/: hotová PNG z balíku Letsi a zmenšeniny ze script
   assert.equal(apple.color, 2, 'RGB bez průhlednosti');
 });
 
-test('iOS: úvodní obrazovky aplikace na ploše – jednobarevné ve Vápně, rozlišení podle media, odkazy ze skriptu', async () => {
+test('iOS: úvodní obrazovky aplikace na ploše – jednobarevné ve Vápně i v Noci, rozlišení podle media, odkazy ze skriptu', async () => {
   const imgs = splashImages();
-  assert.equal(imgs.length, 31, '13 iPhonů na výšku + 9 iPadů na výšku i na šířku');
+  assert.equal(imgs.length, 62, '(13 iPhonů na výšku + 9 iPadů na výšku i na šířku) × světlá a tmavá');
   assert.equal(new Set(imgs.map((s) => s.file)).size, imgs.length);
   assert.ok(INDEX.includes(splashLinks() + '\n'), 'odkazy v index.html = scripts/build-icons.mjs (npm run build:icons)');
   assert.equal((INDEX.match(/rel="apple-touch-startup-image"/g) || []).length, imgs.length);
@@ -149,13 +149,25 @@ test('iOS: úvodní obrazovky aplikace na ploše – jednobarevné ve Vápně, r
   assert.equal(hex, letsiBg('light').toLowerCase());
   assert.equal(JSON.parse(read('public/manifest.webmanifest')).background_color.toLowerCase(), hex);
   assert.match(read('public/css/letsi.css'), /:root\[data-brand="letsi"\] #launch\{background:var\(--bg\)/);
+  // tmavá = Noc, pozadí #launch v tmavém režimu (jinak by před ním problikla světlá plocha)
+  assert.equal('#' + BG_DARK.map((v) => v.toString(16).padStart(2, '0')).join(''), letsiBg('dark').toLowerCase());
+  // ke každé světlé hned tmavá: stejný displej a rozměry, media se liší jen režimem (vylučují se → výběr nezávisí na pořadí)
+  for (let i = 0; i < imgs.length; i += 2) {
+    const [l, d] = [imgs[i], imgs[i + 1]];
+    assert.deepEqual([l.bg, d.bg, d.file], [BG, BG_DARK, l.file.replace('.png', '-tmava.png')]);
+    assert.deepEqual([l.width, l.height], [d.width, d.height]);
+    assert.equal(l.media.replace(/light\)$/, 'dark)'), d.media);
+    assert.ok(INDEX.indexOf(`href="icons/${l.file}"`) < INDEX.indexOf(`href="icons/${d.file}"`));
+  }
   for (const s of imgs) {
-    // media: CSS rozměry displeje na výšku × poměr pixelů = rozměry obrázku v dané orientaci
-    const [, w, h, r, o] = s.media.match(/^\(device-width: (\d+)px\) and \(device-height: (\d+)px\) and \(-webkit-device-pixel-ratio: ([23])\) and \(orientation: (portrait|landscape)\)$/).map((x, i) => (i && i < 4 ? +x : x));
+    // media: CSS rozměry displeje na výšku × poměr pixelů = rozměry obrázku v dané orientaci, režim podle barvy
+    const [, w, h, r, o, mode] = s.media.match(/^\(device-width: (\d+)px\) and \(device-height: (\d+)px\) and \(-webkit-device-pixel-ratio: ([23])\) and \(orientation: (portrait|landscape)\) and \(prefers-color-scheme: (light|dark)\)$/).map((x, i) => (i && i < 4 ? +x : x));
+    assert.equal(mode, s.bg === BG_DARK ? 'dark' : 'light', s.file);
+    assert.ok(INDEX.includes(`media="${s.media}" href="icons/${s.file}"`), `${s.file}: odkaz v index.html`);
     assert.deepEqual([s.width, s.height], o === 'portrait' ? [w * r, h * r] : [h * r, w * r], s.media);
     assert.ok(w < h, `${s.media}: device-width je kratší strana`);
     const buf = readFileSync(path.join(PUB, 'icons', s.file));
-    assert.ok(buf.equals(solidPng(s.width, s.height, BG)), `${s.file}: jako ze skriptu`);
+    assert.ok(buf.equals(solidPng(s.width, s.height, s.bg)), `${s.file}: jako ze skriptu`);
     // PNG: podpis, CRC, 1bitová paleta s jedinou barvou a samé nuly (= ta barva) v každém řádku
     assert.deepEqual([...buf.subarray(0, 8)], [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
     const chunks = {};
@@ -166,15 +178,17 @@ test('iOS: úvodní obrazovky aplikace na ploše – jednobarevné ve Vápně, r
       off += 12 + len;
     }
     assert.deepEqual([chunks.IHDR.readUInt32BE(0), chunks.IHDR.readUInt32BE(4), chunks.IHDR[8], chunks.IHDR[9], chunks.IHDR[12]], [s.width, s.height, 1, 3, 0]);
-    assert.deepEqual([...chunks.PLTE], BG);
+    assert.deepEqual([...chunks.PLTE], s.bg);
     const raw = zlib.inflateSync(chunks.IDAT);
     assert.equal(raw.length, (1 + Math.ceil(s.width / 8)) * s.height);
     assert.ok(raw.every((v) => v === 0));
     assert.ok(buf.length < 1024, `${s.file}: ${buf.length} B`);
   }
   // server je pošle jako obrázek; service worker si je nestahuje dopředu (iOS je načte jednou při přidání na plochu)
-  const r = await fetch(`${base}/icons/splash/1170x2532.png`);
-  assert.deepEqual([r.status, r.headers.get('content-type')], [200, 'image/png']);
+  for (const f of ['1170x2532.png', '1170x2532-tmava.png']) {
+    const r = await fetch(`${base}/icons/splash/${f}`);
+    assert.deepEqual([r.status, r.headers.get('content-type')], [200, 'image/png'], f);
+  }
   assert.ok(!serviceWorker({ publicDir: PUB, dataDir: path.join(ROOT, 'data') }).precache.some((u) => /splash/.test(u)));
 });
 

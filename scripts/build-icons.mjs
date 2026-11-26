@@ -11,6 +11,7 @@
 //  icon-512.png                   „any“ – icon-1024.png zmenšená na polovinu (průměr 2 × 2 pixelů)
 //  icon-96.png                    zkratky v manifestu a ikona u výsledku vyhledávání – icon-192.png zmenšená na polovinu
 //  splash/<š>x<v>.png             úvodní obrazovky aplikace na ploše iPhonu a iPadu (apple-touch-startup-image, viz SPLASH)
+//  splash/<š>x<v>-tmava.png       totéž v tmavém režimu (Noc)
 //                                 + jejich odkazy v public/index.html mezi značkami <!-- ios-splash --> a <!-- /ios-splash -->
 //
 // Výpočet je deterministický – test/pwa.test.js ověřuje, že uložené PNG odpovídají tomuto skriptu. Nová ikona z balíku:
@@ -25,6 +26,8 @@ export const OUT_DIR = path.join(root, 'public', 'icons');
 
 // Vápno #F3F4F0 = pozadí aplikace ve světlém režimu = background_color v manifestu (úvodní obrazovka Androidu)
 export const BG = [0xf3, 0xf4, 0xf0];
+// Noc #14161F = pozadí aplikace v tmavém režimu (#launch v tmavém motivu) – tmavá úvodní obrazovka iOS
+export const BG_DARK = [0x14, 0x16, 0x1f];
 /** Hotové ikony z balíku Letsi (ikona/) → název v public/icons/. */
 export const MASTERS = { 'icon-1024.png': 'icon-1024.png', 'icon-192.png': 'icon-192.png', 'icon-512-maskable.png': 'icon-maskable-512.png', 'apple-touch-icon-180.png': 'apple-touch-icon.png' };
 /** Dopočítané ikony: soubor ← zdroj v public/icons/ zmenšený na polovinu. */
@@ -32,7 +35,8 @@ export const DERIVED = [{ file: 'icon-512.png', from: 'icon-1024.png' }, { file:
 
 /*
  * Úvodní obrazovka aplikace na ploše iPhonu a iPadu: iOS ji ukáže od klepnutí na ikonu do prvního vykreslení stránky –
- * bez ní tam svítí bílá. Jen pozadí Vápno (BG, jako #launch ve vzhledu Letsi ve světlém režimu); logo dokreslí #launch
+ * bez ní tam svítí bílá. Jen pozadí Vápno (BG, jako #launch ve vzhledu Letsi ve světlém režimu), v tmavém režimu
+ * systému Noc (BG_DARK) – jinak by před tmavým #launch problikla světlá plocha; logo dokreslí #launch
  * hned po načtení. Poloha ikony na displeji záleží na výšce stavového řádku (styl „black“ posouvá stránku pod něj) –
  * obrázek s ikonou o kousek vedle by při prvním vykreslení poskočil. iOS vezme jen obrázek přesně v rozlišení displeje
  * (media v index.html), proto jeden na každý displej: [šířka, výška v CSS px na výšku, poměr pixelů, i na šířku?].
@@ -48,10 +52,18 @@ export const SPLASH = [
   [834, 1194, 2, true], [834, 1210, 2, true], [1024, 1366, 2, true], [1032, 1376, 2, true],
 ];
 
-/** Úvodní obrazovky: soubor, rozměry v pixelech a media dotaz pro <link rel="apple-touch-startup-image">. */
-export const splashImages = () => SPLASH.flatMap(([w, h, ratio, both]) => ['portrait', ...(both ? ['landscape'] : [])].map((o) => {
+/**
+ * Úvodní obrazovky: soubor, rozměry v pixelech, barva a media dotaz pro <link rel="apple-touch-startup-image">. Ke každé
+ * světlé hned tmavá; prefers-color-scheme light / dark se vylučují, takže Safari (bere první odpovídající) vybere podle
+ * režimu systému bez ohledu na pořadí.
+ */
+export const splashImages = () => SPLASH.flatMap(([w, h, ratio, both]) => ['portrait', ...(both ? ['landscape'] : [])].flatMap((o) => {
   const [pw, ph] = o === 'portrait' ? [w * ratio, h * ratio] : [h * ratio, w * ratio];
-  return { file: `splash/${pw}x${ph}.png`, width: pw, height: ph, media: `(device-width: ${w}px) and (device-height: ${h}px) and (-webkit-device-pixel-ratio: ${ratio}) and (orientation: ${o})` };
+  const media = `(device-width: ${w}px) and (device-height: ${h}px) and (-webkit-device-pixel-ratio: ${ratio}) and (orientation: ${o})`;
+  return [
+    { file: `splash/${pw}x${ph}.png`, width: pw, height: ph, bg: BG, media: `${media} and (prefers-color-scheme: light)` },
+    { file: `splash/${pw}x${ph}-tmava.png`, width: pw, height: ph, bg: BG_DARK, media: `${media} and (prefers-color-scheme: dark)` },
+  ];
 }));
 
 /** Odkazy na úvodní obrazovky do index.html (mezi značkami). */
@@ -200,11 +212,11 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     console.log(`${d.file} ← ${d.from}: ${(png.length / 1024).toFixed(1)} kB`);
   }
   mkdirSync(path.join(OUT_DIR, 'splash'), { recursive: true });
-  for (const s of splashImages()) writeFileSync(path.join(OUT_DIR, s.file), solidPng(s.width, s.height, BG));
+  for (const s of splashImages()) writeFileSync(path.join(OUT_DIR, s.file), solidPng(s.width, s.height, s.bg));
   const index = path.join(root, 'public', 'index.html');
   const html = readFileSync(index, 'utf8');
   const block = /<!-- ios-splash[^\n]*-->\n(?:<link rel="apple-touch-startup-image"[^\n]*\n)*<!-- \/ios-splash -->/;
   if (!block.test(html)) throw new Error('public/index.html: chybí značky <!-- ios-splash … --> a <!-- /ios-splash -->');
   writeFileSync(index, html.replace(block, splashLinks()));
-  console.log(`splash/: ${splashImages().length} úvodních obrazovek pro iOS, odkazy v public/index.html`);
+  console.log(`splash/: ${splashImages().length} úvodních obrazovek pro iOS (světlé i tmavé), odkazy v public/index.html`);
 }

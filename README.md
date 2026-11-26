@@ -1653,8 +1653,10 @@ a kotva jako ikona) má i logo v bočním panelu aplikace – dřív tam byla ze
 
 **Úvodní obrazovka na iPhonu a iPadu**: iOS ukáže od klepnutí na ikonu do prvního vykreslení stránky obrázek
 `apple-touch-startup-image` – bez něj bílou plochu, která u tmavé aplikace problikne. Letsi má pro každý displej
-(13 iPhonů na výšku, 9 iPadů na výšku i na šířku) jednobarevný obrázek v barvě úvodní obrazovky aplikace (`#080c1a`,
-`public/icons/splash/`, 1bitové PNG s paletou, 184–786 B, dohromady 16 kB). Odkazy v `index.html` vytvoří stejný
+(13 iPhonů na výšku, 9 iPadů na výšku i na šířku) jednobarevný obrázek v barvě úvodní obrazovky aplikace (Vápno
+`#F3F4F0`, `public/icons/splash/`, 1bitové PNG s paletou, 184–786 B, dohromady 16 kB). Ke každému je i tmavá varianta
+`<š>x<v>-tmava.png` v Noci (`#14161F`) s `media … and (prefers-color-scheme: dark)` (světlá má `light`), aby
+v tmavém režimu před tmavou úvodní obrazovkou neproblikla světlá plocha. Odkazy v `index.html` vytvoří stejný
 `npm run build:icons` a test hlídá, že obrázky mají rozměry podle `media`. Ikonu a název dokreslí až úvodní obrazovka
 v aplikaci: kde přesně na displeji bude, záleží na výšce stavového řádku (styl `black` posouvá stránku pod něj), a obrázek
 s ikonou jen o kousek vedle by při prvním vykreslení poskočil. Service worker obrázky dopředu nestahuje – iOS si je
