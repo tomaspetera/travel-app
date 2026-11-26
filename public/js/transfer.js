@@ -112,6 +112,13 @@
     $('#tfIn').onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); go(); } };
   }
 
+  // postranní panel místo lišty dole (atlas.css: lišta a ⋯ Další do 860 px) – tady není fotoaparát, kterým skenovat
+  const desk = () => Boolean(window.matchMedia && window.matchMedia('(min-width:861px)').matches);
+  /** Úvod prázdného okna: na telefonu QR kód z druhého zařízení, na počítači odkaz poslaný sem (QR tu nemá čím skenovat). */
+  const emptyLead = d => 'V tomhle zařízení zatím nic uloženého není. Data sem přeneseš z druhého: otevři tam Letsi → <b>⋯ Další</b> (na počítači vlevo dole) → <b>📲 Přenést do jiného zařízení</b> a ' +
+    (d ? 'pošli si odkaz sem (e-mailem nebo do chatu sám sobě) – otevři ho tady, nebo ho vlož do pole níž.' : 'QR kód naskenuj fotoaparátem tohohle telefonu – nebo si odtamtud pošli odkaz.') +
+    ' Máš soubor zálohy? Obnovíš ho tady.';
+
   let token = 0;
   function open() {
     // odškrtnutí „Před cestou“ (PreTrip.exportDone) a cesty z průvodce: moduly se stahují až po startu (lazy.js)
@@ -120,9 +127,9 @@
     if (Backup.isEmpty(c)) {
       modalOpen(`<div class="modal-body tf-modal">
         <h3>📲 Přenést do jiného zařízení</h3>
-        <p class="muted tf-lead">V tomhle zařízení zatím nic uloženého není. Data sem přeneseš z druhého: otevři tam Letsi → <b>⋯ Další</b> (na počítači vlevo dole) → <b>📲 Přenést do jiného zařízení</b> a QR kód naskenuj fotoaparátem tohohle telefonu – nebo si odtamtud pošli odkaz. Máš soubor zálohy? Obnovíš ho tady.</p>
+        <p class="muted tf-lead">${emptyLead(desk())}</p>
         <div class="bk-actions"><button type="button" class="btn" id="tfFile">📂 Obnovit ze souboru zálohy</button></div>
-        ${PASTE}</div>`);
+        ${PASTE}</div>`, { x: true });
       $('details.tf-paste').open = true;
       // na počítači je 💾 Přenos a záloha jen v Mých cestách, které prázdné zařízení neukáže – obnova ze souboru tudy
       $('#tfFile').onclick = () => Backup.open();
@@ -139,7 +146,7 @@
       <p class="tf-sum"><b>Přenese se:</b> ${h(Backup.countsTxt(c))}</p>
       <div class="bk-actions"><button type="button" class="btn primary" id="tfSend">${send}</button><button type="button" class="btn" id="tfFile">💾 Soubor zálohy</button></div>
       <p class="faint tf-note">Odkaz nese tvoje cesty i kódy rezervací – posílej ho jen sobě. Je to stav z této chvíle: co pak změníš, přeneseš novým odkazem.</p>
-      ${PASTE}</div>`);
+      ${PASTE}</div>`, { x: true });
     // připravený odkaz (komprese je asynchronní) – klepnutí na Kopírovat pak zapíše do schránky hned (Safari)
     let json = full;
     const e = ShareLink.prepare(KIND, full), es = ShareLink.prepare(KIND, slim);
@@ -187,5 +194,5 @@
     }
   }
 
-  window.Transfer = { KIND, MAX_LINK, payloadOf, fit, sizePx, read, receive, fromHash, open, addToMenu, zoom };
+  window.Transfer = { KIND, MAX_LINK, payloadOf, fit, sizePx, read, receive, fromHash, open, addToMenu, zoom, emptyLead };
 })();

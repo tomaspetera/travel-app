@@ -3,12 +3,14 @@
 .pwa-bar{background:linear-gradient(90deg,rgba(56,189,248,.16),rgba(91,140,255,.16));border-bottom:1px solid rgba(56,189,248,.32);color:var(--text);font-size:13px;padding:9px 26px;text-align:center}
 .pwa-bar[hidden]{display:none}
 
-/* 📲 Přidat ATLAS na plochu: v postranním panelu stejně jako přepínač motivu, v nabídce „Více“ jako ostatní položky */
+/* Přidat Letsi na plochu: v postranním panelu stejně jako přepínač motivu, v nabídce „Více“ jako ostatní položky */
 .side-foot .pwa-install{width:100%;font:inherit;font-size:13px;text-align:left;justify-content:flex-start}
 .side-foot .pwa-install:hover{border-color:var(--border-2)}
 .pwa-install[hidden],.pwa-menu-item[hidden]{display:none}
 .more-nav .pwa-menu-item{justify-content:flex-start;width:100%;margin-bottom:8px}
-.pwa-menu-item .faint{font-weight:400;margin-left:6px;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.pwa-menu-item .faint{font-weight:400;min-width:0;overflow:hidden;text-overflow:ellipsis}
+/* ikona v řádku flex: mezera za ní se ztratí (jako .side-about) */
+.side-foot .pwa-install>.ico{margin-right:.45em}
 
 /* návod pro iPhone a iPad */
 .pwa-h{font-size:23px}

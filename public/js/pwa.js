@@ -195,8 +195,9 @@
 
   /* 4) ➕ Přidat ATLAS na plochu – v postranním panelu (počítač, tablet) a v nabídce „Více“ (mobil). Chrome, Edge
         a Android: dialog prohlížeče (beforeinstallprompt); iPhone a iPad: krátký návod. Z plochy se nenabízí.
-        Ikona ➕, ne 📲 – ta patří k 📲 Přenést do jiného zařízení hned vedle v nabídce. */
-  const LABEL = '➕ Přidat Letsi na plochu';
+        Ikona plus (sada Letsi, ne barevné emoji mezi čárovými ikonami nabídky), ne QR – ten patří k Přenést hned vedle. */
+  const LABEL = 'Přidat Letsi na plochu';
+  const ICON = '<span class="ico i-plus" aria-hidden="true"></span> ';
   let promptEvent = null;
   const standaloneMq = window.matchMedia ? window.matchMedia('(display-mode: standalone)') : null;
   const mode = () => installMode({
@@ -207,7 +208,7 @@
   side.type = 'button';
   side.id = 'pwaInstall';
   side.className = 'theme-toggle pwa-install';
-  side.textContent = LABEL;
+  side.innerHTML = ICON + LABEL;
   side.onclick = () => install();
   const toggle = $('#themeToggle');
   if (toggle) toggle.before(side);
@@ -258,7 +259,7 @@
     const b = document.createElement('button');
     b.type = 'button';
     b.className = 'btn ghost pwa-menu-item';
-    b.innerHTML = `${LABEL} <span class="faint">i offline</span>`;
+    b.innerHTML = `${ICON}${LABEL} <span class="faint">i offline</span>`;
     b.onclick = () => install();
     b.hidden = !mode();
     list.append(b);

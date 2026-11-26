@@ -163,7 +163,7 @@ function openMore() {
   };
   modalOpen(`<div class="modal-body more-sheet"><h3>Další</h3><div class="mn-grid">${rest.map(tile).join('')}</div>
     <div class="more-h">Nastavení</div><div class="more-nav"></div>
-    <p class="faint more-tip">Dole v liště jsou sekce, které otevíráš nejčastěji – podle toho se při dalším spuštění samy seřadí.</p></div>`);
+    <p class="faint more-tip">Dole v liště jsou sekce, které otevíráš nejčastěji – podle toho se při dalším spuštění samy seřadí.</p></div>`, { x: true });
   $$('[data-mv]', $('#modal')).forEach(b => b.onclick = () => { modalClose(); go(b.dataset.mv); });
   const list = $('.more-nav', $('#modal'));
   if (window.Transfer) Transfer.addToMenu(list); // 📲 Přenést do jiného zařízení – odkaz a QR kód (transfer.js)
@@ -960,11 +960,11 @@ function showNow() {
    sady (O aplikaci ji ukazuje, uvítání nováčka se k ní váže). */
 const WN_ID = '2026-11-26c';
 const WHATS_NEW = [
-  ['✨', 'ATLAS je teď Letsi', 'nový vzhled, kukátko, které hledá s tebou, nové ikony a adresa letsi.cz. Cesty a nastavení z dřívější adresy se sem samy nepřenesou – zálohu ze souboru obnovíš přes <b>Další</b> → <b>Záloha do souboru</b>.'],
-  ['🤝', 'Pomáhat se zlepšováním', 'když chceš, zapni pod <b>Další</b> → <b>Pomáhat se zlepšováním</b>. Aplikace pak posílá, které obrazovky otevíráš a jaké hlavní akce děláš – nikdy co píšeš, kam jedeš, ceny ani nic o tobě. Záznam se smaže do 31 dnů a vypneš to tamtéž. Ve výchozím stavu je to vypnuté.'],
-  ['⭐', 'Letsi Plus', 'podívej se, co zůstane zdarma a co chystáme navíc – a řekni nám, kolik by ti stálo za to. Najdeš ho pod <b>Další</b> → <b>Letsi Plus</b>.'],
+  ['✨', 'ATLAS je teď Letsi', 'nový vzhled, kukátko, které hledá s tebou, nové ikony a adresa letsi.cz. Cesty a nastavení z dřívější adresy se sem samy nepřenesou – zálohu ze souboru obnovíš přes <b>Další</b> → <b>Záloha do souboru</b> (na počítači vlevo dole v <b>O aplikaci a soukromí</b>).'],
+  ['🤝', 'Pomáhat se zlepšováním', 'když chceš, zapni pod <b>Další</b> → <b>Pomáhat se zlepšováním</b> (na počítači vlevo dole v <b>O aplikaci a soukromí</b>). Aplikace pak posílá, které obrazovky otevíráš a jaké hlavní akce děláš – nikdy co píšeš, kam jedeš, ceny ani nic o tobě. Záznam se smaže do 31 dnů a vypneš to tamtéž. Ve výchozím stavu je to vypnuté.'],
+  ['⭐', 'Letsi Plus', 'podívej se, co zůstane zdarma a co chystáme navíc – a řekni nám, kolik by ti stálo za to. Najdeš ho pod <b>Další</b> → <b>Letsi Plus</b> (na počítači vlevo dole).'],
   ['✈️', 'Letenku už máš?', 'na <b>Přehledu</b> doplníš zbytek cesty – trasu, ubytování i program.'],
-  ['🔒', 'Soukromí', 'počítám jen souhrnné denní počty, žádné sledování jednotlivců, pokud sám nezapneš Pomáhat se zlepšováním. Podrobnosti pod <b>Další</b> → <b>O aplikaci a soukromí</b>.'],
+  ['🔒', 'Soukromí', 'počítám jen souhrnné denní počty, žádné sledování jednotlivců, pokud sám nezapneš Pomáhat se zlepšováním. Podrobnosti pod <b>Další</b> (na počítači vlevo dole) → <b>O aplikaci a soukromí</b>.'],
   ['🔄', 'Upravený plán od kamaráda bez kopií', 'když ti kamarád pošle novější verzi plánu, který už máš, nabídnu <b>🔄 Aktualizovat moji cestu</b> – převezmeš termín, let a program, tvoje odškrtnuté „Sbaleno“, kódy rezervací a vlastní aktivity zůstanou. Dřív vznikla druhá kopie.'],
   ['✏️', 'Cestu upravíš i po uložení', 'v <b>Cesty</b> → Moje cesty otevři cestu a klepni na <b>✏️ Upravit název a termín</b> – přejmenuješ ji, posuneš termín (program dnů se posune s ním) nebo změníš počet cestujících. Dřív to šlo jen smazat a založit znovu.'],
   ['✨', 'Hledání větou rozumí víc', 'napiš třeba <b>„Kanáry přes Vánoce a Silvestr“</b>, <b>„Londýn na Den boje za svobodu“</b>, <b>„Řím s dětmi 5 a 8 let“</b> nebo <b>„Vídeň 4.–6. 12. nebo 11.–13. 12.“</b> – termín, délku i počet lidí nastavím za tebe. Funguje v <b>Letech</b> i v <b>Objevuj</b>.'],
@@ -998,7 +998,7 @@ const WHATS_NEW = [
   ['💡', 'Věděl jsi?', 'na Přehledu občas malý tip na funkci, kterou jsi ještě nezkusil (Kamkoliv, hlídání ceny, ⚡ Poskládej cestu…) – nejvýš jeden denně, tlačítkem ji rovnou otevřeš, křížkem tip skryješ natrvalo.'],
   ['🧾', 'Rozpočet cesty', 've <b>Shrnutí</b> průvodce Cestou je cena po položkách (letenky, doprava, ubytování, auto a přejezdy) za osobu i celkem – odhady jsou označené. Do pole <b>Můj rozpočet</b> zadej, kolik chceš utratit, a uvidíš, kolik zbývá, nebo o kolik je cesta dražší.'],
   ['📤', 'Sdílet jednu letenku', 'u nabídky ve výsledcích je <b>📤 Sdílet</b> (vedle 📌 Odložit) – pošle krátký odkaz s trasou, termínem, cenou, aerolinkou a odkazem na koupi. Příjemci se otevře karta nabídky s upozorněním, že se cena mohla změnit, a <b>🔎 Hledat znovu</b> mu předvyplní formulář.'],
-  ['ℹ️', 'O aplikaci a soukromí', 'pod <b>Další</b>: odkud Letsi bere ceny a data, co se ukládá (jen v tomhle prohlížeči, žádné cookies ani sledování, pokud sám nezapneš Pomáhat se zlepšováním), jak se řadí výsledky a verze aplikace.'],
+  ['ℹ️', 'O aplikaci a soukromí', 'pod <b>Další</b> (na počítači vlevo dole): odkud Letsi bere ceny a data, co se ukládá (jen v tomhle prohlížeči, žádné cookies ani sledování, pokud sám nezapneš Pomáhat se zlepšováním), jak se řadí výsledky a verze aplikace.'],
   ['📅', 'Připomínka hlídané ceny v kalendáři', 'na kartě hlídání na Přehledu je <b>📅 Připomínat</b> – stáhne událost do kalendáře na každé pondělí v 9:00 (nejvýš 8 týdnů, jen do odletu) s poslední nejnižší cenou. Odkaz v ní otevře Letsi přímo na tomhle hlídání a cenu zkontroluje znovu.'],
   ['📅', 'Termín letu v kalendáři', 'u každého letu tlačítko <b>📅 V kalendáři</b> – den odletu a návratu s časy, noci mezi nimi, víkendy a svátky; jedním klepnutím lety do kalendáře v mobilu (.ics). A <b>Kalendář</b> mají i výsledky Kamkoliv: v každém dni nejlevnější cíl, klepnutím na den všechny cíle s odletem ten den.'],
   ['🌙', 'V noci taxi za pevnou cenu', 'když přistáváš nebo vyrážíš na letiště před 5:00 či po 23:00 v Římě, Paříži, Madridu, Aténách, Florencii, Neapoli, Miláně nebo New Yorku, odhad ceny počítá úřední pevnou cenu taxi za auto (Fiumicino 55 €) místo MHD, která v noci nejezdí.'],
@@ -1016,7 +1016,7 @@ const WHATS_NEW = [
   ['💰', 'Cena = letenka', 'u nabídek, v <b>Kam letět levně</b> i v kalendáři je teď jen cena letenky (se zavazadly, když je vybereš). Doprava na letiště a z letiště do města je pod cenou zvlášť – jen pro představu, kolik zhruba stojí. Řazení „i s cestou na letiště“ je ve Filtrech.'],
   ['💱', 'Odkazy v korunách', 'Kiwi.com se otevře česky v Kč; u Ryanairu a Wizz Air uvidíš předem, v jaké měně web ukáže let zpět (účtují v měně země odletu).'],
   ['👀', 'Zaujalo tě', 'cíle, které sis po hledání Kamkoliv rozbalil, nabídne prázdné pole <b>Kam</b> – jedním klepnutím lety jen tam ve stejném termínu.'],
-  ['🧭', 'Lišta podle tebe', 'dole jsou Přehled a 3 sekce, které otevíráš nejčastěji; zbytek, záloha a vzhled jsou pod <b>Další</b>. Karty v Kam letět levně mají štítek počasí vždy – do 15 dní předpověď, dál dlouhodobý průměr 🌡️.'],
+  ['🧭', 'Lišta podle tebe', 'na telefonu jsou dole Přehled a 3 sekce, které otevíráš nejčastěji; zbytek, záloha a vzhled jsou pod <b>Další</b>. Karty v Kam letět levně mají štítek počasí vždy – do 15 dní předpověď, dál dlouhodobý průměr 🌡️.'],
   ['🗣️', 'Hledání rozumí ještě víc', '„příští pátek“, „pozítří“, „mám 5000“, „do 80 €“, „z Kutné Hory“, „do Nového Zélandu“, „Slunečné pobřeží“ – a kdo hledá hlavně víkendy, tomu <b>Kam letět levně</b> na Přehledu nabídne <b>Víkendy</b>.'],
   ['🔤', 'Překlep nevadí', '„Barcleona“, „Lodnýn“ nebo „Krakv na 2 dny“ – našeptávač nabídne „Překlep? Asi myslíš:“ se správným místem, v Letech i v Objevuj.'],
   ['🔎', 'Stačí napsat a klepnout na Najít lety', 'našeptávač rozumí i „do Barcelony“, „levně do Paříže“, „z Brna“ nebo „Praha Londýn“; napsaný text tlačítko <b>Najít lety</b> použije, i když nic nevybereš z nabídky.'],
@@ -1148,14 +1148,14 @@ function helpCard(el) {
   el.classList.remove('welcome');
   el.hidden = false;
   el.innerHTML = `<h3 style="margin:0 0 6px">Pomůžeš mi aplikaci vylepšit?</h3>
-    <p style="font-size:13.5px;margin:0 0 12px">Když to zapneš, budu při každé návštěvě zaznamenávat, které obrazovky otevíráš a jaké hlavní akce děláš (třeba hledání, krok průvodce nebo opakované klepnutí, když něco nereaguje). Nikdy co píšeš, kam jedeš, ceny ani nic o tobě. Záznam nese jen náhodné číslo návštěvy, žádné jméno ani IP adresu, a smaže se nejpozději do 31 dnů. Platí, dokud to nevypneš v Další.</p>
+    <p style="font-size:13.5px;margin:0 0 12px">Když to zapneš, budu při každé návštěvě zaznamenávat, které obrazovky otevíráš a jaké hlavní akce děláš (třeba hledání, krok průvodce nebo opakované klepnutí, když něco nereaguje). Nikdy co píšeš, kam jedeš, ceny ani nic o tobě. Záznam nese jen náhodné číslo návštěvy, žádné jméno ani IP adresu, a smaže se nejpozději do 31 dnů. Platí, dokud to nevypneš v Další nebo v O aplikaci a soukromí.</p>
     <div class="row wrap" style="gap:8px;align-items:center"><button type="button" class="btn" data-help="1">Zapnout</button><button type="button" class="btn" data-help="0">Ne, díky</button><button type="button" class="linkbtn" id="helpMore">Podrobnosti</button></div>`;
   $$('[data-help]', el).forEach(b => b.onclick = () => {
     const on = b.dataset.help === '1';
     Count.consent(on);
     el.hidden = true; el.innerHTML = '';
-    if (on) toast('Zapnuto. Díky! Vypnout to jde kdykoli v Další.');
-    else say('Dobře, nic nezaznamenávám. Změnit to jde v Další.'); // karta tiše zmizí – čtečka by nevěděla, že volba platí
+    if (on) toast('Zapnuto. Díky! Vypnout to jde kdykoli v Další nebo v O aplikaci a soukromí.');
+    else say('Dobře, nic nezaznamenávám. Změnit to jde v Další nebo v O aplikaci a soukromí.'); // karta tiše zmizí – čtečka by nevěděla, že volba platí
   });
   $('#helpMore', el).onclick = () => { if (window.About) About.open(); };
 }
@@ -1749,7 +1749,9 @@ function modalOpen(html, o = {}) {
   // nové okno hned po zavření jiného (Další → ✨ Novinky, 💾 Záloha…): MutationObserver uvidí obě změny třídy najednou
   // („pořád otevřené“) a fokus by nepřesunul – čtečka by nové okno neohlásila
   if (!was) modalKb.fresh = true;
-  $('#modal').innerHTML = html; modalShow(true);
+  // o.x: křížek ✕ pro okna bez záhlaví s fotkou (O aplikaci, Přenést, Plus, Další) – na počítači jsou uprostřed obrazovky
+  // a bez něj šly zavřít jen Escapem nebo klepnutím vedle; zavře ho společná obsluha [data-close]
+  $('#modal').innerHTML = (o.x ? `<button type="button" class="modal-close mc-plain" data-close aria-label="Zavřít">${ico('M18 6L6 18M6 6l12 12')}</button>` : '') + html; modalShow(true);
   modalName();
   if (!was) { $('#toast').classList.remove('show'); $('#modal').scrollTop = 0; } // nové okno nahoře, ne s posunem z minulého
   // krok historie jen pro nově otevřené okno – okno otevřené z okna (Info o zemi z náhledu…) ho jen nahradí

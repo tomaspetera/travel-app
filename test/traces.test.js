@@ -358,7 +358,7 @@ test('aplikace: karta souhlasu až od další návštěvy, obě tlačítka stejn
   assert.match(card, /localStorage\.getItem\('atlas_help'\) != null/);
   assert.match(card, /if \(chosen \|\| wnFirst \|\| !window\.Count \|\| !Count\.consent\) return;/, 'ne při první návštěvě (uvítání)');
   assert.match(card, /<button type="button" class="btn" data-help="1">Zapnout<\/button><button type="button" class="btn" data-help="0">Ne, díky<\/button>/);
-  assert.match(card, /Záznam nese jen náhodné číslo návštěvy, žádné jméno ani IP adresu, a smaže se nejpozději do 31 dnů\. Platí, dokud to nevypneš v Další\./);
+  assert.match(card, /Záznam nese jen náhodné číslo návštěvy, žádné jméno ani IP adresu, a smaže se nejpozději do 31 dnů\. Platí, dokud to nevypneš v Další nebo v O aplikaci a soukromí\./);
   assert.doesNotMatch(card, /setItem/, 'volbu zapisuje jen Count.consent po klepnutí');
   assert.match(app, /if \(el\.hidden\) return helpCard\(el\);/);
   assert.match(app, /helpSwitch\(\$\('#moreHelp'\)\);/);
