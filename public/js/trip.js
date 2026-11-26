@@ -787,7 +787,7 @@
   const returnDate = t => (backLeg(t) ? backLeg(t).date : stayDates(t).checkout);
 
   /** Co je na cestě v průvodci rozpracované (trasa, ubytování, auto, program, odškrtnuté rezervace) – pro otázku před nahrazením. */
-  const progressOf = mine => [isMulti(mine) && 'trasu', (mine.stay || (isMulti(mine) && mine.route.bases.some(b => b.stay))) && 'ubytování', mine.car && 'auto',
+  const progressOf = mine => [isMulti(mine) && 'trasu', (mine.stay || (isMulti(mine) && mine.route.bases.some(b => b.stay))) && 'ubytování', mine.car && mine.car.mode !== 'skip' && 'auto',
     (mine.plan || (isMulti(mine) && mine.route.bases.some(b => b.plan))) && 'program',
     mine.booked && Object.values(mine.booked).some(Boolean) && 'odškrtnuté rezervace'].filter(Boolean);
   /** Otisk cesty pro sdílený odkaz: spoje, termín, lidé, ubytování, auto a trasa – stejný = tatáž cesta (vlastní odkaz). */
@@ -1002,12 +1002,19 @@
   // jeden háček pro všechny ruční přechody (lišta kroků, Pokračovat, ← Upravit trasu, Zpět telefonu přes stepTo);
   // posun vpřed jednou za cestu, i když se člověk na krok vrací
   const stepCount = (t, to) => { const e = stepEvent(t.step, to); deep(e, e === STEP_EV[to] ? t.created : undefined); };
+  // po přechodu: fokus na nadpis kroku (klávesnice a čtečka jinak začínají znovu od hlavičky stránky) a čtečce název kroku
+  function focusStep(step) {
+    const h = $('#tripStep h3');
+    if (h && typeof h.focus === 'function') { h.tabIndex = -1; h.focus({ preventScroll: true }); }
+    const name = step && (STEPS.find(s => s[0] === step) || [])[2];
+    if (name && typeof say === 'function') say(`Krok: ${name}`);
+  }
   function setStep(step) {
     if (!T()) return;
     stepCount(T(), step);
     if (typeof histTrip === 'function') histTrip(T().step, step); // Zpět telefonu pak vrátí na dosavadní krok (app.js)
     autoNote = null; // uživatel přepíná kroky sám – hláška ⚡ už nepatří
-    T().step = step; persist(); render(); window.scrollTo({ top: 0, behavior: 'smooth' });
+    T().step = step; persist(); render(); window.scrollTo({ top: 0, behavior: 'smooth' }); focusStep(step);
   }
   /** Krok průvodce bez zápisu do historie (Zpět telefonu – app.js) → false, když na něm cesta už je (nebo krok neexistuje). */
   function stepTo(step) {
@@ -1015,7 +1022,7 @@
     if (!t || t.step === step || !STEPS.some(s => s[0] === step)) return false;
     stepCount(t, step);
     autoNote = null;
-    t.step = step; persist(); render(); window.scrollTo({ top: 0, behavior: 'smooth' });
+    t.step = step; persist(); render(); window.scrollTo({ top: 0, behavior: 'smooth' }); focusStep(step);
     return true;
   }
 
@@ -1099,7 +1106,7 @@
         <div class="th-total" id="thTotal">${headTotal(t)}</div>
         <div class="th-dest"><h2>${esc(tripName(t))}</h2><div class="th-sub" id="thSub">${headSub(t)}</div></div>
       </div>
-      <div class="stepbar">${STEPS.map((s, i) => `${i ? `<i${i <= idx || done(i) ? ' class="done"' : ''}></i>` : ''}<button type="button" class="st ${done(i) ? 'done' : ''} ${i === idx ? 'on' : ''}" data-step="${s[0]}" title="${s[2]}" ${s[0] === 'flight' ? 'data-flight="1"' : ''}><span>${done(i) ? '✓' : s[1]}</span>${s[2]}</button>`).join('')}</div>
+      <div class="stepbar">${STEPS.map((s, i) => `${i ? `<i${i <= idx || done(i) ? ' class="done"' : ''}></i>` : ''}<button type="button" class="st ${done(i) ? 'done' : ''} ${i === idx ? 'on' : ''}" data-step="${s[0]}" title="${s[2]}"${i === idx ? ' aria-current="step"' : ''} ${s[0] === 'flight' ? 'data-flight="1"' : ''}><span>${done(i) ? '✓' : s[1]}</span>${s[2]}</button>`).join('')}</div>
       ${sharedHtml(t)}${pastHtml(t)}
       <div class="tw-body"><div id="tripStep"></div><aside class="trip-aside" id="tripAside" aria-label="Přehled cesty">${asideHtml(t)}</aside></div>
       <div class="trip-next" id="tripNext" hidden></div>`;
@@ -2330,7 +2337,7 @@
     const bs = T().route.bases;
     const after = bs.findIndex((x, k) => k > i && !x.stay);
     const any = after >= 0 ? after : bs.findIndex(x => !x.stay);
-    if (any >= 0 && any !== i) goStayBase(any); else setStep('car');
+    if (any >= 0 && any !== i) { goStayBase(any); focusStep(); } else setStep('car');
   }
 
   /** Ubytování pro každé místo trasy zvlášť (vlastní termín, nabídky z api/stays, nebo jen odkazy). */
@@ -2654,7 +2661,7 @@
       <div class="st-rating">${rt.col}</div>
       <div class="st-price"><div class="st-pp">${h.priceTotalCzk ? `<div class="pp">${czk(h.priceTotalCzk)}</div><div class="faint">${forN}<span class="st-sep"> · </span><span class="st-pn">${czk(h.pricePerNightCzk)}/noc</span></div>` : guess || `<div class="faint">${h.osm ? 'cenu ověř u partnera' : 'cena na webu'}</div>`}${more}</div>
         <div class="st-acts">${h.soldOut && !chosen ? '<div class="st-sold">❌ na tvoje dny vyprodáno</div>' : ''}
-        <button class="btn sm ${h.soldOut && !chosen ? 'ghost' : 'primary'}" data-pick="${i}"${h.soldOut && !chosen ? ' data-anyway="1" title="Volno jsem ověřil teď – TripAdvisor na tvoje dny nic nenabízí"' : ''}>${chosen ? '✓ Vybráno' : h.soldOut ? 'Vybrat i tak' : 'Vybrat'}</button>
+        <button class="btn sm ${h.soldOut && !chosen ? 'ghost' : 'primary'}" data-pick="${i}" aria-label="${chosen ? 'Vybráno' : h.soldOut ? 'Vybrat i tak' : 'Vybrat'}: ${esc(h.name)}"${h.soldOut && !chosen ? ' data-anyway="1" title="Volno jsem ověřil teď – TripAdvisor na tvoje dny nic nenabízí"' : ''}>${chosen ? '✓ Vybráno' : h.soldOut ? 'Vybrat i tak' : 'Vybrat'}</button>
         ${links}</div></div>
     </div>`;
   }
@@ -3999,7 +4006,7 @@
           : !ov && f.back && f.back.provider !== f.out.provider ? '<div class="note warn" style="margin-top:10px">⚠️ <div>Lety tam a zpět jsou dvě samostatné letenky – při zpoždění prvního letu druhá aerolinka nečeká.</div></div>' : ''}
       ${onTrip || past ? '</details>' : ''}</div></div>
       <div class="row wrap sum-acts" style="gap:8px;margin:0 0 14px">
-        <button class="btn primary" id="sumSave">${t.shared ? '💾 Uložit do Mých cest' : ikona('hotovo') + ' Uloženo v Mých cestách'}</button>
+        <button class="btn primary" id="sumSave">${savedOnPurpose(t) ? ikona('hotovo') + ' Uloženo v Mých cestách' : '💾 Uložit do Mých cest'}</button>
         <button class="btn" id="sumShare">${ikona('sdilet')} Sdílet cestu</button>
         <button class="btn" id="sumIcs">${ikona('kalendar')} Do kalendáře</button>
         ${window.Plus && !t.shared && !past ? '<button class="btn" id="sumSesit">📒 Sešit cesty · Plus</button>' : ''}
@@ -4271,6 +4278,8 @@
   if (typeof document === 'object' && document && document.addEventListener) document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && autoT) autoSave(); });
   /** Záznam cesty z průvodce v Mých cestách (stejné id), jinak null. */
   const entryOf = t => (t && Array.isArray(S.trips) && S.trips.find(x => x && x.tripId && x.tripId === t.created)) || null;
+  // uložená na přání (ne sdílená, ne jen sama uložená – auto: true ji ↺ Začít znovu z Mých cest zase smaže)
+  const savedOnPurpose = t => { const e = !t.shared && entryOf(t); return Boolean(e && !e.auto); };
   /**
    * Rozpracovaná cesta se nahrazuje jinou (nový let, uložená cesta): uložená v Mých cestách tam zůstane bez ptaní (jen
    * prohlédnutá – bez trasy, hotelu, auta… – zmizí, ať seznam nezaplní), neuložená s něčím rozpracovaným → zeptat se
