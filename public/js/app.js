@@ -1668,12 +1668,16 @@ let cLimit = 0, cKey = '';
 const cPage = () => (typeof matchMedia === 'function' && matchMedia('(max-width:760px)').matches ? 24 : 60);
 // štítek země odpovídá hledání jen od začátku slova: „Itál“ uprostřed „digitál“ (Estonsko) ne, „plá“ v „pláže“ ano
 const tagHit = (tag, q, w = q.replace(/[^a-z0-9]+/g, ' ').trim()) => Boolean(w) && ` ${norm(tag).replace(/[^a-z0-9]+/g, ' ')}`.includes(` ${w}`);
+// země odpovídá hledání: název česky či anglicky, štítek, nebo hovorový název z COUNTRY_ALIAS („usa“, „anglie“,
+// „holandsko“) – v datech jsou „Spojené státy americké“ a „Nizozemsko“, mapa světa (countryHits) je přitom znala
+const cHit = (c, q) => norm(c.cs).includes(q) || norm(c.en).includes(q) || (c.tags || []).some(t => tagHit(t, q))
+  || Object.entries(COUNTRY_ALIAS).some(([k, iso]) => iso === c.iso2 && k.startsWith(q));
 function renderCountries() {
   const q = norm($('#cSearch').value), cont = $('#cCont').value, cost = $('#cCost').value, sort = $('#cSort').value, vis = $('#cVisited .on').dataset.v, ent = $('#cEntry').value;
   const key = [q, cont, cost, sort, vis, ent].join('|');
   if (key !== cKey || !cLimit) { cKey = key; cLimit = cPage(); }
   let list = COUNTRIES.slice();
-  if (q) list = list.filter(c => norm(c.cs).includes(q) || norm(c.en).includes(q) || (c.tags || []).some(t => tagHit(t, q)));
+  if (q) list = list.filter(c => cHit(c, q));
   if (cont) list = list.filter(c => c.cont === cont);
   // skupiny jako popisky v detailu: 1–2 levné, 3 střední, 4–5 dražší/drahé
   if (cost) list = list.filter(c => c.cost && (cost === '1' ? c.cost <= 2 : cost === '2' ? c.cost === 3 : c.cost >= 4));
@@ -1945,6 +1949,8 @@ function paintWeather(j) {
   const days = ['Ne', 'Po', 'Út', 'St', 'Čt', 'Pá', 'So'], today = todayIn(j.tz);
   // den v týdnu z data samotného: new Date('2026-10-25') je půlnoc UTC – v telefonu s časem New Yorku ještě sobota
   $('#fcBox').innerHTML = (j.days || []).slice(0, 7).map(w => { const dt = new Date(w.date + 'T12:00:00Z'); const [ic] = wIco(w.code); return `<div class="fc"><div class="d">${w.date === today ? 'Dnes' : days[dt.getUTCDay()]}</div><div class="i">${ic}</div><div class="t">${Math.round(w.hi)}°<small> ${Math.round(w.lo)}°</small></div></div>`; }).join('');
+  // licence CC BY 4.0 chce uvést zdroj i tady, ne jen v Objevuj; pod mřížku dnů (ne do ní) a jen jednou
+  if (typeof Weather !== 'undefined' && Weather.src && !$('#wxSrc')) $('#fcBox').insertAdjacentHTML('afterend', `<div id="wxSrc" class="faint" style="font-size:11px;margin-top:6px">${Weather.src}</div>`);
 }
 async function loadFx(c) {
   if (!c.cur || c.cur === 'CZK') { const el = $('#fxLine'); if (el) el.textContent = c.cur === 'CZK' ? 'domácí měna' : ''; return; }

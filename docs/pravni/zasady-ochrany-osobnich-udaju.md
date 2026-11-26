@@ -254,12 +254,14 @@ Tyto služby dostanou tvou **IP adresu** a identifikaci prohlížeče, jako u ka
 | **OpenFreeMap** | podklad map | když otevřeš mapu |
 | **Wikimedia Commons**, **Unsplash**, **Pexels** | fotky měst a míst | na kartách cílů a v programu |
 | weby hotelů a jejich obrázkové servery (přes LiteAPI, TripAdvisor) | fotky ubytování | v nabídce ubytování |
+| **Mapy.com** (Seznam.cz, a.s.) | jen jejich logo (`api.mapy.com`), které podmínky Mapy.com vyžadují zobrazit | u turistické mapy a návrhů míst z Mapy.com |
 
-Mapy.com (turistická mapa, návrhy míst, trasy), předpověď počasí a směnné kurzy (ExchangeRate-API) jdou **přes server
-Letsi** – tyto služby tvou IP adresu nevidí. Písma (Inter, Sora, Caveat) jsou na serveru Letsi, Google Fonts se nepoužívá.
+Dlaždice turistické mapy, návrhy míst a trasy z Mapy.com, předpověď počasí a směnné kurzy (ExchangeRate-API) jdou
+**přes server Letsi** – obsah tvých dotazů (místa, trasy) tyto služby od tebe nedostanou a tvou IP adresu u nich
+nevidí; Mapy.com ji vidí jen při načtení loga (viz tabulka). Písma (Inter, Sora, Caveat) jsou na serveru Letsi, Google Fonts se nepoužívá.
 
 > Kde v kódu: `public/css/atlas.css` (písma z `public/vendor/fonts`), `public/js/app.js` (kurzy z `/api/fx`, zdroje
-> fotek), `public/js/places.js` (`tiles.openfreemap.org`), `server/lib/photos.js` (Wikimedia, Pexels, Unsplash – fotky se vkládají přímo z jejich serverů),
+> fotek), `public/js/places.js` (`tiles.openfreemap.org`, logo Mapy.com `MAPY_LOGO`), `server/lib/photos.js` (Wikimedia, Pexels, Unsplash – fotky se vkládají přímo z jejich serverů),
 > `server/lib/security.js` (CSP: `connect-src`, `font-src`, `img-src https:`).
 
 ### 5.2 Služby, kterých se ptá jen server Letsi

@@ -206,5 +206,8 @@
     return { month: m, hi: c.hi[m], lo: c.lo?.[m], p: c.p?.[m], text: `Obvykle ${MNS_LOC[m]}: ${c.hi[m]}° / ${c.lo?.[m]}°, srážky ~${c.p?.[m]} mm za měsíc` };
   }
 
-  root.Weather = { forecast, days, span, summary, trip, key, rainy, bestDay, badge, normal, daysAhead, inForecast, dayName, AHEAD, sunsets, sunsetUtc, tzOffset };
+  // Uvedení zdroje (licence CC BY 4.0 ho chce všude, kde předpověď ukazujeme): Objevuj i okno země z jednoho místa
+  const src = 'Počasí: <a href="https://www.met.no/en" target="_blank" rel="noopener">MET Norway</a> (<a href="https://creativecommons.org/licenses/by/4.0/deed.cs" target="_blank" rel="noopener">CC BY 4.0</a>, upraveno na denní souhrny)';
+
+  root.Weather = { forecast, days, span, summary, trip, key, rainy, bestDay, badge, normal, daysAhead, inForecast, dayName, AHEAD, sunsets, sunsetUtc, tzOffset, src };
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -12,7 +12,8 @@ const H = await import('../server/lib/hikeplan.js');
 const { parseRoute, hikeMinutes } = await import('../server/lib/bike.js');
 
 const src = (f) => readFileSync(new URL(`../public/js/${f}`, import.meta.url), 'utf8');
-const ctx = { console, URLSearchParams, setTimeout, clearTimeout, Weather: {} }; // Weather: místa pro počasí a západ slunce v kartě
+// Weather: místa pro počasí a západ slunce v kartě; uvedení zdroje (src) je ve weather.js
+const ctx = { console, URLSearchParams, setTimeout, clearTimeout, Weather: { src: vm.runInNewContext(`${src('weather.js')}; Weather.src`, {}) } };
 ctx.window = ctx;
 vm.createContext(ctx);
 vm.runInContext(src('app.js').match(/^const (esc|enc|flag|safeUrl|cssUrl|pad|fmtYMD) = .*$/gm).join('\n'), ctx);
