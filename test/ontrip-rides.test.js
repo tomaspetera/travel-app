@@ -26,7 +26,7 @@ function load({ fetch = null, storage = null, online = true } = {}) {
     var renderNow = () => { __rn++; };
     var byIso = { PT: { cs: 'Portugalsko' }, AT: { cs: 'Rakousko' } }; var PACK = ['Pas'];`, ctx, { filename: 'stubs.js' });
   vm.runInContext(src('data.js').match(/^const (WC|wIco)=.*$/gm).join('\n'), ctx, { filename: 'data.js' });
-  for (const f of ['ics.js', 'planshare.js', 'weather.js', 'backup.js', 'trip.js', 'places.js']) vm.runInContext(src(f), ctx, { filename: f });
+  for (const f of ['ics.js', 'planshare.js', 'offershare.js', 'weather.js', 'backup.js', 'trip.js', 'places.js']) vm.runInContext(src(f), ctx, { filename: f });
   vm.runInContext(pick('todayLocal', 'daysTo', 'inDays', 'okYmd', 'ymdPlus', 'wallAt', 'ridesOf', 'dtPlus', 'rideOn', 'tripGround', 'tripLegs', 'tripZone', 'tripBack', 'tripNow', 'tripWiz', 'tripRows', 'pastRows', 'nowParts',
     'hmTxt', 'dowLbl', 'canCopy', 'doGen', 'rideAhead', 'nowCard', 'NWX_LS', 'nwxLoad', 'nowWx', 'nowWxFetch', 'tripLive', 'tripOrder', 'tripRides', 'rideEd', 'rideSet',
     'dateRange', 'planIco', 'planTransport', 'tripIsos', 'tripVia', 'planEvents') + '\n' + APP.match(/^let nwxMem = .*$/m)[0]

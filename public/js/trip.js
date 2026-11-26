@@ -4502,7 +4502,7 @@
 
   /**
    * Data ze sdíleného odkazu jsou cizí vstup: z textů odstraň znaky, které by šly použít k vložení
-   * HTML (<, >, uvozovky, `), čísla převeď na čísla a odkazy pustí dál jen safeUrl při vykreslení.
+   * HTML (<, >, uvozovky, `), čísla převeď na čísla a odkazy nech jen na povolené weby (OfferShare.safeLink).
    */
   function sanitizeTrip(raw, o = {}) {
     // Odkazy (…url/Url) mohou být dlouhé (Ryanair ~400 znaků) – nezkracovat; texty do 300 znaků. o.quotes: apostrofy
@@ -4510,7 +4510,11 @@
     // Bez o.quotes se apostrof v textu mění na typografický (Hotel D’Angleterre) jako ve sdíleném plánu (PlanShare.txt) –
     // dřív se vypustil („DAngleterre“, „SantAngelo“) ve sdílené cestě i v cestě otevřené z Mých cest; v odkazech se vypouští dál.
     const bad = o.quotes ? /[<>`]/g : /[<>"`]/g;
-    const clean = (v, key = '') => typeof v === 'string' ? (o.quotes ? v : /url$/i.test(key) ? v.replace(/'/g, '') : v.replace(/'/g, '’')).replace(bad, '').slice(0, /url$/i.test(key) ? 4000 : 300)
+    // Odkaz (…url/…Url, i v trase, ubytování, autě a odkazech na jízdenky) jen na web, kam vedou odkazy aplikace
+    // (OfferShare.safeLink) – jinak by „Koupit letenky“ ve sdílené cestě mohlo vést na podvodnou stránku. Cizí odkaz
+    // → null: let pak tlačítko nemá, ubytování a auto použijí vlastní hledání (baseSearchUrl, carLinkFor).
+    const link = v => (window.OfferShare ? window.OfferShare.safeLink(v.replace(/['"<>`]/g, '').slice(0, 4000)) : null);
+    const clean = (v, key = '') => typeof v === 'string' ? (/url$/i.test(key) ? link(v) : (o.quotes ? v : v.replace(/'/g, '’')).replace(bad, '').slice(0, 300))
       : typeof v === 'number' ? (Number.isFinite(v) ? v : 0)
       : typeof v === 'boolean' || v == null ? v
       : Array.isArray(v) ? v.slice(0, 200).map(x => clean(x, key))
