@@ -34,7 +34,13 @@
       s.async = false; // stahují se souběžně, spustí se v pořadí seznamu
       s.onload = () => { done.add(nameOf(src)); resolve(); };
       // výpadek sítě: příští Lazy.need to zkusí znovu
-      s.onerror = () => { loads.delete(src); s.remove(); reject(new Error(`Nepodařilo se načíst ${src}`)); };
+      s.onerror = () => {
+        loads.delete(src); s.remove();
+        // část aplikace se nenačetla: podrobný počet jen se souhlasem (count.js Count.deep), jednou za modul a stránku –
+        // opakované pokusy (Zkusit znovu) by jinak jeden výpadek započítaly víckrát
+        if (window.Count && Count.deep) Count.deep('lazy_fail', nameOf(src));
+        reject(new Error(`Nepodařilo se načíst ${src}`));
+      };
       document.head.appendChild(s);
     });
     loads.set(src, p);

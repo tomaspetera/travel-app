@@ -1,7 +1,13 @@
 /* ATLAS – souhrnné počítání bez sledování lidí: Count.hit('search_done') pošle serveru jen název události
-   (POST api/count, server/lib/counts.js) a ten si přičte 1 k dennímu součtu. Nic se neukládá do prohlížeče – žádné
-   cookies, úložiště ani identifikátor – a s požadavkem nejde nic o tobě ani o zařízení; z počtů nejde poznat, kdo co
-   dělal. Offline se nepočítá a nic se neodkládá na později. Chyba počítání se nikdy neprojeví v aplikaci. */
+   (POST api/count, server/lib/counts.js) a ten si přičte 1 k dennímu součtu. Bez souhlasu se nic neukládá do
+   prohlížeče – žádné cookies, úložiště ani identifikátor – a s požadavkem nejde nic o tobě ani o zařízení; z počtů
+   nejde poznat, kdo co dělal. Offline se nepočítá a nic se neodkládá na později. Chyba počítání se nikdy neprojeví
+   v aplikaci.
+   Kdo sám zapne „Pomáhat se zlepšováním“ (Count.consent(true) – karta na Přehledu nebo přepínač v Další), tomu se
+   navíc počítají podrobnější počty (Count.deep, opakované klepnutí rage_*) a zaznamená se průchod návštěvou: pořadí
+   obrazovek a hlavních akcí se sekundami od začátku a náhodným číslem návštěvy, které je jen v paměti stránky
+   (POST api/trace, server/lib/traces.js). V zařízení se ukládá jen volba localStorage.atlas_help ('1' / '0'), a to
+   až po klepnutí. Bez souhlasu se nic z toho neposílá a ani se neposlouchá žádné klepnutí. */
 (function () {
   // sekce (go() v app.js) → událost: Mapa a Země jsou jedna sekce Svět, 🧳 Moje cesty zvlášť od průvodce cestou;
   // sekce bez události (Doporučení) se nepočítají
@@ -13,11 +19,110 @@
   function hit(e) {
     try {
       if (!e || navigator.onLine === false) return;
-      const url = new URL('api/count', document.baseURI).href, body = JSON.stringify({ e: String(e) });
       // sendBeacon doručí i událost těsně před odchodem ze stránky (klepnutí na odkaz k partnerovi)
+      post('api/count', JSON.stringify({ e: String(e) }));
+      step(String(e)); // se souhlasem i krok záznamu návštěvy (jinak step nic nedělá)
+    } catch (err) { /* počítání nesmí nic rozbít */ }
+  }
+
+  const post = (path, body) => {
+    try {
+      const url = new URL(path, document.baseURI).href;
       if (navigator.sendBeacon && navigator.sendBeacon(url, body)) return;
       if (nativeFetch) nativeFetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, keepalive: true, credentials: 'omit' }).catch(() => {});
-    } catch (err) { /* počítání nesmí nic rozbít */ }
+    } catch (err) { /* nesmí nic rozbít */ }
+  };
+
+  /* ---------- Pomáhat se zlepšováním (jen se souhlasem) ---------- */
+  let helpOn = false;
+  try { helpOn = localStorage.getItem('atlas_help') === '1'; } catch (err) { /* soukromé okno: bez souhlasu */ }
+  const helping = () => helpOn;
+
+  // Záznam návštěvy jen v paměti stránky: { id, t0, at (poslední krok), steps: [[sekund, název]], sent (kolik kroků
+  // už odešlo) }. Nová návštěva po 30 minutách nečinnosti – PWA žije na telefonu i dny a jinak by z „návštěvy“ byl
+  // vícedenní záznam.
+  const IDLE = 30 * 60e3, MAX_STEPS = 120;
+  // ochota platit (i 📒 Sešit – nabídka Plus) a odpovědi na otázky do záznamu nesmí (zásady 3.7), stejně jako
+  // server/lib/traces.js traceExcluded
+  const skipStep = (e) => /^(price_|plus_|limit_|sesit_|mq_)/.test(e) || e === 'look_letsi';
+  let tr = null;
+  const newId = () => Array.from(crypto.getRandomValues(new Uint8Array(8)), (b) => '0123456789abcdefghijklmnopqrstuvwxyz'[b % 36]).join('');
+  function send() {
+    if (!tr || tr.steps.length <= tr.sent) return; // jen když přibyly kroky
+    post('api/trace', JSON.stringify({ id: tr.id, s: tr.steps }));
+    tr.sent = tr.steps.length;
+  }
+  function step(e) {
+    if (!helpOn || !e || skipStep(e)) return;
+    const t = Date.now();
+    if (tr && t - tr.at > IDLE) { send(); tr = null; }
+    if (!tr) tr = { id: newId(), t0: t, at: t, steps: [], sent: 0 };
+    tr.at = t;
+    if (tr.steps.length < MAX_STEPS) tr.steps.push([Math.max(0, Math.round((t - tr.t0) / 1000)), e]);
+  }
+  const onHide = () => { if (document.visibilityState === 'hidden') send(); };
+
+  // Opakované klepnutí: 3 a víc do 1 s na tentýž prvek = něco nereaguje. Jednou za shluk, nejvýš 5× za načtení.
+  // Sekce z posledního view(); text, třída ani id prvku se nikdy neposílají. Pole, stepper (+/− se klepe opakovaně
+  // schválně) a mapa se nepočítají. pointercancel (posun stránky) pointerup nespustí.
+  const RAGE = { view_dashboard: 'rage_dashboard', view_flights: 'rage_flights', view_trip: 'rage_trip', view_trips: 'rage_trip', view_explore: 'rage_explore', view_world: 'rage_world' };
+  const RAGE_SKIP = 'input, select, textarea, label, .pax-step, [data-px], .maplibregl-map, .leaflet-container, canvas, [data-repeat]';
+  const rage = { el: null, times: [], fired: false, n: 0 };
+  /** Klepnutí na prvek el v čase t (ms) → název rage_* k odeslání, nebo null. Čistá logika kvůli testu. */
+  function rageTap(el, t) {
+    if (!el || (el.closest && el.closest(RAGE_SKIP))) return null;
+    if (el !== rage.el) Object.assign(rage, { el, times: [], fired: false });
+    rage.times = rage.times.filter((x) => t - x < 1000).concat(t);
+    if (rage.times.length === 1) rage.fired = false; // pauza delší než 1 s = nový shluk
+    if (rage.times.length < 3 || rage.fired || rage.n >= 5) return null;
+    rage.fired = true;
+    rage.n++;
+    return RAGE[last] || null;
+  }
+  function onTap(ev) {
+    try {
+      const e = rageTap(ev.target, Date.now());
+      if (e) deep(e);
+    } catch (err) { /* nesmí nic rozbít */ }
+  }
+  function listen(on) {
+    const f = on ? 'addEventListener' : 'removeEventListener';
+    document[f]('pointerup', onTap, { passive: true, capture: true });
+    document[f]('visibilitychange', onHide);
+    window[f]('pagehide', send);
+  }
+
+  const onceSeen = new Set();
+  /**
+   * Podrobnější počet jen se souhlasem: bez něj nic (vrací false). S onceKey nejvýš jednou za načtení stránky pro
+   * dvojici (name, onceKey) – třeba jednou na hledání. Se souhlasem zároveň krok záznamu návštěvy (přes hit).
+   */
+  function deep(name, onceKey) {
+    if (!helpOn || !name) return false;
+    if (onceKey !== undefined) {
+      const k = name + '\n' + onceKey;
+      if (onceSeen.has(k)) return false;
+      onceSeen.add(k);
+    }
+    hit(name);
+    return true;
+  }
+
+  /**
+   * Volba uživatele (klepnutí na kartě nebo přepínači): true zapne, false vypne. Teprve tady se zapisuje atlas_help.
+   * Vypnutí platí hned: přestane se poslouchat a server dostane pokyn smazat záznam téhle návštěvy (del).
+   */
+  function consent(on) {
+    on = Boolean(on);
+    try { localStorage.setItem('atlas_help', on ? '1' : '0'); } catch (err) { /* soukromé okno: platí do zavření */ }
+    if (on === helpOn) return;
+    helpOn = on;
+    listen(on);
+    if (on) step(last); // záznam začíná až teď – obrazovkou, na které člověk právě je, nic zpětně
+    else {
+      if (tr) post('api/trace', JSON.stringify({ id: tr.id, del: 1 }));
+      tr = null;
+    }
   }
 
   // go() se volá i pro sekci, která už je otevřená (návrat z okna, překreslení) – počítá se jen přepnutí
@@ -28,6 +133,7 @@
     last = e;
     if (e) hit(e);
   }
+  if (helpOn) listen(true);
 
   /*
    * Krátká otázka na jedno klepnutí: řádek s volbami hned za prvkem el (ne okno ani toast). o = { id, q (otázka),
@@ -76,5 +182,5 @@
     } catch (err) { return null; } // otázka nesmí nic rozbít
   }
 
-  window.Count = { hit, view, viewEvent, ask };
+  window.Count = { hit, view, viewEvent, ask, helping, deep, consent, rageTap };
 })();

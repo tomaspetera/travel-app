@@ -73,8 +73,9 @@
 
   /** Obsah okna (čistá funkce – test/about.test.js). email = feedback.email z /api/health (jinak bez tlačítka),
       support = support.url (💛 Podpořit ATLAS), operator = provozovatel – obojí z /api/health, jinak se neukáže;
-      backup = je k dispozici 💾 Přenos a záloha; health = celé /api/health (zdroje, provize), null = ještě není. */
-  function html({ version = '', build = '', email = null, screen = '', backup = true, support = null, operator = '', health = null } = {}) {
+      backup = je k dispozici 💾 Přenos a záloha; health = celé /api/health (zdroje, provize), null = ještě není;
+      help = stav přepínače Pomáhat se zlepšováním (true / false), null = bez přepínače (count.js ho neumí). */
+  function html({ version = '', build = '', email = null, screen = '', backup = true, support = null, operator = '', health = null, help = null } = {}) {
     const mail = mailto(email, version, screen), pay = okPay(support) ? support : null, earn = earnings(health);
     const op = typeof operator === 'string' ? operator.trim().slice(0, 200) : '';
     return `<div class="modal-body about-modal">
@@ -89,12 +90,14 @@
       <h4 class="ab-h">Co se ukládá a kam</h4>
       <ul class="ab-list">
         <li><b>Jen v tomhle prohlížeči na tomhle zařízení</b> (localStorage): cesty, hlídané ceny, odložené nabídky, domov, navštívené země, oblíbená a skrytá místa, poslední i rozepsané hledání a nastavení. Na jiné zařízení je přeneseš odkazem s QR kódem (📲 Přenést do jiného zařízení) nebo zálohou.</li>
-        <li><b>Na serveru nic o tobě</b>: žádný účet ani profil. <b>Žádné cookies ani sledování jednotlivců.</b> Počítám jen souhrnné denní počty (kolikrát se otevřela aplikace, kolik proběhlo hledání, kolik cest vzniklo, kde aplikace nic nenašla nebo selhala a které možnosti lidé volí v krátkých otázkách) – bez osobních údajů a bez vazby na tebe nebo tvoje zařízení. Jinak jen cesty, které sám sdílíš krátkým odkazem (níže).</li>
+        <li><b>Na serveru nic o tobě</b>: žádný účet ani profil. <b>Žádné cookies ani sledování jednotlivců</b> – kromě záznamu návštěvy bez jména a IP adresy, pokud ho sám zapneš v Další (Pomáhat se zlepšováním). Počítám jen souhrnné denní počty (kolikrát se otevřela aplikace, kolik proběhlo hledání, kolik cest vzniklo, kde aplikace nic nenašla nebo selhala a které možnosti lidé volí v krátkých otázkách) – bez osobních údajů a bez vazby na tebe nebo tvoje zařízení. Jinak jen cesty, které sám sdílíš krátkým odkazem (níže).</li>
         <li><b>Co se na server posílá</b> – jen to, co je potřeba k odpovědi: u hledání letů odkud, kam, termín, počet cestujících, zavazadla a cesta na letiště (i 🏠 vlastní ceny); u ubytování místo, termín a počet hostů; v Objevuj místo a volby plánu; polohu, jen když sám použiješ 📍 Moje poloha nebo Moje okolí. Server odpovědi chvíli drží v mezipaměti (bez vazby na tebe) a IP adresu si kvůli limitům požadavků pamatuje nejdéle hodinu od posledního požadavku (u hledání 10 minut), pak ji sám smaže.</li>
         <li><b>Přímo z prohlížeče</b> se načítají mapy (OpenFreeMap) a fotky (Unsplash, Pexels, Wikimedia) – tyhle služby vidí tvou IP adresu jako u každého webu. Počasí, kurzy a hledání míst jdou přes server ATLASu, tvou adresu tedy nevidí.</li>
         <li><b>Krátký odkaz na sdílenou cestu</b> (atlas…/c/…): když klepneš na Poslat kamarádům nebo Sdílet plán, cesta se uloží na serveru na 400 dní, aby šel odkaz otevřít – bez jména a kódů rezervací, nic dalšího se k němu neukládá. Bez krátkého odkazu (i u odkazu 📲 přenosu) nese data část adresy za #, kterou prohlížeč na server neposílá. Po klepnutí na odkaz k rezervaci jsi na webu partnera a platí jeho pravidla.</li>
         ${pay ? '<li><b>Příspěvek</b> (💛 Podpořit ATLAS): platíš na stránce Stripe, která platbu zpracovává – aplikace ani server ATLASu údaje o platbě a kartě nedostanou. Provozovatel ve Stripe uvidí jen údaje k přijaté platbě (jméno, e-mail, částku a poslední 4 číslice karty).</li>' : ''}
       </ul>
+      ${typeof help === 'boolean' ? `<button type="button" class="btn ghost" id="abHelp" role="switch" aria-checked="${help}">🤝 Pomáhat se zlepšováním <span class="faint">${help ? 'zapnuto' : 'vypnuto'}</span></button>
+      <p class="faint" style="font-size:12.5px">Záznam obrazovek a hlavních akcí při návštěvě s náhodným číslem návštěvy, bez textu, míst, cen, jména a IP adresy; smaže se do 31 dnů. Ve výchozím stavu vypnuto, vypnutím smažu i záznam právě probíhající návštěvy.</p>` : ''}
       ${backup ? '<button type="button" class="btn ghost" id="abBk">💾 Přenos a záloha <span class="faint">PC ↔ telefon</span></button>' : ''}
       <h4 class="ab-h">Jak se řadí výsledky</h4>
       <p style="font-size:14px">Pořadí určuje jen zvolené řazení (cena, termín, vzdálenost, dny dovolené…), placené pozice nejsou.</p>
@@ -122,7 +125,8 @@
   function open() {
     const version = versionNow(), build = buildNow(), screen = screenNow();
     const paint = (o = {}) => {
-      modalOpen(html({ version, build, screen, backup: Boolean(window.Backup), ...o }));
+      modalOpen(html({ version, build, screen, backup: Boolean(window.Backup), help: window.Count && Count.consent ? Count.helping() : null, ...o }));
+      if (typeof helpSwitch === 'function') helpSwitch(document.querySelector('#abHelp')); // stejný přepínač jako v Další (app.js)
       const bk = document.querySelector('#abBk');
       if (bk) bk.onclick = () => { modalClose(); Backup.open(); };
     };

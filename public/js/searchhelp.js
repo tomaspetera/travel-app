@@ -2161,6 +2161,45 @@
     return [yes.length ? `${names(yes)}: ${who} už v odkazu` : '', no.length ? `${names(no)}: ${who} přidej na webu (odkaz jen s dospělými)` : ''].filter(Boolean).join(' · ');
   }
 
+  /*
+   * Podrobné počty v Letech (Count.deep – jen se zapnutou pomocí „Pomáhat se zlepšováním“). Názvy událostí jsou tu
+   * vypsané celé, aby šly dohledat (server/lib/counts.js EVENTS, statistiky.js).
+   */
+
+  /** Výsledek bez nabídek (prázdný stav s nápovědou): cesta přes víc měst má kombinace (combos), ostatní skupiny. */
+  const resEmpty = r => Boolean(r) && !((r.mode === 'multi' ? r.combos : r.groups) || []).length;
+
+  /**
+   * Klepnutí na nápovědu u prázdného výsledku → událost fix_*, u neprázdného null („Málo výsledků?“ by nafouklo poměr
+   * prázdný výsledek → oprava). key = klíč akce ze smartActions, 'clear:<filtr>' u čipu filtru, 'warm' u teploty.
+   * „Jen tam“ patří k termínům: zpáteční let chudý výsledek nejčastěji dělají data návratu.
+   */
+  function fixKind(key, res) {
+    if (!resEmpty(res)) return null;
+    const k = String(key || '');
+    if (k === 'warm') return 'fix_warm';
+    if (k === 'ground') return 'fix_ground';
+    if (k === 'clearTime' || k.startsWith('clear:') || k === 'noPrice' || k === 'noDirect') return 'fix_filter';
+    if (['hubs', 'radius', 'country', 'continent', 'anywhere'].includes(k)) return 'fix_place';
+    if (['flex1', 'flex3', 'anyDay', 'longer', 'nights', 'month', 'oneway'].includes(k)) return 'fix_date';
+    return null;
+  }
+
+  /**
+   * Proč formulář hledání odmítl (stejné pořadí kontrol jako startSearch ve flights.js) → form_err_* | null.
+   * multiBad = mlProblem() u cesty přes víc měst (potřebuje pole formuláře, proto ho dodá volající).
+   */
+  function formErrKind(f, today, multiBad = null) {
+    if (!f || !(f.from || []).length) return 'form_err_from';
+    if (f.trip === 'multi') return multiBad ? 'form_err_multi' : null;
+    if (f.dateMode !== 'exact') return f.dTo < f.dFrom || f.dTo > addDays(today, 359) ? 'form_err_range' : null;
+    if (!f.xOut || f.xOut < today || (f.trip === 'return' && (!f.xBack || f.xBack < f.xOut))) return 'form_err_date';
+    return null;
+  }
+
+  /** Kolikátá nabídka ve výpisu (index od 0) šla k prodejci → buy_rank_*; mimo výpis (-1) null. */
+  const buyRank = i => (!(i >= 0) ? null : i === 0 ? 'buy_rank_1' : i < 5 ? 'buy_rank_2_5' : 'buy_rank_6p');
+
   /**
    * Obojí v jedné rezervaci: odkaz na zpáteční let u Ryanairu a Wizz Air z odkazu na let tam – stejná aerolinka, zpět
    * stejnou trasou. Formát jako bookingUrl v server/providers s datem zpět (test hlídá shodu). Pod dvěma odkazy jako
@@ -2204,5 +2243,6 @@
     destCenter, geoNames, geoCenter, stayPlan, smartDirect,
     wazeUrl, WAZE_HOME, PID_APP, pidLeg, resumeKind,
     PAX_MAX, paxOf, paxTxt, paxShort, paxTotalLbl, paxTotalOn, paxNote, kidsBuyNote, radarPax, roundBookUrl,
+    resEmpty, fixKind, formErrKind, buyRank,
   };
 })();

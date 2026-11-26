@@ -29,6 +29,23 @@ export const EVENTS = [
   'mq_restart_date', 'mq_restart_price', 'mq_restart_lost', 'mq_restart_try',
   'mq_trip_good', 'mq_trip_missing', 'mq_trip_lost',
   'mq_ex_city', 'mq_ex_nature', 'mq_ex_region', 'mq_ex_other',
+  // opakované klepnutí (3× do 1 s na totéž místo – něco nereaguje) podle sekce; jen se souhlasem „Pomáhat se
+  // zlepšováním“ (public/js/count.js), jako i záznam návštěvy (server/lib/traces.js)
+  'rage_dashboard', 'rage_flights', 'rage_trip', 'rage_explore', 'rage_world',
+  // podrobné počty v Letech – jen od lidí se zapnutou pomocí „Pomáhat se zlepšováním“ (Count.deep v count.js)
+  'fix_date', 'fix_place', 'fix_filter', 'fix_warm', 'fix_ground', 'buy_age_warn', 'place_none_from', 'place_none_to',
+  'sentence_ok', 'sentence_miss', 'sentence_nofrom', 'form_err_from', 'form_err_range', 'form_err_date', 'form_err_multi',
+  'search_redo', 'search_slow', 'api_fail_down', 'res_all_hidden', 'res_filters', 'res_sort', 'res_view_map', 'res_view_cal',
+  'res_best_jump', 'buy_rank_1', 'buy_rank_2_5', 'buy_rank_6p',
+  // podrobné počty průvodce, Objevuj a načítání (Count.deep v trip.js, places.js, lazy.js) – posílají se jen se
+  // souhlasem „Pomáhat se zlepšováním“
+  'trip_step_route', 'trip_step_stay', 'trip_step_car', 'trip_step_program', 'trip_back',
+  'trip_restart_route', 'trip_restart_stay', 'trip_restart_car', 'trip_restart_program', 'trip_restart_summary',
+  'trip_auto_done', 'trip_auto_nights', 'trip_auto_stay',
+  'stay_pick_offer', 'stay_pick_auto', 'stay_pick_manual', 'stay_pick_links', 'stay_pick_skip', 'stay_empty_filter', 'trip_gap',
+  'ex_open_sug', 'ex_open_smart', 'ex_open_enter', 'ex_open_other', 'place_none_explore', 'ex_smart_ok', 'ex_smart_miss',
+  'ex_empty_list', 'ex_empty_plan', 'ex_empty_trips', 'ex_empty_country', 'ex_fix', 'ex_save', 'ex_fly',
+  'lazy_fail',
 ];
 // Strop seznamu: s každým názvem roste nejhorší počet zápisů do Upstash (rozpočet v test/pocitadla.test.js)
 export const MAX_EVENTS = 150;

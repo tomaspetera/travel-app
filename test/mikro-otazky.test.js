@@ -50,6 +50,10 @@ function loadCount(random = 0) {
   ctx.window = ctx;
   vm.createContext(ctx);
   vm.runInContext(read('public/js/count.js'), ctx, { filename: 'count.js' });
+  // při načtení count.js jednou zjistí volbu Pomáhat se zlepšováním (atlas_help, test/traces.test.js); bez úložiště
+  // = bez souhlasu. Otázky samy na úložiště ani cookies sahat nesmí – od teď se hlídá každý přístup.
+  assert.deepEqual(log.storage, ['localStorage']);
+  log.storage.length = 0;
   // obsah stránky: odstavec, za který se otázka vkládá
   const host = document.createElement('div');
   document.body.append(host);
@@ -242,7 +246,8 @@ test('místa v aplikaci: kdy a jak často se ptá (tabulka v oddílu 4)', () => 
   assert.match(P, /const EX_ASK = \{ id: 'ex', q: 'Co jsi hledal\/a\?', rate: 1,/);
   assert.match(P, /if \(exMiss\.n >= 2 && window\.Count && Count\.ask\) Count\.ask\(el, EX_ASK\);/);
   // volný text se neposílá: otázka nemá pole, jen tlačítka
-  assert.doesNotMatch(read('public/js/count.js'), /input|textarea|contenteditable/i);
+  // (jen ask(): count.js jinde pole jmenuje, aby se do opakovaného klepnutí nepočítalo)
+  assert.doesNotMatch(read('public/js/count.js').match(/function ask\(el, o\) \{[\s\S]*?\n  \}\n/)[0], /input|textarea|contenteditable/i);
 });
 
 // Shrnutí cesty přes zástupný DOM jako test/mam-letenku.test.js
