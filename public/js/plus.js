@@ -228,7 +228,8 @@
       proceed: asked => { if (obs) obs.disconnect(); proceed(asked); },
       show: html => { modalOpen(html); sheet = q('#modal .plus-sheet'); },
       hit,
-      thanks: () => { if (sheet) after(sheet.querySelector('.plus-acts'), 'Plus chystáme na jaro. Do té doby si nech obě cesty zdarma – zůstanou ti.'); },
+      // „Nebo 149 Kč na měsíc. Obnovení vypneš…“ pod odpovědí, že Plus ještě není, by sliboval předplatné, které neběží
+      thanks: () => { if (sheet) { sheet.querySelector('.plus-small').hidden = true; after(sheet.querySelector('.plus-acts'), 'Plus chystáme na jaro. Do té doby si nech obě cesty zdarma – zůstanou ti.'); } },
       download: () => { if (window.Backup && Backup.download) { Backup.download(); toast('Záloha stažena – cesta v ní je'); } },
       close: () => modalClose(),
       confirm: msg => confirm(msg),
