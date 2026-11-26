@@ -107,6 +107,25 @@ test('nových návštěv nejvýš HOUR_CAP za hodinu (strop dne nezaplní jeden 
   assert.ok(t.add(cleanTrace({ id: id(99), s: [[0, 'app_open']] })), 'za hodinu zase');
 });
 
+test('návštěva přes půlnoc UTC zůstane v hashi dne, kdy začala – ne podruhé (useknutá) i v dalším dni', async () => {
+  // zapsaná návštěva po půlnoci posílá další kroky; dřív šly do hashe nového dne a v Cestách návštěv byla dvakrát
+  // (useknutá v prvním dni s falešným odchodem) – i když mezitím zapsal jiné návštěvy nového dne
+  let now = Date.UTC(2027, 0, 12, 23, 50);
+  const store = memoryTraces();
+  const t = makeTraces(store, { now: () => now });
+  t.add(cleanTrace({ id: ID, s: [[0, 'app_open']] }));
+  await t.flush();
+  now += 20 * 60e3; // 00:10 dalšího dne
+  t.add(cleanTrace({ id: 'zz99zz99', s: [[0, 'app_open']] }));
+  await t.flush();
+  t.add(cleanTrace({ id: ID, s: [[0, 'app_open'], [1200, 'view_flights']] }));
+  await t.flush();
+  const [today, yday] = await store.read(['tr:2027-01-13', 'tr:2027-01-12']);
+  assert.deepEqual([...today.keys()], ['zz99zz99']);
+  assert.deepEqual(JSON.parse(yday.get(ID)), [[0, 'app_open'], [1200, 'view_flights']]);
+  assert.equal((await t.traces(7)).visits.length, 2);
+});
+
 test('odvolání {id, del:1}: pryč z paměti, HDEL dnes i včera až při flush jedním dotazem; nepovedený zápis se zahodí', async () => {
   const { store, calls } = fakeUpstash(0);
   let now = T0 + 3600e3;
