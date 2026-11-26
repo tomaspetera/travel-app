@@ -11,6 +11,7 @@ const { config } = await import('../server/config.js');
 config.mock = false;
 const mapy = await import('../server/lib/mapy.js');
 const { hikeLoop, bikeLoop, hikeMinutes, _resetBrouterDown } = await import('../server/lib/bike.js');
+const { resetBrouter } = await import('../server/lib/brouter.js');
 const { geocodeExplore, geocodePlaces } = await import('../server/lib/places.js');
 const { cache } = await import('../server/lib/cache.js');
 const { createServer } = await import('../server/index.js');
@@ -33,6 +34,7 @@ const post = (path, body) => realFetch(`${base}${path}`, { method: 'POST', heade
 beforeEach(() => {
   mapy._resetMapy();
   _resetBrouterDown();
+  resetBrouter();
   cache.map.clear();
   config.mapyKey = '';
   config.mapyMaxPerHour = 340;
@@ -180,7 +182,8 @@ test('Mapy.com 403 / 429 / došlé kredity: pojistka, chyba BRouteru jako bez kl
     assert.match(st.reason, /HTTP 403/);
     assert.ok(st.retryAfter > 3500, 'hodinu bez Mapy.com');
     const nm = stub.calls.filter((c) => isMapy(c.url)).length;
-    await assert.rejects(hikeLoop({ lat: 50.08, lon: 14.42, km: 10, variant: 2 }), (e) => e.status === 502);
+    // BRouter po výpadku minutu vynechán (pojistka v brouter.js) – chyba bez dotazu, Mapy.com taky ne
+    await assert.rejects(hikeLoop({ lat: 50.08, lon: 14.42, km: 10, variant: 2 }), (e) => e.skipped);
     assert.equal(stub.calls.filter((c) => isMapy(c.url)).length, nm, 'zablokované Mapy.com se nevolá');
     const h = await (await get('/api/health')).json();
     assert.equal(h.maps[0].enabled, true);
@@ -188,7 +191,7 @@ test('Mapy.com 403 / 429 / došlé kredity: pojistka, chyba BRouteru jako bez kl
     assert.match(h.maps[0].hint, /odmítá klíč/);
     assert.ok(!JSON.stringify(h).includes(KEY), 'klíč se nikde neukáže');
 
-    mapy._resetMapy(); _resetBrouterDown(); cache.map.clear();
+    mapy._resetMapy(); _resetBrouterDown(); resetBrouter(); cache.map.clear();
     mapyStatus = 429;
     await assert.rejects(hikeLoop({ lat: 50.08, lon: 14.42, km: 10 }), (e) => e.status === 502);
     st = mapy.mapyStatus();
@@ -197,7 +200,7 @@ test('Mapy.com 403 / 429 / došlé kredity: pojistka, chyba BRouteru jako bez kl
     assert.ok(st.retryAfter > 100 && st.retryAfter <= 120, `Retry-After: ${st.retryAfter}`);
 
     // hodinový strop kreditů: trasa (4) projde, výškový profil (4) už ne → trasa bez stoupání; další trasa zase BRouter
-    mapy._resetMapy(); _resetBrouterDown(); cache.map.clear();
+    mapy._resetMapy(); _resetBrouterDown(); resetBrouter(); cache.map.clear();
     config.mapyMaxPerHour = 4;
     mapyStatus = 200;
     stub.restore();
@@ -212,7 +215,7 @@ test('Mapy.com 403 / 429 / došlé kredity: pojistka, chyba BRouteru jako bez kl
       assert.equal(r.ascent, null, 'bez výšek – UI stoupání neukáže');
       assert.ok(r.geometry.every((c) => c[2] === null));
       assert.ok(!s2.calls.some((c) => c.url.startsWith('https://api.mapy.com/v1/elevation')), 'výškový profil nad strop se nevolal');
-      await assert.rejects(hikeLoop({ lat: 50.08, lon: 14.42, km: 10, variant: 3 }), (e) => e.status === 502, 'strop vyčerpaný → jako bez klíče');
+      await assert.rejects(hikeLoop({ lat: 50.08, lon: 14.42, km: 10, variant: 3 }), (e) => e.skipped, 'strop vyčerpaný → jako bez klíče (BRouter po výpadku vynechán)');
       assert.equal(s2.calls.filter((c) => isMapy(c.url)).length, 1);
     } finally {
       s2.restore();

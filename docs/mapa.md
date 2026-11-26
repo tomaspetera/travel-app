@@ -223,7 +223,7 @@ Tabulka odpovídá pořadí větví v `route()` (`server/index.js`). Limity jsou
 ## Server
 
 ### server/
-- `server/index.js` – HTTP server: ručně psaný router `route()` (řetězec if, na pořadí záleží), hledání letů jako NDJSON s frontou a sdílenými výsledky, limity na IP, náhledy /c/ a /j/, statika, start a vypnutí. Klíčové: `route()`, `createServer()`, `handleSearch()`, `streamSearch()`, `sharedSearch()`, `revalidate()`, `searchKeys()`, `completeResult()`, `rateLimited()`, `exploreLimited()`, `exploreCharge()`, `sendJson()`, `readBody()`, `serveFile()`, `accessParams()`, `diagnose()`, `warmUp()`, `previewPhoto()`.
+- `server/index.js` – HTTP server: ručně psaný router `route()` (řetězec if, na pořadí záleží), hledání letů jako NDJSON s frontou a sdílenými výsledky, limity na IP, náhledy /c/ a /j/, statika, start a vypnutí. Klíčové: `route()`, `createServer()`, `errorReply()` (nezachycená chyba → 503 u cizí služby), `handleSearch()`, `streamSearch()`, `sharedSearch()`, `revalidate()`, `searchKeys()`, `completeResult()`, `rateLimited()`, `exploreLimited()`, `exploreCharge()`, `sendJson()`, `readBody()`, `serveFile()`, `accessParams()`, `diagnose()`, `warmUp()`, `previewPhoto()`.
 - `server/config.js` – proměnné prostředí (+ volitelný `.env`) → objekt `config` jednou při importu; čističe vstupů. Klíčové: `config`, `num()`, `cleanEmail()`, `cleanPayUrl()`, `cleanOperator()`, `cleanSiteUrl()`.
 - `server/brand.js` – název, titulek, popisy, výchozí URL a náhledový obrázek na jednom místě (změna = nová verze SW). Klíčové: `BRAND`.
 
@@ -234,7 +234,7 @@ Tabulka odpovídá pořadí větví v `route()` (`server/index.js`). Limity jsou
 - `server/lib/arrival.js` – z letiště příletu do města (tabulka `data/arrival.json`, jinak odhad), Kč na osobu. Klíčové: `arrivalTransfer()`, `arrivalCzk()`, `legArrivalCzk()`, `arrivalsFor()`, `estimateArrival()`, `fareCzk()`.
 - `server/lib/baggage.js` – odhad příplatků za zavazadla podle dopravce (EUR, stav 10/2026). Klíčové: `bagFeeEur()`, `legBagEur()`, `CARRIERS`, `UNKNOWN`.
 - `server/lib/bike.js` – kolo a pěšky přes BRouter (záloha Mapy.com), starty túr a nádraží z Wikidat. Klíčové: `bikeLoop()`, `hikeLoop()`, `bikeFromStation()`, `hikeThereBack()`, `parseRoute()`, `hikeMinutes()`, `trailheadsNear()`, `stationsNear()`, `stationNearCached()`, `mockBikeLoop()`.
-- `server/lib/brouter.js` – sdílený klient BRouteru: 1 dotaz naráz, mezera BROUTER_GAP_MS, fronta 20 (plná → BUSY). Klíčové: `brouterGet()`, `BROUTER`, `UA`.
+- `server/lib/brouter.js` – sdílený klient BRouteru: 1 dotaz naráz, mezera BROUTER_GAP_MS, fronta 20 (plná → BUSY), po výpadku 1 min pojistka (chyba skipped). Klíčové: `brouterGet()`, `resetBrouter()`, `BROUTER`, `UA`.
 - `server/lib/cache.js` – TTL mezipaměť v paměti se sdílením rozběhnutých dotazů a pojistkou RSS (CACHE_SOFT_MB 320). Klíčové: `cache`, `TTLCache`, `wrap()`, `get()`, `set()`, `sweep()`, `checkMemory()`, `stats()`.
 - `server/lib/cars.js` – půjčení auta: validace dotazu a odkazy na srovnávače, bez cen a sítě. Klíčové: `searchCars()`, `normalizeCarQuery()`, `CarQueryError`.
 - `server/lib/clienterr.js` – chyby z prohlížeče: vyčistit, řádek do logu Renderu, posledních 50 v paměti. Klíčové: `cleanReport()`, `recordClientError()`, `clientErrorCount()`, `MAX_BODY`.

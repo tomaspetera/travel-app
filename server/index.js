@@ -1319,6 +1319,26 @@ async function route(req, res) {
   serveNotFound(req, res);
 }
 
+/**
+ * Odpověď na chybu, kterou nezachytil endpoint → { status, error, warn }. warn = jeden řádek do logu (chyba cizí
+ * služby); bez něj se chyba 5xx (chyba v kódu) vypíše do logu celá.
+ */
+export function errorReply(e) {
+  // Chyba cizí služby (HttpError z request(), nedostupná síť – Upstash, zdroj dat – nebo timeout) není chyba uživatele
+  // ani v kódu: 503 a česky, bez adresy API; celý výpis by při výpadku služby jen zahltil log.
+  if (e instanceof HttpError || (e instanceof TypeError && e.message === 'fetch failed')) {
+    return {
+      status: 503,
+      error: e.status === 429 ? 'Zdroj dat je teď přetížený – zkus to prosím za minutu.' : 'Zdroj dat teď neodpovídá – zkus to prosím za chvíli.',
+      warn: `upstream ${e.status || e.cause?.code || 'síť'}: ${String(e.message).slice(0, 200)}`,
+    };
+  }
+  if (/^Timeout \d+ ms/.test(e?.message || '')) return { status: 503, error: 'Zdroj dat odpovídá příliš pomalu – zkus to prosím za chvíli.', warn: `upstream ${String(e.message).slice(0, 200)}` };
+  const status = e?.status >= 400 && e.status < 600 ? e.status : 500;
+  // chyba uživatele (400 – UserError, StayQueryError) má český text pro aplikaci; jiná (chyba v kódu) jen do logu
+  return { status, error: status < 500 ? e.message : 'Chyba serveru – zkus to prosím za chvíli znovu.', warn: null };
+}
+
 export function createServer() {
   // Pomalý klient (hlavičky / tělo po kapkách) nesmí držet spojení minuty: hlavičky do 20 s, celý požadavek do 30 s.
   // Platí jen pro příjem požadavku – dlouhé streamované hledání (odpověď) se tím nezkracuje. Node limity kontroluje
@@ -1326,20 +1346,10 @@ export function createServer() {
   return http.createServer({ headersTimeout: 20e3, requestTimeout: 30e3, connectionsCheckingInterval: 5e3 }, (req, res) => {
     for (const [k, v] of Object.entries(SECURITY_HEADERS)) res.setHeader(k, v); // server/lib/security.js
     route(req, res).catch((e) => {
-      // Chyba cizí služby (HttpError z request()) není chyba uživatele: 503 a česky, bez adresy API.
-      if (e instanceof HttpError) {
-        console.warn(`upstream ${e.status}: ${String(e.message).slice(0, 200)}`);
-        const busy = e.status === 429;
-        if (!res.headersSent) {
-          return sendJson(req, res, 503, { error: busy ? 'Zdroj dat je teď přetížený – zkus to prosím za minutu.' : 'Zdroj dat teď neodpovídá – zkus to prosím za chvíli.' });
-        }
-        return res.end();
-      }
-      if (/^Timeout \d+ ms/.test(e.message || '') && !res.headersSent) return sendJson(req, res, 503, { error: 'Zdroj dat odpovídá příliš pomalu – zkus to prosím za chvíli.' });
-      const status = e.status >= 400 && e.status < 600 ? e.status : 500;
-      if (status >= 500) console.error(e);
-      // chyba uživatele (400 – UserError, StayQueryError) má český text pro aplikaci; jiná (chyba v kódu) jen do logu
-      if (!res.headersSent) sendJson(req, res, status, { error: status < 500 ? e.message : 'Chyba serveru – zkus to prosím za chvíli znovu.' });
+      const r = errorReply(e);
+      if (r.warn) console.warn(r.warn);
+      else if (r.status >= 500) console.error(e);
+      if (!res.headersSent) sendJson(req, res, r.status, { error: r.error });
       else res.end();
     });
   });
