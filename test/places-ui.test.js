@@ -456,7 +456,7 @@ test('drobnosti: „varianta n/10“ u Jiné trasy, prázdný okruh, mapa bez po
   assert.deepEqual([0, 4, 9, 10, 13].map((v) => T.variantTxt({ kind: 'loop', variant: v })), ['varianta 1/10', 'varianta 5/10', 'varianta 10/10', 'varianta 1/10', 'varianta 4/10']);
   assert.equal(T.variantTxt({ kind: 'train', variant: 2 }), '', 'u nádraží počet variant neznáme');
   assert.equal(T.variantTxt({ kind: 'loop' }), '');
-  assert.match(T.routeHtml(ROUTE({ variant: 6 }), BCN_C, '2026-10-12'), /🔄 Jiná trasa<\/button><span class="faint route-var">varianta 7\/10<\/span>/);
+  assert.match(T.routeHtml(ROUTE({ variant: 6 }), BCN_C, '2026-10-12'), /<span class="ico i-znovu" aria-hidden="true"><\/span> Jiná trasa<\/button><span class="faint route-var">varianta 7\/10<\/span>/);
   assert.ok(!T.routeHtml(ROUTE({ kind: 'train', variant: 1, station: { name: 'Vic', lat: 41.93, lon: 2.25, cc: 'ES' }, train: { googleUrl: 'https://www.google.com/maps/dir/?api=1' } }), BCN_C, '2026-10-12').includes('route-var'));
 
   const e3 = T.emptyHtml(3, 'city');
@@ -1071,7 +1071,7 @@ test('🌍 celá země: skupiny (města, cíle, UNESCO, parky), karty bez XSS, l
   const rome = T.countryCard(items[0], g('city'), { label: 'Řím', country: 'Itálie' });
   assert.match(rome, /🏙️ Řím/);
   assert.match(rome, /Město · 2 km · <b[^>]*>👍 Wikivoyage<\/b>/);
-  assert.match(rome, /data-cgo="Q220">🔎 Prozkoumat</);
+  assert.match(rome, /data-cgo="Q220"><span class="ico i-kompas" aria-hidden="true"><\/span> Prozkoumat</);
   assert.match(rome, /Řím je hlavní město Itálie\./);
   const coast = T.countryCard(items[1], g('dest'), { label: 'Řím', country: 'Itálie' });
   assert.ok(!coast.includes('<img src=x'), 'název escapovaný');
@@ -1154,7 +1154,7 @@ test('návrhy zemí: celý název i začátek (od 3 písmen), nejvýš 2, „–
 test('výběr země: nadpis, oblíbené (Itálie první), všechny země A–Ž s vlajkou', () => {
   const TC = loadCountries();
   const h = TC.pickerHtml();
-  assert.match(h, /🌍 Vyber zemi/);
+  assert.match(h, /<span class="ico i-jazyk" aria-hidden="true"><\/span> Vyber zemi/);
   const pop = h.slice(h.indexOf('id="exCcPop"'), h.indexOf('id="exCcAll"'));
   assert.deepEqual([...pop.matchAll(/data-cc="([A-Z]{2})"/g)].map((m) => m[1]).slice(0, 4), ['IT', 'FR', 'ES', 'HR']);
   const all = h.slice(h.indexOf('id="exCcAll"'));

@@ -5,6 +5,8 @@
    Vlak nebo bus místo letu: t.overland { on, from, to, km, est, out, back, links } – když je on, nahrazuje let
    v termínech, ceně, shrnutí, plánovači i kalendáři (t.flight zůstává, jde se k němu vrátit). */
 (function () {
+  // ikona rozhraní Letsi (stejná jako ikona() v app.js): modul běží i v testech (node:vm) bez app.js
+  const ikona = n => `<span class="ico i-${n}" aria-hidden="true"></span>`;
   const STEPS = [
     ['flight', '✈️', 'Let'],
     ['route', '🗺️', 'Trasa'],
@@ -917,7 +919,7 @@
     if (!root || !F || !F.PlaceInput) return;
     if (root.dataset) delete root.dataset.step;
     if (window.Count) Count.hit('have_ticket_start'); // souhrnný počet (count.js)
-    root.innerHTML = `<form class="card step-card own-form" id="ownForm" autocomplete="off" novalidate><h3>✈️ Letenku už mám</h3>
+    root.innerHTML = `<form class="card step-card own-form" id="ownForm" autocomplete="off" novalidate><h3>${ikona('let')} Letenku už mám</h3>
       <p class="faint own-lead">Napiš, kam a kdy letíš – k letence doplníš trasu, ubytování i program. Cenu letenky znát nemusíš.</p>
       <label class="own-l" for="ownToIn">Kam letíš</label><div class="place-input" id="ownTo"></div>
       <div class="own-row"><label>Tam<input class="input" type="date" id="ownOut"></label><label>Zpět <small>nepovinné</small><input class="input" type="date" id="ownBack"></label></div>
@@ -1067,7 +1069,7 @@
         <div class="card dest trip-hero" data-photo="Amalfi" style="--h:200"><div class="flag">🧳</div><div class="dest-panel"><div class="cname">Sestav si celou cestu</div>
           <div class="cblurb">Let, ubytování, auto i program na místě – a celková cena na jednom místě.</div></div></div>
         ${askHtml()}
-        <div class="trip-intro-act"><button type="button" class="btn ghost" id="tripGoExplore">🗺️ Jen objevovat místa</button>${window.newTrip ? '<button type="button" class="btn ghost" id="tripOwn">📝 Vlastní cesta bez letu</button>' : ''}</div>
+        <div class="trip-intro-act"><button type="button" class="btn ghost" id="tripGoExplore">${ikona('kompas')} Jen objevovat místa</button>${window.newTrip ? '<button type="button" class="btn ghost" id="tripOwn">' + ikona('plus') + ' Vlastní cesta bez letu</button>' : ''}</div>
         <div class="trip-steps-h">Jak to funguje</div>
         <ol class="trip-steps">
           <li><span>✈️</span><div><b>Let</b><small>Napiš výš, kam chceš (nebo hledej v Letech či radaru), a u nabídky klikni na <b>Naplánovat celou cestu</b>.</small></div></li>
@@ -1139,7 +1141,7 @@
     const { checkout } = stayDates(t);
     if (!checkout || checkout >= today) return '';
     return `<div class="note info trip-shared trip-past"><span aria-hidden="true">🗓️</span><div class="ts-t"><b>Tahle cesta už proběhla</b> (návrat ${fmtDate(checkout)}). Zůstává v Mých cestách – další cestu začneš výběrem letu.</div>
-      <button type="button" class="btn sm primary" id="tripPastNew">✈️ Nová cesta</button></div>`;
+      <button type="button" class="btn sm primary" id="tripPastNew">${ikona('let')} Nová cesta</button></div>`;
   }
   /** ✈️ Nová cesta po proběhlé a „Začít novou cestu“ ve Shrnutí: cesta v Mých cestách tam zůstane – bez ptaní (už ne
    *  jako sama uložená, ↺ Začít znovu by ji po otevření odebral); neuložená jako ↺ Začít znovu (s potvrzením). */
@@ -1432,7 +1434,7 @@
     // něj vedlejší „krok za krokem“ = dřívější Pokračovat. Hotová cesta (autoAll) ⚡ nemá – hlavní je zase Pokračovat.
     const auto = !autoAll(t);
     const next = `<button class="btn${auto ? '' : ' primary'}" id="tfNext"${auto ? ' data-next="Pokračovat: Trasa →"' : ''}>${auto ? 'Projdu to krok za krokem →' : 'Pokračovat: Trasa →'}</button>`;
-    host.innerHTML = `<div class="card step-card tf-card"><h3>✈️ ${fly ? `Vybrané lety (${legs.length})` : own ? 'Vlastní let' : 'Vybraný let'}</h3>
+    host.innerHTML = `<div class="card step-card tf-card"><h3>${ikona('let')} ${fly ? `Vybrané lety (${legs.length})` : own ? 'Vlastní let' : 'Vybraný let'}</h3>
       <div class="tl-legs">${fly ? legs.map((l, i) => legLine(l, false, `${i + 1}. let`)).join('') : `${legLine(t.flight.out)}${t.flight.back ? legLine(t.flight.back, true) : ''}`}</div>
       ${fly ? `<div class="faint" style="font-size:12.5px;margin-top:6px">🎫 Každý let je samostatná letenka – při zpoždění jednoho letu další aerolinka nečeká. Mezi lety: ${esc(t.route.bases.map(b => b.name).join(' → '))}.</div>` : ''}
       ${auto ? `<div class="auto-trip"><div class="at-btns"><button type="button" class="btn primary" id="tfAuto"${tripAuto ? ' disabled' : ''}>${tripAuto ? AUTO_RUN : AUTO_BTN}</button>${next}</div><small>${autoSmall(t)}</small></div>` : ''}
@@ -1531,10 +1533,10 @@
   function groundOffer(t) {
     const g = t.groundRef;
     if (!g || !g.q || !window.Ground) return '';
-    return `<div class="card step-card gnd-offer${g.worth ? ' hot' : ''}"><div class="sc-head"><div><h3>🚆 Nebo vlakem / busem</h3>
+    return `<div class="card step-card gnd-offer${g.worth ? ' hot' : ''}"><div class="sc-head"><div><h3>${ikona('vlak')} Nebo vlakem / busem</h3>
       <div class="muted">${esc(g.from)} → ${esc(g.to)} · ~${esc(Ground.hm(g.min))} · ${esc(Ground.priceTxt(g))} na osobu jedním směrem <span class="b">odhad</span></div>
       ${g.reason ? `<div class="faint" style="font-size:12.5px;margin-top:4px">${esc(g.reason)}</div>` : ''}</div></div>
-      <div class="row wrap" style="gap:8px"><button class="btn${g.worth ? ' primary' : ''}" id="ovStart">🚆 Pojedu vlakem / busem</button></div>
+      <div class="row wrap" style="gap:8px"><button class="btn${g.worth ? ' primary' : ''}" id="ovStart">${ikona('vlak')} Pojedu vlakem / busem</button></div>
       <div id="ovPick"></div></div>`;
   }
 
@@ -1544,14 +1546,14 @@
     const leg = (g, what, a, b) => g ? `<div class="ov-leg"><span class="ov-ic">${gIco(g)}</span><div><b>${what}: ${esc(a)} → ${esc(b)}</b> · ${dayLbl(g.date)} ${esc(gTime(g))}
       <small>${esc([g.dep ? `${minutesToHm(g.min || 0)} · ${gKind(g)}, ${g.transfers ? `${g.transfers}× přestup` : 'přímý'}` : 'odhad – konkrétní spoj vyber v odkazu',
     g.fromStation ? `${g.fromStation} → ${g.toStation}` : '', `${gPrice(g)}/os. (${gWho(g)})`].filter(Boolean).join(' · '))}</small></div></div>` : '';
-    host.innerHTML = `<div class="card step-card"><h3>🚆 Cesta vlakem / busem</h3>
+    host.innerHTML = `<div class="card step-card"><h3>${ikona('vlak')} Cesta vlakem / busem</h3>
       <div class="muted" style="font-size:13px;margin-bottom:6px">~${kmTxt(+ov.km || 0)} vzdušnou čarou · místo letu ${esc(f.out.from)} → ${esc(f.out.to)}</div>
       ${leg(ov.out, 'Tam', ov.from.label, ov.to.label)}${leg(ov.back, 'Zpět', ov.to.label, ov.from.label)}
       ${!ov.back && f.back ? `<div class="note info" style="margin:8px 0 0">ℹ️ <div>Let zpět (${esc(f.back.from)} → ${esc(f.back.to)}) se nepočítá – byl součástí letenky. Cestu zpět si zařiď zvlášť${ov.q ? ', nebo v <b>🔄 Změnit spoje</b> zaškrtni „i zpět vlakem / busem“' : ''}.</div></div>` : ''}
       <div class="ov-sum"><span>Vlak / bus celkem za ${paxTxt(t)}:</span><b>${czk(costs(t).overland)}</b>${[ov.out, ov.back].some(g => g && g.source !== 'regiojet') ? '<span class="b warn">odhad – cenu ověř v odkazu</span>' : [ov.out, ov.back].some(g => g && g.demo) ? '<span class="b warn">DEMO – vymyšlené spoje a ceny</span>' : '<span class="b good">ceny RegioJetu z hledání</span>'}</div>
       ${window.Ground ? Ground.linksHtml(ov.links && ov.links.out) : ''}
       <div class="faint" style="font-size:12px;margin-top:6px">Jízdenky Letsi neprodává – kup je u dopravce (RegioJet, FlixBus, ČD přes IDOS). Ceny i volná místa se mohou změnit.</div>
-      <div class="row wrap" style="margin-top:14px;gap:8px"><button class="btn" id="ovFly">✈️ Radši letět (${esc(f.out.from)} → ${esc(f.out.to)})</button>${ov.q ? '<button class="btn" id="ovEdit">🔄 Změnit spoje</button>' : ''}<button class="btn primary" id="tfNext">Pokračovat →</button></div>
+      <div class="row wrap" style="margin-top:14px;gap:8px"><button class="btn" id="ovFly">${ikona('let')} Radši letět (${esc(f.out.from)} → ${esc(f.out.to)})</button>${ov.q ? '<button class="btn" id="ovEdit">🔄 Změnit spoje</button>' : ''}<button class="btn primary" id="tfNext">Pokračovat →</button></div>
       <div id="ovPick"></div></div>`;
     $('#ovFly').onclick = () => setOverland(t, null);
     const ed = $('#ovEdit'); if (ed) ed.onclick = () => overlandPicker(t);
@@ -1704,12 +1706,12 @@
     const canMulti = nights >= 2;
     const multi = canMulti && Boolean(t.route && t.route.mode === 'multi');
     host.innerHTML = `<div class="card step-card">
-      <div class="sc-head"><div><h3>🗺️ Trasa pobytu</h3><div class="muted">${dayLbl(checkin)} – ${dayLbl(checkout)} · ${nightsTxt(nights)} · zůstaneš na jednom místě, nebo poznáš víc míst?</div></div></div>
+      <div class="sc-head"><div><h3>${ikona('mapa')} Trasa pobytu</h3><div class="muted">${dayLbl(checkin)} – ${dayLbl(checkout)} · ${nightsTxt(nights)} · zůstaneš na jednom místě, nebo poznáš víc míst?</div></div></div>
       ${autoNoteHtml(t, 'route')}
       ${oneWayField(t)}
       <div class="route-choice">
-        <button type="button" class="rc-opt ${multi ? '' : 'on'}" data-rmode="single" aria-pressed="${!multi}"><span class="rc-ic">🏨</span><span><b>Jedno místo celý pobyt</b><small>${esc(t.dest.label.replace(/ \(.*\)$/, ''))} · ${nights < 1 ? 'bez přespání (návrat týž den)' : `jeden hotel na ${nightsTxt(nights)}`}, výlety do okolí naplánuješ v programu.</small></span></button>
-        <button type="button" class="rc-opt ${multi ? 'on' : ''}" data-rmode="multi" aria-pressed="${multi}" ${canMulti ? '' : 'disabled'}><span class="rc-ic">🧭</span><span><b>Víc míst</b><small>${canMulti ? 'Navrhnu trasu přes 2–4 zajímavá města s přejezdy a rozdělím noci – pak ke každému místu vybereš hotel.' : (nights < 1 ? 'Bez přespání není co rozdělit.' : 'Na jednu noc není co rozdělit.')}</small></span></button>
+        <button type="button" class="rc-opt ${multi ? '' : 'on'}" data-rmode="single" aria-pressed="${!multi}"><span class="rc-ic">${ikona('ubytovani')}</span><span><b>Jedno místo celý pobyt</b><small>${esc(t.dest.label.replace(/ \(.*\)$/, ''))} · ${nights < 1 ? 'bez přespání (návrat týž den)' : `jeden hotel na ${nightsTxt(nights)}`}, výlety do okolí naplánuješ v programu.</small></span></button>
+        <button type="button" class="rc-opt ${multi ? 'on' : ''}" data-rmode="multi" aria-pressed="${multi}" ${canMulti ? '' : 'disabled'}><span class="rc-ic">${ikona('misto')}</span><span><b>Víc míst</b><small>${canMulti ? 'Navrhnu trasu přes 2–4 zajímavá města s přejezdy a rozdělím noci – pak ke každému místu vybereš hotel.' : (nights < 1 ? 'Bez přespání není co rozdělit.' : 'Na jednu noc není co rozdělit.')}</small></span></button>
       </div>
       <div id="routeBody"></div>
     </div>`;
@@ -1736,7 +1738,7 @@
       return `<div class="faint" style="font-size:12.5px"><span class="spin dark"></span> počítám cestu na letiště ${esc(d.from)}…</div>`;
     };
     host.innerHTML = `<div class="card step-card">
-      <div class="sc-head"><div><h3>🗺️ Trasa podle letů</h3><div class="muted">${n} ${n <= 4 ? 'místa' : 'míst'} · ${nightsTxt(stayDates(t).nights)} · noci dávají data letů${f.back ? '' : ', v posledním místě zvolíš sám'} – ke každému místu pak vybereš ubytování a program.</div></div></div>
+      <div class="sc-head"><div><h3>${ikona('mapa')} Trasa podle letů</h3><div class="muted">${n} ${n <= 4 ? 'místa' : 'míst'} · ${nightsTxt(stayDates(t).nights)} · noci dávají data letů${f.back ? '' : ', v posledním místě zvolíš sám'} – ke každému místu pak vybereš ubytování a program.</div></div></div>
       <div class="ex-layout route-layout"><div><div class="route-list">
         ${legRow(f.out, '🛫', 'Let tam')}
         ${r.bases.map((b, i) => `<div class="rb"><span class="rb-n" style="background:${BASE_COLORS[i % BASE_COLORS.length]}">${i + 1}</span><div class="rb-main"><div class="rb-name">${esc(b.name)}</div><div class="rb-dates">${dayLbl(dates[i].checkin)} – ${dayLbl(dates[i].checkout)}${hotelName(b.stay) ? ` · 🏨 ${esc(hotelName(b.stay))}` : ''}</div>${gap(i)}</div><div class="rb-nights"><span><b>${dates[i].nights}</b> ${nightWord(dates[i].nights)}</span></div></div>${i < n - 1 ? legRow(mid[i], '✈️', `${i + 2}. let`) : ''}`).join('')}
@@ -1884,7 +1886,7 @@
     const allBus = (r.transfers || []).length > 0 && r.transfers.every(x => x && x.transitKind === 'bus');
     // doprava celé trasy; část autem a část vlakem (přepínače u úseků) = 🔀 kombinovaně
     // „N místa“ svítí, jen dokud trasa tolik míst opravdu má (po přidání nebo odebrání místa nesvítí žádné)
-    $('#rtTools').innerHTML = `<div class="seg">${[['car', '🚗 Autem'], ['transit', allBus ? '🚌 Autobusem' : '🚆 Vlakem a busem']].map(([v, l]) => `<button type="button" data-tr="${v}" class="${mix === v ? 'on' : ''}">${l}</button>`).join('')}${mix === 'mix' ? '<button type="button" class="on" aria-pressed="true" disabled title="Část přejezdů autem, část vlakem / busem – přepínače u úseků">🔀 Kombinovaně</button>' : ''}</div>
+    $('#rtTools').innerHTML = `<div class="seg">${[['car', ikona('auto') + ' Autem'], ['transit', allBus ? ikona('autobus') + ' Autobusem' : ikona('vlak') + ' Vlakem a busem']].map(([v, l]) => `<button type="button" data-tr="${v}" class="${mix === v ? 'on' : ''}">${l}</button>`).join('')}${mix === 'mix' ? '<button type="button" class="on" aria-pressed="true" disabled title="Část přejezdů autem, část vlakem / busem – přepínače u úseků">🔀 Kombinovaně</button>' : ''}</div>
       <div class="seg" title="Kolik míst navrhnout">${[2, 3, 4].filter(k => k <= total).map(k => `<button type="button" data-cnt="${k}" class="${r.want === k && n === k ? 'on' : ''}">${k} místa</button>`).join('')}</div>
       <button type="button" class="btn sm ghost" id="rtAgain">↻ Navrhnout znovu</button>`;
     // cesta z letiště (města příjezdu) na 1. místo a z posledního zpět: l = úsek z routeLegs, to = cíl úseku pro Waze
@@ -2248,7 +2250,7 @@
     const host = $('#tripStep');
     const { checkin, checkout, nights } = stayDates(t);
     host.innerHTML = `<div class="card step-card">
-      <div class="sc-head"><div><h3>🏨 Ubytování · ${esc(t.dest.label)}</h3><div class="muted">${dayLbl(checkin)} – ${dayLbl(checkout)} · ${nightsTxt(nights)} · ${guestsTxt(t)}</div>${stayKidsNote(t)}</div>
+      <div class="sc-head"><div><h3>${ikona('ubytovani')} Ubytování · ${esc(t.dest.label)}</h3><div class="muted">${dayLbl(checkin)} – ${dayLbl(checkout)} · ${nightsTxt(nights)} · ${guestsTxt(t)}</div>${stayKidsNote(t)}</div>
       ${t.stay ? `<div class="chosen">Vybráno: <b>${esc(t.stay.name || (t.stay.mode === 'skip' ? 'bez ubytování' : t.stay.mode === 'links' ? 'vyberu později (jen odkazy)' : ''))}</b>${t.stay.totalCzk ? ` · ${czk(t.stay.totalCzk)}${t.stay.est ? ' <span class="faint">(odhad)</span>' : ''}` : noPricePick(t.stay) ? noPriceHtml(t.stay) : ''}</div>` : ''}</div>
       ${autoNoteHtml(t, 'stay')}
       ${oneWayField(t)}
@@ -2319,7 +2321,7 @@
     const t = T(), r = t.route, host = $('#tripStep');
     const total = stayDates(t).nights;
     if (nightsLeft(t) !== 0) {
-      host.innerHTML = `<div class="card step-card"><h3>🏨 Ubytování na trase</h3><div class="note warn" style="margin-top:10px">⚠️ <div>Noci v trase nesedí s délkou pobytu (${nightsTxt(total)}) – uprav jejich rozdělení v kroku Trasa.</div></div>
+      host.innerHTML = `<div class="card step-card"><h3>${ikona('ubytovani')} Ubytování na trase</h3><div class="note warn" style="margin-top:10px">⚠️ <div>Noci v trase nesedí s délkou pobytu (${nightsTxt(total)}) – uprav jejich rozdělení v kroku Trasa.</div></div>
         <div class="row" style="margin-top:12px"><button class="btn primary" id="stayRoute">← Upravit trasu</button></div></div>`;
       $('#stayRoute').onclick = () => setStep('route');
       return;
@@ -2330,7 +2332,7 @@
     staySlot = { get: () => b.stay, set: v => { b.stay = { ...v, checkin: d.checkin, checkout: d.checkout }; unbook(t, stayBookId(b, d)); }, next: () => nextStayBase(i) };
     const left = r.bases.filter(x => !x.stay).length, allDone = !left, sumStay = r.bases.reduce((a, x) => a + (stayCzk(x.stay) || 0), 0);
     host.innerHTML = `<div class="card step-card">
-      <div class="sc-head"><div><h3>🏨 Ubytování na trase</h3><div class="muted">${n} ${n <= 4 ? 'místa' : 'míst'} · ${nightsTxt(total)} · ${guestsTxt(t)} · vybráno ${r.bases.filter(x => x.stay).length} z ${n}</div>${stayKidsNote(t)}</div></div>
+      <div class="sc-head"><div><h3>${ikona('ubytovani')} Ubytování na trase</h3><div class="muted">${n} ${n <= 4 ? 'místa' : 'míst'} · ${nightsTxt(total)} · ${guestsTxt(t)} · vybráno ${r.bases.filter(x => x.stay).length} z ${n}</div>${stayKidsNote(t)}</div></div>
       ${autoNoteHtml(t, 'stay')}
       ${allDone ? `<div class="auto-pick ok"><div class="ap-t"><b>✓ Ubytování máš ve všech místech</b><small>${sumStay ? `Celkem ${czk(sumStay)} · ` : ''}změnit ho můžeš v záložkách níž.</small></div><button type="button" class="btn primary" id="stayDone">Pokračovat k autu →</button></div>` : ''}
       ${left ? `<div class="auto-pick"><div class="ap-t"><b>✨ Nechceš vybírat?</b><small>V ${left === n ? `každém místě` : `${left} ${left === 1 ? 'zbývajícím místě' : 'zbývajících místech'}`} ${stayPricesOn() ? 'vyberu hotel s nejlepším poměrem ceny a hodnocení blízko centra' : 'vyberu ubytování blízko centra – cenu doplníš podle nabídky u prodejce'}. Změnit ho můžeš kdykoliv v záložkách.</small></div><button type="button" class="btn primary" id="stayAuto"${autoBusy ? ' disabled' : ''}>${autoBusy ? '<span class="spin"></span> Vybírám…' : 'Vyber za mě'}</button></div>` : ''}
@@ -3165,7 +3167,7 @@
     const locField = (id, lbl, iata, city, dtId, dt) => `<div class="field"><div class="car-lbl"><label for="${dtId}">${lbl}</label><button type="button" class="linkbtn car-where" id="${id}W">${city ? '✈️ na letišti' : '🏙️ ve městě'}</button></div>
       <div class="row" style="gap:6px"><input class="input" id="${id}" value="${esc(iata)}" maxlength="3" style="max-width:80px;text-transform:uppercase" aria-label="Kód letiště"${city ? ' hidden' : ''}><span class="car-city" id="${id}City"${city ? '' : ' hidden'}>🏙️ ${esc(city ? city.name : '')}</span><input class="input" type="datetime-local" id="${dtId}" value="${dt}"></div></div>`;
     host.innerHTML = `<div class="card step-card">
-      <div class="sc-head"><div><h3>🚗 Auto na místě</h3><div class="muted">${ovOn(t) ? `Půjčovny bývají na letišti u cíle (${esc(t.flight.out.to)}) – vyzvednutí po příjezdu, vrácení před cestou zpět.` : 'Vyzvednutí na letišti po příletu, vrácení před odletem'}${days.length >= 2 ? ' – nebo jen na některé dny ve městě.' : ovOn(t) ? '' : '.'}</div></div>
+      <div class="sc-head"><div><h3>${ikona('auto')} Auto na místě</h3><div class="muted">${ovOn(t) ? `Půjčovny bývají na letišti u cíle (${esc(t.flight.out.to)}) – vyzvednutí po příjezdu, vrácení před cestou zpět.` : 'Vyzvednutí na letišti po příletu, vrácení před odletem'}${days.length >= 2 ? ' – nebo jen na některé dny ve městě.' : ovOn(t) ? '' : '.'}</div></div>
       ${t.car ? `<div class="chosen">${t.car.mode === 'skip' ? 'Bez auta' : `Auto: <b>${czk(t.car.totalCzk)}</b>`}</div>` : ''}</div>
       <div id="carRoute">${routeCarNote(t)}</div>
       ${cityTip ? `<div class="note info car-city-tip" style="margin-bottom:12px">🏙️ <div>${cityTip}<div style="margin-top:8px"><button type="button" class="btn sm primary" id="carSkipTop">Auto nepotřebuji →</button></div></div></div>`
@@ -3411,7 +3413,7 @@
     const t = T(), r = t.route, host = $('#tripStep'), n = r.bases.length;
     if (nightsLeft(t) !== 0) {
       // Bez sedících nocí by program posledního místa přesahoval odlet (krok lze otevřít i z lišty kroků).
-      host.innerHTML = `<div class="card step-card"><h3>📍 Program na trase</h3><div class="note warn" style="margin-top:10px">⚠️ <div>Noci v trase nesedí s délkou pobytu (${nightsTxt(stayDates(t).nights)}) – uprav jejich rozdělení v kroku Trasa.</div></div>
+      host.innerHTML = `<div class="card step-card"><h3>${ikona('program')} Program na trase</h3><div class="note warn" style="margin-top:10px">⚠️ <div>Noci v trase nesedí s délkou pobytu (${nightsTxt(stayDates(t).nights)}) – uprav jejich rozdělení v kroku Trasa.</div></div>
         <div class="row" style="margin-top:12px"><button class="btn primary" id="progRoute">← Upravit trasu</button></div></div>`;
       $('#progRoute').onclick = () => setStep('route');
       return;
@@ -3419,7 +3421,7 @@
     if (!(progIdx >= 0 && progIdx < n)) progIdx = 0;
     const i = progIdx, b = r.bases[i], last = i === n - 1;
     const { p, bp, out, opts } = baseProgOpts(t, i);
-    host.innerHTML = `<div class="card step-card"><div class="sc-head"><div><h3>📍 Program na trase</h3>
+    host.innerHTML = `<div class="card step-card"><div class="sc-head"><div><h3>${ikona('program')} Program na trase</h3>
       <div class="muted">Každé místo má vlastní program na dny, kdy tam budeš${b.stay && b.stay.mode === 'pick' && !out ? ' (kolem ubytování)' : ''} – můžeš ho upravit.</div></div></div>
       ${baseTabs(r, i, (x, j) => Boolean(basePlan(t, j)), 'data-pt')}
       <h3 class="base-h" style="font-size:15.5px;margin:14px 0 2px">${i + 1}. ${esc(b.name)} <span class="muted" style="font-weight:600;font-size:13px">· ${dayLbl(p.start)} – ${dayLbl(p.end)}${flyHead(t, i, p, last)}</span></h3>
@@ -3494,7 +3496,7 @@
     const { own, far, opts } = await progOpts(t);
     const center = opts || { lat: null };
     if (T() !== t || t.step !== 'program') return;
-    host.innerHTML = `<div class="card step-card"><div class="sc-head"><div><h3>🗺️ Co dělat · ${esc(t.dest.label)}</h3>
+    host.innerHTML = `<div class="card step-card"><div class="sc-head"><div><h3>${ikona('program')} Co dělat · ${esc(t.dest.label)}</h3>
       <div class="muted">Návrh programu na ${daysTxt(progDays)}${own && !far ? ' kolem tvého ubytování' : ''} – můžeš ho upravit.</div></div></div>
       ${nearProgNote(t.stay, { ...center, name: t.dest.label.replace(/ \(.*\)$/, '') })}
       <div id="tripPlaces"></div>
@@ -3945,7 +3947,7 @@
     const tl = timeline(t, { rides: savedRides(t) });
     // Průběh cesty první (dřív poslední karta pod cenou, rezervacemi a „Před cestou“) – Shrnutí je hlavně plán po dnech;
     // na počítači byl vlevo nahoře už dřív (desktop-trip.css order:-1)
-    const tlCard = `<div class="card step-card sum-tl"><h3>🗓️ Průběh cesty</h3>${tlHtml(tl)}</div>`;
+    const tlCard = `<div class="card step-card sum-tl"><h3>${ikona('kalendar')} Průběh cesty</h3>${tlHtml(tl)}</div>`;
     // na cestě (od dne po odletu, vlastní cesta): balení a pojištění už nikdo nezařizuje a rezervace jsou za námi –
     // „Před cestou“ pryč, „Co zarezervovat“ sbalené; po cestě ani vstupní podmínky (pas, víza, očkování)
     const past = Boolean(pastHtml(t)), onTrip = !past && !t.shared && outLeg(t).date < fmtYMD(new Date());
@@ -3969,9 +3971,9 @@
           : !ov && f.back && f.back.provider !== f.out.provider ? '<div class="note warn" style="margin-top:10px">⚠️ <div>Lety tam a zpět jsou dvě samostatné letenky – při zpoždění prvního letu druhá aerolinka nečeká.</div></div>' : ''}
       ${onTrip || past ? '</details>' : ''}</div></div>
       <div class="row wrap sum-acts" style="gap:8px;margin:0 0 14px">
-        <button class="btn primary" id="sumSave">${t.shared ? '💾 Uložit do Mých cest' : '🧳 Uloženo v Mých cestách'}</button>
-        <button class="btn" id="sumShare">📤 Sdílet cestu</button>
-        <button class="btn" id="sumIcs">📅 Do kalendáře</button>
+        <button class="btn primary" id="sumSave">${t.shared ? '💾 Uložit do Mých cest' : ikona('hotovo') + ' Uloženo v Mých cestách'}</button>
+        <button class="btn" id="sumShare">${ikona('sdilet')} Sdílet cestu</button>
+        <button class="btn" id="sumIcs">${ikona('kalendar')} Do kalendáře</button>
         ${window.Plus && !t.shared && !past ? '<button class="btn" id="sumSesit">📒 Sešit cesty · Plus</button>' : ''}
         <a class="btn ghost" href="${esc(safeUrl(Ics.gcalUrl(tripEvent(t))))}" target="_blank" rel="noopener">Přidat do Google Kalendáře ↗</a>
         <button class="btn ghost" id="sumNew">Začít novou cestu</button>

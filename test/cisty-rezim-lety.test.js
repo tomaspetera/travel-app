@@ -41,7 +41,7 @@ test('liveOn: živé ověření jen se zapnutým Kiwi; dokud /api/health není n
 });
 
 test('bez živého ověření: ⚡ u nabídky a v 📌 se nekreslí, samočinné ověřování nezačne, „ověřuji živě…“ se neukáže', () => {
-  assert.match(fl, /\$\{SearchHelp\.isCached\(t\) && liveOn\(\) \? ` · <button type="button" class="linkbtn" data-live="\$\{idx\}">⚡ Ověřit cenu živě<\/button>`/, 'řádek Ověřit:');
+  assert.match(fl, /\$\{SearchHelp\.isCached\(t\) && liveOn\(\) \? ` · <button type="button" class="linkbtn" data-live="\$\{idx\}">\$\{ikona\('znovu'\)\} Ověřit cenu živě<\/button>`/, 'řádek Ověřit:');
   assert.match(fl, /async function autoVerify\(res\) \{\n[^\n]+\n[^\n]+!liveOn\(\)[^\n]*return;/, 'autoVerify skončí hned');
   assert.match(fl, /const pinTodo = \(\) => !liveOn\(\) \? \[\] : pinList\(\)/, '📌 ⚡ Ověřit ceny (n) jen s něčím k ověření');
   assert.match(fl, /\$\{pinBusy \|\| todo\.length \? `<button type="button" class="btn sm" id="pinVerify"/, 'tlačítko jen s todo');

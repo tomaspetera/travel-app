@@ -736,7 +736,7 @@ test('průvodce: shrnutí má kartu „Co zařídit a co sbalit“, kalendář p
   c.S.trip = t;
   c.window.Trip.render();
   const h = sp(host.innerHTML);
-  const i = h.indexOf('<h3>🛂 Před cestou</h3>'), j = h.indexOf('id="preTrip"'), k = h.indexOf('🗓️ Průběh cesty');
+  const i = h.indexOf('<h3>🛂 Před cestou</h3>'), j = h.indexOf('id="preTrip"'), k = h.indexOf('<span class="ico i-kalendar" aria-hidden="true"></span> Průběh cesty');
   // průběh cesty je první karta Shrnutí, „Před cestou“ pod vstupními podmínkami
   assert.ok(k > 0 && i > k && j > i, 'průběh cesty první, „Před cestou“ pod vstupními podmínkami');
   assert.match(h, /Vyřiď mezinárodní řidičský průkaz \(vzor 1949\)/);

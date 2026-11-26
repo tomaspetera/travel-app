@@ -334,7 +334,7 @@ Tabulka odpovídá pořadí větví v `route()` (`server/index.js`). Limity jsou
 ### Ostatní soubory v public/
 - `public/sw.js` – service worker: síť napřed s ověřením, offline uložená kopie, nikdy starý kód; BUILD a PRECACHE dosadí server. Klíčové: `route()`, `networkFirst()`, `fresh()`, `remember()`, `confirmed()`, `lastSeen()`, `ASLEEP_AFTER`, `PAGE_TIMEOUT`.
 - `public/manifest.webmanifest` – manifest PWA (standalone, #080c1a, ikony, zkratky /#flights, /#planner, /#now); name a short_name dosazuje `server/lib/seo.js` `serveManifest()`.
-- `public/css/atlas.css` – základ: @font-face (`public/vendor/fonts/`), tokeny a motivy (`:root`, `[data-theme]`, `[data-map="dark"]`), layout, komponenty, Přehled, mapa, okna, responzivita, vstupní podmínky, O aplikaci, Záloha, Přenos.
+- `public/css/atlas.css` – základ: @font-face (`public/vendor/fonts/`), tokeny a motivy (`:root`, `[data-theme]`, `[data-map="dark"]`), layout, komponenty, Přehled, mapa, okna, responzivita, vstupní podmínky, O aplikaci, Záloha, Přenos; na konci ikony rozhraní Letsi místo emoji (`.ico`, `.i-…` – maska na `public/vendor/letsi/ikony/`, platí v obou vzhledech; `ikona()` v app.js).
 - `public/css/flights.css` – Lety: našeptávač `.pi`, výsledky `.res-*`, kalendář, hlídání, radar `.radar-*`, víc měst `.mc-*`, `.wake-bar`, 📌 `.pin-*`, 🔎 `.dp-*`, Sdílet cestu `.jed-*`; druhá polovina přepisuje starší pravidla.
 - `public/css/trip.css` – průvodce `.trip-*`, ubytování, Shrnutí, Objevuj `.ex-*`, místa `.poi`, trasa, auto, MapLibre, Moje cesty `.mt-*`, štítek reklama `.ad-tag`.
 - `public/css/pretrip.css` – Před cestou `.pt-*` a tisk jen karty (`@media print`).
@@ -346,7 +346,7 @@ Tabulka odpovídá pořadí větví v `route()` (`server/index.js`). Limity jsou
 - `public/css/desktop-explore.css` – desktop Objevuj (seznam a přilepená mapa), plánovač, Doporučení, Mapa, okna ve dvou sloupcích.
 - `public/css/desktop-trip.css` – desktop průvodce: lišta kroků, od 1280 px krok a Přehled cesty vpravo (`#tripAside`), Shrnutí ve dvou sloupcích.
 - `public/vendor/` – knihovny bez npm: `maplibre/` (MapLibre GL 5.24.0), `d3.min.js` 7.9.0, `topojson-client.min.js`, `countries-110m.json` (mapa světa, v PRECACHE), `flags/` (Twemoji), `fonts/` (Inter, Sora, Caveat, OFL; `fonts/letsi/` Onest a Unbounded pro `css/letsi.css` a náhledový obrázek), `letsi/` (ikony rozhraní, logo, znak a favicon z identity Letsi 2.1, původ v `letsi/README.md`); licence `public/vendor/LICENSES.txt`.
-- `public/icons/` – ikony PWA (icon-96/192/512, maskable, apple-touch) a `splash/` (31 obrazovek iOS), generuje `scripts/build-icons.mjs`; vedle `public/og-image.png` (náhled odkazu, `scripts/build-og-image.mjs`).
+- `public/icons/` – ikony PWA (icon-96/192/512, maskable, apple-touch) a `splash/` (31 obrazovek iOS, každá světlá a `-tmava`), generuje `scripts/build-icons.mjs`; vedle `public/og-image.png` (náhled odkazu, `scripts/build-og-image.mjs`).
 - `public/data/pretrip.json` – data Před cestou (EHIC, DROZD, řidičák, zásuvky, telefony; ověřeno 2026-10), čte `public/js/pretrip.js`, v PRECACHE.
 
 ## Data a skripty
@@ -403,7 +403,7 @@ Skripty (vše `node scripts/…`; README ## Data a licence má příkazy pro akt
 - Sdílení, záloha, přenos: `test/sharelink.test.js`, `test/sharecard.test.js`, `test/offershare.test.js`, `test/share-codes.test.js`, `test/backup.test.js`, `test/transfer.test.js`, `test/qr.test.js`
 - ⭐ Plus (falešné dveře, počítání cest, otázka na cenu, karta sešitu): `test/plus.test.js`
 - „Mám letenku“, „Koupeno?“ a zapojení počítadel (každá událost na jednom místě): `test/mam-letenku.test.js`
-- Vzhled, přístupnost, telefon a počítač: `test/a11y.test.js`, `test/css-ph.test.js`, `test/dark-visual.test.js`, `test/vzhled-letsi.test.js` (výchozí vzhled Letsi a nouzová cesta ?vzhled=atlas, manifest, offline sada, pravidla letsi.css), `test/kukatko.test.js` (kukátko: stavy z DOM, jedno slunce, omezený pohyb, usínání ve tmě), `test/desktop.test.js`, `test/desktop-trip.test.js`, `test/modal-scroll.test.js`, `test/phone-text.test.js`, `test/phone-visual.test.js`, `test/theme.test.js`, `test/history.test.js`, `test/newcomer.test.js`
+- Vzhled, přístupnost, telefon a počítač: `test/a11y.test.js`, `test/css-ph.test.js`, `test/dark-visual.test.js`, `test/vzhled-letsi.test.js` (výchozí vzhled Letsi a nouzová cesta ?vzhled=atlas, manifest, offline sada, pravidla letsi.css), `test/ikony-letsi.test.js` (ikony rozhraní Letsi místo emoji: `ikona()`, `.ico` v atlas.css, soubory z balíku, aria-hidden), `test/kukatko.test.js` (kukátko: stavy z DOM, jedno slunce, omezený pohyb, usínání ve tmě), `test/desktop.test.js`, `test/desktop-trip.test.js`, `test/modal-scroll.test.js`, `test/phone-text.test.js`, `test/phone-visual.test.js`, `test/theme.test.js`, `test/history.test.js`, `test/newcomer.test.js`
 - Data, skripty a tahle mapa: `test/data.test.js`, `test/climate.test.js`, `test/places-build.test.js`, `test/mapa.test.js`
 
 ## Nasazení a nastavení

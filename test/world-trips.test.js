@@ -127,7 +127,7 @@ test('počasí v okně země: poloha hlavního města z dat (capLL) – i přes 
 test('detail země Česko: bez „Najít lety sem“ (domov), hlavní je 🌍 Objevuj celou zemi; jiné země beze změny', () => {
   const fn = grab('function openCountry(iso)', '\nfunction ');
   assert.match(fn, /\$\{iso === 'CZ' \? '' : `<button class="btn primary" data-cm="search">/);
-  assert.match(fn, /`<button class="btn\$\{iso === 'CZ' \? ' primary' : ''\}" data-cm="explore">🌍 Objevuj celou zemi<\/button>`/);
+  assert.match(fn, /`<button class="btn\$\{iso === 'CZ' \? ' primary' : ''\}" data-cm="explore">\$\{ikona\('kompas'\)\} Objevuj celou zemi<\/button>`/);
   assert.match(app, /\$\$\('#modal \[data-cm\]'\)\.forEach\(b => \{ b\.onclick = \(\) => cmActs\[b\.dataset\.cm\]\(\); \}\);/, 'obsluha jen existujících tlačítek');
 });
 

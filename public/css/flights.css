@@ -3,7 +3,7 @@
 .demo-banner{background:linear-gradient(90deg,rgba(251,191,36,.18),rgba(251,113,133,.18));border-bottom:1px solid rgba(251,191,36,.35);color:var(--text);font-size:13px;padding:9px 26px;text-align:center}
 .demo-banner code{background:var(--surface-2);padding:1px 6px;border-radius:6px}
 .home-chip{border:1px solid var(--border);background:var(--btn-bg,var(--surface));box-shadow:var(--btn-sh,none);color:var(--text);font:600 13px Inter,sans-serif;padding:9px 14px;border-radius:12px;cursor:pointer;max-width:340px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.home-chip span{color:var(--muted);font-weight:600}
+.home-chip span:not(.ico){color:var(--muted);font-weight:600}
 .home-chip:hover{border-color:var(--border-2)}
 
 /* zdroje v sidebaru */
@@ -839,7 +839,7 @@ button.b:hover{filter:brightness(1.18);text-decoration:underline}
   .search-card{padding:16px}
   .res-tools{width:100%}
   .res-tools select{flex:1 1 100%}
-  .home-chip span{display:none} /* na telefonu jen „📍 Brno“ – okruh by se stejně uřízl */
+  .home-chip span:not(.ico){display:none} /* na telefonu jen ikona domova a „Brno“ – okruh by se stejně uřízl */
   /* nadpis obrazovky celý, zúží se raději 📍 domov („📍 Hradec Kr…“) – jinak „Doporučení“ přetékal přes tlačítko */
   .home-chip{flex:0 1 auto;min-width:0;padding:9px 11px}
   .topbar>div:first-child{flex:none}

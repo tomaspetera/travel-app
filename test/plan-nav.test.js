@@ -23,7 +23,7 @@ test('tlačítko u nabídky říká, co uživatel dostane – Naplánovat celou 
 test('úvod: pod hledáním letů druhá cesta – Naplánovat celou dovolenou (záložka Cesty)', () => {
   const hero = html.slice(html.indexOf('id="heroBox"'), html.indexOf('id="resumeRow"'));
   assert.ok(hero.indexOf('id="smartTry"') < hero.indexOf('id="heroPlan"'), 'pod příklady vět');
-  assert.match(hero, /<button type="button" class="hero-plan" id="heroPlan">🧳 Naplánovat celou dovolenou <span aria-hidden="true">→<\/span><\/button>/);
+  assert.match(hero, /<button type="button" class="hero-plan" id="heroPlan"><span class="ico i-program" aria-hidden="true"><\/span> Naplánovat celou dovolenou <span aria-hidden="true">→<\/span><\/button>/);
   assert.match(app, /const hp = \$\('#heroPlan'\); if \(hp\) hp\.onclick = \(\) => go\('trip'\);/);
 });
 

@@ -420,11 +420,11 @@ test('index.html: hlavní obsah v <main>, dekorativní SVG skryté před čtečk
   assert.deepEqual(bare, []);
 });
 
-test('přepínač motivu v panelu: stálý název „🌗 Tmavý režim“ (jako akce v ⋯ Další) a stav v aria-pressed', () => {
-  assert.match(html, /<div class="theme-toggle" id="themeToggle" role="button" tabindex="0" aria-pressed="false">\n\s*<span>🌗 Tmavý režim<\/span>/);
+test('přepínač motivu v panelu: stálý název „Tmavý režim“ (ikonu kreslí SVG vedle) (jako akce v ⋯ Další) a stav v aria-pressed', () => {
+  assert.match(html, /<div class="theme-toggle" id="themeToggle" role="button" tabindex="0" aria-pressed="false">\n\s*<span>Tmavý režim<\/span>/);
   assert.match(pick('applyTheme'), /\$\('#themeToggle'\)\.setAttribute\('aria-pressed', String\(t === 'dark'\)\)/);
   assert.doesNotMatch(appJs, /themeLabel/);
-  assert.match(appJs, /id="moreTheme">🌗 \$\{themeNow\(\) === 'dark' \? 'Světlý' : 'Tmavý'\} režim/);
+  assert.match(appJs, /id="moreTheme">\$\{ikona\('motiv'\)\} \$\{themeNow\(\) === 'dark' \? 'Světlý' : 'Tmavý'\} režim/);
 });
 
 test('našeptávač Odkud/Kam: šipka po Esc nabídku znovu otevře (prázdné pole → tipy), jinak beze změny', () => {
@@ -474,5 +474,5 @@ test('ikony v ⋯ Další: ➕ Přidat Letsi na plochu, 📲 Přenést do jinéh
   assert.match(pwa, /const LABEL = '➕ Přidat Letsi na plochu';/);
   assert.match(pwa, /<h2 class="pwa-h">➕ Letsi na plochu<\/h2>/);
   assert.doesNotMatch(pwa.replace(/\/\*[\s\S]*?\*\//g, ''), /📲/);
-  assert.match(tr, /id="moreXfer">📲 Přenést do jiného zařízení/);
+  assert.match(tr, /id="moreXfer"><span class="ico i-qr" aria-hidden="true"><\/span> Přenést do jiného zařízení/);
 });

@@ -69,7 +69,7 @@ test('Plánovač je Moje cesty v Cestě (bez zvláštní sekce); cesta z průvod
   assert.match(app, /if \(v === 'planner'\) \{ v = 'trip'; opts = \{ \.\.\.opts, mine: true \}; \}/);
   assert.match(app, /const isView = v => v === 'planner' \|\| NAV\.some\(n => n\[0\] === v\);/);
   assert.ok(!read('index.html').includes('view-planner'));
-  assert.match(app, /acts: `<div class="row wrap">\$\{t\.wizard && \(window\.Trip \|\| window\.Lazy\) \? '<button class="btn primary" id="tripWizard">🧳 Otevřít v průvodci<\/button>' : ''\}\$\{local \? '' : `\$\{home \? '' : `<button class="btn\$\{t\.wizard \? '' : ' primary'\}" id="tripSearch">/);
+  assert.match(app, /acts: `<div class="row wrap">\$\{t\.wizard && \(window\.Trip \|\| window\.Lazy\) \? '<button class="btn primary" id="tripWizard">' \+ ikona\('program'\) \+ ' Otevřít v průvodci<\/button>' : ''\}\$\{local \? '' : `\$\{home \? '' : `<button class="btn\$\{t\.wizard \? '' : ' primary'\}" id="tripSearch">/);
   // cesta po Česku (vlastní, bez letu a průvodce): bez Hledat lety a Info o zemi, hlavní je Ubytování
   assert.match(app, /const local = localTrip\(t\) && !t\.flight && !t\.wizard, home = t\.iso === 'CZ' && !t\.flight && !t\.wizard;/);
   assert.match(app, /<button class="btn\$\{home \? ' primary' : ''\}" id="tripStay">/);
