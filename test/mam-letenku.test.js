@@ -233,7 +233,7 @@ test('počítadla: každá událost na právě jednom místě, jen přes window.
 
 test('Přehled: „Letenku už mám“ vedle „Naplánovat celou dovolenou“ otevře formulář průvodce; novinka a WN_ID', () => {
   const html = readFileSync(new URL('../public/index.html', import.meta.url), 'utf8'), app = src('app.js');
-  assert.match(html, /<div class="hero-plans">\s*<button type="button" class="hero-plan" id="heroPlan">[^\n]*\n\s*<button type="button" class="hero-plan" id="heroOwn"><span class="ico i-let" aria-hidden="true"><\/span> Letenku už mám<span class="hp-more"> – doplň zbytek cesty<\/span> <span aria-hidden="true">→<\/span><\/button>\s*<\/div>/);
+  assert.match(html, /<div class="hero-plans">\s*<button type="button" class="hero-plan" id="heroPlan">[^\n]*\n\s*<button type="button" class="hero-plan" id="heroOwn"><span class="ico i-let" aria-hidden="true"><\/span> Letenku už mám – doplň zbytek cesty <span aria-hidden="true">→<\/span><\/button>\s*<\/div>/);
   assert.match(app, /const ho = \$\('#heroOwn'\); if \(ho\) ho\.onclick = \(\) => \{ go\('trip'\); if \(window\.Lazy\) Lazy\.run\('trip', \(\) => Trip\.haveTicket\(\)\);/);
   // nahoře ⭐ Letsi Plus (stejná vlna), hned pod ním tahle novinka
   assert.match(app, /const WHATS_NEW = \[\s*\['✨', 'ATLAS je teď Letsi',[^\n]*\],\s*\['🤝', 'Pomáhat se zlepšováním',[^\n]*\],\s*\['⭐', 'Letsi Plus',[^\n]*\],\s*\['✈️', 'Letenku už máš\?', 'na <b>Přehledu<\/b> doplníš zbytek cesty – trasu, ubytování i program\.'\],/);

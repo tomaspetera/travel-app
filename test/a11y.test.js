@@ -421,7 +421,8 @@ test('úvodní Odkud/Kam bez rámečku: obrys při fokusu z klávesnice (ve svě
 
 test('index.html: hlavní obsah v <main>, dekorativní SVG skryté před čtečkou (mapa světa ne – ovládá se)', () => {
   assert.equal((html.match(/<main class=/g) || []).length, 1);
-  assert.match(html, /<main class="content">[\s\S]*<\/main>\n {2}<\/div>\n<\/div>/);
+  // id a tabindex: cíl odkazu Přeskočit na obsah (test/klavesnice.test.js)
+  assert.match(html, /<main class="content" id="main" tabindex="-1">[\s\S]*<\/main>\n {2}<\/div>\n<\/div>/);
   // l-ico a l-jet jsou uvnitř #launch s aria-hidden, ikony polí v <span aria-hidden="true">
   const bare = [...html.matchAll(/(aria-hidden="true">)?(<svg\b[^>]*>)/g)].filter((x) => !x[1]).map((x) => x[2])
     .filter((t) => !/aria-hidden="true"|id="worldmap"|class="l-(ico|jet)"/.test(t));
