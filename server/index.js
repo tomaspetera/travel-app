@@ -216,7 +216,14 @@ const shareStore = config.upstashUrl && config.upstashToken ? cachedStore(upstas
 // Otevření krátkého odkazu mimo mezipaměť (= příkaz do Upstash): 60 za 10 minut z jedné adresy – zkoušení náhodných id
 // by jinak strop zdarma vyčerpalo všem a odkazy by do konce měsíce nešly otevřít.
 const shareGets = new RateLimiter();
+// Limit adresy obejde, kdo má mnoho adres (IPv6 /64 za /64, botnet): proto ještě celkem nejvýš 2 000 čtení mimo
+// mezipaměť za hodinu ze všech adres. Běžné otevírání odkazů (desítky za hodinu) ho nenarazí a útok strop zdarma
+// (500 000 měsíčně) vyčerpá nejdřív za ~10 dní místo za hodinu. Nad ním 503 (stránka /c/ bez náhledu, ale
+// s přesměrováním do aplikace) – čekání na jinou adresu nepomůže, tak ne 429.
+const shareGetsAll = new RateLimiter({ windowMs: 60 * 60e3 });
+export const _shareBudget = { perHour: 2000 }; // testy snižují
 const shareGetLimited = (req, id) => !shareStore.has('s:' + id) && rateLimited(req, 60, shareGets);
+const shareGetsOver = (id) => !shareStore.has('s:' + id) && shareGetsAll.hit('all', _shareBudget.perHour) > 0;
 // Stránky /c/ a /j/ (náhled a přesměrování) nejsou stránka aplikace: verze, kterou žádný service worker nemá – starší
 // service worker (z doby před /j/) by je jinak uložil místo stránky aplikace (sw.js remember ukládá stránku bez verze)
 // a offline by se otevřelo jen „Otevírám…“ s nekonečným přesměrováním
@@ -234,7 +241,13 @@ const countPairs = new RateLimiter();
 const statsFails = new RateLimiter({ windowMs: 60 * 60e3 }); // špatný klíč k /api/stats a /api/traces: 10 za hodinu z jedné adresy
 // Záznam návštěv jen se souhlasem (server/lib/traces.js): úložiště jako počty, adresa slouží jen limitu traceHits
 const traces = makeTraces(config.upstashUrl && config.upstashToken ? upstashTraces(config.upstashUrl, config.upstashToken) : memoryTraces());
+export const _traces = traces; // testy
 const traceHits = new RateLimiter(); // POST /api/trace: 30 za 10 minut z jedné adresy (odeslání při odchodu ze stránky)
+// …a nových návštěv (ID, o kterém traces neví) z jedné adresy nejvýš 3 za hodinu: denní strop 300 by jinak jedna
+// adresa zaplnila vymyšlenými ID. Skutečná nová návštěva je až po 30 minutách nečinnosti (count.js), 3 tedy stačí.
+// Okno hodina, ne den: O aplikaci slibuje, že si server IP adresu pamatuje nejdéle hodinu (hlídá test/about.test.js).
+// Adresa jen v paměti limitu, k záznamu se nedostane; nad limitem se záznam tiše zahodí (spolu s HOUR_CAP v traces.js).
+const traceIds = new RateLimiter({ windowMs: 60 * 60e3 });
 const wxHits = new RateLimiter(); // předpověď mimo mezipaměť serveru (MET Norway)
 const fxHits = new RateLimiter(); // kurzy pro okno země (/api/fx): klient je bere jednou denně, 60 za 10 minut stačí
 // clientIp (server/lib/security.js): na Renderu adresa od Cloudflare, ne podvrhnutelná první z X-Forwarded-For
@@ -266,7 +279,8 @@ function exploreCharge(req) {
 
 // Stejné hledání z téže adresy, které ještě běží: `${ip}|${tělo}` → počet běžících kopií
 const runningSearches = new Map();
-const TOO_MANY = { error: 'Příliš mnoho hledání za krátkou dobu – zkus to za pár minut.' };
+// bez „zkus to za pár minut“: aplikace vedle hlášky ukáže tlačítko s přesnou dobou z Retry-After („Zkusit znovu za 8 min“)
+const TOO_MANY = { error: 'Příliš mnoho hledání za krátkou dobu.' };
 // Nával (server/lib/crowd.js): stejné hledání od kohokoli, které ještě běží, se jen připojí; různých nejvýš
 // config.searchConcurrency naráz, dalších config.searchQueue čeká, nad tím 503 česky (aplikace hlášku ukáže).
 const searchRuns = sharedRuns();
@@ -717,7 +731,8 @@ async function route(req, res) {
     } catch (e) {
       if (e && e.status === 413) return badBody(req, res, e);
     }
-    traces.add(cleanTrace(b));
+    const t = cleanTrace(b);
+    if (t && (t.del || traces.has(t.id) || !rateLimited(req, 3, traceIds))) traces.add(t);
     res.writeHead(204, { 'Cache-Control': 'no-store' });
     return res.end();
   }
@@ -760,6 +775,7 @@ async function route(req, res) {
     const id = p.slice(11);
     if (!SHARE_ID.test(id) || !shareStore) return sendJson(req, res, 404, { error: 'Odkaz neexistuje nebo vypršel.' });
     if (shareGetLimited(req, id)) return sendJson(req, res, 429, { error: 'Příliš mnoho odkazů najednou – zkus to za pár minut.' });
+    if (shareGetsOver(id)) return sendJson(req, res, 503, { error: 'Sdílené odkazy jsou teď přetížené – zkus to za chvíli.' });
     const r = await loadShare(shareStore, id);
     // jen platné id: zkomolený odkaz (useknutý v chatu) i zkoušení náhodných id skončí výš bez počtu
     if (!r) {
@@ -1247,7 +1263,7 @@ async function route(req, res) {
     // zkusí znovu přes /api/share/<id>); dřív výpadek dal na odkaz od kamaráda chybu serveru v JSON
     const id = p.slice(3);
     let r = null;
-    let down = shareGetLimited(req, id);
+    let down = shareGetLimited(req, id) || shareGetsOver(id);
     if (!down) try { r = await loadShare(shareStore, id); } catch (e) { down = true; console.warn(`krátký odkaz: ${e.message}`); }
     // robot náhledu dostane stránku bez přesměrování (PREVIEW_BOT) – obsah podle User-Agent, proto jen soukromá mezipaměť
     const bot = PREVIEW_BOT.test(req.headers['user-agent'] || '');

@@ -478,7 +478,10 @@ test('server: 429 z limitu adresy má Retry-After (za kolik sekund znovu) a čes
     assert.equal(r.status, 429);
     const s = Number(r.headers.get('retry-after'));
     assert.ok(s > 590 && s <= 600, String(s));
-    assert.match((await r.json()).error, /Příliš mnoho hledání/);
+    const msg = (await r.json()).error;
+    assert.match(msg, /Příliš mnoho hledání/);
+    // přesnou dobu ukáže tlačítko „Zkusit znovu za 8 min“ (Retry-After) – „za pár minut“ by mu odporovalo
+    assert.doesNotMatch(msg, /minut/);
     // aplikace u chybové odpovědi hledání (429, 503) ukáže českou hlášku serveru (pole error), ne „HTTP 429“
     const flights = readFileSync(new URL('../public/js/flights.js', import.meta.url), 'utf8');
     assert.match(flights, /const r = await fetch\('api\/search'[^\n]*\n\s*if \(!r\.ok \|\| !r\.body\) \{\s*const e = await httpErr\(r\);/);

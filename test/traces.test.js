@@ -7,10 +7,10 @@ import vm from 'node:vm';
 import { readFileSync } from 'node:fs';
 
 process.env.ATLAS_MOCK = '1';
-const { createServer } = await import('../server/index.js');
+const { createServer, _traces } = await import('../server/index.js');
 const { config } = await import('../server/config.js');
 const { EVENTS } = await import('../server/lib/counts.js');
-const { cleanTrace, makeTraces, memoryTraces, upstashTraces, TRACE_EVENTS, CAP, TTL_SEC, MAX_STEPS } = await import('../server/lib/traces.js');
+const { cleanTrace, makeTraces, memoryTraces, upstashTraces, TRACE_EVENTS, CAP, HOUR_CAP, TTL_SEC, MAX_STEPS } = await import('../server/lib/traces.js');
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const plain = (x) => JSON.parse(JSON.stringify(x));
@@ -93,15 +93,38 @@ test('strop návštěv za den přes HLEN (přežije restart); další kroky už 
   assert.deepEqual(['aaaaaaaa', 'bbbbbbbb', 'cccccccc'].map((id) => m.add(cleanTrace({ id, s: [[0, 'app_open']] }))), [true, true, false]);
 });
 
-test('odvolání {id, del:1}: pryč z paměti a HDEL dnes i včera; nepovedený zápis se zahodí', async () => {
-  const { store, calls } = fakeUpstash(0);
-  const t = makeTraces(store, { now: () => T0 + 3600e3 });
-  t.add(cleanTrace({ id: ID, s: [[0, 'app_open']] }));
-  t.add(cleanTrace({ id: ID, del: 1 }));
-  await new Promise((r) => setImmediate(r));
-  assert.deepEqual(calls.map((c) => c.cmds), [[['HDEL', 'tr:2027-01-12', ID], ['HDEL', 'tr:2027-01-11', ID]]]);
+test('nových návštěv nejvýš HOUR_CAP za hodinu (strop dne nezaplní jeden útok); další kroky známé návštěvy projdou', async () => {
+  let now = T0;
+  const t = makeTraces(memoryTraces(), { now: () => now });
+  const id = (i) => `h${String(i).padStart(7, '0')}`;
+  const ok = Array.from({ length: HOUR_CAP + 5 }, (_, i) => t.add(cleanTrace({ id: id(i), s: [[0, 'app_open']] })));
+  assert.equal(ok.filter(Boolean).length, HOUR_CAP);
+  assert.ok(t.add(cleanTrace({ id: id(0), s: [[0, 'app_open'], [5, 'view_flights']] })), 'známá návštěva dál');
   await t.flush();
-  assert.equal(calls.length, 1, 'odvolaná návštěva se už nezapíše');
+  assert.ok(t.has(id(0)) && !t.has(id(HOUR_CAP)));
+  assert.ok(t.add(cleanTrace({ id: id(1), s: [[0, 'app_open'], [9, 'search_done']] })), 'po zápisu taky');
+  now += 3601e3;
+  assert.ok(t.add(cleanTrace({ id: id(99), s: [[0, 'app_open']] })), 'za hodinu zase');
+});
+
+test('odvolání {id, del:1}: pryč z paměti, HDEL dnes i včera až při flush jedním dotazem; nepovedený zápis se zahodí', async () => {
+  const { store, calls } = fakeUpstash(0);
+  let now = T0 + 3600e3;
+  const t = makeTraces(store, { now: () => now });
+  t.add(cleanTrace({ id: ID, s: [[0, 'app_open']] }));
+  assert.ok(t.add(cleanTrace({ id: ID, del: 1 })));
+  // zkoušení náhodných ID s del:1 nesmí stát ani jeden příkaz Upstash za požadavek
+  for (let i = 0; i < 500; i++) t.add(cleanTrace({ id: `x${String(i).padStart(7, '0')}`, del: 1 }));
+  await new Promise((r) => setImmediate(r));
+  assert.equal(calls.length, 0, 'odvolání hned nic do Upstash nepošle');
+  now += 2 * 86400e3; // flush až po půlnoci: dny podle času odvolání
+  await t.flush();
+  assert.equal(calls.length, 1, 'jeden pipeline, odvolaná návštěva se už nezapíše');
+  const [today, yday] = calls[0].cmds;
+  assert.deepEqual([today.slice(0, 3), yday.slice(0, 3)], [['HDEL', 'tr:2027-01-12', ID], ['HDEL', 'tr:2027-01-11', ID]]);
+  assert.equal(today.length - 2, CAP, 'neznámých ID jen do stropu (paměť)');
+  await t.flush();
+  assert.equal(calls.length, 1, 'po smazání nic dalšího');
   const broken = makeTraces({ kind: 'x', hlen: async () => { throw new Error('výpadek'); }, write: async () => assert.fail('nezapisovat'), read: async () => [], del: async () => {} }, { now: () => T0 });
   broken.add(cleanTrace({ id: ID, s: [[0, 'app_open']] }));
   await assert.doesNotReject(broken.flush());
@@ -134,6 +157,19 @@ test('POST /api/trace: 204 vždy (i zahozený záznam), jen POST, tělo nad 4 KB
   for (let i = 0; i < 26; i++) await post('{}', '203.0.113.52');
   for (let i = 0; i < 4; i++) assert.equal((await post('{}', '203.0.113.52')).status, 204);
   assert.equal((await post('{}', '203.0.113.52')).status, 429, '31. za 10 minut');
+});
+
+test('POST /api/trace: nových návštěv z jedné adresy nejvýš 3 za hodinu, nad limitem tiše 204; známá návštěva a odvolání dál', async () => {
+  const post = (b, ip) => fetch(`${base}/api/trace`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-forwarded-for': ip }, body: JSON.stringify(b) });
+  const id = (i) => `ip${String(i).padStart(6, '0')}`;
+  for (let i = 0; i < 6; i++) assert.equal((await post({ id: id(i), s: [[0, 'app_open']] }, '203.0.113.60')).status, 204);
+  assert.deepEqual(Array.from({ length: 6 }, (_, i) => _traces.has(id(i))), [true, true, true, false, false, false]);
+  assert.equal((await post({ id: id(0), s: [[0, 'app_open'], [4, 'view_flights']] }, '203.0.113.60')).status, 204);
+  assert.ok(_traces.has(id(0)), 'další kroky známé návštěvy projdou');
+  assert.equal((await post({ id: id(0), del: 1 }, '203.0.113.60')).status, 204);
+  assert.ok(!_traces.has(id(0)), 'odvolání projde i nad limitem');
+  await post({ id: 'jina0001', s: [[0, 'app_open']] }, '203.0.113.61');
+  assert.ok(_traces.has('jina0001'), 'jiná adresa má vlastní limit');
 });
 
 test('GET /api/traces: bez STATS_KEY 404, bez klíče a se špatným 401, se správným 200 + no-store', async () => {

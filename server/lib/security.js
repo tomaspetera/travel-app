@@ -125,6 +125,14 @@ export function clientIp(req) {
  * Požadavek z cizího webu: skript, obrázek nebo formulář na jiné stránce (Sec-Fetch-Site: cross-site – posílají ho
  * všechny dnešní prohlížeče; curl a jiné programy ne). Cizí stránka by jinak mohla své návštěvníky nechat hledat lety,
  * místa a fotky za jejich adresy – limit na adresu by neplatil a vyčerpané zdroje (Wikidata, Pexels, MET Norway) by
- * chyběly všem. Otevření adresy API odkazem (navigace, např. /api/health z jiného webu) projde.
+ * chyběly všem. Projde jen otevření adresy API odkazem (GET nebo HEAD do celého okna, např. /api/health z jiného
+ * webu). Navigace je ale i odeslání formuláře a načtení do <iframe> – dřív stačilo Sec-Fetch-Mode: navigate a cizí
+ * stránka tak formulářem (POST) zapisovala do /api/count, /api/share, /api/trace a /api/client-error nebo skrytým
+ * rámem hledala za adresy svých návštěvníků. Proto i Sec-Fetch-Dest: document a jen čtení.
  */
-export const crossSite = (req) => req.headers['sec-fetch-site'] === 'cross-site' && req.headers['sec-fetch-mode'] !== 'navigate';
+export function crossSite(req) {
+  const h = req.headers;
+  if (h['sec-fetch-site'] !== 'cross-site') return false;
+  const link = h['sec-fetch-mode'] === 'navigate' && h['sec-fetch-dest'] === 'document' && (req.method === 'GET' || req.method === 'HEAD');
+  return !link;
+}

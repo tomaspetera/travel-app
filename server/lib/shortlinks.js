@@ -13,6 +13,9 @@ import { request } from './http.js';
 export const ID_RE = /^[A-Za-z0-9]{8}$/;
 export const KINDS = ['trip', 'plan'];
 export const MAX_JSON = 200_000; // znaků JSON – cesta přes tři místa má ~18 000, plán z plánovače nejvýš ~110 000
+// bajtů po deflateRawSync: největší plán (~106 000 znaků, bigPlan v test/shortlinks.test.js) se stlačí na ~30 kB –
+// rezerva na text, který se stlačí hůř (názvy, odkazy); 150 000 znaků náhodného base64 dá ~113 kB a neprojde
+export const MAX_ZIP = 48_000;
 export const TTL_DAYS = 400;
 // bez 0/O a 1/l/I – odkaz jde přečíst a opsat
 const ALPHA = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
@@ -113,10 +116,17 @@ export async function createShare(store, kind, json, { photo = async () => null,
   try { o = JSON.parse(json); } catch (e) { throw bad('Cesta není platná.'); }
   if (!o || typeof o !== 'object' || Array.isArray(o)) throw bad('Cesta není platná.');
   if (kind === 'trip' && !(o.flight && o.flight.out && typeof o.flight.out.date === 'string')) throw bad('Cesta nemá let.');
+  // plán z plánovače (PlanShare.json) má vždy název a cíl, dny jako objekt a seznam jako pole – cokoli jiného je jen
+  // náklad do úložiště, aplikace by z něj plán stejně neotevřela
+  if (kind === 'plan' && !(typeof o.name === 'string' && typeof o.dest === 'string' && (o.days === undefined || (o.days && typeof o.days === 'object' && !Array.isArray(o.days))) && (o.checklist === undefined || Array.isArray(o.checklist)))) throw bad('Plán není platný.');
+  // Do úložiště jde stlačená podoba: skutečná cesta se stlačí na zlomek, náhodná data (base64 v libovolném poli) skoro
+  // vůbec – bez stropu by 256 MB zdarma zaplnilo pár tisíc odkazů po ~150 kB.
+  const z = zlib.deflateRawSync(json);
+  if (z.length > MAX_ZIP) throw bad('Cesta je příliš velká.');
   const m = metaOf(kind, o);
   let img = null;
   try { img = m.place ? await photo(m.place) : null; } catch (e) { img = null; }
-  const rec = JSON.stringify({ k: kind, z: zlib.deflateRawSync(json).toString('base64'), m: { title: m.title, desc: m.desc, ...(img ? { img } : {}) }, t: now() });
+  const rec = JSON.stringify({ k: kind, z: z.toString('base64'), m: { title: m.title, desc: m.desc, ...(img ? { img } : {}) }, t: now() });
   for (let i = 0; i < 4; i++) {
     const key = id();
     if (await store.add('s:' + key, rec, TTL_DAYS * 86400)) return key;
