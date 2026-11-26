@@ -153,9 +153,16 @@
    dny tam a zpět mají písmo v protibarvě výš */
 :root[data-brand="letsi"][data-theme="light"] :is(.sc-w.wk,.sc-d:is(.wk,.hol):not(.r-out,.r-back,.r-both) span){color:#c22a45}
 
-/* ============ SPODNÍ LIŠTA: Vápno (v tmavém Noc), aktivní sekce tlačítkem ============ */
+/* ============ SPODNÍ LIŠTA: Vápno (v tmavém Noc), aktivní sekce tučně Nocí, ostatní text-3 (stav „Záložky“ z manuálu) ============ */
 :root[data-brand="letsi"] .mobile-nav{-webkit-backdrop-filter:none;backdrop-filter:none}
-:root[data-brand="letsi"] .mobile-nav .mi.active,:root[data-brand="letsi"][data-theme="light"] .mobile-nav .mi.active{background:var(--letsi-tlacitko);color:var(--letsi-tlacitko-text);box-shadow:none}
+:root[data-brand="letsi"] .mobile-nav .mi.active,:root[data-brand="letsi"][data-theme="light"] .mobile-nav .mi.active{background:none;color:var(--text);box-shadow:none}
+/* lišta přes celou šířku u spodního okraje s linkou nahoře (jako ve vzoru), ne plovoucí ostrůvek se stínem */
+@media(max-width:1023px){
+  :root[data-brand="letsi"] .mobile-nav{left:0;right:0;bottom:0;height:calc(62px + env(safe-area-inset-bottom));padding:6px 6px calc(6px + env(safe-area-inset-bottom));border-radius:0;border-width:1px 0 0;box-shadow:none}
+}
+:root[data-brand="letsi"] .mobile-nav .mi{color:var(--faint)}
+:root[data-brand="letsi"] .mobile-nav .mi span{font-weight:500;letter-spacing:0}
+:root[data-brand="letsi"] .mobile-nav .mi.active span{font-weight:700}
 
 /* ============ ÚVODNÍ OBRAZOVKA (aplikace na ploše): Vápno / Noc, dlaždice Pistácie s Nocí ============ */
 :root[data-brand="letsi"] #launch{background:var(--bg);color:var(--text)}
@@ -171,3 +178,68 @@
 /* ceny vždy barvou textu (zelená zůstává jen u hodnocení ceny, ne na částce v kartě) */
 :root[data-brand="letsi"] :is(.cmp-price b,.fav-p b,.lw-p.best,.nb-d.best b,.alt-p.good){color:var(--text)}
 :root[data-brand="letsi"] .th-total .tt{color:#F3F4F0}
+
+/* ============ KROK 2: SOUČÁSTI PODLE MANUÁLU (rohy a stíny z tokenů: karta 20, formulář a panel 22, štítek 14) ============ */
+:root[data-brand="letsi"]{--letsi-r-l:22px;--letsi-roleta:#D8DBD0;--letsi-okno:#FFFFFF}
+:root[data-brand="letsi"][data-theme="light"]{--shadow:none;--input-line:#DFE2DA}
+:root[data-brand="letsi"][data-theme="dark"]{--letsi-roleta:#343A48;--letsi-okno:#262A36;--input-line:#3A3F4D}
+/* karty: bílá s linkou 1 px, bez stínu a bez skla */
+:root[data-brand="letsi"] .card{box-shadow:none;-webkit-backdrop-filter:none;backdrop-filter:none}
+:root[data-brand="letsi"] :is(.search-card,.cal-box){border-radius:var(--letsi-r-l)}
+/* záhlaví sekcí: Unbounded 600 jako nadpis karty (800 se vysází jako 700 a těžkne) */
+:root[data-brand="letsi"] .section-head h2{font-weight:600;letter-spacing:-.02em}
+/* pole formuláře: bílá, linka, fokus 2 px Noc (1 px okraj + 1 px stín – pole neposkočí); v tmavém Vápno */
+:root[data-brand="letsi"] :is(.input,select,textarea,.pi){border-color:var(--input-line)}
+:root[data-brand="letsi"] :is(.input:focus,select:focus,textarea:focus,.pi:focus-within){border-color:var(--text);box-shadow:0 0 0 1px var(--text);background:var(--input-bg)}
+/* okna a spodní listy: bez rozmazaného skla za oknem, linka místo světlého okraje, stín velké vrstvy z tokenů */
+:root[data-brand="letsi"] .modal-bg{background:rgba(20,22,31,.5);-webkit-backdrop-filter:none;backdrop-filter:none}
+:root[data-brand="letsi"] .modal{border-color:var(--border);box-shadow:var(--shadow-lg)}
+:root[data-brand="letsi"] .toast{border-color:var(--border);box-shadow:var(--nav-shadow)}
+/* čipy: Pistáciová pěna s Nocí, bez rámečku (v tmavém #2A2E3A s Vápnem) */
+:root[data-brand="letsi"] :is(.chip,.home-chip,.gnd-chip){background:var(--surface-2);border-color:transparent;box-shadow:none;color:var(--text)}
+:root[data-brand="letsi"] .gnd-chip:hover{border-color:var(--text)}
+/* tmavý režim: třetí text (#8E949E) má na čipu jen 4,44 : 1 → o stupeň světlejší (text-2, 5,93 : 1) */
+:root[data-brand="letsi"][data-theme="dark"] :is(.chip,.b,.fchip,.home-chip,.gnd-chip,.pi-chip,.st-chip,.app-chip,.qd,.opill,.nb-d,.jed-tag){--faint:#A6ACB6}
+/* dobrou cenu nese štítek (plná Pistácie s Nocí jako „Mám to“), ne zelené číslo */
+:root[data-brand="letsi"] :is(.b.good,.gnd-chip.hot){background:#D6DE82;border-color:transparent;color:#14161F}
+:root[data-brand="letsi"] .b.hot{background:var(--surface-2);color:var(--text)}
+
+/* karta nabídky letu: lety vlevo, cena vpravo v Unbounded barvou textu (tabulkové číslice, mezera mezi částkou a Kč) */
+:root[data-brand="letsi"] .trip-mini .tm-price{font-family:var(--letsi-pismo-titulky);font-weight:700;letter-spacing:-.02em;word-spacing:.12em;font-variant-numeric:tabular-nums;color:var(--text)}
+:root[data-brand="letsi"] .trip-mini .tm-price small{font-family:var(--letsi-pismo-text);letter-spacing:0;word-spacing:0}
+/* hlavička výsledků „nejlevněji … Kč/os.“ a další tučné částky: barvou textu */
+:root[data-brand="letsi"] b.good{color:var(--text)}
+
+/* cenový kalendář: den = okénko, roleta shora tím níž, čím dražší (clona = cena; inset stín bez rozmazání, žádný
+   přechod); nejlevnější den (--h:140 z heatOf) nese Pistácie, vybraný den pěna + lem 2 px Noc; čísla barvou textu */
+:root[data-brand="letsi"] .cd:not(.empty):not(.none){background:var(--letsi-okno);border:1px solid var(--border);border-radius:var(--radius-sm);box-shadow:inset 0 calc((140 - var(--h, 140)) * .22px) 0 0 var(--letsi-roleta)}
+:root[data-brand="letsi"] .cd b{color:var(--text);font-weight:700}
+:root[data-brand="letsi"] .cd span{color:var(--muted)}
+:root[data-brand="letsi"] .cd.none{border-radius:var(--radius-sm)}
+:root[data-brand="letsi"] .cd[style*="--h:140"]:not(.sel){background:#D6DE82;box-shadow:none;border-color:transparent}
+:root[data-brand="letsi"] .cd[style*="--h:140"]:not(.sel) :is(b,span){color:#14161F}
+:root[data-brand="letsi"] .cd.sel{background:var(--surface-2);box-shadow:inset 0 0 0 2px var(--text);outline:none}
+:root[data-brand="letsi"] .cd.click:hover{outline:2px solid var(--text)}
+
+/* „Je to dobrá cena?“: stupnice plnými úseky místo přechodu zelená–žlutá–červená (levná Pistácie, dražší roleta) */
+:root[data-brand="letsi"] .pc-bar{height:12px;background:var(--letsi-roleta)}
+:root[data-brand="letsi"] .pc-bar::before,:root[data-brand="letsi"] .pc-bar::after{content:"";position:absolute;top:0;bottom:0;width:33.34%}
+:root[data-brand="letsi"] .pc-bar::before{left:0;border-radius:6px 0 0 6px;background:#D6DE82}
+:root[data-brand="letsi"] .pc-bar::after{right:0;border-radius:0 6px 6px 0;background:var(--faint)}
+:root[data-brand="letsi"] .pc-bar i{z-index:1}
+
+/* Sdílet cestu / „Jede někdo se mnou?“: bez modré a fialové – ikony a štítky v pěně, výběr Nocí, tlačítko jako hlavní */
+:root[data-brand="letsi"] :is(.jed-ic,.jed-ic.pub,.jed-tag,.jed-tag.pub){background:var(--surface-2);color:var(--text)}
+:root[data-brand="letsi"] .jed-pub{border-color:var(--border);background:transparent}
+:root[data-brand="letsi"] .jed-th.on{outline-color:var(--text)}
+:root[data-brand="letsi"] .jed-th.on+span{color:var(--text)}
+:root[data-brand="letsi"] .jed-ph{background:var(--surface-2)}
+:root[data-brand="letsi"] .jed-go2{background:var(--letsi-tlacitko);color:var(--letsi-tlacitko-text)}
+:root[data-brand="letsi"] .jed-hero:not(.ph)::after{display:none}
+/* hotové kroky průvodce: Pistácie s Nocí místo zelené (zelená v paletě Letsi není) */
+:root[data-brand="letsi"] .stepbar .st.done span{background:#D6DE82;color:#14161F}
+/* spojnice hotových kroků: tenká čára barvou textu (zelená mimo paletu; tenká Pistácie by na Noci byla neonová limetka) */
+:root[data-brand="letsi"] .stepbar i.done{background:var(--text)}
+/* značka aerolinky: barva poskytovatele se píše do style (modrá Demo Air, fialové a modré aerolinky) → Noc s Vápnem;
+   kód aerolinky v odznaku zůstává, takže se nic neztratí; !important jen kvůli stylu v prvku */
+:root[data-brand="letsi"] .cbadge{background:var(--text)!important;color:var(--bg)}
