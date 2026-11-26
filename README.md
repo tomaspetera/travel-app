@@ -1356,14 +1356,25 @@ názvem a popisem. Vše skládá server (`server/lib/seo.js`) z jednoho místa �
 
 ### Přejmenování a doména
 
+Aplikace se jmenuje **Letsi** (dřív ATLAS) a vzhled Letsi 2.1 je výchozí pro všechny.
+
+**Hotovo:** název a texty v aplikaci, na serveru, v právních textech a statistikách; titulek, popis a náhledový obrázek
+(`server/brand.js`, `public/og-image.png`); ikony na plochu, úvodní obrazovky iOS, favicon a barvy lišty z balíku
+identity; výchozí vzhled Letsi s kukátkem (nouzová cesta ke starému vzhledu: `?vzhled=atlas`, zpět `?vzhled=letsi`).
+Technické názvy (`atlas_*` v prohlížeči, `ATLAS_MOCK`, mezipaměť `atlas-…`) zůstávají – jejich změna by lidem smazala
+uložená data.
+
+**Zbývá:** doména `letsi.cz` (registrace u WEDOS), na Renderu **Custom Domains** a pak proměnná `PUBLIC_URL` – postup níž.
+Do té doby web běží na `atlas-letenky.onrender.com`.
+
 | Co | Kde to změnit |
 |---|---|
 | Název, titulek, popis pro vyhledávače a náhled, popis aplikace na ploše, slogan a tři body na obrázku, popis obrázku | `server/brand.js` (jedno místo – stránka, náhled, manifest, JSON-LD, 404) |
 | Adresa webu (kanonická, náhled, `sitemap.xml`, `robots.txt`) | proměnná `PUBLIC_URL` na Renderu; výchozí `url` v `server/brand.js` |
-| Náhledový obrázek `public/og-image.png` | `npm run build:og` – šablona je v `scripts/build-og-image.mjs`, texty bere z `brand.js`. Potřebuje Playwright s Chromiem (`npm i -g playwright && npx playwright install chromium`), projekt závislost nemá. `npm test` pozná, když se obrázek po změně `brand.js` nebo šablony znovu nevygeneroval |
-| Logo a ikony (na plochu, úvodní obrazovky iOS) | `scripts/build-icons.mjs` (`npm run build:icons`); favicon a logo v postranním panelu a na úvodní obrazovce `#launch` v `public/index.html` |
-| Barvy | `public/css/atlas.css` (`--grad`, `--bg`), `theme_color` a `background_color` v `public/manifest.webmanifest` |
-| Název v textech aplikace (postranní panel, hlášky, *O aplikaci*) | `public/index.html` a `public/js/*.js` (`grep -rn ATLAS public/`) |
+| Náhledový obrázek `public/og-image.png` | `npm run build:og` – šablona je v `scripts/build-og-image.mjs` (logo a znak `scripts/letsi-znak.svg`, písma z `public/vendor/fonts/letsi`), texty bere z `brand.js`. Potřebuje Playwright s Chromiem (`npm i -g playwright && npx playwright install chromium`), projekt závislost nemá. `npm test` pozná, když se obrázek po změně `brand.js` nebo šablony znovu nevygeneroval |
+| Ikony na plochu a úvodní obrazovky iOS | hotová PNG z balíku identity (`ikona/`) do `public/icons/`, pak `npm run build:icons` (`scripts/build-icons.mjs` dopočítá zbylé velikosti a úvodní obrazovky); favicon `public/vendor/letsi/` |
+| Barvy | `public/css/letsi.css` (vzhled Letsi), `theme_color` a `background_color` v `public/manifest.webmanifest`, `theme-color` v `public/index.html` |
+| Název v textech aplikace | `public/index.html` a `public/js/*.js`; `test/nazev-letsi.test.js` hlídá, že ve viditelných textech „ATLAS“ není |
 
 Změna `brand.js` nebo `PUBLIC_URL` je nová verze aplikace (patří do otisku verze v `server/lib/pwa.js`): service
 worker se aktualizuje a aplikace na ploše si nový název vezme sama (Chrome kontroluje manifest nejvýš jednou denně).
