@@ -92,6 +92,26 @@ test('výpadek úložiště: událost se přijme, počet počká v paměti a zap
   assert.deepEqual(await mem.get(['cnt:2027-01-12:trip_saved']), [2]);
 });
 
+test('čtení, které předběhl zápis, se do mezipaměti neuloží – jinak by 5 minut chyběla zapsaná dávka', async () => {
+  const mem = memoryCounts();
+  let release, gets = 0;
+  const store = {
+    kind: 'pomale-cteni',
+    add: mem.add,
+    // první čtení vrátí stav před zápisem, ale doběhne až po něm (dotaz do Upstash během flush())
+    get: async (keys) => { gets++; const old = await mem.get(keys); if (gets === 1) await new Promise((r) => { release = r; }); return old; },
+  };
+  const c = makeCounter(store, { now: () => T0 });
+  c.hit('trip_started');
+  const slow = c.stats(1);
+  await new Promise((r) => setImmediate(r));
+  await c.flush();
+  release();
+  await slow;
+  assert.deepEqual((await c.stats(1)).total, { trip_started: 1 });
+  assert.equal(gets, 2, 'po zápisu se čte znovu');
+});
+
 test('Upstash: INCRBY jedním dotazem bez opakování, doba života 400 dní jen novému klíči, čtení jedním MGET', async () => {
   const sent = [];
   const req = async (url, opts) => {

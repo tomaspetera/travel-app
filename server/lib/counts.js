@@ -63,6 +63,7 @@ export function makeCounter(store, { now = Date.now, flushMs = 10 * 60e3, cacheM
   let pend = new Map(); // '<den>:<událost>' → počet od posledního zápisu
   let timer = null;
   let cached = null; // { at, m } – uložené součty za 90 dní: /api/stats je veřejné a nesmí jít každým dotazem do Upstash
+  let writes = 0; // počet zápisů: čtení, které zápis předběhl, se neuloží – 5 minut by v něm chyběla zapsaná dávka
   const arm = () => {
     if (timer || !pend.size) return;
     timer = setTimeout(flush, flushMs);
@@ -77,6 +78,7 @@ export function makeCounter(store, { now = Date.now, flushMs = 10 * 60e3, cacheM
     try {
       await store.add(batch.map(([k, n]) => [KEY + k, n]), TTL_DAYS * 86400);
       cached = null;
+      writes++;
     } catch (e) {
       for (const [k, n] of batch) pend.set(k, (pend.get(k) || 0) + n);
       arm();
@@ -94,19 +96,21 @@ export function makeCounter(store, { now = Date.now, flushMs = 10 * 60e3, cacheM
     flush,
     async stats(days = 30) {
       const t = now();
-      if (!cached || t - cached.at > cacheMs) {
+      let m = cached && t - cached.at <= cacheMs ? cached.m : null;
+      if (!m) {
+        const w = writes;
         // vždy celých 90 dní jedním MGET: jiné ?days= není další dotaz do úložiště
         const keys = Array.from({ length: MAX_DAYS }, (_, i) => dayOf(t - i * DAY_MS)).flatMap((d) => EVENTS.map((e) => `${d}:${e}`));
         const vals = await store.get(keys.map((k) => KEY + k));
-        const m = new Map();
+        m = new Map();
         keys.forEach((k, i) => { const n = Number(vals[i]); if (n > 0) m.set(k, n); });
-        cached = { at: t, m };
+        if (w === writes) cached = { at: t, m };
       }
       const out = [], total = {};
       for (let i = clampDays(days) - 1; i >= 0; i--) {
         const day = dayOf(t - i * DAY_MS), counts = {};
         for (const e of EVENTS) {
-          const n = (cached.m.get(`${day}:${e}`) || 0) + (pend.get(`${day}:${e}`) || 0);
+          const n = (m.get(`${day}:${e}`) || 0) + (pend.get(`${day}:${e}`) || 0);
           if (n) { counts[e] = n; total[e] = (total[e] || 0) + n; }
         }
         out.push({ day, counts });
