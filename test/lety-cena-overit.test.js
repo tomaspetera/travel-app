@@ -21,7 +21,7 @@ function cut(from, to) {
 }
 const F = new Function('SearchHelp', 'esc', 'czk', 'enc', 'yymmdd', 'shopName', 'provColor', 'safeUrl',
   `${cut('  /* ---------- zápis ceny v kartě nabídky a ověření ceny', '  // res = výsledek, ze kterého nabídka je')}
-   ${cut('  function bookButtons(t) {', '  // Ryanair a Wizz Air účtují v měně země odletu')}
+   ${fl.match(/^ *const affBuy = [^\n]+\n *const buyRel = [^\n]+\n *const adTag = [^\n]+\n/m)[0]}${cut('  function bookButtons(t) {', '  // Ryanair a Wizz Air účtují v měně země odletu')}
    return { priceRows, verifyTargets, verifyLinks, verifyRow, bookButtons };`);
 const M = F(SearchHelp, esc, czk, encodeURIComponent, s => s.slice(2, 10).replace(/-/g, ''), id => id, () => '#000', u => u);
 // text, jak ho uživatel čte: bez značek, kousky řádku oddělené mezerou

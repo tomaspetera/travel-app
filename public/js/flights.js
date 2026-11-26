@@ -223,6 +223,11 @@
   // Na tlačítko jen jméno prodejce („Kiwi.com“), bez vysvětlivky v závorce; u „Letenky (Aviasales)“ je prodejcem
   // to v závorce („Tam: Aviasales“, ne „Tam: Letenky“).
   const shopName = id => (id === 'travelpayouts' ? 'Aviasales' : provName(id).replace(/\s*\(.*\)\s*$/, ''));
+  // Koupě přes partnerský tp.media (affiliate) = reklama: rel=sponsored a viditelný štítek jako ubytování v Cestě
+  // (trip.js affUrl, zákon o ochraně spotřebitele); přímé odkazy aerolinek zůstanou jen noopener
+  const affBuy = u => /^https:\/\/tp\.media\//.test(String(u || ''));
+  const buyRel = u => (affBuy(u) ? 'sponsored nofollow noopener' : 'noopener');
+  const adTag = u => (affBuy(u) ? ' <span class="ad-tag">reklama</span>' : '');
   const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
 
   // Chyba bez hlášky serveru (výpadek, 502 z proxy, HTML místo JSON) česky, ne „HTTP 502“; hlášky serveru (limit hledání,
@@ -2517,7 +2522,7 @@
   // trasou v téže měně: jako server (search.js roundTripUrl) jeden odkaz na zpáteční let – cena stejná, platí se jednou
   const sameRound = t => (!t.bookUrl && t.back && (t.out.siteCur || '') === (t.back.siteCur || '') ? SearchHelp.roundBookUrl(t) : null);
   function bookButtons(t) {
-    const btn = (url, label, prov) => url ? `<a class="btn sm book" style="--pc:${provColor(prov)}" href="${esc(safeUrl(url))}" target="_blank" rel="noopener">${label}</a>` : `<span class="btn sm ghost" title="Demo data nemají rezervační odkaz" style="opacity:.55">${label}</span>`;
+    const btn = (url, label, prov) => url ? `<a class="btn sm book" style="--pc:${provColor(prov)}" href="${esc(safeUrl(url))}" target="_blank" rel="${buyRel(url)}">${label}${adTag(url)}</a>` : `<span class="btn sm ghost" title="Demo data nemají rezervační odkaz" style="opacity:.55">${label}</span>`;
     // orientační cena (z mezipaměti) není nabídka ke koupi – skutečnou cenu ukáže až prodejce, proto „Otevřít“
     const verb = SearchHelp.isCached(t) ? 'Otevřít' : 'Koupit';
     if (t.bookUrl) return btn(t.bookUrl, `${verb} ${t.provider === 'travelpayouts' ? 'na Aviasales' : 'u ' + esc(shopName(t.provider))} ↗`, t.provider);
@@ -2998,7 +3003,7 @@
   function mBuy(o, i) {
     const url = o.bookUrl || o.out.bookUrl, prov = o.bookUrl ? o.provider : o.out.provider;
     const gq = `https://www.google.com/travel/flights?hl=cs&curr=CZK&q=${enc(`Flights from ${o.out.from} to ${o.out.to} on ${o.out.date} one way`)}`;
-    return (url ? `<a class="btn sm book" style="--pc:${provColor(prov)}" href="${esc(safeUrl(url))}" target="_blank" rel="noopener">Koupit ${i + 1}. let ${prov === 'travelpayouts' ? 'na Aviasales' : 'u ' + esc(shopName(prov))} ↗</a>`
+    return (url ? `<a class="btn sm book" style="--pc:${provColor(prov)}" href="${esc(safeUrl(url))}" target="_blank" rel="${buyRel(url)}">Koupit ${i + 1}. let ${prov === 'travelpayouts' ? 'na Aviasales' : 'u ' + esc(shopName(prov))} ↗${adTag(url)}</a>`
       : `<span class="btn sm ghost" title="Demo data nemají rezervační odkaz" style="opacity:.55">Koupit ${i + 1}. let</span>`)
       + ` <a class="mc-ver" href="${esc(gq)}" target="_blank" rel="noopener">Ověřit (Google)</a>`;
   }
@@ -3455,7 +3460,7 @@
     const shop = p => (p === 'travelpayouts' ? 'na Aviasales' : 'u ' + shopName(p));
     // orientační cena není nabídka ke koupi – skutečnou cenu ukáže až prodejce (jako bookButtons)
     const verb = d.oc ? 'Otevřít' : 'Koupit let';
-    return buy.map(([u, p, leg]) => `<a class="btn primary" href="${esc(safeUrl(u))}" target="_blank" rel="noopener">${leg === 'out' ? 'Let tam' : leg === 'back' ? 'Let zpět' : verb} ${esc(shop(p))} ↗</a>`).join('');
+    return buy.map(([u, p, leg]) => `<a class="btn primary" href="${esc(safeUrl(u))}" target="_blank" rel="${buyRel(u)}">${leg === 'out' ? 'Let tam' : leg === 'back' ? 'Let zpět' : verb} ${esc(shop(p))} ↗${adTag(u)}</a>`).join('');
   }
   function dpHtml(d) {
     // „víkend“ podle termínu cesty, jak ho okno ukazuje (ne podle dne příletu – noční let pá → so by z pá–út udělal víkend)
@@ -3600,7 +3605,7 @@
     if (all.some(t => t.out && t.out.from === x.from && t.out.to === x.to && t.out.date === x.d1 && (!x.d2 || (t.back && t.back.date === x.d2)))) return '';
     const buy = (Array.isArray(x.buy) ? x.buy : []).filter(b => Array.isArray(b) && /^https?:\/\//i.test(String(b[0] || '')));
     const shop = p => (p === 'travelpayouts' ? 'na Aviasales' : 'u ' + shopName(p));
-    const links = buy.map(([u, p, leg]) => `<a href="${esc(u)}" target="_blank" rel="noopener">${leg === 'out' ? 'Tam' : leg === 'back' ? 'Zpět' : 'Koupit nabídku z karty'} ${esc(shop(p))} ↗</a>`).join(' · ');
+    const links = buy.map(([u, p, leg]) => `<a href="${esc(safeUrl(u))}" target="_blank" rel="${buyRel(u)}">${leg === 'out' ? 'Tam' : leg === 'back' ? 'Zpět' : 'Koupit nabídku z karty'} ${esc(shop(p))} ↗</a>${adTag(u)}`).join(' · ');
     return `<div class="note info card-note">ℹ️ <div>Na kartě radaru bylo <b>${czk(x.czk)}/os.</b> (${esc(SearchHelp.radarRoute(x))} · ${fmtDate(x.d1)}${x.d2 ? '–' + fmtDate(x.d2) : ''}). Hledání do jednoho cíle tuhle nabídku teď nevrátilo – zdroje (hlavně Kiwi.com) dávají pro „kamkoliv“ a pro konkrétní cíl různé nabídky a ceny se mění.${links ? ` ${links}` : ''}</div></div>`;
   }
   /** Ryanair nebo Wizz Air neodpověděl: nejlevnější lety chybí a „nejlevněji“ může klamat – nahlas a se Zkusit znovu. */
@@ -5713,7 +5718,7 @@
     const tail = (a ? `<div class="pin-age${a.day ? ' old' : ''}">${a.day ? `⚠ cena ${a.z} ${esc(a.txt)} – může být jiná` : `ceny ${a.z} ${esc(a.txt)}`}</div>` : '') + `<div class="pin-ln faint">${esc(pinBasis(p.q))}</div>`;
     if (p.kind === 'r') {
       const r = p.r, pax = SearchHelp.paxOf(p.q).seats;
-      const buy = (r.buy || []).filter(b => /^https?:\/\//i.test(String(b[0] || ''))).map(([u, pv, leg]) => `<a class="btn sm book" style="--pc:${provColor(pv)}" href="${esc(safeUrl(u))}" target="_blank" rel="noopener">${leg === 'out' ? `Tam: ${esc(shopName(pv))}` : leg === 'back' ? `Zpět: ${esc(shopName(pv))}` : `Koupit ${pv === 'travelpayouts' ? 'na Aviasales' : 'u ' + esc(shopName(pv))}`} ↗</a>`).join('');
+      const buy = (r.buy || []).filter(b => /^https?:\/\//i.test(String(b[0] || ''))).map(([u, pv, leg]) => `<a class="btn sm book" style="--pc:${provColor(pv)}" href="${esc(safeUrl(u))}" target="_blank" rel="${buyRel(u)}">${leg === 'out' ? `Tam: ${esc(shopName(pv))}` : leg === 'back' ? `Zpět: ${esc(shopName(pv))}` : `Koupit ${pv === 'travelpayouts' ? 'na Aviasales' : 'u ' + esc(shopName(pv))}`} ↗${adTag(u)}</a>`).join('');
       return `<div class="card pin-card" data-pk="${esc(p.k)}">${pinHead(p)}
         <div class="pin-pr"><div class="pbox">${priceRows({ per: r.czk, total: r.czk * pax, ret: r.d2, q: { adults: pax } })}</div>${rel}</div>
         ${pinDoor(p, x.d)}
@@ -5844,7 +5849,7 @@
   /** Karta nabídky ze sdíleného odkazu (#offer=, app.js): cena z doby sdílení s upozorněním, Koupit a Hledat znovu. */
   function openOffer(o) {
     const a = o.at ? Pins.age(o.at, Date.now()) : null, past = o.out.date < today(), pq = OfferShare.paxQ(o), note = SearchHelp.paxNote(pq);
-    const buy = o.buy.map(([u, pv, leg]) => `<a class="btn sm book" style="--pc:${provColor(pv)}" href="${esc(safeUrl(u))}" target="_blank" rel="noopener">${leg === 'out' ? `Tam: ${esc(shopName(pv))}` : leg === 'back' ? `Zpět: ${esc(shopName(pv))}` : `Koupit${pv === 'travelpayouts' ? ' na Aviasales' : pv ? ' u ' + esc(shopName(pv)) : ''}`} ↗</a>`).join('');
+    const buy = o.buy.map(([u, pv, leg]) => `<a class="btn sm book" style="--pc:${provColor(pv)}" href="${esc(safeUrl(u))}" target="_blank" rel="${buyRel(u)}">${leg === 'out' ? `Tam: ${esc(shopName(pv))}` : leg === 'back' ? `Zpět: ${esc(shopName(pv))}` : `Koupit${pv === 'travelpayouts' ? ' na Aviasales' : pv ? ' u ' + esc(shopName(pv)) : ''}`} ↗${adTag(u)}</a>`).join('');
     modalOpen(`<div class="modal-body offer-modal">
       <div class="pin-top"><h3>${ikona('sdilet')} Sdílená nabídka</h3><button type="button" class="icon-btn pin-close" id="ofX" aria-label="Zavřít">${ico('M18 6L6 18M6 6l12 12')}</button></div>
       <div class="note warn pin-note">⚠️ <div>${past ? '<b>Termín už proběhl.</b> Hledej nový – formulář předvyplním.' : `<b>Cena se mohla změnit.</b> ${a ? `Je ${a.z} ${esc(a.txt)}` : 'Je z doby sdílení'} – aktuální ukáže Koupit nebo nové hledání.`}</div></div>

@@ -1829,9 +1829,11 @@
     };
     q.onblur = () => setTimeout(() => { dd.hidden = true; }, 150);
     $('#exRad', root).onchange = e => setRadius(e.target.value === COUNTRY ? COUNTRY : +e.target.value);
+    // poloha na ~100 m (3 desetinná místa): na okruh km stačí a přesná GPS nejde do adresy /api/poi ani do atlas_explore_v1
+    const geo3 = x => Math.round(x * 1000) / 1000;
     $('#exGeo', root).onclick = () => {
       if (!navigator.geolocation) return toast('Prohlížeč nepodporuje polohu', 'err');
-      navigator.geolocation.getCurrentPosition(p => { dd.hidden = true; openOther({ lat: p.coords.latitude, lon: p.coords.longitude, label: 'Moje okolí', geo: true }); }, e => toast(geoMsg(e), 'err'), { timeout: 10000 });
+      navigator.geolocation.getCurrentPosition(p => { dd.hidden = true; openOther({ lat: geo3(p.coords.latitude), lon: geo3(p.coords.longitude), label: 'Moje okolí', geo: true }); }, e => toast(geoMsg(e), 'err'), { timeout: 10000 });
     };
   }
 
