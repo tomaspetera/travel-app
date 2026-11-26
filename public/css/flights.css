@@ -69,6 +69,9 @@
 /* ✈️ Letenku už mám vedle 🧳: na telefonu pod sebou (vedle sebe se na 412 px nevejdou a zalomily by se uprostřed) */
 .hero-plans{display:flex;flex-direction:column;align-items:flex-start;gap:8px;margin-top:12px}
 .hero-plans .hero-plan{margin-top:0}
+/* konec textu, který počítač od 1280 px schová (desktop-flights.css) – contents: text zůstane jedním kusem s okolím
+   (jako samostatná položka inline-flex by dostal mezeru gap navíc a tlačítko na telefonu by se změnilo) */
+.hero-plan .hp-more{display:contents}
 .pi-dark{background:transparent;border:none;min-height:38px;padding:2px 0}
 .pi-dark:focus-within{background:transparent}
 /* bez rámečku pole na Přehledu nebylo z klávesnice vidět, kde je fokus – obrys kolem celého pole (i s čipy míst) */
