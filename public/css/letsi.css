@@ -296,3 +296,16 @@
 :root[data-brand="letsi"] #launch :is(.l-ico,.l-jet,b){display:none}
 :root[data-brand="letsi"] #launch::before{content:"";position:absolute;left:50%;top:45%;width:288px;height:64px;margin:-32px 0 0 -144px;background:url(../vendor/letsi/letsi-logo-hlavni.svg) center/contain no-repeat}
 :root[data-brand="letsi"][data-theme="dark"] #launch::before{background-image:url(../vendor/letsi/letsi-logo-negativ.svg)}
+
+/* horní lišta na telefonu: na Přehledu místo textu „Přehled“ malé logo, jinde název sekce zůstává. Proč takhle:
+   – na místě názvu, ne nad ním: lišta zůstane stejně vysoká (logo 26 px < tlačítka 40 px), obsah ani rezerva pod
+     lepicí lištou (scroll-margin 58 px) se neposunou a tlačítka vpravo stojí, kde stála; 121 px (26 px výšky
+     v poměru loga) je o málo víc než „Přehled“ a míň než „Doporučení“, na který je lišta stavěná i na 360 px;
+   – jen na Přehledu: domovská obrazovka nese značku jako na obrazovkách Letsi, jinde je název sekce jediná
+     orientace (Cesta, Země…); Přehled má svůj nadpis ve fotce a text v liště zůstává pro čtečku (font-size:0);
+   – jen do 860 px: širší okno už ukazuje postranní panel s logem (atlas.css) a logo má být na obrazovce jednou;
+   – jednobarevné logo bez slunce barvou textu (Noc, v tmavém Vápno) – slunce má na obrazovce jen kukátko.
+   Prohlížeč bez :has pravidlo přeskočí a zůstane text „Přehled“. */
+@media(max-width:860px){
+  :root[data-brand="letsi"] .main:has(#view-dashboard.active) #pageTitle{width:121px;height:26px;font-size:0;background:currentColor;-webkit-mask:url(../vendor/letsi/letsi-logo-mala-mono.svg) left center/contain no-repeat;mask:url(../vendor/letsi/letsi-logo-mala-mono.svg) left center/contain no-repeat}
+}
