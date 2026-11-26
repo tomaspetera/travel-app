@@ -302,7 +302,7 @@ test('kontrast: bílá zkratka aerolinky a partnera na barvě značky aspoň 4,5
   const prov = readFileSync(new URL('../server/providers/index.js', import.meta.url), 'utf8').match(/export const PROVIDER_INFO = \{([\s\S]*?)\n\};/)[1];
   const cols = [...prov.matchAll(/color: '(#[0-9a-f]{6})'/g)].map((x) => x[1]);
   assert.equal(cols.length, 6, 'aerolinky a demo');
-  // v prohlížeči: kombinace a záložní Ostatní aerolinky (zkratka ve výsledcích), letenka v průvodci, partneři ubytování
+  // v prohlížeči: kombinace a záložní Letenky (Aviasales) (zkratka ve výsledcích), letenka v průvodci, partneři ubytování
   // a půjčoven aut, okno Ubytování
   cols.push(...[...flightsJs.matchAll(/PROV\.\w+ = [^;\n]*color: '(#[0-9a-f]{6})'/g)].map((x) => x[1]));
   cols.push(tripJs.match(/<span class="cbadge" style="background:(#[0-9a-f]{6})">/)[1]);

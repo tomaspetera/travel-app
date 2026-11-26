@@ -144,7 +144,9 @@
   // Enter v hledání: návrhy k právě napsanému textu → vyber; jinak (čeká se, stará odpověď, chyba) hledej hned.
   const enterAction = ({ text, sugFor, count, err }) => (text.length < 2 ? 'none' : sugFor === text && !err ? (count ? 'pick' : 'none') : 'fetch');
   // Logo Mapy.com (podmínka jejich API): u návrhů z Mapy.com („Hledají i Mapy.com“) a nad turistickou mapou.
-  const MAPY_LOGO = 'https://api.mapy.com/img/api/logo.svg';
+  // logo z vlastního serveru (beze změny z api.mapy.com/img/api/logo.svg): podmínky chtějí logo vidět, ne odkud se
+  // načte – a zásady slibují, že Mapy.com IP adresu uživatele nevidí (vše ostatní jde přes server Letsi)
+  const MAPY_LOGO = 'vendor/mapy-logo.svg';
   const mapyBy = what => `<a class="mapy-by" href="https://mapy.com/" target="_blank" rel="noopener">${what} <img src="${MAPY_LOGO}" alt="Mapy.com" height="14"></a>`;
   // Poznámka pod trasou a túrami: zdroje a výpočet času sbalené pod „Jak počítám ▾“ (na telefonu to bylo 8–12 řádků);
   // vidět zůstane, co je potřeba hned (čas bez přestávek, ověř chaty a počasí) a atribuce dat
@@ -1208,8 +1210,11 @@
       <div class="empty" id="exCcNone" hidden>Takovou zemi neznám – zkus její český nebo anglický název.</div>`;
   }
   // Kódy zemí, jejichž název nebo přezdívka (CC_ALIAS: „usa“, „anglie“, „holandsko“) začíná psaným textem – dlaždice
-  // mají v data-ccn jen český a anglický název, „usa“ by jinak nenašlo nic, ač hlavní pole Objevuj USA zná
-  const ccAliasHits = f => new Set(f ? [...ccByName()].filter(([n]) => n.startsWith(f)).map(([, cc]) => cc) : []);
+  // mají v data-ccn jen český a anglický název, „usa“ by jinak nenašlo nic, ač hlavní pole Objevuj USA zná. Navíc
+  // COUNTRY_ALIAS z app.js („skotsko“, „wales“ jako v Svět → Země) – ne v CC_ALIAS, to by hlavní pole poslalo
+  // „Skotsko“ na celé Spojené království místo Skotska
+  const ccAliasHits = f => new Set(f ? [...ccByName(), ...Object.entries(typeof COUNTRY_ALIAS === 'object' ? COUNTRY_ALIAS : {})]
+    .filter(([n]) => n.startsWith(f)).map(([, cc]) => cc) : []);
   function wirePicker(root) {
     const qi = $('#exCcQ', root);
     $$('[data-cc]', root).forEach(b => b.onclick = () => openWholeCountry(b.dataset.cc));

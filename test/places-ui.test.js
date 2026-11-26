@@ -520,7 +520,7 @@ test('povrch trasy: dva pruhy, každý přesně do 100 % (údaje serveru se pře
 
 test('Mapy.com: logo u návrhů z Mapy.com; trasa ze zálohy Mapy.com bez rozboru povrchu, s logem, bez stoupání, když chybí výšky', () => {
   const sug = T.sugHtml([{ label: 'Karlštejn', sub: 'Hrad · Středočeský kraj', flag: '🇨🇿', src: 'mapy' }, { label: 'Praha' }], 0, false);
-  assert.match(sug, /<div class="pi-by"><a class="mapy-by" href="https:\/\/mapy\.com\/" target="_blank" rel="noopener">Hledají i <img src="https:\/\/api\.mapy\.com\/img\/api\/logo\.svg" alt="Mapy\.com" height="14"><\/a><\/div>$/);
+  assert.match(sug, /<div class="pi-by"><a class="mapy-by" href="https:\/\/mapy\.com\/" target="_blank" rel="noopener">Hledají i <img src="vendor\/mapy-logo\.svg" alt="Mapy\.com" height="14"><\/a><\/div>$/);
   assert.equal(sug.match(/data-i=/g).length, 2, 'řádek s logem není návrh');
   assert.ok(!T.sugHtml([{ label: 'Praha' }], 0, false).includes('mapy'), 'bez Mapy.com bez loga');
   const NIL = { unpavedPct: null, cyclePct: null, trailPct: null, roadPct: null, busyPct: null, source: 'mapy' };
