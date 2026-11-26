@@ -342,11 +342,15 @@
     if (fa === 'cena') return { nove: false, mam: t.mam || t.nove, hrat: t.hrat || t.nove };
     return { nove: false, mam: false, hrat: false };
   }
-  /** Kde kukátko bydlí a jaký má výraz: { kde: 'prehled' | 'lety' | null, vyraz, cil }. hledaMs = jak dlouho se hledá. */
-  function stav(p, hledaMs) {
+  /** Kde kukátko bydlí a jaký má výraz: { kde: 'prehled' | 'lety' | null, vyraz }. hledaMs = jak dlouho se hledá,
+   *  ted = kde kukátko je teď. */
+  function stav(p, hledaMs, ted) {
     if (p.sekce === 'dashboard') return { kde: 'prehled', vyraz: 'koukam' };
-    var fa = faze(p);
-    if (p.sekce !== 'flights' || !fa || (fa === 'hleda' && hledaMs < HLEDAM_OD)) return { kde: null, vyraz: null };
+    var fa = faze(p), nikde = { kde: null, vyraz: null };
+    if (p.sekce !== 'flights' || !fa) return nikde;
+    // krátké hledání Hledám neukáže; kukátko, které už na Letech je, ale zůstane v klidu – jinak by řádek při hledání
+    // z mezipaměti na snímek zmizel a výsledky pod ním dvakrát poskočily
+    if (fa === 'hleda' && hledaMs < HLEDAM_OD) return ted === 'lety' ? { kde: 'lety', vyraz: 'koukam' } : nikde;
     return { kde: 'lety', vyraz: { hleda: 'hledam', chyba: 'offline', nic: 'nic', cena: 'koukam' }[fa] };
   }
   /** Jediné slunce na stránce: tečka těsně před nejlevnější cenou (svitit), jinak žádná. Tečky z dřívějška (překreslení
@@ -415,7 +419,7 @@
   function sync() {
     snimek = 0;
     var p = popis(document), fa = faze(p);
-    var ms = hledaOd ? Date.now() - hledaOd : 0, s = stav(p, ms);
+    var ms = hledaOd ? Date.now() - hledaOd : 0, s = stav(p, ms, kde);
     clearTimeout(odklad);
     if (fa === 'hleda' && ms < HLEDAM_OD) odklad = setTimeout(planuj, HLEDAM_OD - ms);   // krátké hledání Hledám neukáže
     if (s.kde !== kde) {

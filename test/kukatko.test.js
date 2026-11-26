@@ -152,9 +152,12 @@ test('popis + faze: stavy z DOM (hledání, chyba, prázdný výsledek, nejlevn�
 
 test('stav: Přehled v klidu, Lety podle fáze; Hledám až od 300 ms; jinde kukátko není', () => {
   const { K } = browser();
-  const s = (p, ms = 0) => ({ ...K.stav({ sekce: 'flights', hleda: false, chyba: false, prazdno: false, cena: false, ...p }, ms) });
+  const s = (p, ms = 0, ted = null) => ({ ...K.stav({ sekce: 'flights', hleda: false, chyba: false, prazdno: false, cena: false, ...p }, ms, ted) });
   assert.deepEqual(s({ sekce: 'dashboard' }), { kde: 'prehled', vyraz: 'koukam' });
   assert.deepEqual(s({ hleda: true }, 120), { kde: null, vyraz: null }, 'krátké hledání Hledám neukáže');
+  // opakované hledání z mezipaměti (< 300 ms): kukátko, které už na Letech je, zůstane – řádek nezmizí a výsledky neposkočí
+  assert.deepEqual(s({ hleda: true }, 120, 'lety'), { kde: 'lety', vyraz: 'koukam' });
+  assert.deepEqual(s({ hleda: true }, 120, 'prehled'), { kde: null, vyraz: null });
   assert.deepEqual(s({ hleda: true }, 300), { kde: 'lety', vyraz: 'hledam' });
   assert.deepEqual(s({ chyba: true }), { kde: 'lety', vyraz: 'offline' });
   assert.deepEqual(s({ prazdno: true }), { kde: 'lety', vyraz: 'nic' });
