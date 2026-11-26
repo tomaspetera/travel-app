@@ -215,6 +215,27 @@ test('bez živého ověření (Kiwi vypnuté): žádné „Ověřit živou cenu�
   assert.match(s, /Letenky \(2 os\.\)<div class="faint tf-age">hledáno [^<]*<\/div><div class="faint tf-seller">Aktuální cenu a volná místa uvidíš až u prodejce\.<\/div><\/td>/);
 });
 
+test('čistý režim: klepnutí na „↻ Ověř cenu“ vykreslené dřív, než dorazil stav serveru, nic neověřuje ani neslibuje', async () => {
+  const old = Date.now() - 3 * 864e5;
+  for (const step of ['flight', 'summary']) {
+    const c = load(CLEAN);
+    const asked = fakeFetch(c);
+    const t = begin(c, { at: old });
+    const id = step === 'flight' ? '#tfAge' : '#sumAge';
+    c.__els['#tfAlt'] = { innerHTML: '' };
+    // stav serveru ještě neznámý → tlačítko je vidět (jako dřív) a uživatel na něj hned klepne
+    assert.match(render(c, step), new RegExp(`id="${id.slice(1)}">↻ Ověř cenu<`));
+    c.__els[id].onclick();
+    await tick(); await tick();
+    assert.deepEqual(asked, [], `${step}: žádné api/verify`);
+    assert.doesNotMatch(c.__els['#tfAlt'].innerHTML, /Ověřuji/, `${step}: žádné „Ověřuji aktuální ceny…“`);
+    assert.equal(t.step, step, 'Shrnutí zůstane Shrnutím');
+    const s = sp(c.__els['#tripStep'].innerHTML);
+    assert.doesNotMatch(s, /Ověř cenu|tfAge|sumAge/);
+    assert.match(s, /uvidíš až u prodejce/);
+  }
+});
+
 test('orientační cena (let z mezipaměti, live === false): „orientační“ u částky v kroku Let i ve Shrnutí, „hledáno 15:15“ místo „cena z“, bez štítku „💚 Dobrá cena“', () => {
   const tag = (t, idx, pl) => `<span class="b ${pl.level === 'low' ? 'good">💚 Dobrá cena' : 'dear">🔺 Dráž než obvykle'}</span>`;
   const mk = (cached, level = 'low') => {

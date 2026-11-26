@@ -1075,7 +1075,7 @@ function renderWhatsNew() {
     ${homeRow}
     <ol class="wc-steps">
       <li><span class="wc-n">1</span><div><b>Napiš, kam chceš</b><small>město, „kamkoliv“, nebo celou větu – třeba „k moři v květnu do 5000“</small></div></li>
-      <li><span class="wc-n">2</span><div><b>Vyber let</b><small>nejlevnější letenky nahoře, doprava na letiště zvlášť pod cenou</small></div></li>
+      <li><span class="wc-n">2</span><div><b>Vyber let</b><small>nahoře doporučené podle ceny, cesty a časů, doprava na letiště zvlášť pod cenou</small></div></li>
       <li><span class="wc-n">3</span><div><b>Poskládej cestu</b><small>ubytování, auto, program a shrnutí s odkazy k rezervaci</small></div></li>
     </ol>
     <div class="row wrap" style="gap:8px"><button type="button" class="btn primary" id="wcGo">Začít hledat</button><button type="button" class="btn ghost" id="wnHide">Rozumím</button></div>`;
