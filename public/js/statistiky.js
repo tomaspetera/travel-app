@@ -49,6 +49,8 @@
     { q: 'Shrnutí cesty: Pomohl ti průvodce naplánovat cestu?', opts: [['mq_trip_good', 'Ano, hodně'], ['mq_trip_missing', 'Něco chybělo'], ['mq_trip_lost', 'Nevyznal/a jsem se']] },
     { q: 'Objevuj bez výsledku: Co jsi hledal/a?', opts: [['mq_ex_city', 'Město'], ['mq_ex_nature', 'Vesnici nebo přírodu'], ['mq_ex_region', 'Oblast nebo zemi'], ['mq_ex_other', 'Něco jiného']] },
   ];
+  // Opakované klepnutí podle sekce (count.js, jen se souhlasem Pomáhat se zlepšováním)
+  const RAGE = [['rage_dashboard', 'Přehled'], ['rage_flights', 'Lety'], ['rage_trip', 'Průvodce a Moje cesty'], ['rage_explore', 'Objevuj'], ['rage_world', 'Svět']];
   const PERIODS = [7, 30, 90];
   const FEW = 30; // pod 30 odpověďmi rozložení ještě hodně skáče s každou další
 
@@ -163,8 +165,42 @@
     return `${['ne', 'po', 'út', 'st', 'čt', 'pá', 'so'][new Date(Date.UTC(y, m - 1, d)).getUTCDay()]} ${d}. ${m}.`;
   };
 
+  /* ---------- Cesty návštěv (GET api/traces – jen od lidí, kteří zapnuli Pomáhat se zlepšováním) ----------
+     Návštěva = [[sekund od začátku, událost], …]. Vyhodnocuje se jen souhrnně – jednotlivé návštěvy stránka neukazuje. */
+  const TOP = 10;
+  /** Události návštěvy bez opakování hned po sobě (dvakrát Lety za sebou je pro cestu jeden krok). */
+  const names = (v) => (Array.isArray(v) ? v : []).map((x) => (Array.isArray(x) ? String(x[1]) : '')).filter((e, i, a) => e && e !== a[i - 1]);
+  /** Nejčastější hodnoty: [[klíč, počet, % ze všech]] sestupně, nejvýš TOP. */
+  function top(keys) {
+    const m = new Map();
+    for (const k of keys) if (k) m.set(k, (m.get(k) || 0) + 1);
+    const all = keys.filter(Boolean).length;
+    return [...m].sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1)).slice(0, TOP).map(([k, n]) => [k, n, pct(n, all)]);
+  }
+  /** Kde návštěvy končí: poslední událost. */
+  const exits = (visits) => top((visits || []).map((v) => names(v).at(-1)));
+  /** Co lidé dělali před odchodem: posledních n událostí (cesta „a → b → c“). */
+  const lastSteps = (visits, n = 3) => top((visits || []).map((v) => names(v).slice(-n).join(' → ')));
+  /** Nejčastější začátky návštěv: prvních n událostí. */
+  const topPaths = (visits, n = 4) => top((visits || []).map((v) => names(v).slice(0, n).join(' → ')));
+  /** Co následovalo po události, která splňuje is (např. opakované klepnutí); konec návštěvy = „(odchod)“. */
+  function after(visits, is) {
+    const out = [];
+    for (const v of visits || []) {
+      const a = names(v);
+      a.forEach((e, i) => { if (is(e)) out.push(a[i + 1] || '(odchod)'); });
+    }
+    return top(out);
+  }
+  /** Počet návštěv a medián délky v sekundách (sekundy posledního kroku), bez návštěv null. */
+  function visitStats(visits) {
+    const len = (visits || []).filter((v) => Array.isArray(v) && v.length).map((v) => Number(v.at(-1)[0]) || 0);
+    return { n: len.length, median: len.length ? median(len.map((x) => [x, 1])) : null };
+  }
+
   window.Stats = { MAIN, PRICES, DOORS, VIEWS, TABLE, SNAGS, PERIODS, FEW, num, pct, totals, funnel, rates, median, survey, doors, dayRows, period, fmtNum, fmtPct, fmtKc, fmtDay };
   Object.assign(window.Stats, { QUESTIONS, dist });
+  Object.assign(window.Stats, { RAGE, names, top, exits, lastSteps, topPaths, after, visitStats });
 
   /* ---------- vykreslení (jen ve stránce) ---------- */
   const root = typeof document !== 'undefined' && document.getElementById('stats');
@@ -205,6 +241,39 @@
       + section('Po dnech', daily, 'Dny podle UTC, nejnovější nahoře. Otevř. = otevření, Hled. = hledání, Ověř. = ověření ceny, Prokl. = proklik k prodejci, Prův. = průvodce, Ulož. = uložená cesta.');
   }
 
+  // názvy událostí v cestách česky podle tabulek výše (jinak syrový název)
+  const LABELS = new Map([...MAIN, ...VIEWS, ...SNAGS.map(([e, , l]) => [e, l]), ...RAGE.map(([e, l]) => [e, `Opakované klepnutí – ${l}`])]);
+  const lbl = (path) => path.split(' → ').map((e) => LABELS.get(e) || e).join(' → ');
+  const fmtSec = (s) => (s === null ? '–' : s < 90 ? `${Math.round(s)} s` : `${Math.round(s / 60)} min`);
+  function renderTraces(box, data, total) {
+    const visits = (data && Array.isArray(data.visits)) ? data.visits : [];
+    const vs = visitStats(visits);
+    const list = (rows) => (rows.length ? table(rows.map(([k, n, p]) => row(lbl(k), fmtNum(n), fmtPct(p)))) : '<p>Zatím žádné návštěvy.</p>');
+    const rage = table(RAGE.map(([e, l]) => row(l, fmtNum(num(total, e)), null)));
+    box.innerHTML = section('Cesty návštěv', `<p>Návštěv: <b>${fmtNum(vs.n)}</b>. Medián délky: <b>${fmtSec(vs.median)}</b>.</p>`
+      + (vs.n < FEW ? `<p class="warn">Návštěv je zatím málo (méně než ${FEW}) – na závěr to nestačí.</p>` : '')
+      + '<h3>Kde návštěvy končí</h3>' + list(exits(visits))
+      + '<h3>Co dělali před odchodem</h3>' + list(lastSteps(visits, 3))
+      + '<h3>Jak návštěvy začínají</h3>' + list(topPaths(visits, 4))
+      + '<h3>Co následovalo po opakovaném klepnutí</h3>' + list(after(visits, (e) => e.startsWith('rage_')))
+      + '<h3>Opakované klepnutí podle sekce</h3>' + rage,
+    `Jen od lidí, kteří v aplikaci sami zapnuli Pomáhat se zlepšováním, za posledních ${data && data.days ? data.days : '–'} dní (záznamy se mažou do 31 dnů). Jen souhrny – jednotlivé návštěvy se neukazují. Procento je ze všech návštěv, po opakovaném klepnutí ze všech opakovaných klepnutí.`);
+  }
+  /** Cesty návštěv pod statistikami: stejný klíč, období 7–30 dní (déle se záznamy nedrží). */
+  async function loadTraces(days, total, id) {
+    const box = document.getElementById('traces');
+    if (!box) return;
+    let data = null, status = 0;
+    try {
+      const r = await fetch(`api/traces?days=${Math.min(30, Math.max(7, days))}`, { credentials: 'omit', headers: key ? { Authorization: `Bearer ${key}` } : {} });
+      status = r.status;
+      if (r.ok) data = await r.json();
+    } catch (e) { /* bez sítě jako 503 */ }
+    if (id !== asked) return;
+    if (data) renderTraces(box, data, total);
+    else box.innerHTML = status === 404 ? section('Cesty návštěv', '<p>Záznam návštěv je dostupný jen s nastaveným klíčem STATS_KEY na serveru.</p>') : status === 401 ? '' : section('Cesty návštěv', '<p class="warn">Záznamy teď nejsou dostupné.</p>');
+  }
+
   const buttons = document.querySelectorAll('[data-days]');
   let asked = 0; // pořadí dotazu: pomalá starší odpověď nepřepíše novější období
   let key = ''; // klíč ke statistikám jen v paměti stránky – po zavření zmizí, pamatuje si ho správce hesel
@@ -241,7 +310,10 @@
     if (locked) {
       askKey(Boolean(key));
       key = '';
-    } else if (stats && typeof stats === 'object') render(stats, days);
+    } else if (stats && typeof stats === 'object') {
+      render(stats, days);
+      loadTraces(days, totals(stats), id);
+    }
     else root.innerHTML = '<p class="warn">Počty teď nejsou dostupné.</p>';
   }
   for (const b of buttons) {

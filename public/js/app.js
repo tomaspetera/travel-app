@@ -163,10 +163,30 @@ function openMore() {
   $('#moreWn').onclick = () => { modalClose(); whatsNewOpen(); };
   if (window.Plus) Plus.addToMenu(list); // ⭐ Plus: co je zdarma a co chystáme navíc (plus.js)
   if (window.About) About.addToMenu(list); // ℹ️ O aplikaci a soukromí (about.js)
+  if (window.Count && Count.consent) { // 🤝 souhlas s podrobným měřením – ve výchozím stavu vypnuto (count.js)
+    list.insertAdjacentHTML('beforeend', helpBtn('moreHelp') + `<p class="faint more-tip" style="margin:-4px 0 6px">${HELP_TXT}</p>`);
+    helpSwitch($('#moreHelp'));
+  }
   // motiv: přepínač v postranním panelu je na telefonu skrytý
   list.insertAdjacentHTML('beforeend', `<button type="button" class="btn ghost" id="moreTheme">🌗 ${themeNow() === 'dark' ? 'Světlý' : 'Tmavý'} režim <span class="faint">vzhled</span></button>`);
   $('#moreTheme').onclick = () => { modalClose(); $('#themeToggle').click(); };
   if (window.Pwa) Pwa.addToMenu(list); // ➕ Přidat ATLAS na plochu (pwa.js)
+}
+/* ---------- 🤝 Pomáhat se zlepšováním (souhlas, count.js Count.consent) ----------
+   Přepínač v Další a v O aplikaci (about.js), karta na Přehledu (helpCard). Odvolání musí jít stejně snadno jako
+   udělení, proto stejný přepínač na obou místech. */
+const HELP_TXT = 'Záznam obrazovek a hlavních akcí při návštěvě, bez textu, míst a cen. Smaže se do 31 dnů.';
+const helpBtn = id => `<button type="button" class="btn ghost" id="${id}" role="switch" aria-checked="${Count.helping()}">🤝 Pomáhat se zlepšováním <span class="faint">${Count.helping() ? 'zapnuto' : 'vypnuto'}</span></button>`;
+/** Přepínač b (z helpBtn): klepnutí zapne nebo vypne; vypnutí platí hned a smaže záznam téhle návštěvy (count.js). */
+function helpSwitch(b) {
+  if (!b) return;
+  b.onclick = () => {
+    const on = !Count.helping();
+    Count.consent(on);
+    b.setAttribute('aria-checked', String(on));
+    $('.faint', b).textContent = on ? 'zapnuto' : 'vypnuto';
+    toast(on ? 'Zapnuto. Díky, že pomáháš!' : 'Vypnuto. Záznam téhle návštěvy jsem smazal.');
+  };
 }
 const WORLD_VIEWS = ['map', 'countries'];
 // sekce z adresy (#…); planner = dřívější Plánovač, teď Moje cesty v Cestě (go)
@@ -904,11 +924,12 @@ function showNow() {
    Novinky posledních verzí a kde je v aplikaci najít (nejnovější nahoře). Po aktualizaci je ukáže lišta dole – jen ty
    od posledního otevření (whatsNewPop); celý seznam je v menu ☰ / v postranním panelu → Co je nového. WN_ID = verze
    sady (O aplikaci ji ukazuje, uvítání nováčka se k ní váže). */
-const WN_ID = '2026-11-26a';
+const WN_ID = '2026-11-26b';
 const WHATS_NEW = [
+  ['🤝', 'Pomáhat se zlepšováním', 'když chceš, zapni pod <b>Další</b> → <b>Pomáhat se zlepšováním</b>. Aplikace pak posílá, které obrazovky otevíráš a jaké hlavní akce děláš – nikdy co píšeš, kam jedeš, ceny ani nic o tobě. Záznam se smaže do 31 dnů a vypneš to tamtéž. Ve výchozím stavu je to vypnuté.'],
   ['⭐', 'ATLAS Plus', 'podívej se, co zůstane zdarma a co chystáme navíc – a řekni nám, kolik by ti stálo za to. Najdeš ho pod <b>Další</b> → <b>ATLAS Plus</b>.'],
   ['✈️', 'Letenku už máš?', 'na <b>Přehledu</b> doplníš zbytek cesty – trasu, ubytování i program.'],
-  ['🔒', 'Soukromí', 'počítám jen souhrnné denní počty, žádné sledování jednotlivců. Podrobnosti pod <b>Další</b> → <b>O aplikaci a soukromí</b>.'],
+  ['🔒', 'Soukromí', 'počítám jen souhrnné denní počty, žádné sledování jednotlivců, pokud sám nezapneš Pomáhat se zlepšováním. Podrobnosti pod <b>Další</b> → <b>O aplikaci a soukromí</b>.'],
   ['🔄', 'Upravený plán od kamaráda bez kopií', 'když ti kamarád pošle novější verzi plánu, který už máš, nabídnu <b>🔄 Aktualizovat moji cestu</b> – převezmeš termín, let a program, tvoje odškrtnuté „Sbaleno“, kódy rezervací a vlastní aktivity zůstanou. Dřív vznikla druhá kopie.'],
   ['✏️', 'Cestu upravíš i po uložení', 'v <b>Cesty</b> → Moje cesty otevři cestu a klepni na <b>✏️ Upravit název a termín</b> – přejmenuješ ji, posuneš termín (program dnů se posune s ním) nebo změníš počet cestujících. Dřív to šlo jen smazat a založit znovu.'],
   ['✨', 'Hledání větou rozumí víc', 'napiš třeba <b>„Kanáry přes Vánoce a Silvestr“</b>, <b>„Londýn na Den boje za svobodu“</b>, <b>„Řím s dětmi 5 a 8 let“</b> nebo <b>„Vídeň 4.–6. 12. nebo 11.–13. 12.“</b> – termín, délku i počet lidí nastaví ATLAS sám. Funguje v <b>Letech</b> i v <b>Objevuj</b>.'],
@@ -942,7 +963,7 @@ const WHATS_NEW = [
   ['💡', 'Věděl jsi?', 'na Přehledu občas malý tip na funkci, kterou jsi ještě nezkusil (Kamkoliv, hlídání ceny, ⚡ Poskládej cestu…) – nejvýš jeden denně, tlačítkem ji rovnou otevřeš, křížkem tip skryješ natrvalo.'],
   ['🧾', 'Rozpočet cesty', 've <b>Shrnutí</b> průvodce Cestou je cena po položkách (letenky, doprava, ubytování, auto a přejezdy) za osobu i celkem – odhady jsou označené. Do pole <b>Můj rozpočet</b> zadej, kolik chceš utratit, a uvidíš, kolik zbývá, nebo o kolik je cesta dražší.'],
   ['📤', 'Sdílet jednu letenku', 'u nabídky ve výsledcích je <b>📤 Sdílet</b> (vedle 📌 Odložit) – pošle krátký odkaz s trasou, termínem, cenou, aerolinkou a odkazem na koupi. Příjemci se otevře karta nabídky s upozorněním, že se cena mohla změnit, a <b>🔎 Hledat znovu</b> mu předvyplní formulář.'],
-  ['ℹ️', 'O aplikaci a soukromí', 'pod <b>Další</b>: odkud ATLAS bere ceny a data, co se ukládá (jen v tomhle prohlížeči, žádné cookies ani sledování), jak se řadí výsledky a verze aplikace.'],
+  ['ℹ️', 'O aplikaci a soukromí', 'pod <b>Další</b>: odkud ATLAS bere ceny a data, co se ukládá (jen v tomhle prohlížeči, žádné cookies ani sledování, pokud sám nezapneš Pomáhat se zlepšováním), jak se řadí výsledky a verze aplikace.'],
   ['📅', 'Připomínka hlídané ceny v kalendáři', 'na kartě hlídání na Přehledu je <b>📅 Připomínat</b> – stáhne událost do kalendáře na každé pondělí v 9:00 (nejvýš 8 týdnů, jen do odletu) s poslední nejnižší cenou. Odkaz v ní otevře ATLAS přímo na tomhle hlídání a cenu zkontroluje znovu.'],
   ['📅', 'Termín letu v kalendáři', 'u každého letu tlačítko <b>📅 V kalendáři</b> – den odletu a návratu s časy, noci mezi nimi, víkendy a svátky; jedním klepnutím lety do kalendáře v mobilu (.ics). A <b>Kalendář</b> mají i výsledky Kamkoliv: v každém dni nejlevnější cíl, klepnutím na den všechny cíle s odletem ten den.'],
   ['🏡', 'Ubytování s cenou na každém místě trasy', 'když TripAdvisor malé místo nezná (Pachino, Castelmezzano), ukážu hotely s cenou z nejbližšího okolí (Noto, Potenza) – s porovnáním webů a <b>Vybrat</b> s ověřením volna jako u prvního místa, na kartě „v okolí: Noto · 24 km“. Pod nimi penziony a agroturistiky přímo v místě z OpenStreetMap (bez ceny). Plánovač trasy teď radši volí místa, kde hotely s cenou jsou.'],
@@ -1033,7 +1054,7 @@ function renderWhatsNew() {
   const done = wnDoneNow(mode, S);
   if (done) try { localStorage.setItem('atlas_wn', WN_ID); } catch (e) { /* soukromé okno */ }
   el.hidden = mode !== 'welcome' || done;
-  if (el.hidden) return;
+  if (el.hidden) return helpCard(el);
   if (mode === 'welcome' && seen !== WN_ID + WN_NEW) try { localStorage.setItem('atlas_wn', WN_ID + WN_NEW); } catch (e) { /* soukromé okno */ }
   const hide = () => {
     try { localStorage.setItem('atlas_wn', WN_ID); } catch (e) { /* nevadí */ }
@@ -1076,6 +1097,28 @@ function renderWhatsNew() {
     pi.input.setAttribute('aria-labelledby', 'wcHomeL');
   }
   $('#wnHide').onclick = hide;
+}
+/**
+ * Karta „Pomůžeš mi aplikaci vylepšit?“ na místě uvítání – žádné okno při prvním otevření. Až od další návštěvy
+ * (ne při té, kdy se ukázalo uvítání – wnFirst): nováček má nejdřív poznat, co aplikace umí, a otázka uprostřed
+ * prvního hledání by ho od úkolu odváděla. Na Přehledu je klid a karta se dá přejít. Obě tlačítka stejně výrazná,
+ * obě kartu natrvalo schovají (atlas_help se zapíše až klepnutím, count.js consent); bez volby se ukazuje dál.
+ */
+function helpCard(el) {
+  let chosen = true; try { chosen = localStorage.getItem('atlas_help') != null; } catch (e) { /* soukromé okno: neptat se */ }
+  if (chosen || wnFirst || !window.Count || !Count.consent) return;
+  el.classList.remove('welcome');
+  el.hidden = false;
+  el.innerHTML = `<h3 style="margin:0 0 6px">Pomůžeš mi aplikaci vylepšit?</h3>
+    <p style="font-size:13.5px;margin:0 0 12px">Když to zapneš, budu při každé návštěvě zaznamenávat, které obrazovky otevíráš a jaké hlavní akce děláš (třeba hledání, krok průvodce nebo opakované klepnutí, když něco nereaguje). Nikdy co píšeš, kam jedeš, ceny ani nic o tobě. Záznam nese jen náhodné číslo návštěvy, žádné jméno ani IP adresu, a smaže se nejpozději do 31 dnů. Platí, dokud to nevypneš v Další.</p>
+    <div class="row wrap" style="gap:8px;align-items:center"><button type="button" class="btn" data-help="1">Zapnout</button><button type="button" class="btn" data-help="0">Ne, díky</button><button type="button" class="linkbtn" id="helpMore">Podrobnosti</button></div>`;
+  $$('[data-help]', el).forEach(b => b.onclick = () => {
+    const on = b.dataset.help === '1';
+    Count.consent(on);
+    el.hidden = true; el.innerHTML = '';
+    if (on) toast('Zapnuto. Díky! Vypnout to jde kdykoli v Další.');
+  });
+  $('#helpMore', el).onclick = () => { if (window.About) About.open(); };
 }
 /* Lišta „Co je nového“ po aktualizaci: novinky od posledního otevření, jednou – atlas_wn_top = „WN_ID\nnázev“
    nejnovější novinky, kterou už uživatel viděl. Při startu se ukážou jen novější (nejvýš WN_POP, zbytek „a 2 další ›“)

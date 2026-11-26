@@ -29,6 +29,9 @@ export const EVENTS = [
   'mq_restart_date', 'mq_restart_price', 'mq_restart_lost', 'mq_restart_try',
   'mq_trip_good', 'mq_trip_missing', 'mq_trip_lost',
   'mq_ex_city', 'mq_ex_nature', 'mq_ex_region', 'mq_ex_other',
+  // opakované klepnutí (3× do 1 s na totéž místo – něco nereaguje) podle sekce; jen se souhlasem „Pomáhat se
+  // zlepšováním“ (public/js/count.js), jako i záznam návštěvy (server/lib/traces.js)
+  'rage_dashboard', 'rage_flights', 'rage_trip', 'rage_explore', 'rage_world',
 ];
 // Strop seznamu: s každým názvem roste nejhorší počet zápisů do Upstash (rozpočet v test/pocitadla.test.js)
 export const MAX_EVENTS = 150;
