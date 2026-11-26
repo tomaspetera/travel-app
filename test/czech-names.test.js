@@ -194,6 +194,8 @@ test('Objevuj, věta: město ve své zemi, ne stejnojmenné jinde; země = hlavn
       const s = await T.smartPlace(px.place);
       assert.deepEqual([s?.label, s?.cc], [label, cc], `${text} [${px.place}]`);
       assert.ok(Number.isFinite(+s.lat) && Number.isFinite(+s.lon), text);
+      // hlavní město místo země: Objevuj ukáže hlášku a na týden naplánuje okruh (capitalNote, exploreApply)
+      assert.equal(s.capitalOf, cc === 'IT' ? 'IT' : undefined, text);
     }
   } finally {
     config.mock = mock;

@@ -233,3 +233,87 @@ test('countryBack: přehled země zpátky bez nového dotazu, jen dokud je otev�
   // 🔎 Prozkoumat v přehledu země krok přidá
   assert.match(src('places.js'), /histSub\(\(\) => countryBack\(opened, p, c\)\)/);
 });
+
+// --- Předstartovní kontrola Objevuj: země z věty, „Emiráty“, „Chorvatsko u moře“, fokus po ✕ a karty z klávesnice ---
+test('„Itálie na týden“: hlavní město s hláškou a na víc dní okruh, ne týden pěšky po Římě', () => {
+  const T = load({ localStorage: store(), setTimeout, clearTimeout });
+  const X = T.ex;
+  X.restored = true;
+  const rim = { label: 'Řím', lat: 41.9, lon: 12.5, cc: 'IT', capitalOf: 'IT' };
+  assert.equal(T.capitalNote(rim), 'Itálie: začínám v hlavním městě Řím – celou zemi najdeš pod Celá země');
+  assert.equal(T.capitalNote({ label: 'Řím', cc: 'IT' }), '', 'napsané město hlášku nemá');
+  const px = (days) => ({ place: 'Itálie', mode: null, days, km: null, start: null, interests: [], chips: [] });
+  X.mode = 'city';
+  T.exploreApply(px(7), rim);
+  assert.equal(X.mode, 'loop', 'týden po zemi = okruh');
+  T.exploreApply(px(3), rim);
+  assert.equal(X.mode, 'city', 'na 3 dny program v hlavním městě');
+  T.exploreApply(px(7), { label: 'Řím', lat: 41.9, lon: 12.5, cc: 'IT' });
+  assert.equal(X.mode, 'city', '„Řím na týden“ zůstane programem ve městě');
+  // smartPlace u země místo označí (capitalOf – test/czech-names.test.js), věta v hledání ukáže hlášku
+  assert.match(src('places.js'), /const note = capitalNote\(s\); if \(note\) toast\(note/);
+});
+
+test('hlavní pole Objevuj najde „Emiráty“ (začátek slova uvnitř názvu i přezdívka), shody od začátku názvu napřed', () => {
+  const T = load();
+  assert.equal(T.countryOfText('Emiráty'), 'AE');
+  assert.equal(T.countryOfText('emiraty'), 'AE');
+  assert.equal(T.countrySugs('Emiráty')[0].ccPick, 'AE');
+  assert.equal(T.countrySugs('Emir')[0].ccPick, 'AE', 'začátek slova uvnitř „Spojené arabské emiráty“');
+  assert.equal(T.countrySugs('arabsk')[0].ccPick, 'AE');
+  assert.ok(T.countrySugs('Korea').some((x) => x.ccPick === 'KR'), 'Jižní Korea');
+  // začátek celého názvu má přednost před slovem uvnitř; diakritika dál musí souhlasit
+  assert.equal(T.countrySugs('Itál')[0].ccPick, 'IT');
+  assert.ok(!T.countrySugs('Pař').some((x) => x.ccPick === 'PY'));
+});
+
+test('„Chorvatsko u moře“, „Itálie hrady a zámky“: přehled země rovnou s kategorií; s dny dál plán', () => {
+  const T = load();
+  const cw = (t, px = null) => { const r = T.wholeCountryCat(t, px); return r && plain(r); };
+  assert.deepEqual(cw('Chorvatsko u moře'), { cc: 'HR', cat: 'beach' });
+  assert.deepEqual(cw('Chorvatsko pláže'), { cc: 'HR', cat: 'beach' });
+  assert.deepEqual(cw('Rakousko hory'), { cc: 'AT', cat: 'mountain' });
+  assert.deepEqual(cw('Švýcarsko jezera'), { cc: 'CH', cat: 'lake' });
+  assert.deepEqual(cw('Itálie hrady a zámky'), { cc: 'IT', cat: 'castle' });
+  assert.equal(cw('Chorvatsko'), null, 'bez zájmu přehled bez kategorie (wholeCountryOf)');
+  assert.equal(cw('Split u moře'), null, 'město není země');
+  assert.equal(cw('Chorvatsko u moře', { days: 7 }), null, 'na týden = plán, ne přehled');
+  assert.equal(cw('Rakousko hory', { mode: 'hike' }), null);
+  // věta v hledání kategorii nastaví před otevřením země (paintCountry ji pak načte přes loadCountryCat)
+  const P = src('places.js');
+  assert.match(P, /if \(px\.cw\) \{ dd\.hidden = true; q\.blur\(\); ex\.cCat = px\.cw\.cat; remember\(\); return openWholeCountry\(px\.cw\.cc\); \}/);
+  assert.match(P, /if \(lazyCat\(cat\) && !st\) loadCountryCat\(cat\);/);
+});
+
+test('✕ v plánu: po překreslení fokus na ✕ na stejném místě (poslední / nadpis dne); karty míst z klávesnice', () => {
+  const doc = { body: { isConnected: true }, activeElement: null };
+  const btn = () => { const b = { isConnected: true, tabIndex: 0, focus() { doc.activeElement = b; } }; return b; };
+  let bs = [btn(), btn(), btn()];
+  const h4 = btn();
+  const host = { querySelectorAll: (s) => (s === '[data-drop]' ? bs : []), querySelector: (s) => (s === '.day-plan h4' ? h4 : null) };
+  const T = load({ document: doc, $: (s, r) => r.querySelector(s), $$: (s, r) => [...r.querySelectorAll(s)] });
+  // překreslení: stará tlačítka zmizí, fokus spadne na body
+  const redraw = (n) => { bs.forEach((b) => { b.isConnected = false; }); doc.activeElement = doc.body; bs = Array.from({ length: n }, btn); };
+  T.dropMark(host, bs[1]); redraw(2); T.dropRefocus(host);
+  assert.equal(doc.activeElement, bs[1], '✕ u druhé zastávky → nové druhé ✕');
+  T.dropMark(host, bs[1]); redraw(1); T.dropRefocus(host);
+  assert.equal(doc.activeElement, bs[0], 'poslední ✕ → poslední, které zbylo');
+  T.dropMark(host, bs[0]); redraw(0); T.dropRefocus(host);
+  assert.equal(doc.activeElement, h4, 'bez ✕ nadpis dne');
+  assert.equal(h4.tabIndex, -1);
+  // překreslení bez ✕ (jiný důvod) fokus nebere
+  bs = [btn()]; doc.activeElement = doc.body; T.dropRefocus(host);
+  assert.equal(doc.activeElement, doc.body);
+  // fokus mezitím jinde (psaní do pole) – nechat
+  const field = btn();
+  T.dropMark(host, bs[0]); redraw(1); doc.activeElement = field; T.dropRefocus(host);
+  assert.equal(doc.activeElement, field);
+  // oba plány (Plánovač i Objevuj) si pořadí ✕ zapamatují a po vykreslení fokus vrátí
+  const P = src('places.js');
+  assert.match(P, /dropMark\(host, b\); dropUndo\(st, b\.dataset\.drop, plan, run\); \}\);\n\s+dropRefocus\(host\);/);
+  assert.match(P, /dropMark\(body, b\); dropUndo\(st, b\.dataset\.drop, ex\.plan, \(\) => replan\(\)\); \}\);\n\s+dropRefocus\(body\);/);
+  // karty [data-poi] v seznamu i v plánu přes kbClick z app.js
+  assert.match(P, /const kb = c => \{ if \(typeof kbClick === 'function'\) kbClick\(c\); \};/);
+  assert.match(P, /\$\$\('#exList \[data-poi\]', body\)\.forEach\(c => \{[^\n]*kb\(c\); \}\);/);
+  assert.match(P, /\$\$\('#exPlanOut \[data-poi\]', body\)\.forEach\(c => \{[\s\S]{0,400}?kb\(c\);\n\s+\}\);/);
+});
