@@ -78,7 +78,7 @@ test('příklady vět z karty Smart rozumí: prodloužený víkend, týden a tam
 test('karta se po použití průvodce nevrátí (ani po ↺ Začít znovu nebo smazání cest); dlouhá věta ji nerozšíří', () => {
   assert.match(app, /const planOff = \(\) => \{ if \(planMem\) return true; try \{ return \/\^\(off\|used\)\$\/\.test\(localStorage\.getItem\('atlas_plancard'\) \|\| ''\); \}/);
   assert.match(app, /if \(!planCardOn\(S, false\) && !planOff\(\)\) planMark\('used'\);/);
-  assert.match(trip, /function start\(\{ t, g, result, ccs = null, at = 0, stops = null \}\) \{\n {4}\/\/[^\n]*\n {4}try \{ if \(localStorage\.getItem\('atlas_plancard'\) !== 'off'\) localStorage\.setItem\('atlas_plancard', 'used'\); \}/);
+  assert.match(trip, /function start\(\{ t, g, result, ccs = null, at = 0, stops = null, step = 'flight' \}\) \{\n {4}\/\/[^\n]*\n {4}try \{ if \(localStorage\.getItem\('atlas_plancard'\) !== 'off'\) localStorage\.setItem\('atlas_plancard', 'used'\); \}/);
   const css = read('css/atlas.css');
   assert.match(css, /\.plan-card\{display:grid;grid-template-columns:minmax\(0,1fr\);/);
   assert.match(css, /\.plc-try \.recent-chip\{white-space:normal;/);

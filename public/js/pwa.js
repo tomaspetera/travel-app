@@ -11,6 +11,7 @@
   const API_WAIT = 120e3;
   const SLOW_MSG = 'Server ATLAS přes 2 minuty neodpovídá – spojení je nejspíš moc slabé. Zkus to znovu.';
   const THEME = { dark: '#080c1a', light: '#eef2fb' }; // --bg motivů z atlas.css = barva lišty a okna aplikace
+  const THEME_LETSI = { dark: '#14161F', light: '#F3F4F0' }; // vzhled Letsi (?vzhled=letsi): Noc a Vápno = --bg z letsi.css
 
   /** Požadavek na API ATLASu (adresa pod api/ vůči stránce). */
   function isApi(input, base) {
@@ -137,7 +138,7 @@
     return ios && !/FBAN|FBAV|Instagram/.test(ua) ? 'ios' : null;
   }
 
-  const api = { netError, installMode, isApi, slowError, withDeadline, readOrStall, whenOnline, flushOnline, retryAfterS, statusMsg, httpError, waitTxt, OFFLINE_MSG, DOWN_MSG, SLOW_MSG, API_WAIT, THEME, addToMenu() {} };
+  const api = { netError, installMode, isApi, slowError, withDeadline, readOrStall, whenOnline, flushOnline, retryAfterS, statusMsg, httpError, waitTxt, OFFLINE_MSG, DOWN_MSG, SLOW_MSG, API_WAIT, THEME, THEME_LETSI, addToMenu() {} };
   window.Pwa = api;
   if (typeof document === 'undefined' || !document.documentElement) return; // testy v node:vm – jen funkce výše
 
@@ -175,7 +176,8 @@
         jiný než systémový). */
   const metas = [...document.querySelectorAll('meta[name="theme-color"]')];
   const syncTheme = () => {
-    const c = THEME[document.documentElement.dataset.theme] || THEME.dark;
+    const T = document.documentElement.dataset.brand === 'letsi' ? THEME_LETSI : THEME;
+    const c = T[document.documentElement.dataset.theme] || T.dark;
     metas.forEach((m) => m.setAttribute('content', c));
   };
   if (window.MutationObserver) new MutationObserver(syncTheme).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });

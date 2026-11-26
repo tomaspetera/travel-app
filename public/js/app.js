@@ -161,6 +161,7 @@ function openMore() {
   }
   list.insertAdjacentHTML('beforeend', `<button type="button" class="btn ghost" id="moreWn">✨ Co je nového <span class="faint">novinky</span></button>`);
   $('#moreWn').onclick = () => { modalClose(); whatsNewOpen(); };
+  if (window.Plus) Plus.addToMenu(list); // ⭐ Plus: co je zdarma a co chystáme navíc (plus.js)
   if (window.About) About.addToMenu(list); // ℹ️ O aplikaci a soukromí (about.js)
   // motiv: přepínač v postranním panelu je na telefonu skrytý
   list.insertAdjacentHTML('beforeend', `<button type="button" class="btn ghost" id="moreTheme">🌗 ${themeNow() === 'dark' ? 'Světlý' : 'Tmavý'} režim <span class="faint">vzhled</span></button>`);
@@ -873,7 +874,7 @@ function renderNow() {
     $$('[data-nw-plan]', el).forEach(b => b.onclick = () => openTrip(+b.dataset.nwPlan));
     $$('[data-nw-go]', el).forEach(b => b.onclick = () => go(b.dataset.nwGo));
     // uložit cestu z průvodce a zůstat na Přehledu – karta se hned překreslí na „Dnes na cestě“ (i dlaždice cest)
-    $$('[data-nw-save]', el).forEach(b => b.onclick = () => { Trip.saveToPlanner({ stay: true }); renderDashStats(); });
+    $$('[data-nw-save]', el).forEach(b => b.onclick = () => { Trip.saveToPlanner({ stay: true, now: true }); renderDashStats(); });
     $$('[data-copy]', el).forEach(b => b.onclick = () => navigator.clipboard.writeText(b.dataset.copy).then(() => toast('Zkopírováno: ' + b.dataset.copy), () => toast('Kód se nepodařilo zkopírovat – podrž na něm prst', 'err')));
   }
   if (!p) return;
@@ -903,8 +904,10 @@ function showNow() {
    Novinky posledních verzí a kde je v aplikaci najít (nejnovější nahoře). Po aktualizaci je ukáže lišta dole – jen ty
    od posledního otevření (whatsNewPop); celý seznam je v menu ☰ / v postranním panelu → Co je nového. WN_ID = verze
    sady (O aplikaci ji ukazuje, uvítání nováčka se k ní váže). */
-const WN_ID = '2026-11-25a';
+const WN_ID = '2026-11-26a';
 const WHATS_NEW = [
+  ['⭐', 'ATLAS Plus', 'podívej se, co zůstane zdarma a co chystáme navíc – a řekni nám, kolik by ti stálo za to. Najdeš ho pod <b>Další</b> → <b>ATLAS Plus</b>.'],
+  ['✈️', 'Letenku už máš?', 'na <b>Přehledu</b> doplníš zbytek cesty – trasu, ubytování i program.'],
   ['🔒', 'Soukromí', 'počítám jen souhrnné denní počty, žádné sledování jednotlivců. Podrobnosti pod <b>Další</b> → <b>O aplikaci a soukromí</b>.'],
   ['🔄', 'Upravený plán od kamaráda bez kopií', 'když ti kamarád pošle novější verzi plánu, který už máš, nabídnu <b>🔄 Aktualizovat moji cestu</b> – převezmeš termín, let a program, tvoje odškrtnuté „Sbaleno“, kódy rezervací a vlastní aktivity zůstanou. Dřív vznikla druhá kopie.'],
   ['✏️', 'Cestu upravíš i po uložení', 'v <b>Cesty</b> → Moje cesty otevři cestu a klepni na <b>✏️ Upravit název a termín</b> – přejmenuješ ji, posuneš termín (program dnů se posune s ním) nebo změníš počet cestujících. Dřív to šlo jen smazat a založit znovu.'],
@@ -1321,7 +1324,10 @@ function renderDash() {
   renderWhatsNew();
   renderDashTip();
   renderPlanCard();
+  if (window.Plus) Plus.renderCard($('#plusCard'), wnFirst); // 📒 sešit 14 dní před odletem (plus.js)
   const hp = $('#heroPlan'); if (hp) hp.onclick = () => go('trip');
+  // ✈️ letenka koupená jinde: průvodce bez hledání letu (formulář v trip.js, modul se načítá až na požádání)
+  const ho = $('#heroOwn'); if (ho) ho.onclick = () => { go('trip'); if (window.Lazy) Lazy.run('trip', () => Trip.haveTicket()); else if (window.Trip) Trip.haveTicket(); };
   $$('.link[data-go]').forEach(l => { l.onclick = () => go(l.dataset.go); kbClick(l); });
   if (window.Flights) { Flights.renderResume(); Flights.renderQuick(); Flights.renderWatch(); Flights.renderRadar(); Flights.renderFav(); Flights.renderPins(); }
 }
@@ -2122,13 +2128,18 @@ async function saveTrip(iso, flightTxt) {
     if (!fiso && !place) { const c = resolveCountry(f.dest); if (c) fiso = c.iso2; }
   }
   const trip = { name: f.name, dest: f.dest || '—', iso: fiso || null, ...(place ? { place } : {}), start: f.start, end: f.end, pax: f.pax, budget: f.budget, flight: flightTxt, days: {}, checklist: PACK.map(t => ({ t, done: false })), notes: '' };
-  S.trips.push(trip);
-  save();
-  // okno mezitím zavřené nebo nahrazené jiným: uložit potichu, nic nezavírat ani neotevírat
-  if (b && !(b.isConnected && $('#modalBg').classList.contains('show'))) { toast('Cesta vytvořena'); tripsChanged(); return; }
-  // právě uložená cesta (jiné uložení z dřívějšího okna mohlo mezitím přidat další)
-  // z Moje cest (záložka Cesta) zůstat v nich – nová cesta je v seznamu
-  modalClose(); if (activeView === 'trip') tripsChanged(); else go('planner'); toast('Cesta vytvořena'); setTimeout(() => { const i = S.trips.indexOf(trip); if (i >= 0) openTrip(i); }, 250);
+  const add = () => {
+    S.trips.push(trip);
+    save();
+    // okno mezitím zavřené nebo nahrazené jiným (i listem „Místo pro jednu cestu…“ z plus.js): uložit potichu, nic
+    // nezavírat ani neotevírat
+    if (b && !(b.isConnected && $('#modalBg').classList.contains('show'))) { toast('Cesta vytvořena'); tripsChanged(); return; }
+    // právě uložená cesta (jiné uložení z dřívějšího okna mohlo mezitím přidat další)
+    // z Moje cest (záložka Cesta) zůstat v nich – nová cesta je v seznamu
+    modalClose(); if (activeView === 'trip') tripsChanged(); else go('planner'); toast('Cesta vytvořena'); setTimeout(() => { const i = S.trips.indexOf(trip); if (i >= 0) openTrip(i); }, 250);
+  };
+  // druhá cesta zdarma: list s nabídkou Plus – nic neblokuje, cesta se uloží po volbě i po zavření listu
+  if (window.Plus) Plus.gateNewTrip('form', add, trip); else add();
 }
 /** „Hledat lety“ u cesty v plánovači: do jejího města (nebo země) v termínu cesty, je-li ještě před ní. */
 window.planSearch = i => {
@@ -2892,6 +2903,7 @@ async function boot() {
     launchDone();
     if (window.Lazy) Lazy.soon(); // průvodce, Objevuj a Před cestou, až prohlížeč nemá co dělat (lazy.js)
     setTimeout(whatsNewPop, 1200); // ✨ novinky od minula – až po úvodní animaci
+    if (window.Count && document.documentElement.dataset.brand === 'letsi') Count.hit('look_letsi'); // kolik otevření je ve vzhledu Letsi
     if (window.Count) Count.hit('app_open'); // souhrnný počet otevření (count.js) – až po startu, nic nezdrží
   }
 }
