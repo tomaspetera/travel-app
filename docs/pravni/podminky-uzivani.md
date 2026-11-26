@@ -6,7 +6,7 @@
 
 ## 1. Kdo Letsi provozuje
 
-Aplikaci Letsi (web https://atlas-letenky.onrender.com a aplikace na plochu z něj nainstalovaná) provozuje:
+Aplikaci Letsi (web https://letsi.cz a aplikace na plochu z něj nainstalovaná) provozuje:
 
 - [jméno a příjmení]
 - IČO: [IČO]

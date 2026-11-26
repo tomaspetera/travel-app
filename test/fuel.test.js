@@ -161,8 +161,8 @@ test('fuelPrices: ČR z ČSÚ, sousedé z bulletinu přepočtení kurzem, slušn
     assert.equal(count(s, 'energy.ec.europa.eu'), 1);
     const czso = s.calls.find((c) => c.url.includes('data.csu.gov.cz'));
     assert.equal(czso.url, fuel.CZSO_URL);
-    assert.match(czso.init.headers['User-Agent'], /^ATLAS-travel\//);
-    assert.match(s.calls.find((c) => c.url === fuel.WOB_URL).init.headers['User-Agent'], /^ATLAS-travel\//);
+    assert.match(czso.init.headers['User-Agent'], /^Letsi\//);
+    assert.match(s.calls.find((c) => c.url === fuel.WOB_URL).init.headers['User-Agent'], /^Letsi\//);
     assert.equal(fuel.fuelText(), 'nafta 50,65 Kč/l · ČSÚ, 40. týden 2026 (28. 9.–4. 10.)');
     assert.equal(fuel.fuelText('CZ', 'petrol'), 'benzín N95 45,87 Kč/l · ČSÚ, 40. týden 2026 (28. 9.–4. 10.)');
     const info = await fuel.fuelInfo();

@@ -18,8 +18,8 @@ export const BRAND = {
   tagline: 'Levné letenky a celá cesta krok za krokem',
   points: ['Všechna letiště v okolí najednou', 'Trasa, ubytování i program', 'Zdarma a bez registrace'],
   // Veřejná adresa webu (bez lomítka na konci): kanonická adresa, náhled odkazu, sitemap.xml. Na Renderu ji přepíše
-  // proměnná prostředí PUBLIC_URL (např. https://letsi.cz) – tady jen výchozí, když není nastavená.
-  url: 'https://atlas-letenky.onrender.com',
+  // proměnná prostředí PUBLIC_URL – tady jen výchozí, když není nastavená (stará atlas-letenky.onrender.com běží dál).
+  url: 'https://letsi.cz',
   // Náhledový obrázek odkazu v public/ (scripts/build-og-image.mjs) a jeho popis pro čtečky obrazovky.
   image: { path: 'og-image.png', width: 1200, height: 630, alt: 'Letsi – levné letenky ze všech letišť v okolí a plán celé cesty krok za krokem' },
 };

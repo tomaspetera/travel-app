@@ -7,7 +7,7 @@
 
 ## 1. Kdo údaje zpracovává
 
-Správcem osobních údajů je provozovatel aplikace Letsi (web https://atlas-letenky.onrender.com a aplikace na plochu
+Správcem osobních údajů je provozovatel aplikace Letsi (web https://letsi.cz a aplikace na plochu
 z něj nainstalovaná):
 
 - [jméno a příjmení]

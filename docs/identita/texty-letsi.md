@@ -36,7 +36,7 @@ Stav: kód k 6. 11. 2026 (commit 460d7d5). Čísla řádků platí pro tenhle st
 | `points[1]` | `Celá cesta krok za krokem` | `Let, ubytování i program v jednom` | 33 zn. | Konkrétně, co „celá cesta“ znamená. |
 | `points[2]` | `Zdarma, bez registrace` | `Zdarma, bez účtu, bez reklam v pořadí` | 37 zn. | Důvěra v penězích: nikdo si nekupuje lepší pozici (about.js to slibuje). Jestli se na obrázek nevejde, ponechat „Zdarma, bez registrace“. |
 | `image.alt` | `ATLAS – nejlevnější letenky ze všech letišť v okolí najednou a plánovač celé cesty` | `Letsi – levné letenky ze všech letišť v okolí a plán celé cesty` | – | Popis obrázku pro čtečky, sladěný s titulkem. |
-| `url` | `https://atlas-letenky.onrender.com` | beze změny, dokud nebude nová doména (PUBLIC_URL na Renderu) | – | Změna adresy rozbije sdílené odkazy a uloženou aplikaci na ploše – samostatný krok. |
+| `url` | `https://atlas-letenky.onrender.com` | `https://letsi.cz` (hotovo, PUBLIC_URL na Renderu i v render.yaml) | – | Změna adresy rozbije sdílené odkazy a uloženou aplikaci na ploše – samostatný krok. |
 
 Po změně `brand.js` znovu spustit `scripts/build-og-image.mjs` (test/seo.test.js pozná zastaralý obrázek).
 

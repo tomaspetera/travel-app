@@ -10,7 +10,7 @@ import { request, HttpError } from './http.js';
 import { loadRates, convert, fxInfo } from './fx.js';
 import { addDays } from './dates.js';
 
-const UA = 'ATLAS-travel/2.0 (+https://atlas-letenky.onrender.com; hobby travel planner)';
+const UA = 'Letsi/2.0 (+https://letsi.cz; travel planner)';
 // Poslední 2 týdny, nafta (0722101) a Natural 95 (0722201), jen cena v Kč/l (ukazatel 6621T) → JSON-stat, ~2 kB.
 export const CZSO_URL = 'https://data.csu.gov.cz/api/dotaz/v1/data/sady/CENPHMT/vlastni?CASTPHM.poslednich=2&CENPHM=0722101,0722201&IndicatorType=6621T';
 const CZSO_INFO = 'https://data.csu.gov.cz/datastat/info/SADA/CENPHMT';

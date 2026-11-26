@@ -11,13 +11,17 @@ services:
     startCommand: node server/index.js
     healthCheckPath: /healthz
     autoDeployTrigger: commit      # každá změna na GitHubu se sama nasadí
+    domains:                       # vlastní doména (DNS u WEDOS: A 216.24.57.1, CNAME www → atlas-letenky.onrender.com); www přesměruje na letsi.cz
+      - letsi.cz
+      - www.letsi.cz
     envVars:
       - key: NODE_VERSION
         value: "22"
+      - key: PUBLIC_URL             # kanonická adresa, náhledy sdílených odkazů, sitemap.xml
+        value: https://letsi.cz
 # Klíče se přidávají až potom: služba → Environment →
 #   TRAVELPAYOUTS_TOKEN (další aerolinky), LITEAPI_KEY (hotely s cenou a hodnocením – bez něj ceny hotelů
 #   z TripAdvisoru přes Xotelo, XOTELO=off vypne), UNSPLASH_ACCESS_KEY (hezčí fotky měst – bez něj Wikimedia).
-# Vlastní doména (Settings → Custom Domains): PUBLIC_URL=https://… – kanonická adresa a náhledy sdílených odkazů.
 # Provize z partnerských odkazů: TRAVELPAYOUTS_MARKER (číslo partnera) a TRAVELPAYOUTS_TRS (číslo projektu).
 # ℹ️ O aplikaci: FEEDBACK_EMAIL (💬 Napsat nám), SUPPORT_URL (💛 Podpořit ATLAS – platební odkaz Stripe
 #   https://buy.stripe.com/…, kde si člověk zvolí částku) a OPERATOR (provozovatel, např. „Jan Novák, IČO 12345678, Praha“).
