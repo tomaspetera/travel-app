@@ -131,6 +131,14 @@
     exMiss = missNext(exMiss, text);
     if (exMiss.n >= 2 && window.Count && Count.ask) Count.ask(el, EX_ASK);
   }
+  // Podrobné počty Objevuj (vrstva 1B) jen u lidí se zapnutým „Pomáhat se zlepšováním“ – Count.deep bez souhlasu nic
+  // nepošle; starší count.js v otevřené záložce deep mít nemusí. onceKey = nejvýš jednou za načtení stránky.
+  const deep = (e, k) => { if (window.Count && Count.deep) Count.deep(e, k); };
+  // otevření místa jinak než z návrhů, větou nebo Enterem (Inspirace, Naposledy, 📍 Tady) – v místě volání, ne
+  // v openPlace(): to volá i obnovení Objevuj a ✨ věta
+  const openOther = (s, o) => { deep('ex_open_other'); return openPlace(s, o); };
+  // klepnutí na nápravu prázdného výsledku (větší okruh, jiný druh plánu) – jen tlačítka uvnitř hlášky .empty
+  const exFix = b => { if (b.closest && b.closest('.empty')) deep('ex_fix'); };
   // Enter v hledání: návrhy k právě napsanému textu → vyber; jinak (čeká se, stará odpověď, chyba) hledej hned.
   const enterAction = ({ text, sugFor, count, err }) => (text.length < 2 ? 'none' : sugFor === text && !err ? (count ? 'pick' : 'none') : 'fetch');
   // Logo Mapy.com (podmínka jejich API): u návrhů z Mapy.com („Hledají i Mapy.com“) a nad turistickou mapou.
@@ -1207,7 +1215,7 @@
       if (my !== exSeq) return;
       const cities = (data.city || []).filter(okPt);
       const cap = cities.find(x => [c.capCs, c.cap].some(n => n && foldName(n) === foldName(x.name))) || cities[0] || (data.dest || []).filter(okPt)[0];
-      if (!cap) { if (body && body.isConnected) body.innerHTML = '<div class="empty">Pro tuhle zemi jsem nic nenašel – napiš do hledání nahoře konkrétní město nebo místo.</div>'; return; }
+      if (!cap) { deep('ex_empty_country', cc); if (body && body.isConnected) body.innerHTML = '<div class="empty">Pro tuhle zemi jsem nic nenašel – napiš do hledání nahoře konkrétní město nebo místo.</div>'; return; }
       p = { label: cap.name, lat: cap.lat, lon: cap.lon };
       data = { ...data, ...Object.fromEntries(C_GROUPS.map(([g]) => [g, (data[g] || []).map(x => (okPt(x) ? { ...x, distanceKm: Math.round(kmBetween([p.lon, p.lat], [x.lon, x.lat])) } : x))])) };
     }
@@ -1238,7 +1246,7 @@
     const cl = $('#exClear', root); if (cl) cl.onclick = () => resetExplore();
     $$('[data-insp]', root).forEach(b => b.onclick = async () => {
       const it = insp[+b.dataset.insp], p = cleanPlace(it);
-      if (p) return openPlace(p);
+      if (p) return openOther(p);
       if (it && it.whole) return openWholeCountry(it.whole); // cesta z plánovače do celé země
       if (!it || !(it.searched || it.trip) || b.disabled) return;
       // 🔁 město z hledání letů (i cíl cesty jen z plánovače) bez souřadnic: najít (jako ✨ věta)
@@ -1246,7 +1254,7 @@
       let down = false;
       const s = await smartPlace(it.label).catch(e => { down = Boolean(e && e.down); return null; });
       b.disabled = false;
-      if (s) openPlace(s); else toast(down ? 'Místa teď nejde dohledat – zkontroluj připojení a zkus to znovu' : `Místo „${it.label}“ jsem nenašel – napiš ho do hledání`, 'err');
+      if (s) openOther(s); else toast(down ? 'Místa teď nejde dohledat – zkontroluj připojení a zkus to znovu' : `Místo „${it.label}“ jsem nenašel – napiš ho do hledání`, 'err');
     });
     // ✨ příklady vět: vepsat do hledání a spustit jako Enter (místo, druh plánu, dny)
     $$('[data-extry]', root).forEach(b => b.onclick = () => { const q = $('#exQ', root); q.value = EX_TRY[+b.dataset.extry]; q.focus(); q.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); });
@@ -1617,7 +1625,7 @@
     const list = ex.recent.filter(r => !samePlace(r, ex.place)).slice(0, 4);
     el.hidden = !list.length;
     el.innerHTML = list.length ? `<span class="faint">Naposledy:</span>${list.map((r, i) => `<button type="button" class="fchip" data-recent="${i}">${r.cc ? flag(r.cc) : '📍'} ${esc(r.label)}</button>`).join('')}` : '';
-    $$('[data-recent]', el).forEach(b => b.onclick = () => openPlace(list[+b.dataset.recent]));
+    $$('[data-recent]', el).forEach(b => b.onclick = () => openOther(list[+b.dataset.recent]));
   }
 
   // Okruh: zmenšení jen vyfiltruje načtená místa (hned), nový dotaz až při zvětšení nad načtené (50/100 km: místa ve městě
@@ -1655,9 +1663,9 @@
         : sugHtml(sugs, act, err);
       dd.hidden = false;
       // nenalezené místo: otázka pod hledáním, ne v nabídce – ta se při klepnutí jinam zavře a otázka by zmizela pod prstem
-      if (!wc && !px && !err && sugFor) { if (sugs.length) exFound(); else exNotFound(q.closest('.ex-search'), sugFor); }
+      if (!wc && !px && !err && sugFor) { if (sugs.length) exFound(); else { exNotFound(q.closest('.ex-search'), sugFor); deep('place_none_explore', sugFor); } }
       const sm = $('[data-smart]', dd); if (sm) sm.onmousedown = e => { e.preventDefault(); runSmart(px); };
-      $$('.pi-opt:not([data-smart])', dd).forEach(o => o.onmousedown = e => { e.preventDefault(); pick(sugs[+o.dataset.i]); });
+      $$('.pi-opt:not([data-smart])', dd).forEach(o => o.onmousedown = e => { e.preventDefault(); pick(sugs[+o.dataset.i], 'ex_open_sug'); });
     };
     let smartSeq = 0;
     const runSmart = async px => {
@@ -1669,13 +1677,17 @@
       let down = false;
       const s = px.place ? await smartPlace(px.place).catch(e => { down = Boolean(e && e.down) && (e.offline ? 'offline' : true); return null; }) : ex.place;
       if (my !== smartSeq) return;
+      // ✨ věta v Objevuj zvlášť od sentence_* v Letech; výpadek sítě není nepochopená věta
+      if (!down) deep(s ? 'ex_smart_ok' : 'ex_smart_miss');
       if (!s) { dd.innerHTML = `<div class="pi-empty">${down === 'offline' ? 'Jsi offline – místo půjde dohledat po připojení k internetu' : down ? 'Místa teď nejde dohledat – zkontroluj připojení a zkus to znovu' : `Místo „${esc(px.place)}“ jsem nenašel – zkus jen jeho název`}</div>`; if (!down) exNotFound(q.closest('.ex-search'), q.value.trim()); return; }
       dd.hidden = true; q.blur();
       exploreApply(px, s);
       // věta bez místa („na 2 dny“): v poli zase otevřené místo, ne text věty
+      if (px.place) deep('ex_open_smart');
       if (px.place) openPlace(s, { start: !px.start, days: !px.days }); else { q.value = qLabel(); paintExplore(); }
     };
-    const pick = s => { if (!s) return; dd.hidden = true; if (s.ccPick) { q.blur(); openWholeCountry(s.ccPick); } else openPlace(s); };
+    // how = jak místo otevřel (ex_open_sug / ex_open_enter / ex_open_other), počítá se jen se souhlasem
+    const pick = (s, how) => { if (!s) return; deep(how); dd.hidden = true; if (s.ccPick) { q.blur(); openWholeCountry(s.ccPick); } else openPlace(s); };
     // Návrhy k textu; null = předběhl je novější dotaz (nebo psaní).
     const fetchSugs = async text => {
       if (ctl) ctl.abort();
@@ -1717,7 +1729,8 @@
         const px = smartOf(text);
         if (px) { clearTimeout(t); t = null; runSmart(px); return; }
         const a = enterAction({ text, sugFor, count: sugs.length, err });
-        if (a === 'pick') pick(sugs[act]);
+        const enter = 'ex_open_enter';
+        if (a === 'pick') pick(sugs[act], enter);
         else if (a === 'none') { if (text.length >= 2) show(); }
         else {
           // Enter dřív, než doběhlo našeptávání: hledej hned aktuální text a vezmi první výsledek.
@@ -1725,7 +1738,7 @@
           dd.innerHTML = '<div class="pi-empty">Hledám…</div>'; dd.hidden = false;
           const r = await fetchSugs(text);
           if (r == null || q.value.trim() !== text) return;
-          if (r.length) pick(r[0]); else show();
+          if (r.length) pick(r[0], enter); else show();
         }
       } else if (e.key === 'Escape') dd.hidden = true;
     };
@@ -1733,7 +1746,7 @@
     $('#exRad', root).onchange = e => setRadius(e.target.value === COUNTRY ? COUNTRY : +e.target.value);
     $('#exGeo', root).onclick = () => {
       if (!navigator.geolocation) return toast('Prohlížeč nepodporuje polohu', 'err');
-      navigator.geolocation.getCurrentPosition(p => pick({ lat: p.coords.latitude, lon: p.coords.longitude, label: 'Moje okolí', geo: true }), () => toast('Polohu se nepodařilo zjistit', 'err'), { timeout: 10000 });
+      navigator.geolocation.getCurrentPosition(p => { dd.hidden = true; openOther({ lat: p.coords.latitude, lon: p.coords.longitude, label: 'Moje okolí', geo: true }); }, () => toast('Polohu se nepodařilo zjistit', 'err'), { timeout: 10000 });
     };
   }
 
@@ -2735,13 +2748,16 @@
     };
     const on = (sel, ev, fn) => { const el = $(sel, body); if (el) el[ev] = fn; };
     $$('[data-cat]', body).forEach(b => b.onclick = () => { ex.cat = b.dataset.cat; paintExplore(); });
-    $$('[data-rad]', body).forEach(b => b.onclick = () => setRadius(+b.dataset.rad));
+    $$('[data-rad]', body).forEach(b => b.onclick = () => { exFix(b); setRadius(+b.dataset.rad); });
     // prázdný okruh je pro otázku 5 nenalezení (jednou na místo a okruh – překreslení není další pokus)
     if (ex.items.length) exFound();
     // ve sbaleném seznamu (kolo, pěšky, výlety) by otázka nebyla vidět a zabrala by jedinou otázku stránky
-    else if (!(fr && fr.busy) && !bz) { const em = $('#exList .empty', body); exNotFound(em && !em.closest('details:not([open])') ? em : null, `\u0000${p.label}|${ex.radius}|`); }
+    else if (!(fr && fr.busy) && !bz) { const em = $('#exList .empty', body); exNotFound(em && !em.closest('details:not([open])') ? em : null, `\u0000${p.label}|${ex.radius}|`); deep('ex_empty_list', `${p.label}|${ex.radius}`); }
+    // prázdný program ve městě / výlety bez cílů: jednou za místo, okruh a režim – překreslení se nepočítá
+    if (!hikeDays && !routeMode && !road && ex.plan && !cityPlan) deep('ex_empty_plan', `${p.label}|${ex.radius}`);
+    if (trip && !trip.days.length) deep('ex_empty_trips', `${p.label}|${ex.radius}|${ex.mode}|${ex.transport}`);
     on('#exPlaces', 'ontoggle', e => { ex.listOpen = e.target.open; });
-    $$('[data-mode]', body).forEach(b => b.onclick = () => { if (ex.mode !== b.dataset.mode) { ex.mode = b.dataset.mode; paintExplore(); } });
+    $$('[data-mode]', body).forEach(b => b.onclick = () => { exFix(b); if (ex.mode !== b.dataset.mode) { ex.mode = b.dataset.mode; paintExplore(); } });
     $$('[data-transport]', body).forEach(b => b.onclick = () => { ex.autoTransit = null; if (ex.transport !== b.dataset.transport) { ex.transport = b.dataset.transport; paintExplore(); } });
     // Vyřazení / přidání cíle nebo jiné zájmy platí pro všechny výlety – ostatní uložené plány (jiný režim, doprava)
     // by je ještě neměly, proto se zahodí a při přepnutí se naplánují znovu.
@@ -3001,6 +3017,7 @@
     // Uložení: zůstává se v Objevuj (toast s „Otevřít v plánovači“); cesta do stejného místa se stejným začátkem
     // v plánovači už je → přidá se k ní (bez opakování řádků), „jako novou“ založí další.
     const store = asNew => {
+      deep('ex_save');
       const entry = entryOf();
       const i = asNew ? -1 : findTripFor(S.trips, entry);
       let t = S.trips[i];
@@ -3021,7 +3038,7 @@
       });
     };
     on('#exSave', 'onclick', () => store(false));
-    on('#exFly', 'onclick', () => window.Flights && Flights.searchTo([flyTarget(p)], ex.datePicked ? flyDates(ex) : {}));
+    on('#exFly', 'onclick', () => window.Flights && (deep('ex_fly'), Flights.searchTo([flyTarget(p)], ex.datePicked ? flyDates(ex) : {})));
     // termín změněný po vykreslení (hlavička se hned nepřekresluje) – adresa až při klepnutí
     on('#exIdos', 'onclick', e => { e.currentTarget.href = safeUrl(idosUrl(p, homeCity(), ex.datePicked ? ex.start : '') || e.currentTarget.href); });
     on('#exReset', 'onclick', () => resetExplore());

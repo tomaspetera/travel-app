@@ -29,6 +29,15 @@ export const EVENTS = [
   'mq_restart_date', 'mq_restart_price', 'mq_restart_lost', 'mq_restart_try',
   'mq_trip_good', 'mq_trip_missing', 'mq_trip_lost',
   'mq_ex_city', 'mq_ex_nature', 'mq_ex_region', 'mq_ex_other',
+  // podrobné počty průvodce, Objevuj a načítání (Count.deep v trip.js, places.js, lazy.js) – posílají se jen se
+  // souhlasem „Pomáhat se zlepšováním“
+  'trip_step_route', 'trip_step_stay', 'trip_step_car', 'trip_step_program', 'trip_back',
+  'trip_restart_route', 'trip_restart_stay', 'trip_restart_car', 'trip_restart_program', 'trip_restart_summary',
+  'trip_auto_done', 'trip_auto_nights', 'trip_auto_stay',
+  'stay_pick_offer', 'stay_pick_auto', 'stay_pick_manual', 'stay_pick_links', 'stay_pick_skip', 'stay_empty_filter', 'trip_gap',
+  'ex_open_sug', 'ex_open_smart', 'ex_open_enter', 'ex_open_other', 'place_none_explore', 'ex_smart_ok', 'ex_smart_miss',
+  'ex_empty_list', 'ex_empty_plan', 'ex_empty_trips', 'ex_empty_country', 'ex_fix', 'ex_save', 'ex_fly',
+  'lazy_fail',
 ];
 // Strop seznamu: s každým názvem roste nejhorší počet zápisů do Upstash (rozpočet v test/pocitadla.test.js)
 export const MAX_EVENTS = 150;
