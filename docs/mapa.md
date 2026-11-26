@@ -71,8 +71,9 @@ Navigační mapa repozitáře: kde co je a jak to spolu souvisí, aby se kód da
 - Túry na víc dní → `server/lib/hikeplan.js`: `planHikes()`, `natureAreaAt()`, `pickGoals()`, `pickStart()`, `foodAlong()`; `public/js/places.js`: `makeHikePlan()`
 - Kolo a pěšky (okruh, vlakem tam) → `server/lib/bike.js`: `bikeLoop()`, `hikeLoop()`, `bikeFromStation()`, `trailheadsNear()`, `parseRoute()`
 - Výlety z místa (den / okruh) → `server/lib/roadtrip.js`: `planTrips()`, `bestDayLoop()`, `planLoop()`, `splitDays()`; `public/js/places.js`: `makeTrip()`
-- ⚡ Poskládej celou cestu za mě → `public/js/trip.js`: `autoTrip()`, `autoStay()`, `autoPrograms()`, `autoPlan()`
-- Shrnutí, cena, rozpočet, průběh cesty → `public/js/trip.js`: `summaryStep()`, `costs()`, `budgetHtml()`, `timeline()`, `leaveBy()`
+- ⚡ Poskládej celou cestu za mě → `public/js/trip.js`: `autoTrip()`, `autoStay()`, `autoPrograms()`, `autoPlan()`; bez cen hotelů na serveru `noPriceCand()`
+- Shrnutí, cena, rozpočet, průběh cesty → `public/js/trip.js`: `summaryStep()`, `costs()`, `budgetHtml()`, `timeline()`, `leaveBy()`; průběh po dnech `tlDays()`, `tlHtml()`; chybějící ubytování v součtu `stayGap()`, `totalLbl()`; tisk `printNote()` a `@media print` v `public/css/trip.css`
+- Průvodce v čistém režimu (co server podle `/api/health` umí) → `public/js/trip.js`: `healthSoon()`, `liveOn()`, `stayPricesOn()`, `flightCached()`; ✓ v liště kroků `stepDone()`
 - Co zařídit a co sbalit → `public/js/pretrip.js`: `html()`, `contextOf()`, `todos()`, `pack()`, `setDone()`, `reminders()`
 - Vstupní podmínky → `public/js/entry.js`: `cardChip()`, `flightChip()`, `detailHtml()`, `checklistHtml()`, `transitHtml()`
 - Moje cesty a průvodce ↔ Moje cesty → `public/js/app.js`: `myTrips()`, `openTrip()`, `newTrip()`, `editTrip()`; `public/js/trip.js`: `saveToPlanner()`, `autoSave()`, `openSaved()`
@@ -371,7 +372,7 @@ Skripty (vše `node scripts/…`; README ## Data a licence má příkazy pro akt
 - Místa a našeptávač: `test/suggest.test.js`, `test/places-search.test.js`, `test/places-missing.test.js`, `test/czech-names.test.js`, `test/nature.test.js`, `test/places-ui.test.js`, `test/objevuj-poradi.test.js`, `test/objevuj-drobnosti.test.js`
 - POI, výlety, program, túry: `test/poi.test.js`, `test/country.test.js`, `test/daytrips.test.js`, `test/regions.test.js`, `test/roadtrip.test.js`, `test/itinerary.test.js`, `test/program.test.js`, `test/hours.test.js`, `test/hikeplan.test.js`, `test/hikeplan-ui.test.js`, `test/trailhead.test.js`, `test/bike.test.js`
 - Ubytování a serverový plánovač: `test/xotelo.test.js`, `test/liteapi.test.js`, `test/osm.test.js`, `test/partnerids.test.js`, `test/stays-ui.test.js`, `test/trip.test.js`
-- Průvodce a trasa přes víc míst: `test/stayplan.test.js`, `test/stayplan-nights.test.js`, `test/stayplan-openjaw.test.js`, `test/trip-auto.test.js`, `test/trip-car.test.js`, `test/trip-changes.test.js`, `test/trip-fly.test.js`, `test/trip-integration.test.js`, `test/trip-legs.test.js`, `test/trip-next.test.js`, `test/trip-route.test.js`
+- Průvodce a trasa přes víc míst: `test/stayplan.test.js`, `test/stayplan-nights.test.js`, `test/stayplan-openjaw.test.js`, `test/trip-auto.test.js`, `test/cesta-shrnuti.test.js`, `test/trip-car.test.js`, `test/trip-changes.test.js`, `test/trip-fly.test.js`, `test/trip-integration.test.js`, `test/trip-legs.test.js`, `test/trip-next.test.js`, `test/trip-route.test.js`
 - Moje cesty: `test/trip-edit.test.js`, `test/plan-nav.test.js`, `test/plan-update.test.js`, `test/planner-stay.test.js`, `test/mytrips.test.js`
 - Na cestě a před cestou: `test/ontrip.test.js`, `test/ontrip-rides.test.js`, `test/pretrip.test.js`, `test/entry.test.js`, `test/weather.test.js`, `test/ics.test.js`
 - Lety v prohlížeči: `test/lety-form.test.js`, `test/drobnosti-lety.test.js`, `test/lety-filters.test.js`, `test/lety-detail.test.js`, `test/searchhelp.test.js` (vzor klienta), `test/holiday.test.js`, `test/daycal.test.js`, `test/spancal.test.js`, `test/rank.test.js`, `test/smart.test.js`, `test/smart-diacritics.test.js`, `test/draft.test.js`, `test/pax-ui.test.js`

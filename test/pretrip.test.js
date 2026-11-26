@@ -737,7 +737,8 @@ test('průvodce: shrnutí má kartu „Co zařídit a co sbalit“, kalendář p
   c.window.Trip.render();
   const h = sp(host.innerHTML);
   const i = h.indexOf('<h3>🛂 Před cestou</h3>'), j = h.indexOf('id="preTrip"'), k = h.indexOf('🗓️ Průběh cesty');
-  assert.ok(i > 0 && j > i && k > j, 'pod vstupními podmínkami, před průběhem cesty');
+  // průběh cesty je první karta Shrnutí, „Před cestou“ pod vstupními podmínkami
+  assert.ok(k > 0 && i > k && j > i, 'průběh cesty první, „Před cestou“ pod vstupními podmínkami');
   assert.match(h, /Vyřiď mezinárodní řidičský průkaz \(vzor 1949\)/);
   const ev = plain(c.window.Trip.calendarEvents(t)).filter((e) => /^(🛡️|🚘|📝)/u.test(e.title)).map((e) => e.title);
   assert.deepEqual(ev, ['🛡️ Sjednat cestovní pojištění (Japonsko)', '🚘 Vyřídit mezinárodní řidičský průkaz (vzor 1949)', '📝 Registrace v systému DROZD (Japonsko)']);
