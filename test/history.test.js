@@ -377,7 +377,7 @@ test('✨ lišta Co je nového: jen novinky od minulého otevření (nejvýš 3)
   // z klávesnice: novinka se rozbalí Enterem / mezerníkem (čtečka ví, že jde rozbalit), Esc lištu zavře; ohlásí se
   assert.match(pop, /d\.tabIndex = 0; d\.setAttribute\('role', 'button'\); d\.setAttribute\('aria-expanded', 'false'\);/);
   assert.match(pop, /if \(e\.key === 'Enter' \|\| e\.key === ' '\) \{ e\.preventDefault\(\); tog\(\); \}/);
-  assert.match(pop, /bar\.onkeydown = e => \{ if \(e\.key === 'Escape'\) close\(\); \};/);
+  assert.match(pop, /document\.addEventListener\('keydown', onEsc, true\);/, 'Esc odkudkoli – test/pristupnost-3');
   assert.match(pop, /bar\.setAttribute\('aria-live', 'polite'\);/);
   // lišta nezakryje otevřený našeptávač ani „↓ zpět na …“ v Objevuj; na nízkém telefonu nesahá přes „Najít lety“
   const pwa = readFileSync(new URL('../public/css/pwa.css', import.meta.url), 'utf8');

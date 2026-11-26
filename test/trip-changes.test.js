@@ -334,6 +334,9 @@ test('🧳 znovu uložená cesta bez dat „Před cestou“ (ještě se načíta
   render(c, vie({ step: 'summary' }));
   c.window.Trip.saveToPlanner({ stay: true });
   assert.equal(c.S.trips[0].budget, '20000');
+  // cena celkem zvlášť – karta v Mých cestách ukáže cenu i „rozpočet“ (app.js tripMoney, test/pristupnost-3)
+  assert.equal(c.S.trips[0].totalCzk, c.window.Trip.costs(c.S.trip).total);
+  assert.ok(c.S.trips[0].totalCzk > 0 && c.S.trips[0].totalCzk !== 20000);
   c.S.trips[0].checklist[1].done = true;
   // jiné zařízení / pomalá síť: data „Před cestou“ ještě nejsou → null; obecný PACK by seznam přepsal i s odškrtnutím
   pt.plannerChecklist = () => null;

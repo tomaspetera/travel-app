@@ -85,7 +85,7 @@ test('Count.ask: odpověď pošle jen pevný název volby a na místě otázky u
   buttons(row)[2].onclick();
   assert.deepEqual(log.beacons, [{ url: 'https://letsi.example/app/api/count', body: '{"e":"mq_empty_lost"}' }]);
   assert.equal(text(row), 'Díky!');
-  assert.equal(row.attrs.role, 'status', 'čtečka oznámí poděkování');
+  assert.equal(row.children[0].attrs.role, 'status', 'čtečka oznámí poděkování (oblast z doby otázky, test/pristupnost-3)');
   assert.equal(host.children[1], row);
   assert.deepEqual(done, [['mq_empty_lost', true]]);
   assert.deepEqual(log.storage, []);

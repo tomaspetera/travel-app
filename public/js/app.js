@@ -1143,6 +1143,7 @@ function helpCard(el) {
     Count.consent(on);
     el.hidden = true; el.innerHTML = '';
     if (on) toast('Zapnuto. Díky! Vypnout to jde kdykoli v Další.');
+    else say('Dobře, nic nezaznamenávám. Změnit to jde v Další.'); // karta tiše zmizí – čtečka by nevěděla, že volba platí
   });
   $('#helpMore', el).onclick = () => { if (window.About) About.open(); };
 }
@@ -1189,19 +1190,21 @@ function whatsNewPop() {
   bar.innerHTML = `<div class="wn-pop-h"><b>${ikona('novinky')} ${n > 1 ? 'Novinky' : 'Novinka'} od minula</b><button type="button" class="pwa-x" aria-label="Zavřít">×</button></div>
     <ul class="wn-list">${f.show.map(wnLi).join('')}</ul>
     <div class="wn-pop-f"><button type="button" class="linkbtn" data-wn-all>${f.more ? `a ${f.more} ${f.more < 5 ? 'další' : 'dalších'} ›` : 'Všechny novinky ›'}</button><button type="button" class="btn sm primary" data-wn-ok>OK</button></div>`;
-  const close = () => bar.remove();
+  // Esc zavře lištu odkudkoli (fokus bývá na stránce pod ní – v liště je až na konci pořadí Tabu); zachytává se dřív
+  // než Esc pro okno (app.js init), jinak by po zavření okna zavřel i lištu, která za ním byla schovaná
+  const onEsc = e => { if (e.key === 'Escape' && shown()) close(); };
+  const close = () => { bar.remove(); document.removeEventListener('keydown', onEsc, true); };
   $('.pwa-x', bar).onclick = close;
   $('[data-wn-ok]', bar).onclick = close;
   $('[data-wn-all]', bar).onclick = () => { close(); whatsNewOpen(); };
-  // novinka zkrácená na 3 řádky: celá klepnutím i z klávesnice (Tab, Enter / mezerník), čtečka ví, že jde rozbalit;
-  // Esc v liště ji zavře
+  // novinka zkrácená na 3 řádky: celá klepnutím i z klávesnice (Tab, Enter / mezerník), čtečka ví, že jde rozbalit
   $$('.wn-list li>div', bar).forEach(d => {
     d.tabIndex = 0; d.setAttribute('role', 'button'); d.setAttribute('aria-expanded', 'false');
     const tog = () => d.setAttribute('aria-expanded', String(d.parentElement.classList.toggle('open')));
     d.onclick = tog;
     d.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); tog(); } };
   });
-  bar.onkeydown = e => { if (e.key === 'Escape') close(); };
+  document.addEventListener('keydown', onEsc, true);
   document.body.append(bar); // za oknem (#modalBg): otevřené okno ji skryje (pwa.css .modal-bg.show ~ .wn-pop)
   // viděno, až je lišta opravdu vidět – schovaná za lištou nové verze by se po „Obnovit“ ztratila (nová verze už by ji
   // měla za viděnou), za oknem by ji uživatel nespatřil
@@ -2106,12 +2109,21 @@ const tripTitle = t => (t.start && t.name && t.name.endsWith(' ' + fmtDate(t.sta
 // (cesta přes víc zemí „Řím → Barcelona“ dál s místy – jedna země by lhala)
 const metaDest = (t, c) => (c && c.cs && !(Array.isArray(t.isos) && t.isos.length > 1) && !/[→,]/.test(String(t.dest || ''))
   && String(tripTitle(t) || '').trim().toLowerCase() === String(t.dest || '').trim().toLowerCase() ? c.cs : t.dest);
+/**
+ * Částka na kartě cesty: ruční cesta jen svůj rozpočet (jediné číslo); cesta z průvodce (totalCzk = cena celkem při
+ * uložení) s jiným „Můj rozpočet“ cenu a rozpočet s popiskem – samotných „30 000 Kč“ člověk četl jako cenu cesty.
+ */
+function tripMoney(t) {
+  const b = +t.budget || 0, tot = +t.totalCzk || 0;
+  if (t.tripId && t.totalCzk != null && b && b !== tot) return `${tot ? czk(tot) + ' · ' : ''}rozpočet ${czk(b)}`;
+  return b ? `${b.toLocaleString('cs')} Kč` : '';
+}
 // attr: atribut s indexem cesty (Moje cesty v záložce Cesta: data-mt); extra: HTML na konec karty (odkaz na detail
 // cesty z průvodce)
 function tripCard(t, i, attr = 'data-ti', extra = '') {
   const c = t.iso ? byIso[t.iso] : null, warm = c && c.cost >= 4, na = t.days ? Object.values(t.days).flat().length : 0;
   const photo = t.place?.label || (t.dest && t.dest !== '—' ? String(t.dest).split(',')[0] : '') || c?.cs || '', when = tripWhen(t);
-  return `<div class="card trip" ${attr}="${i}"><div class="trip-top ${warm ? 'warm' : ''}"${photo ? ` data-photo="${esc(photo)}" style="--h:${ccHue(t.iso || photo)}"` : ''}>${when ? `<span class="tt-when">${when}</span>` : ''}<div class="tt-name">${esc(tripTitle(t))}</div><div class="tt-meta">${c ? flag(t.iso) + ' ' : '📍 '}${esc(metaDest(t, c))}${t.start ? ' · ' + dateSpan(t.start, t.end) : ''}</div></div><div class="trip-body"><div class="bar"><span>👤 ${t.pax || 1} os. · ${na} ${na === 1 ? 'aktivita' : na >= 2 && na <= 4 ? 'aktivity' : 'aktivit'} · ${(t.checklist || []).filter(x => x.done).length}/${(t.checklist || []).length} sbaleno</span>${t.budget ? `<span>${(+t.budget).toLocaleString('cs')} Kč</span>` : ''}</div>${t.flight ? `<div class="faint tb-fl" style="font-size:12px">${esc(planTransport(t.flight))}</div>` : ''}${extra}</div></div>`;
+  return `<div class="card trip" ${attr}="${i}"><div class="trip-top ${warm ? 'warm' : ''}"${photo ? ` data-photo="${esc(photo)}" style="--h:${ccHue(t.iso || photo)}"` : ''}>${when ? `<span class="tt-when">${when}</span>` : ''}<div class="tt-name">${esc(tripTitle(t))}</div><div class="tt-meta">${c ? flag(t.iso) + ' ' : '📍 '}${esc(metaDest(t, c))}${t.start ? ' · ' + dateSpan(t.start, t.end) : ''}</div></div><div class="trip-body"><div class="bar"><span>👤 ${t.pax || 1} os. · ${na} ${na === 1 ? 'aktivita' : na >= 2 && na <= 4 ? 'aktivity' : 'aktivit'} · ${(t.checklist || []).filter(x => x.done).length}/${(t.checklist || []).length} sbaleno</span>${tripMoney(t) ? `<span>${tripMoney(t)}</span>` : ''}</div>${t.flight ? `<div class="faint tb-fl" style="font-size:12px">${esc(planTransport(t.flight))}</div>` : ''}${extra}</div></div>`;
 }
 /**
  * 🧳 Moje cesty v záložce Cesty: uložené cesty (dřív jen v Plánovači, který nováček nerozlišil od Cesty) a rozpracovaná
@@ -2154,7 +2166,13 @@ function myTrips(host, o = {}) {
     if (t.wizard && window.Trip && Trip.openSaved) return Trip.openSaved(t.wizard, t.tripId);
     openTrip(i);
   };
-  $$('[data-mt]', host).forEach(el => { el.onclick = e => { if (!e.target.closest('[data-mdet]')) open(+el.dataset.mt); }; kbClick(el); });
+  $$('[data-mt]', host).forEach(el => {
+    el.onclick = e => { if (!e.target.closest('[data-mdet]')) open(+el.dataset.mt); };
+    // karta s tlačítkem „Program, balení a poznámky“ nesmí být sama tlačítkem (role=button skryje vnitřní tlačítko před
+    // čtečkou) – z klávesnice ji otevře název cesty jako tlačítko, klik bublá na kartu
+    const nm = $('[data-mdet]', el) && $('.tt-name', el);
+    if (nm) nm.innerHTML = `<button type="button" class="tt-open">${nm.innerHTML}</button>`; else kbClick(el);
+  });
   $$('[data-mdet]', host).forEach(b => b.onclick = e => { e.stopPropagation(); openTrip(+b.dataset.mdet); });
   const c0 = $('[data-mcur]', host); if (c0) { c0.onclick = () => o.resume && o.resume(); kbClick(c0); }
   $('#mtNew', host).onclick = () => newTrip();
