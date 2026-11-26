@@ -312,9 +312,16 @@ test('aplikace: karta souhlasu až od další návštěvy, obě tlačítka stejn
   // ostatní volají vždy s pojistkou (starší count.js v otevřené záložce deep nemá)
   for (const f of ['app.js', 'flights.js', 'trip.js', 'places.js']) {
     const src = read(`public/js/${f}`);
-    assert.deepEqual([...src.matchAll(/[^\n]{0,40}Count\.deep\(/g)].filter((m) => !/Count && Count\.deep && Count\.deep\($/.test(m[0])).map((m) => m[0]), [], f);
-    // název mimo povolený seznam by server zahodil i s celým záznamem návštěvy (cleanTrace), ne jen ten krok
-    const out = [...src.matchAll(/Count\.deep\('([^']+)'/g)].map((m) => m[1]).filter((e) => !TRACE_EVENTS.includes(e));
+    // pojistka smí být na stejném řádku nebo nejvýš o 6 řádků výš (i podmínka bloku) (const ev = window.Count && Count.deep ? … : null;
+    // if (ev) Count.deep(ev)) – jinak by se volání bez ní ztratilo mezi ostatními
+    const unguarded = [...src.matchAll(/Count\.deep\(/g)].filter((m) => {
+      const before = src.slice(0, m.index).split('\n').slice(-7).join('\n');
+      return !/window\.Count\s*&&\s*Count\.deep\b/.test(before);
+    }).map((m) => src.slice(Math.max(0, m.index - 60), m.index + 12));
+    assert.deepEqual(unguarded, [], f);
+    // název mimo povolený seznam by server zahodil i s celým záznamem návštěvy (cleanTrace), ne jen ten krok –
+    // i u volání přes místní pomocníka deep('…') (flights.js, trip.js, places.js)
+    const out = [...src.matchAll(/(?:Count\.|\b)deep\('([^']+)'/g)].map((m) => m[1]).filter((e) => !TRACE_EVENTS.includes(e));
     assert.deepEqual(out, [], `${f}: Count.deep s názvem mimo EVENTS nebo vyjmutým ze záznamu`);
   }
 });
