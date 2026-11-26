@@ -108,7 +108,12 @@ test('flights.js: podrobné počty jen přes Count.deep, žádný nový Count.hi
   }
   assert.match(FL, /const formErr = window\.Count && Count\.deep \? SearchHelp\.formErrKind\(/);
   assert.match(FL, /const ev = window\.Count && Count\.deep \? SearchHelp\.fixKind\(key, lastResult\) : null;/);
-  assert.match(FL, /if \(k === 'buy' && view\.mode === 'list' && window\.Count && Count\.deep\) \{\n\s+const ev = SearchHelp\.buyRank\(/);
+  const rank = body(FL, "if (k === 'buy' && view.mode === 'list' && window.Count && Count.deep) {", 'if (ev) Count.deep(ev);');
+  // Přehled cílů (Kamkoliv, země): .trip-row je jen v rozbalené kartě za řádkem cíle – pořadí podle .cmp-row, ne 0
+  assert.match(rank, /row\.closest\('\.cmp-card'\)/);
+  assert.match(rank, /SearchHelp\.buyRank\(card \? \$\$\('\.cmp-row', list\)\.indexOf\(card\.previousElementSibling\) : \$\$\('\.trip-row, \.trip-mini', list\)\.indexOf\(row\)\)/);
+  // karta cíle je v přehledu sourozenec řádku (ne uvnitř), jinak by previousElementSibling nebyl .cmp-row
+  assert.match(FL, /<\/div>\$\{open \? `<div class="cmp-card">\$\{groupCard\(g\)\}<\/div>` : ''\}`;/);
 });
 
 test('fix_* jen přes fixKind (prázdný výsledek) z nápovědy, čipu filtru a teploty', () => {

@@ -85,7 +85,7 @@
     ['sentence_ok', SENTENCES, 'Hledání větou bez potíží'],
     ['buy_age_warn', ['buy_click'], 'Nákup zastavený kvůli staré ceně'],
   ];
-  const FL_RANK = { q: 'Kolikátou nabídku v seznamu otevřeli u prodejce', opts: [['buy_rank_1', '1.'], ['buy_rank_2_5', '2.–5.'], ['buy_rank_6p', '6. a dál']] };
+  const FL_RANK = { q: 'Kolikátou nabídku v seznamu otevřeli u prodejce (u Kamkoliv a zemí kolikátý cíl)', opts: [['buy_rank_1', '1.'], ['buy_rank_2_5', '2.–5.'], ['buy_rank_6p', '6. a dál']] };
   const PERIODS = [7, 30, 90];
   const FEW = 30; // pod 30 odpověďmi rozložení ještě hodně skáče s každou další
 

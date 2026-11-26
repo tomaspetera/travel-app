@@ -1801,7 +1801,10 @@
     const row = a.closest('.trip-row'), p = $('[data-pick]', row), r = p && rowRegistry[+p.dataset.pick];
     // kolikátou nabídku výpisu člověk koupil – jen v Seznamu, jinde (karty, mapa, lety) pořadí znamená něco jiného
     if (k === 'buy' && view.mode === 'list' && window.Count && Count.deep) {
-      const ev = SearchHelp.buyRank($$('.trip-row, .trip-mini', $('#results')).indexOf(row));
+      // Přehled cílů (Kamkoliv, země): nabídky jsou jen v rozbalené kartě (.cmp-card hned za řádkem .cmp-row) – index
+      // mezi .trip-row by byl skoro vždy 0, proto pořadí cíle v přehledu
+      const card = row && row.closest('.cmp-card'), list = $('#results');
+      const ev = SearchHelp.buyRank(card ? $$('.cmp-row', list).indexOf(card.previousElementSibling) : $$('.trip-row, .trip-mini', list).indexOf(row));
       if (ev) Count.deep(ev);
     }
     if (a.dataset.live == null && r) boughtAt = { tid: row.dataset.tid, r, res: shownRes || lastResult, k };
