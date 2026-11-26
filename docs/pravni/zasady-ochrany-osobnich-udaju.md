@@ -1,4 +1,4 @@
-# Zásady ochrany osobních údajů – ATLAS (návrh pro advokáta)
+# Zásady ochrany osobních údajů – Letsi (návrh pro advokáta)
 
 > **Návrh, ne platný text.** Sepsáno podle skutečného chování kódu ke dni 16. 11. 2026 (podmínka spuštění č. 3
 > z plánu 1.2). Každé tvrzení o zpracování má v poznámce pod oddílem odkaz do kódu, kde se dá ověřit. Údaje
@@ -7,7 +7,7 @@
 
 ## 1. Kdo údaje zpracovává
 
-Správcem osobních údajů je provozovatel aplikace ATLAS (web https://atlas-letenky.onrender.com a aplikace na plochu
+Správcem osobních údajů je provozovatel aplikace Letsi (web https://atlas-letenky.onrender.com a aplikace na plochu
 z něj nainstalovaná):
 
 - [jméno a příjmení]
@@ -19,18 +19,18 @@ Pověřence pro ochranu osobních údajů nemáme jmenovaného (není povinný).
 
 ## 2. Krátce
 
-- ATLAS nemá účty, registraci ani přihlášení. **Nepoužívá cookies a nesleduje jednotlivce** – kromě záznamu návštěvy
+- Letsi nemá účty, registraci ani přihlášení. **Nepoužívá cookies a nesleduje jednotlivce** – kromě záznamu návštěvy
   podle bodu 3.7, pokud ho sám zapneš. Počítá jen souhrnné denní počty – kolikrát se otevřela aplikace, kolik
   proběhlo hledání, kolik cest vzniklo (bod 3.6).
 - Tvoje cesty, hlídané ceny, oblíbená místa a nastavení jsou **jen v tvém prohlížeči** na tvém zařízení. Na server se
   neposílají.
-- Server ATLASu dostane jen to, co potřebuje k odpovědi (např. odkud a kam hledáš let), a tvou IP adresu, kterou
+- Server Letsi dostane jen to, co potřebuje k odpovědi (např. odkud a kam hledáš let), a tvou IP adresu, kterou
   krátce drží v paměti kvůli ochraně proti přetížení.
 - Na serveru se trvale ukládá jen cesta, kterou **sám sdílíš krátkým odkazem** – na 400 dní – a souhrnné denní počty
   bez osobních údajů.
 - Letenky ani ubytování neprodáváme. Když klepneš na odkaz k rezervaci, přejdeš na web prodejce a platí jeho zásady.
 
-## 3. Co přijímá server ATLASu a jak dlouho to drží
+## 3. Co přijímá server Letsi a jak dlouho to drží
 
 ### 3.1 IP adresa – ochrana proti přetížení
 
@@ -57,7 +57,7 @@ tedy prvních 64 bitů) a časy posledních požadavků z ní.
 
 ### 3.2 Obsah dotazů
 
-Aby ATLAS mohl odpovědět, posílá prohlížeč serveru údaje o hledání: odkud a kam, termín, počet cestujících (dospělí,
+Aby Letsi mohlo odpovědět, posílá prohlížeč serveru údaje o hledání: odkud a kam, termín, počet cestujících (dospělí,
 děti, miminka), zavazadla, způsob cesty na letiště a výchozí místo (domov), u ubytování místo, termín a počet hostů,
 v Objevuj místo a volby programu. **Polohu zařízení** prohlížeč zjistí a použije jen tehdy, když sám klepneš na
 📍 Moje poloha nebo Moje okolí (prohlížeč se tě nejdřív zeptá na povolení).
@@ -107,7 +107,7 @@ Neukládá se tvoje IP adresa, jméno ani nic, co by odkaz spojilo s tebou. Z ce
 rezervací a čas založení. [ověřit kódy rezervací – viz Otázky, bod 3]
 
 - **Kde:** databáze Upstash Redis (Upstash, Inc.), region [doplnit region]; kopii nejvýš 300 nedávno otevřených
-  odkazů drží server ATLASu v paměti do restartu. Prohlížeč a síť doručení obsahu mohou otevřenou cestu
+  odkazů drží server Letsi v paměti do restartu. Prohlížeč a síť doručení obsahu mohou otevřenou cestu
   (`/api/share/<id>`) držet v mezipaměti 1 den.
 - **Jak dlouho:** 400 dní od vytvoření, pak ji Upstash sám smaže. [smazání dřív na žádost – viz Otázky, bod 4]
 - **Kdo k ní má přístup:** kdokoli, kdo má odkaz (8 náhodných znaků; zkoušení náhodných odkazů brzdí limit).
@@ -128,7 +128,7 @@ a nic neukládá.
 Server běží u **Render** (Render Services, Inc., USA; server v regionu Frankfurt, EU). Před serverem je síť
 **Cloudflare**, kterou používá Render. Jako u každého webu vidí a zaznamenávají tyto služby technické údaje
 o požadavcích – IP adresu, čas, adresu stránky (včetně části za `?`, např. hledaný text v našeptávači, ne však části
-za `#`) a identifikaci prohlížeče. Do logu hostingu zapisuje i server ATLASu: provozní hlášky a hlášení chyb podle
+za `#`) a identifikaci prohlížeče. Do logu hostingu zapisuje i server Letsi: provozní hlášky a hlášení chyb podle
 bodu 3.3, **IP adresy ani obsah hledání sám nezapisuje**.
 
 - **Jak dlouho:** [doplnit dobu uchovávání logů podle tarifu Renderu].
@@ -204,7 +204,7 @@ něj se neposílají.
 
 ## 4. Co zůstává jen ve tvém zařízení
 
-ATLAS ukládá data v úložišti prohlížeče (localStorage) na tvém zařízení. Provozovatel k nim nemá přístup a na server
+Letsi ukládá data v úložišti prohlížeče (localStorage) na tvém zařízení. Provozovatel k nim nemá přístup a na server
 se neposílají (kromě případů v bodě 3, kdy je sám odešleš). **Nejsou to cookies** a nic z toho neslouží ke sledování.
 
 | Klíč | Co obsahuje |
@@ -249,13 +249,13 @@ Tyto služby dostanou tvou **IP adresu** a identifikaci prohlížeče, jako u ka
 | weby hotelů a jejich obrázkové servery (přes LiteAPI, TripAdvisor) | fotky ubytování | v nabídce ubytování |
 
 Mapy.com (turistická mapa, návrhy míst, trasy), předpověď počasí a směnné kurzy (ExchangeRate-API) jdou **přes server
-ATLASu** – tyto služby tvou IP adresu nevidí. Písma (Inter, Sora, Caveat) jsou na serveru ATLASu, Google Fonts se nepoužívá.
+Letsi** – tyto služby tvou IP adresu nevidí. Písma (Inter, Sora, Caveat) jsou na serveru Letsi, Google Fonts se nepoužívá.
 
 > Kde v kódu: `public/css/atlas.css` (písma z `public/vendor/fonts`), `public/js/app.js` (kurzy z `/api/fx`, zdroje
 > fotek), `public/js/places.js` (`tiles.openfreemap.org`), `server/lib/photos.js` (Wikimedia, Pexels, Unsplash – fotky se vkládají přímo z jejich serverů),
 > `server/lib/security.js` (CSP: `connect-src`, `font-src`, `img-src https:`).
 
-### 5.2 Služby, kterých se ptá jen server ATLASu
+### 5.2 Služby, kterých se ptá jen server Letsi
 
 Server se jich ptá **bez tvé IP adresy a bez čehokoli, co by tě identifikovalo** – dostanou jen obsah dotazu
 (např. trasu a datum letu, místo a termín ubytování, souřadnice místa):
@@ -274,22 +274,22 @@ Server se jich ptá **bez tvé IP adresy a bez čehokoli, co by tě identifikova
 
 ### 5.3 Partnerské odkazy a rezervace
 
-ATLAS letenky, ubytování ani auta neprodává. Tlačítka **Koupit** a odkazy k rezervaci tě pošlou na web prodejce
+Letsi letenky, ubytování ani auta neprodává. Tlačítka **Koupit** a odkazy k rezervaci tě pošlou na web prodejce
 (aerolinka, Kiwi.com, Booking.com, Airbnb, Trip.com, Agoda, Hostelworld, půjčovny aut…) s předvyplněným hledáním
 (místo, termín, počet osob). Tam už platí zásady prodejce. Některé odkazy (Aviasales, Booking.com, DiscoverCars) jsou
 **partnerské** – vedou přes zprostředkovatele Travelpayouts (`tp.media`) a jsou v aplikaci označené
-štítkem „reklama“. Při nákupu přes ně může provozovatel dostat provizi; partner se dozví, že jsi přišel z ATLASu.
+štítkem „reklama“. Při nákupu přes ně může provozovatel dostat provizi; partner se dozví, že jsi přišel z Letsi.
 Provozovatel od partnera nedostává údaje o tobě, jen souhrnné údaje o provizích. [ověřit – viz Otázky, bod 7]
 
 > Kde v kódu: `server/lib/links.js` (`tp.media`, jen s `TRAVELPAYOUTS_MARKER` a `TRAVELPAYOUTS_TRS`),
 > `public/js/trip.js` a `public/js/app.js` (štítek `ad-tag` „reklama“, `rel="sponsored"`), `public/js/about.js`.
-> Hlavička `Referrer-Policy: strict-origin-when-cross-origin` – partner dostane jen adresu webu ATLAS, ne stránku
+> Hlavička `Referrer-Policy: strict-origin-when-cross-origin` – partner dostane jen adresu webu Letsi, ne stránku
 > (`server/lib/security.js`).
 
-### 5.4 Příspěvek přes Stripe (💛 Podpořit ATLAS)
+### 5.4 Příspěvek přes Stripe (💛 Podpořit Letsi)
 
 Dobrovolný příspěvek se platí na platební stránce **Stripe** (Stripe Payments Europe, Ltd., Irsko), kam tě tlačítko
-pošle. Údaje o kartě zpracovává jen Stripe; aplikace ani server ATLASu je nedostanou. Provozovatel ve Stripe vidí
+pošle. Údaje o kartě zpracovává jen Stripe; aplikace ani server Letsi je nedostanou. Provozovatel ve Stripe vidí
 údaje k přijaté platbě (jméno, e-mail, částku a poslední 4 číslice karty) a uchovává je po dobu, kterou
 ukládají předpisy o účetnictví a daních [doplnit – např. 10 let].
 
@@ -332,7 +332,7 @@ právě probíhající návštěvy; starší záznamy k tobě nedokážeme při�
 Máš právo podat stížnost u **Úřadu pro ochranu osobních údajů**, Pplk. Sochora 27, 170 00 Praha 7, www.uoou.gov.cz.
 
 Nepoužíváme automatizované rozhodování ani profilování (záznamy návštěv podle bodu 3.7 se vyhodnocují jen souhrnně). Poskytnutí údajů není povinné; bez údajů o hledání ti ale
-ATLAS nemůže najít spoje.
+Letsi nemůže najít spoje.
 
 ## 8. Změny zásad
 
@@ -373,7 +373,7 @@ Zásady můžeme upravit, když se změní aplikace nebo předpisy. Aktuální z
 6. **localStorage a § 89 odst. 3 ZEK.** Ukládání považujeme za nezbytné pro funkce, o které uživatel požádal. Platí to
    i pro mezipaměť fotek, „Novinky“ a tipy (`atlas_ph`, `atlas_wn`, `atlas_tip`)? Lišta souhlasu dnes není žádná.
 7. **Partnerské odkazy.** Zprostředkovatel Travelpayouts a partneři mohou na svém webu nastavit vlastní cookies
-   a sledovat konverzi – ATLAS to neovlivní. Je třeba to výslovně uvést? Je označení „reklama“ u odkazu dostatečné
+   a sledovat konverzi – Letsi to neovlivní. Je třeba to výslovně uvést? Je označení „reklama“ u odkazu dostatečné
    (zákon o ochraně spotřebitele, § 2976 občanského zákoníku, DSA)?
 8. **Čistý režim:** písma jsou z vlastního serveru (#420), kurzy jdou přes server (`/api/fx`) a záložní dlaždice
    tile.openstreetmap.org aplikace už nebere – prohlížeč se přímo ptá jen OpenFreeMap a zdrojů fotek.

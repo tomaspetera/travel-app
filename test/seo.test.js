@@ -180,6 +180,23 @@ test('neznámá adresa mimo API: česká stránka 404 s odkazem do aplikace; str
   assert.deepEqual([slashes.status, slashes.headers.get('content-type'), await slashes.text()], [400, 'text/plain; charset=utf-8', 'Neplatná adresa.']);
 });
 
+test('přejmenování na Letsi: stránka 404, náhledy sdílených odkazů a právní texty už „ATLAS“ jako název nemají', async () => {
+  // 404 bere název jen z brand.js – natvrdo v ní starý název zůstat nesmí (adresy a klíče malými písmeny nevadí)
+  const page = notFoundHtml({ ...BRAND, name: 'Letsi' });
+  assert.doesNotMatch(page, /ATLAS/);
+  assert.ok(page.includes('Otevřít Letsi'));
+  const { sharePage, invitePage } = await import('../server/lib/shortlinks.js');
+  for (const html of [sharePage('Ab3kQ9xZ', { m: {} }, 'https://letsi.example', 'https://letsi.example/og.png'), invitePage('zAbcdefgh', { title: 'Jede někdo se mnou?', desc: 'x' }, 'https://letsi.example', 'https://letsi.example/og.png')]) {
+    assert.doesNotMatch(html, /ATLAS/);
+    assert.match(html, /<meta property="og:site_name" content="Letsi">/);
+  }
+  for (const f of ['docs/pravni/zasady-ochrany-osobnich-udaju.md', 'docs/pravni/podminky-uzivani.md']) {
+    const md = read(f).toString();
+    assert.doesNotMatch(md, /ATLAS/, f);
+    assert.match(md, /^# .+ – Letsi \(návrh pro advokáta\)/, f);
+  }
+});
+
 test('manifest: název a popis z brand.js (v souboru nejsou – jedno místo), instalace: ikony, start, rozsah, jazyk', async () => {
   const file = JSON.parse(read('public/manifest.webmanifest'));
   for (const k of ['name', 'short_name', 'description']) assert.ok(!(k in file), `${k} jen v server/brand.js`);

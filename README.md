@@ -1,13 +1,13 @@
-# ATLAS – nejlevnější letenky odkudkoliv kamkoliv
+# Letsi – nejlevnější letenky odkudkoliv kamkoliv
 
 Cestovní aplikace, která **skutečně hledá letenky**: napíšeš „Brno“, „Vídeň“, „Česko“, „Jihlava“ nebo použiješ polohu,
-ATLAS najde všechna letiště v okolí, prohledá je najednou u více aerolinek a ukáže nejlevnější lety **kamkoliv na světě**
+Letsi najde všechna letiště v okolí, prohledá je najednou u více aerolinek a ukáže nejlevnější lety **kamkoliv na světě**
 (nebo do konkrétního cíle) – včetně ceny cesty na letiště.
 
 Z vybraného letu pak průvodce **Cesta** poskládá celou dovolenou: **let → trasa → ubytování → auto → program → shrnutí**
 s celkovou cenou, seznamem, co v jakém pořadí zarezervovat, a časovou osou (prázdná Cesta má nahoře pole
 *Kam chceš jet?* – město, „kamkoliv“ nebo celá věta – a rovnou hledá lety). Sekce **Objevuj** funguje i samostatně:
-zadáš místo a ATLAS najde, co tam stojí za vidění, a rozplánuje to do dnů – jako pěší program ve městě,
+zadáš místo a Letsi najde, co tam stojí za vidění, a rozplánuje to do dnů – jako pěší program ve městě,
 **jednodenní výlety** (ráno ven, večer zpět) nebo **vícedenní okruh** s přespáním po cestě (u oblasti jako Toskánsko,
 Apulie, Istrie i se slovinským pobřežím, Algarve, Normandie, Provence, Skotsko nebo Laponsko jen uvnitř její hranice), autem i vlakem
 a autobusem (čas cesty je odhad, skutečné spoje ukáže odkaz do Google Map u každého úseku). U výletů si zvolíš,
@@ -37,12 +37,12 @@ pobytu leží v oblasti hor) na každý den jiný cíl tam a zpět – hlavní v
 z ubytování nebo ze startu u cíle (parkoviště, nádraží, obec z Wikidat), s délkou, převýšením, časem chůze, obtížností,
 chatami po cestě (OpenStreetMap), kratší variantou do deště, s dětmi lehčími cíli a kratší túrou v den příjezdu a odjezdu.
 Bez trasy z BRouteru zůstane odhad vzdušnou čarou a odkaz do Mapy.com. U každého dne výletu i u trasy
-je **předpověď počasí** (MET Norway) a když má pršet, ATLAS navrhne lepší den; na termíny za víc než 9 dní ukáže
+je **předpověď počasí** (MET Norway) a když má pršet, Letsi navrhne lepší den; na termíny za víc než 9 dní ukáže
 dlouhodobý průměr. Mapa je zdarma a bez klíče (MapLibre + OpenFreeMap; při jeho výpadku u tras pěšky a na kole turistická mapa Mapy.com, jinak poznámka „Mapa se nenačetla“ s odkazem do Google Map) a odkazy do Google Map
 hledají místo podle názvu. S volitelným bezplatným klíčem [Mapy.com](#mapycom-volitelně-zdarma) je pod trasou pěšky a na
 kole turistická mapa se značenými trasami a hledání v Objevuj najde i malé vesnice, hrady a rozhledny. Plán jde **exportovat do kalendáře** (.ics, Google Kalendář) a **sdílet odkazem**.
 
-K tomu zůstalo vše z původního ATLAS: mapa navštívených zemí, přehled všech 197 zemí s cenovou hladinou, nejlepšími
+K tomu zůstalo vše z původní verze aplikace: mapa navštívených zemí, přehled všech 197 zemí s cenovou hladinou, nejlepšími
 měsíci, průměrnými teplotami a aktuálními varováními MZV ČR, doporučení podle měsíce a 🧳 Moje cesty v záložce Cesty (dřív Plánovač a Cesta). Nově u každé
 země i **vstupní podmínky pro občany ČR** (vízum, ESTA a podobné registrace, občanský průkaz, očkování – viz níže).
 
@@ -56,7 +56,7 @@ země i **vstupní podmínky pro občany ČR** (vízum, ESTA a podobné registra
    u nezakoupeného letu, který ještě neodletěl, s cenou starší než den přibude *↻ Ověř cenu* (totéž ruční ověření – samo
    se nic neověřuje a cena letu se nepřepíše).
    U blízkého cíle můžeš místo letu zvolit *🚆 Pojedu vlakem / busem* (viz [Vlak nebo bus místo letadla](#vlak-nebo-bus-místo-letadla)).
-2. **Trasa** – celý pobyt na jednom místě, nebo trasa přes 2–4 zajímavá města: ATLAS je navrhne v okolí (autem nebo
+2. **Trasa** – celý pobyt na jednom místě, nebo trasa přes 2–4 zajímavá města: Letsi je navrhne v okolí (autem nebo
    veřejnou dopravou) a rozdělí noci; místa přidáš, odebereš nebo přesuneš a noci upravíš. U každého přejezdu je
    vzdálenost a čas **autem podle skutečné trasy** (s provozem, zácpami ve velkých městech a hraniční kontrolou)
    i **veřejnou dopravou** – vlakem jen tam, kde se mezi městy vlakem jezdí, jinde *autobusem / minibusem* – a přechod
@@ -176,7 +176,7 @@ to a ukáže nejbližší naplánovanou.
 
 ## Vstupní podmínky pro občany ČR
 
-U všech 197 zemí ATLAS ukazuje, co je potřeba k cestě s českým pasem nebo občankou (turistická cesta):
+U všech 197 zemí Letsi ukazuje, co je potřeba k cestě s českým pasem nebo občankou (turistická cesta):
 
 - **Karta země** má malý štítek: 🪪 stačí OP · bez víza · 🛂 ESTA / eTA / ETA (registrace předem) · 🛂 e-vízum ·
   🛂 vízum na hranici · 📄 vízum předem. Seznam zemí jde filtrovat (*Vstup: stačí OP / bez víza a registrace*) a ukazuje se po
@@ -218,7 +218,7 @@ U všech 197 zemí ATLAS ukazuje, co je potřeba k cestě s českým pasem nebo 
 
 **Zdroj a stav:** MZV ČR – Informace pro cestovatele (Encyklopedie států, „Víza a vstupní režim“), u registrací
 a e-víz oficiální weby cílových zemí, u očkování seznamy WHO a CDC; ověřeno **10/2026** (194 ze 197 zemí přímo na
-oficiální stránce, neověřené jsou označené). **Je to informativní přehled** – pravidla se mění a ATLAS za ně neručí;
+oficiální stránce, neověřené jsou označené). **Je to informativní přehled** – pravidla se mění a Letsi za ně neručí;
 před cestou si podmínky vždy ověř na [webu MZV ČR](https://www.mzv.gov.cz/jnp/cz/cestujeme/index.html) a u úřadů
 cílové země.
 
@@ -266,7 +266,7 @@ a seznam věcí na míru cestě (země, termín, doprava, zavazadla z hledání,
 - **🔌 Zásuvky a napětí** pro 195 zemí: typy zásuvek, napětí a frekvence a jestli pasují české zástrčky (typ E/F),
   jen ploché dvoukolíkové „europlug“ (typ C), nebo je potřeba adaptér (USA a Japonsko = jeden adaptér A/B);
   u 100–127 V upozornění, že fungují jen spotřebiče se štítkem 100–240 V.
-- **💶 Měna** – česky podle kódu měny země (Intl). Jestli se dá platit kartou, ATLAS neuvádí – na to není spolehlivý
+- **💶 Měna** – česky podle kódu měny země (Intl). Jestli se dá platit kartou, Letsi neuvádí – na to není spolehlivý
   souhrnný zdroj.
 - **💉 Očkování** – připomene poradit se s lékařem, když vstupní podmínky uvádějí povinná nebo doporučená očkování.
 - **🎒 Co sbalit** – skupiny *Doklady a peníze*, *Zdraví a hygiena*, *Oblečení*, *Na výlety, pláž a hory*,
@@ -333,7 +333,7 @@ a seznam věcí na míru cestě (země, termín, doprava, zavazadla z hledání,
   nejsou („ověř“).
 - Podnebí: `data/climate.json` (meteostanice u letišť, jinak NASA POWER – viz níže), vstupní podmínky a očkování: `data/entry.json`.
 
-**Je to informativní přehled** – pravidla se mění, ATLAS za ně neručí; karta vždy odkazuje na oficiální zdroj.
+**Je to informativní přehled** – pravidla se mění, Letsi za ně neručí; karta vždy odkazuje na oficiální zdroj.
 **Aktualizace dat:** `public/data/pretrip.json` (statický soubor, prohlížeč ho načte až u shrnutí): `checked`,
 `sources`, `phones`, `health.ehic` (země EHIC), `health.contract` (smluvní státy: text), `eea`, `driving`
 (`n` = `ok | rec | req | transl | local`, volitelně `f` = `1949 | 1968 | any`, `t` = poznámka, `s` = zdroj),
@@ -345,7 +345,7 @@ krém…).
 
 ## V čem je lepší než Skyscanner
 
-| | ATLAS |
+| | Letsi |
 |---|---|
 | **Lišta podle tebe (telefon)** | Dole je *Přehled* a 3 sekce, které otevíráš nejčastěji (bez historie Lety, Cesta, Objevuj; Svět, Plánovač a Doporučení se do lišty dostanou, když je používáš víc). Pořadí se počítá jen při spuštění, takže se lišta pod rukou nemění, a má pořád 5 míst – nerozjede se ani na úzkém telefonu. Zbytek je pod *⋯ Další* jako dlaždice s popisem, pod nimi 📲 Přenést do jiného zařízení, Přenos a záloha, Světlý/Tmavý režim a Přidat na plochu (dřív menu ☰ nahoře). |
 | **Výsledky na telefonu** | U hledání do konkrétního cíle je nejlevnější kombinace rozbalená celá, ostatní jsou krátké řádky (termín, noci, letiště, cena, 🔥/💚) – klepnutí rozbalí celou kartu s koupí a *Naplánovat celou cestu*. Když chybí *Odkud* (nový uživatel napíše jen „Barcelona v listopadu“), pole se zvýrazní s nápovědou a po výběru místa hledání proběhne samo. |
@@ -353,18 +353,18 @@ krém…).
 | **Cena včetně cesty na letiště** | Ke každé letence přičte odhad cesty na letiště a zpět – 🚌 veřejnou dopravou (vlak/bus do města letiště za běžnou cenu + MHD na letiště; kde cestu znáš líp, 🏠 vlastní cena), nebo 🚗 autem (nafta, benzín nebo nabíjení elektroauta za aktuální ceny, parkování podle délky cesty, dálniční známky). Let z Vídně za 600 Kč tak férově porovná s letem z Brna za 900 Kč. Viz [Doprava na letiště](#doprava-na-letiště). |
 | **Kamkoliv z více letišť** | Jedno hledání = všechny destinace ze všech letišť v okolí, seskupené podle města (Londýn = STN + LTN + LGW…). |
 | **🆕 Jen nové země** | Když máš na mapě navštívených zemí označené aspoň 3 země, dostanou cíle v zemích, kde jsi ještě nebyl, štítek 🆕 (ve výsledcích „kamkoliv“ i na kartách radaru) a ve výsledcích je přepínač *🆕 jen nové země*, který jedním klepnutím schová země, kde už jsi byl. Platí do dalšího hledání (jako *🔥 jen výhodné*), přepínač se ukáže, jen když by opravdu něco schoval. |
-| **⭐ Moje cíle a 🙈 Nezajímá mě** | Města, která tě každý týden otravují nahoře (Eindhoven, Memmingen, Charleroi…), a ta, kam opravdu chceš (Porto, Tbilisi…). Tlačítko **⋯** na kartě radaru, v řádku *Kamkoliv* i na kartě cíle nabídne *⭐ Chci tam* a *🙈 Nezajímá mě* (klepnutím, i na telefonu). 🙈 město zmizí z radaru a na jeho místo se posune další karta (hláška má *↩ Vrátit*, kdyby to byl omyl) – radar si z hledání drží 20 nejlevnějších cílů mimo 🙈 a ukazuje 12, takže se nic znovu nehledá (starší uložený radar má do obnovení o kartu méně); 🙈 cíle si nechá na jejich místě, takže město vrácené z 🙈 se hned zase ukáže, a značky *nové* a *↓* porovnává jen s kartami, které minule ukazoval; v *Kamkoliv* a hledání do země či světadílu se schová za čip *🙈 skryto 3 · ukázat*. Hledání přímo do města ho ukáže vždy. ⭐ města mají štítek ⭐ a ve výsledcích přepínač *⭐ jen moje cíle*. Na Přehledu je pod radarem pruh **⭐ Moje cíle**: u každého města nejlevnější zpáteční letenka, kterou ATLAS v tomhle zařízení už viděl (paměť cen z *Je to dobrá cena?* – jen letenka, i kombinace dvou aerolinek z *Kamkoliv*, takže nikdy dražší než na kartě radaru; odlet od tohoto měsíce, např. *letenka od 1 890 Kč · z VIE · listopad · před 3 dny*, jinak *zatím neviděno*; telefon a počítač mají každý svou paměť). Klepnutí na město hledá sem, **🔎 Hledat moje cíle** jedno hledání do prvních 5 (víc pole Kam nepojme) v termínech a pro počet lidí radaru; totéž je v *Rychlém hledání*. Sám ATLAS kvůli seznamům nic nehledá. Každý seznam pojme 30 měst, město může být jen v jednom; *Upravit →* je ukáže, přesune mezi seznamy, odebere a ⬆ posune město mezi prvních 5. Seznamy jsou jen v zařízení a v 💾 záloze, do sdílených odkazů nejdou. |
+| **⭐ Moje cíle a 🙈 Nezajímá mě** | Města, která tě každý týden otravují nahoře (Eindhoven, Memmingen, Charleroi…), a ta, kam opravdu chceš (Porto, Tbilisi…). Tlačítko **⋯** na kartě radaru, v řádku *Kamkoliv* i na kartě cíle nabídne *⭐ Chci tam* a *🙈 Nezajímá mě* (klepnutím, i na telefonu). 🙈 město zmizí z radaru a na jeho místo se posune další karta (hláška má *↩ Vrátit*, kdyby to byl omyl) – radar si z hledání drží 20 nejlevnějších cílů mimo 🙈 a ukazuje 12, takže se nic znovu nehledá (starší uložený radar má do obnovení o kartu méně); 🙈 cíle si nechá na jejich místě, takže město vrácené z 🙈 se hned zase ukáže, a značky *nové* a *↓* porovnává jen s kartami, které minule ukazoval; v *Kamkoliv* a hledání do země či světadílu se schová za čip *🙈 skryto 3 · ukázat*. Hledání přímo do města ho ukáže vždy. ⭐ města mají štítek ⭐ a ve výsledcích přepínač *⭐ jen moje cíle*. Na Přehledu je pod radarem pruh **⭐ Moje cíle**: u každého města nejlevnější zpáteční letenka, kterou Letsi v tomhle zařízení už vidělo (paměť cen z *Je to dobrá cena?* – jen letenka, i kombinace dvou aerolinek z *Kamkoliv*, takže nikdy dražší než na kartě radaru; odlet od tohoto měsíce, např. *letenka od 1 890 Kč · z VIE · listopad · před 3 dny*, jinak *zatím neviděno*; telefon a počítač mají každý svou paměť). Klepnutí na město hledá sem, **🔎 Hledat moje cíle** jedno hledání do prvních 5 (víc pole Kam nepojme) v termínech a pro počet lidí radaru; totéž je v *Rychlém hledání*. Samo Letsi kvůli seznamům nic nehledá. Každý seznam pojme 30 měst, město může být jen v jednom; *Upravit →* je ukáže, přesune mezi seznamy, odebere a ⬆ posune město mezi prvních 5. Seznamy jsou jen v zařízení a v 💾 záloze, do sdílených odkazů nejdou. |
 | **📌 Odložené nabídky** | Nabídky z různých hledání si odložíš a porovnáš vedle sebe – bez screenshotů a bez nového hledání. **📌 Odložit** je na konci řádku *Ověřit:* u každé nabídky a v nabídce **⋯** u řádku *Kamkoliv*, karty cíle i karty radaru (nejvýš 12 nabídek). Nad výsledky a na Přehledu je *📌 Odložené (3)* → **Porovnat**: na telefonu karty vedle sebe (posouváš prstem), na počítači v mřížce – cena na osobu i celkem s rozpisem (letenky, zavazadla, cesta na letiště, z letiště do města), úroveň ceny, termín, noci a dny dovolené, časy, přestupy, aerolinky a kdy cena byla (*ceny z 14:32 (před 3 h)*, starší než 24 h varovně). Když jsou nabídky spočítané pro jiný počet lidí, zavazadla nebo dopravu na letiště, okno to řekne. *Naplánovat celou cestu* otevře průvodce cestou stejně jako ve výsledcích (i s časem ceny), *Koupit* vede k prodejci. **⚡ Ověřit ceny** ověří přes Kiwi.com nejvýš 3 nejstarší ceny (stejné ověření i limit jako *⚡ Ověřit cenu živě*; Kiwi.com prodává i letenky Ryanairu a Wizz Air, často dráž – přesnou cenu ukáže rezervace). **📤 Poslat k výběru** pošle seznam jako text (sdílení telefonu – WhatsApp, e-mail…, jinak do schránky) s cenami, termíny a odkazem; druhý nic instalovat nemusí a na server se nic neukládá. Najde-li pozdější hledání se stejným nastavením stejnou nabídku, převezme její novou cenu, úroveň ceny i čas (*↑ o 210 Kč od odložení*); nabídka odložená z průběžných výsledků se doplní z konečného výsledku téhož hledání. Z karty radaru se odloží jen to, co karta zná (cena celkem, trasa, termín, odkaz) – *🔎 Najít tento termín* ji dohledá celou. Nabídky s odletem v minulosti zmizí samy, cesty přes víc měst se neodkládají. Odložené nabídky jsou jen v zařízení a v 💾 záloze. |
 | **Dálkové lety** | Cílem může být i světadíl (Asie, Afrika, Blízký východ, Amerika, Oceánie). Do vzdálených zemí se hledá i z velkých přestupních letišť v okolí (Vídeň, Mnichov, Berlín…) – cena cesty na ně je započtená. |
 | **Kombinace, které jinde nenajdeš** | Tam s Ryanairem, zpět s Wizz Air. Odlet z Vídně, návrat do Bratislavy. Přílet do Bergama, odlet z Malpensy. Optimalizátor skládá i takové cesty – u konkrétního cíle i v *Kamkoliv*, tam z letů tam a zpět, které hledání už stáhlo (bez dotazů navíc). Ve výpisu mají štítek *🔀 2 aerolinky* nebo *↩ návrat do BTS* (v řádku cíle hned za letišti *🔀* a *↩ BTS*, na kartě radaru *VIE → STN ↩ LTN → BTS*) a každý let se kupuje zvlášť svým tlačítkem. Autem se vracíš na letiště, kde stojí auto; bez *návrat i na jiné letiště v okolí* jen stejná letiště tam i zpět. |
-| **Víc měst v jedné cestě** | *🗺️ Víc měst*: 2–4 lety jedním směrem (třeba Praha → Řím, Neapol → Praha), každý na přesné datum ± 0–3 dny; rychlá volba *↩ Návrat z jiného města*. Každý let se hledá zvlášť a ATLAS skládá jen lety, které na sebe navazují: na stejném letišti aspoň 3 h, z jiného letiště téhož města 5 h, z jiného města nejdřív další den a aspoň 8 h po příletu. Ve výsledku vybíráš let po krocích (nenavazující lety zešednou s důvodem), vidíš nejlevnější kombinace a ke každému letu tlačítko Koupit – jsou to samostatné letenky. Dva lety tam a zpět domů pokračují do průvodce cestou. Delší cesta s návratem domů a aspoň jednou nocí v každém městě jde také do průvodce: *🗺️ Trasa podle letů* (města = cíle letů, noci podle dat letů, noc v letadle do žádného města nepatří), ke každému městu ubytování a program, mezi městy let (s cestou na letiště a z letiště do města, kdy nejpozději vyrazit), ve shrnutí, kalendáři i plánovači všechny letenky. Když další let odlétá z jiného města (přílet do Říma, odlet z Neapole), spočítá vlak / bus z místa na to letiště (čas, jízdné, odkaz na spoje) a započte ho i do „kdy vyrazit“. Cesta, která nekončí doma (Praha → Řím → Barcelona), jde do průvodce taky – počet nocí v posledním městě se zadá v kroku Trasa. Cesta s městem bez noci se uloží do plánovače i s lety v kalendáři (.ics). |
+| **Víc měst v jedné cestě** | *🗺️ Víc měst*: 2–4 lety jedním směrem (třeba Praha → Řím, Neapol → Praha), každý na přesné datum ± 0–3 dny; rychlá volba *↩ Návrat z jiného města*. Každý let se hledá zvlášť a Letsi skládá jen lety, které na sebe navazují: na stejném letišti aspoň 3 h, z jiného letiště téhož města 5 h, z jiného města nejdřív další den a aspoň 8 h po příletu. Ve výsledku vybíráš let po krocích (nenavazující lety zešednou s důvodem), vidíš nejlevnější kombinace a ke každému letu tlačítko Koupit – jsou to samostatné letenky. Dva lety tam a zpět domů pokračují do průvodce cestou. Delší cesta s návratem domů a aspoň jednou nocí v každém městě jde také do průvodce: *🗺️ Trasa podle letů* (města = cíle letů, noci podle dat letů, noc v letadle do žádného města nepatří), ke každému městu ubytování a program, mezi městy let (s cestou na letiště a z letiště do města, kdy nejpozději vyrazit), ve shrnutí, kalendáři i plánovači všechny letenky. Když další let odlétá z jiného města (přílet do Říma, odlet z Neapole), spočítá vlak / bus z místa na to letiště (čas, jízdné, odkaz na spoje) a započte ho i do „kdy vyrazit“. Cesta, která nekončí doma (Praha → Řím → Barcelona), jde do průvodce taky – počet nocí v posledním městě se zadá v kroku Trasa. Cesta s městem bez noci se uloží do plánovače i s lety v kalendáři (.ics). |
 | **Kalendář celých cest** | V režimu konkrétního cíle ukáže pro každý den nejlevnější *celou cestu tam a zpět* (se zadaným počtem nocí), ne jen jednosměrný let. U flexibilního termínu s rozsahem nocí je pod ním *🗓️ Mřížka termínů* – dny odletu × počet nocí s nejlevnější celou cestou v každé buňce (tučně nejlevnější v řádku, orámovaná nejlevnější celkem, souhrn „Nejlevněji: odlet st 18. 11., 4 noci“), klepnutí na buňku nechá ve výpisu jen kombinace s tímto odletem a počtem nocí (server ji posílá v `calendar.grid` jako `[den, noci, Kč/os.]`, nejvýš 60 dnů × 10 nocí; nejlevnější kombinaci buňky, kterou `top` nemá, přidá kompaktně do `grid.trips` – řádek hodnot v pořadí `grid.keys`, každý let jednou v `grid.legs`, id, noci, cenu celkem a „Je to dobrá cena?“ dopočítá prohlížeč – a prohlížeč ji doplní do výpisu, takže nabídky, `top` ani „Je to dobrá cena?“ se mřížkou nemění; „Odkud se vyplatí letět“ s ní počítá). S max. cenou hledání kalendář ani mřížka dražší dny a buňky neukazují; s filtry výpisu (letiště, aerolinky, posuvník ceny, 🔥 jen výhodné) i času a přestupů jsou z načtených kombinací, které jimi projdou (✕ = žádná). Uložené poslední hledání se při zkrácení vejde s nejlevnější cestou každého dne i buňky (jinak bez mřížky). |
 | **📅 Kalendář i u Kamkoliv a země** | Pohled *📅 Kalendář* je i u hledání „kamkoliv“, do země a do světadílu (ne u cesty přes víc měst). Server kalendář posílá jen u jednoho cíle, tady ho skládá prohlížeč z načtených nabídek cílů, které výpis ukazuje (`SearchHelp.dayCal`; u každého cíle pár nejlevnějších termínů, jiné dny můžou mít let taky): v každém dni odletu nejlevnější cíl s vlajkou a cenou na osobu (popisek: cíl, letiště, den návratu, kolik cílů ten den odlétá), u zpátečních pod ním sbalený kalendář *🛬 Podle dne návratu*. Měsíce jen od týdne prvního do týdne posledního dne s nabídkou, na počítači vedle sebe. Klepnutí na den nechá pod kalendářem jen *Cíle s odletem* v ten den (posune na ně, znovu nebo *✕ zrušit den* = všechny; jako čip filtru „odlet …“ platí i v Přehledu a Kartách). S filtry výpisu nebo času a přestupů dny, kde žádná nabídka neprošla, mají ✕. |
 | **Přesná data i flexibilně** | *📅 Přesná data*: zadáš den odletu a návratu a hledá se jen v tyto dny (volitelně ±1–3 dny). Pohled *✈︎ Lety* ukáže jako Google Flights všechny nalezené lety tam a zpět zvlášť (čas, aerolinka, přímý / s přestupem, cena celé cesty, další odlety dne bez ceny), pruh *📅 Nejbližší dny* ceny ±3 dny kolem data a jedním kliknutím hledá jiný den. *🔀 Flexibilně*: rozsah dat odletu + počet nocí, víkendy (čt/pá/so → ne/po), prodloužené víkendy, vlastní dny v týdnu. |
-| **Čas a přestupy** | Filtr *🕐 Čas a přestupy* ve výsledcích filtruje hned, bez nového hledání: čas odletu tam i zpět (ráno 5–12, odpoledne 12–18, večer 18–24, v noci 0–5 h, víc najednou), přílet nejpozději do 18 / 20 / 22 h nebo před půlnocí (přílet v noci 0–5 h se počítá jako pozdní, ráno dalšího dne ne), jen přímé lety nebo max. 1 přestup, max. délka cesty jedním směrem a nejdelší přestup (posuvníky podle nalezených letů), s veřejnou dopravou na letiště i *🏠 Jen dostupné z domova* (viz [Kdy vyrazit](#-kdy-vyrazit)). Časy jsou místní časy letišť. Platí v seznamu, na mapě, v kombinacích, v kalendáři i ve sloupcích ✈︎ Lety – tam jen pro svůj směr (když chceš návrat ráno, zůstanou všechny lety tam a každý se spáruje s nejlevnějším ranním návratem jako dvě samostatné letenky). U přesných dat se takhle skládají i filtry pro oba směry (*Jen přímé*, přílet, délka, přestup): když server poslal jen nejlevnější dvojice s přestupem jedním směrem, ATLAS spáruje přímé lety tam a zpět sám – ve sloupcích, v kombinacích i v kalendáři, s poznámkou, že jde o dvě samostatné letenky. Aktivní filtry jsou čipy s počtem skrytých nabídek a ✕, chytrá nápověda je nabídne zrušit. Lety bez známého času, délky nebo časů přestupů se neskrývají. U letů s přestupem je vidět, kde a jak dlouho se čeká („1× přestup (MUC 1 h 35 min)“). Když je nejlevnější nabídka do konkrétního cíle s přestupem, ale mezi nalezenými je i let přímo tam i zpět, nad výpisem je *✈️ Bez přestupu od 7 262 Kč/os. (o 2 773 Kč víc · z BER)* s tlačítkem **Jen přímé**. Ve sloupcích ✈︎ Lety (přesná data): když je nejlevnější let s přestupem a přímý stojí nejvýš o 300 Kč / 15 % víc, je nad sloupcem *✈️ Přímý let jen o 91 Kč dráž · 10:20 PRG → STN · 2 h místo 8 h 35 min* – klepnutí ho vybere. |
+| **Čas a přestupy** | Filtr *🕐 Čas a přestupy* ve výsledcích filtruje hned, bez nového hledání: čas odletu tam i zpět (ráno 5–12, odpoledne 12–18, večer 18–24, v noci 0–5 h, víc najednou), přílet nejpozději do 18 / 20 / 22 h nebo před půlnocí (přílet v noci 0–5 h se počítá jako pozdní, ráno dalšího dne ne), jen přímé lety nebo max. 1 přestup, max. délka cesty jedním směrem a nejdelší přestup (posuvníky podle nalezených letů), s veřejnou dopravou na letiště i *🏠 Jen dostupné z domova* (viz [Kdy vyrazit](#-kdy-vyrazit)). Časy jsou místní časy letišť. Platí v seznamu, na mapě, v kombinacích, v kalendáři i ve sloupcích ✈︎ Lety – tam jen pro svůj směr (když chceš návrat ráno, zůstanou všechny lety tam a každý se spáruje s nejlevnějším ranním návratem jako dvě samostatné letenky). U přesných dat se takhle skládají i filtry pro oba směry (*Jen přímé*, přílet, délka, přestup): když server poslal jen nejlevnější dvojice s přestupem jedním směrem, Letsi spáruje přímé lety tam a zpět sám – ve sloupcích, v kombinacích i v kalendáři, s poznámkou, že jde o dvě samostatné letenky. Aktivní filtry jsou čipy s počtem skrytých nabídek a ✕, chytrá nápověda je nabídne zrušit. Lety bez známého času, délky nebo časů přestupů se neskrývají. U letů s přestupem je vidět, kde a jak dlouho se čeká („1× přestup (MUC 1 h 35 min)“). Když je nejlevnější nabídka do konkrétního cíle s přestupem, ale mezi nalezenými je i let přímo tam i zpět, nad výpisem je *✈️ Bez přestupu od 7 262 Kč/os. (o 2 773 Kč víc · z BER)* s tlačítkem **Jen přímé**. Ve sloupcích ✈︎ Lety (přesná data): když je nejlevnější let s přestupem a přímý stojí nejvýš o 300 Kč / 15 % víc, je nad sloupcem *✈️ Přímý let jen o 91 Kč dráž · 10:20 PRG → STN · 2 h místo 8 h 35 min* – klepnutí ho vybere. |
 | **Chytrá nápověda** | Když je výsledků málo nebo žádné, nabídne konkrétní úpravy jedním kliknutím (± dny, přestupní letiště – ne v zemi cíle ani hned vedle něj, celá země / světadíl, jen tam, celý měsíc, zrušit filtr) a průvodce *💡 Jak hledat chytře* pro dálkové lety. Aktivní filtry jsou vidět jako čipy s ✕, výpadek Kiwi.com hlásí s tlačítkem *Zkusit znovu*. Když selže celé hledání (server neodpovídá, výpadek spojení), hláška je česky, s *↻ Zkusit znovu* a na telefonu se k ní stránka posune (je pod rozbaleným formulářem). |
-| **Skóre výhodnosti** | 🔥 Super cena / 👍 Výhodné podle vzdálenosti a ostatních výsledků, ↓ zlevnění (Ryanair posílá předchozí cenu), 📅 ideální sezóna z dat ATLAS (u cest do 15 dní ji nahradí předpověď počasí). |
-| **Je to dobrá cena?** | U každé nabídky štítek 💚 Dobrá cena / Běžná cena / 🔺 Dráž než obvykle a panel s vysvětlením: srovnání s ostatními nabídkami do stejného cíle v tomto hledání, s průměrnou cenou na vzdálenost a s tím, co ATLAS na trase viděl dřív (trend ↓ / → / ↑), plus opatrná rada, jestli koupit, nebo cenu hlídat – viz [Je to dobrá cena?](#je-to-dobrá-cena). |
+| **Skóre výhodnosti** | 🔥 Super cena / 👍 Výhodné podle vzdálenosti a ostatních výsledků, ↓ zlevnění (Ryanair posílá předchozí cenu), 📅 ideální sezóna z dat Letsi (u cest do 15 dní ji nahradí předpověď počasí). |
+| **Je to dobrá cena?** | U každé nabídky štítek 💚 Dobrá cena / Běžná cena / 🔺 Dráž než obvykle a panel s vysvětlením: srovnání s ostatními nabídkami do stejného cíle v tomto hledání, s průměrnou cenou na vzdálenost a s tím, co Letsi na trase vidělo dřív (trend ↓ / → / ↑), plus opatrná rada, jestli koupit, nebo cenu hlídat – viz [Je to dobrá cena?](#je-to-dobrá-cena). |
 | **📅 Termín v kalendáři** | U každé nabídky (karta ve výpisu i náhled cíle *🔎 Co tam je*) tlačítko *📅 V kalendáři*: měsíc s dnem odletu (✈︎ a čas), pásem nocí na místě a dnem návratu, víkendy, svátky ČR (i mimo termín, šedě), dnešek a přílet až další den u nočních letů; nad ním „út 17. 11. → út 24. 11. · 7 nocí · 🏖️ 5 dní dovolené“, pod ním lety s časy. Cesta přes konec měsíce = dva měsíce, delší než dva měsíce jen první a poslední. *📥 Přidat do kalendáře (.ics)* stáhne oba lety s místními časy (a online check-in u Ryanairu a Wizz Air), *Google Kalendář ↗* přidá celou cestu jako celodenní událost. Otevřený kalendář zůstane otevřený i po změně filtrů a řazení. Logika: `SearchHelp.spanCal` (`test/spancal.test.js`). |
 | **Vlak nebo bus místo letadla** | U blízkých cílů v Evropě odhad cesty vlakem/busem, srovnání s letadlem od dveří ke dveřím a na vyžádání skutečné spoje RegioJetu s cenami; FlixBus, IDOS a Google Mapy jako odkazy. |
 | **Mapa výsledků** | Všechny destinace na mapě obarvené podle ceny. |
@@ -374,8 +374,8 @@ krém…).
 | **Kam za teplem** | Volba 🌡️ Za teplem (≥ 20 / 25 / 30 °C) pustí jen cíle, kde je v měsíci odletu dlouhodobě aspoň tolik stupňů (meteostanice u letiště, průměr 1991–2020; kde stanice není, NASA POWER 2001–2020). U každé nabídky je štítek s teplotou a řazení „Nejtepleji“. |
 | **Počasí v cíli** | U cest s odletem do 9 dní je místo dlouhodobého průměru 🌡️ předpověď MET Norway na dny cesty – u nabídky „☀️ 22° · 💧 10 %“ (ikona nejdeštivějšího dne, průměr denních maxim, nejvyšší pravděpodobnost srážek), při aspoň dvou deštivých dnech „🌧️ prší 2 dny ze 3“; v řádcích Přehledu a na kartách radaru krátce „☀️ 22°“, po najetí myší den po dni. Pozdější cesty mají dál průměr 🌡️ (předpověď dál nesahá). Prohlížeč se ptá našeho serveru (`/api/weather`, ten MET Norway – viz [Počasí](#počasí-met-norway)): jeden dotaz na výsledek hledání (nejvýš 40 cílů, v paměti hodinu – řazení ani filtry nic znovu nenačítají) a jeden na radar. Dokud předpověď nedorazí (nebo když se nenačte), zůstane vidět průměr. |
 | **Cena i se zavazadly** | 🧳 Zavazadla (kabinový kufr / kufr k odbavení) přičte odhad poplatku podle dopravce (~95 aerolinek, ověřeno na jejich webech 10/2026) – nízkonákladovky se tak férově porovnají s klasickými aerolinkami. |
-| **Hlídání cen + živý radar** | Ulož hledání ♡ a nastav cílovou cenu. Dokud máš ATLAS otevřený v prohlížeči, kontroluje ho sám zhruba jednou za 6 h (po otevření hned všechna, která to potřebují, pak nejvýš 4 za půl hodiny), kreslí vývoj ceny a při zlevnění o 3 % nebo pod cílovou částku se ozve (i upozorněním prohlížeče). Stejné hledání (stejný dotaz – nezáleží na pořadí míst) se hlídá jen jednou: uložíš-li ho znovu (♡ pod formulářem i v *Je to dobrá cena?*), jen se mu aktualizuje cena a panel ukáže *✓ Tohle hledání už hlídáš*. Když stejné hledání spustíš podruhé a ještě ho nehlídáš, nabídne ho výsledek sám: *🔁 Tohle hledáš už po 2. – ♡ Hlídat cenu*. Radar ukazuje nejlevnější zpáteční lety z tvého okolí na příštích 6 týdnů. Přepínač *🗓️ Kdykoliv / 🏙️ Víkendy / 🎉 Svátky*: Kdykoliv = 2–7 nocí, Víkendy = odlet v pátek nebo v sobotu a návrat v neděli nebo v pondělí (1–3 noci, u karet i den v týdnu), Svátky = nejbližší prodloužený víkend kolem českého svátku (aspoň 3 volné dny; svátek v úterý nebo ve čtvrtek se přemostí jedním dnem volna, středa se přeskočí – tu najde *🗓️ Kdy si vzít dovolenou*; Velikonoce podle data Velikonoc) – odlet večer předem (od 16:00 – ranní lety v pracovní den server vyřadí už při hledání) nebo první volný den, návrat poslední volný den; pod přepínačem jsou na výběr tři nejbližší takové víkendy (volba se pamatuje). Kdo hledá hlavně víkendy (aspoň 3 z posledních 5 hledání na víkend, prodloužený víkend nebo svátek), tomu radar v režimu Kdykoliv nabídne *💡 Hledáš hlavně víkendy → ukázat Víkendy* – jednou, vlastní volba režimu nabídku ukončí. Volbu si ATLAS pamatuje, výsledky všech režimů drží půl hodiny (přepnutí tam a zpět nic znovu nehledá) a klik na kartu otevře vyhledávač se stejnými podmínkami – ceny radaru jsou za osobu pro počet cestujících z nastavení radaru (*změnit* u domova, výchozí 2) a klik na kartu hledá pro stejný počet, aby karta i proklik ukázaly stejnou cenu (u Svátků i s pravidlem „v předvečer jen odlety od 16:00“ – zaškrtávátko v *Další možnosti*, jde vypnout). Pod termínem každé karty radaru je, kolik dní dovolené cesta stojí. Karty s odletem do 15 dní mají štítek předpovědi počasí v cíli, ostatní dlouhodobý průměr denních maxim v měsíci odletu (*🌡️ ~8°*) (viz *Počasí v cíli*). |
-| **🕘 Od minula** | Když ATLAS otevřeš jiný den (aspoň 8 h od minula), nahoře na Přehledu je krátká karta s tím, co se od poslední návštěvy změnilo pro tebe – nejvýš 3 řádky, nejdůležitější první: 🎯 hlídaná cena od minula pod cílovou částkou, 📉 hlídání zlevněné od minula („o 210 Kč levněji než v pondělí“ – cena z poslední kontroly před návštěvou, nová z kontroly, kterou aplikace po otevření dělá stejně), ✈️ uložená cesta za 3–7 dní s časem otevření online check-inu (Ryanair, Wizz Air), 📡 nové cíle v radaru po jeho obnovení a 📌 odložené nabídky, které mezitím propadly (s hledáním nových termínů). Klepnutí vede na místo, ✕ řádky skryje, dokud se nezmění. Nic se neozve v telefonu a karta nestojí žádný dotaz na server navíc – jen uložená data v prohlížeči (`public/js/since.js`). Když se nic nezměnilo, karta se neukáže. |
+| **Hlídání cen + živý radar** | Ulož hledání ♡ a nastav cílovou cenu. Dokud máš Letsi otevřené v prohlížeči, kontroluje ho sám zhruba jednou za 6 h (po otevření hned všechna, která to potřebují, pak nejvýš 4 za půl hodiny), kreslí vývoj ceny a při zlevnění o 3 % nebo pod cílovou částku se ozve (i upozorněním prohlížeče). Stejné hledání (stejný dotaz – nezáleží na pořadí míst) se hlídá jen jednou: uložíš-li ho znovu (♡ pod formulářem i v *Je to dobrá cena?*), jen se mu aktualizuje cena a panel ukáže *✓ Tohle hledání už hlídáš*. Když stejné hledání spustíš podruhé a ještě ho nehlídáš, nabídne ho výsledek sám: *🔁 Tohle hledáš už po 2. – ♡ Hlídat cenu*. Radar ukazuje nejlevnější zpáteční lety z tvého okolí na příštích 6 týdnů. Přepínač *🗓️ Kdykoliv / 🏙️ Víkendy / 🎉 Svátky*: Kdykoliv = 2–7 nocí, Víkendy = odlet v pátek nebo v sobotu a návrat v neděli nebo v pondělí (1–3 noci, u karet i den v týdnu), Svátky = nejbližší prodloužený víkend kolem českého svátku (aspoň 3 volné dny; svátek v úterý nebo ve čtvrtek se přemostí jedním dnem volna, středa se přeskočí – tu najde *🗓️ Kdy si vzít dovolenou*; Velikonoce podle data Velikonoc) – odlet večer předem (od 16:00 – ranní lety v pracovní den server vyřadí už při hledání) nebo první volný den, návrat poslední volný den; pod přepínačem jsou na výběr tři nejbližší takové víkendy (volba se pamatuje). Kdo hledá hlavně víkendy (aspoň 3 z posledních 5 hledání na víkend, prodloužený víkend nebo svátek), tomu radar v režimu Kdykoliv nabídne *💡 Hledáš hlavně víkendy → ukázat Víkendy* – jednou, vlastní volba režimu nabídku ukončí. Volbu si Letsi pamatuje, výsledky všech režimů drží půl hodiny (přepnutí tam a zpět nic znovu nehledá) a klik na kartu otevře vyhledávač se stejnými podmínkami – ceny radaru jsou za osobu pro počet cestujících z nastavení radaru (*změnit* u domova, výchozí 2) a klik na kartu hledá pro stejný počet, aby karta i proklik ukázaly stejnou cenu (u Svátků i s pravidlem „v předvečer jen odlety od 16:00“ – zaškrtávátko v *Další možnosti*, jde vypnout). Pod termínem každé karty radaru je, kolik dní dovolené cesta stojí. Karty s odletem do 15 dní mají štítek předpovědi počasí v cíli, ostatní dlouhodobý průměr denních maxim v měsíci odletu (*🌡️ ~8°*) (viz *Počasí v cíli*). |
+| **🕘 Od minula** | Když Letsi otevřeš jiný den (aspoň 8 h od minula), nahoře na Přehledu je krátká karta s tím, co se od poslední návštěvy změnilo pro tebe – nejvýš 3 řádky, nejdůležitější první: 🎯 hlídaná cena od minula pod cílovou částkou, 📉 hlídání zlevněné od minula („o 210 Kč levněji než v pondělí“ – cena z poslední kontroly před návštěvou, nová z kontroly, kterou aplikace po otevření dělá stejně), ✈️ uložená cesta za 3–7 dní s časem otevření online check-inu (Ryanair, Wizz Air), 📡 nové cíle v radaru po jeho obnovení a 📌 odložené nabídky, které mezitím propadly (s hledáním nových termínů). Klepnutí vede na místo, ✕ řádky skryje, dokud se nezmění. Nic se neozve v telefonu a karta nestojí žádný dotaz na server navíc – jen uložená data v prohlížeči (`public/js/since.js`). Když se nic nezměnilo, karta se neukáže. |
 | **🔁 Klouzavé hlídání** | Hledání, které opakuješ každý týden („Brno +200 km → kamkoliv, víkendy, příštích 8 týdnů“), ulož s *📅 Posouvat termín s časem* (zaškrtávátko vedle ♡ Hlídat cenu u flexibilního termínu aspoň na týden – kratší rozsah by se posouval mimo zvolené dny odletu; zapnuté předem, když rozsah začíná nejpozději za 7 dní). Hlídání si pak místo dat pamatuje odstup a délku rozsahu – každá kontrola, *Otevřít* i řádek *Od minula* hledají vždy od dneška (*vždy příštích 8 týdnů (teď 14. 10.–9. 12.)*, se začátkem za víc než 3 dny *vždy odlet za 30–58 dní*), takže termín nikdy neproběhne a historie, cílová cena i *od uložení* zůstanou. U *🎉 Svátky* s nejbližším víkendem se uloží *vždy nejbližší prodloužený víkend* (i s vypnutým „v předvečer jen odlety od 16:00“; na další víkend přejde stejně jako nabídka 🎉 Svátky den před jeho začátkem – v den odletu večer předem). Ceny se tak porovnávají vždy s aktuálním termínem (karta to připomíná). Přesná data, víc měst a později vybraný svátek zůstávají pevné. Na kartě jde posouvání vypnout (zůstane dnešní termín) a starší flexibilní hlídání má odkaz *📅 převést na klouzavé* – i karta *⌛ Termín proběhl*, kde se rozsah posune jako v den uložení a hned se zkontroluje. Kontroluje se stejně často (asi jednou za 6 h, nejvýš 12 hlídání), záloha posouvání přenese. |
 | **🏖️ Dny dovolené** | U každé zpáteční nabídky je ve štítku nocí i počet dní dovolené: *🌙 4 noci · 🏖️ 2 dny dovolené*, nebo *· 🎉 bez dovolené* (po najetí které dny a který svátek pomáhá). Volno = víkendy a svátky ČR (státní i ostatní – dny pracovního klidu podle zákona č. 245/2000 Sb., Velikonoce výpočtem – nic se nemusí aktualizovat). Počítá se každý pracovní den od odletu do návratu včetně; odlet v pracovní den od 16:00 je po práci, let bez známého času odletu bere celý den; přílet zpět až další den od 5:00 (dálkový let) posune poslední den, noční přílet do 4:59 ne (ráno do práce). Řazení *Nejméně dovolené* (jen u zpátečních cest) dá nahoru nabídky s nejmíň dny dovolené, při shodě nejlevnější; v přehledu „kamkoliv“ je pak počet dní na začátku řádku. Odkaz *🗓️ Kdy si vzít dovolenou – nejvíc volna za nejmíň dní* pod *Délkou pobytu* ukáže nejdelší volna kolem svátků v příštích 12 měsících za nejvýš 1–5 dní dovolené (volba se pamatuje) – i se svátkem ve středu (28. 10. 2026: út večer odlet, čt + pá dovolená = st–ne 5 dní volna), ★ *nejvíc volna na den dovolené* u oken s nejlepším poměrem (dvě nejlepší a ta, co jsou s nimi stejně dobrá). *✈️ Hledat lety* vyplní termín jako 🎉 Svátky (odlet večer předem od 16:00 nebo první volný den, návrat poslední volný den) a hledá jednou – nic se nehledá, dokud na něj neklikneš. |
 | **↩ Smazání jde vrátit** | Smazané hlídání i smazaná cesta v plánovači (bez systémového dotazu) jdou vrátit tlačítkem *↩ Vrátit* v hlášce – na stejné místo, s cílovou cenou, rezervacemi i poznámkami. |
@@ -399,7 +399,7 @@ krém…).
 > Amadeus Self-Service API bylo v červenci 2026 vypnuto a Kiwi Tequila ani Skyscanner API nepřijímají nové vývojáře
 > (Kiwi.com je proto napojené přes svůj veřejný MCP server; jeho podmínky pro neagentní použití nejsou zveřejněné –
 > kdyby ho Kiwi omezilo, vypne se `KIWI_ENABLED=0` a zbytek běží dál),
-> proto ATLAS staví na zdrojích výše. Adaptéry jsou oddělené (`server/providers/`), další zdroj se přidá jedním souborem.
+> proto Letsi staví na zdrojích výše. Adaptéry jsou oddělené (`server/providers/`), další zdroj se přidá jedním souborem.
 
 Řádek po hledání ukáže vpravo i čas cen (*✓ Prohledáno 8 letišť za 12,3 s · … ceny z 14:32 · podrobnosti ▾* – i na
 telefonu se tam vejde, řádek se nezvýší). Když se k výsledkům vrátíš po hodině a déle (Android drží aplikaci otevřenou),
@@ -420,7 +420,7 @@ dolary – odkaz proto otevře eura (`currency=eur`) a pod tlačítkem je *💱 
 Ceny Ryanair a Wizz Air jsou živé, ale do rezervace se mohou změnit; ceny z Travelpayouts jsou označené „⏱ z cache – ověř“
 (ve výpisu, ve sloupcích ✈︎ Lety i v krocích „Víc měst“) a je dobré je ověřit (u každého výsledku je odkaz na rezervaci
 a na ověření v Google Flights / Skyscanneru). U letů s přestupem z cache bývá uvedená délka kratší, než je možné
-(nejspíš jen čas ve vzduchu bez přestupu) – když nestačí na přímý let (+10 %) a 80 min na každý přestup, ATLAS délku ani
+(nejspíš jen čas ve vzduchu bez přestupu) – když nestačí na přímý let (+10 %) a 80 min na každý přestup, Letsi délku ani
 přílet nedopočítává: ukáže „přílet ?“, filtry času je neskrývají a „Víc měst“ na takový let naváže další nejdřív 24 h po jeho odletu.
 
 ## Ceny hotelů
@@ -429,7 +429,7 @@ Krok **Ubytování** ukazuje hotely s cenou na tvoje data a hodnocením hostů z
 
 - **TripAdvisor přes Xotelo** (výchozí, zdarma, bez klíče) – [Xotelo](https://xotelo.com/) je **neoficiální** bezplatné
   API nad daty TripAdvisoru. Ke každému hotelu dá ceny jednotlivých webů (Booking.com, Agoda, Trip.com, Vio.com, web
-  hotelu…) za pokoj a noc; ATLAS z nich ukáže nejlevnější cenu za celý pobyt (× pokoje × noci, z EUR na Kč) a pod ní
+  hotelu…) za pokoj a noc; Letsi z nich ukáže nejlevnější cenu za celý pobyt (× pokoje × noci, z EUR na Kč) a pod ní
   ceny u webů („Agoda 9 300 Kč · Booking.com 10 500 Kč…“). Hodnocení je TripAdvisoru 0–5 („4,6/5 (4 045 hodnocení)“,
   odkaz na recenze), filtr se pak přepne na 3,5+ / 4+ / 4,5+. Ceny jsou **orientační** – rezervuje se u partnera
   a tam cenu ověř. Hotel bez jediné nabídky (na tvoje dny vyprodaný) se neukáže.
@@ -442,13 +442,13 @@ Krok **Ubytování** ukazuje hotely s cenou na tvoje data a hodnocením hostů z
   Vybraný hotel si pamatuje hlavní odkaz, takže ho „co zarezervovat“ ve shrnutí cesty otevře tam, kde pokoj je
   (dřív uložené hotely si nechají svůj odkaz).
 - **LiteAPI** (volitelně, s ostrým klíčem `LITEAPI_KEY`) – má přednost před Xotelem. Testovací klíč (`sand_…`) dává
-  smyšlené hotely, ATLAS je v ostrém provozu neukazuje a použije Xotelo.
+  smyšlené hotely, Letsi je v ostrém provozu neukazuje a použije Xotelo.
 
 **Provize:** z Xotela žádné nebudou (jen data, rezervace u partnerů). LiteAPI provize umožňuje (vlastní marže na cenách,
 white-label rezervace) – pro případnou placenou verzi stačí doplnit ostrý klíč, Xotelo se pak přestane používat.
 
 **Kdyby Xotelo přestalo fungovat** (neoficiální API může kdykoli skončit nebo se změnit), hledání ubytování nespadne:
-ATLAS ukáže odkazy na partnery s předvyplněným termínem jako dosud, nad nimi „Ceny hotelů z TripAdvisoru teď nejdou
+Letsi ukáže odkazy na partnery s předvyplněným termínem jako dosud, nad nimi „Ceny hotelů z TripAdvisoru teď nejdou
 načíst“ s krátkým důvodem česky (výpadek, omezuje počet dotazů, odmítá dotazy…) a tlačítkem **Zkusit znovu**.
 Pojistka (jako u Kiwi): po chybě seznamu hotelů nebo po 3 chybách cen za sebou (timeout, 5xx) se Xotelo na 2 min
 vynechá (při opakování déle, nejvýš 10 min), po 429 na dobu z `Retry-After` (výchozí 5 min), po 401/403 na 30 min –
@@ -457,7 +457,7 @@ Zdroje cen i průvodce nastavením to ukážou („blokováno“, „Zapnuté, a
 jako prázdný seznam (200), takže 401/403 nebo odpověď s chybou se nikdy nebere jako „místo bez hotelů“ a neukládá se.
 `XOTELO=off` ho vypne úplně.
 
-**Kde ho najde:** Xotelo potřebuje ID místa na TripAdvisoru (`g189158` = Lisabon). ATLAS ho bere z Wikidat
+**Kde ho najde:** Xotelo potřebuje ID místa na TripAdvisoru (`g189158` = Lisabon). Letsi ho bere z Wikidat
 (vlastnost P3134 *TripAdvisor ID*), od nejrychlejšího dotazu: u místa vybraného v hledání podle jeho ID GeoNames;
 velká města, která ve Wikidatech ID nemají (Praha, Madrid, Barcelona, Amsterdam, Varšava, Kodaň, Stockholm, Milán… –
 26 měst, `TA_CITIES` v `server/providers/stays/xotelo.js`), z tabulky; jinak podle názvu místa (anglicky i česky –
@@ -522,7 +522,7 @@ ověření ceny letu). Tlačítko mezitím ukazuje *Ověřuji volno…*. Když T
 prázdná odpověď), hotel se **nevybere** – karta dostane *❌ na tvoje dny vyprodáno* a tlačítko *Vybrat i tak*, jde na konec
 seznamu. S volnem se vybere s novou cenou a odkazem (toast *✓ Volno ověřeno teď – Booking.com 4 321 Kč (dřív …)*).
 Když se ověřit nepovede (Xotelo nestihl TripAdvisor, výpadek, limit), vybere se s dřívější cenou a radou ověřit volno
-na webu. Na Bookingu se tak méně často stane, že hotel z ATLASu „není k dispozici“.
+na webu. Na Bookingu se tak méně často stane, že hotel z Letsi „není k dispozici“.
 **Hotely bez ceny na tvoje dny** (*od ~…/noc* – běžná cena, TripAdvisor nabídku na tvoje dny nemá, často bývají
 obsazené) jsou označené *volno na tvoje dny neověřené* a když je s cenou aspoň 3 jiných, ukážou se až tlačítkem
 *Ukázat i N hotelů bez ceny na tvoje dny (často obsazené)*.
@@ -533,7 +533,7 @@ U každé nabídky letenky je štítek **💚 Dobrá cena**, **Běžná cena** n
 
 - **Oproti ostatním nabídkám do stejného cíle v tomto hledání**: pozice ceny mezi všemi nalezenými nabídkami (ne jen zobrazenými) – nejlevnější, čtvrtina nejlevnějších, medián, rozpětí dat.
 - **Oproti průměrné ceně na tuto vzdálenost**: hrubé pravidlo podle kilometrů. Výhodná je letenka zhruba od 40 % pod průměrem, dražší než obvykle od 25 % nad ním. Když je nabídek k porovnání méně než 5, řídí se odhad jen tímhle pravidlem a řekne to.
-- **Co ATLAS na této trase viděl**: prohlížeč si pamatuje nejlevnější letenku z každého hledání (i kombinaci dvou aerolinek, která do srovnání s ostatními nabídkami nepatří) podle trasy (letiště → město, měsíc odletu, zpáteční / jen tam) a kdy ji viděl. Při opakovaném stejném hledání (aspoň po 6 h, třeba při hlídání ♡) ukáže trend ↓ / → / ↑. Paměť je jen v tomto prohlížeči (localStorage), drží nejvýš 300 tras a zapomíná minulé měsíce a trasy neviděné přes 120 dní.
+- **Co Letsi na této trase vidělo**: prohlížeč si pamatuje nejlevnější letenku z každého hledání (i kombinaci dvou aerolinek, která do srovnání s ostatními nabídkami nepatří) podle trasy (letiště → město, měsíc odletu, zpáteční / jen tam) a kdy ji viděl. Při opakovaném stejném hledání (aspoň po 6 h, třeba při hlídání ♡) ukáže trend ↓ / → / ↑. Paměť je jen v tomto prohlížeči (localStorage), drží nejvýš 300 tras a zapomíná minulé měsíce a trasy neviděné přes 120 dní.
 - **Do odletu** a opatrná rada: nízká cena krátce před odletem → spíš koupit; víc než ~7 týdnů do odletu → hlídat cenu ♡ s cílovou cenou; jinak zkusit jiné dny nebo letiště. Ceny u nízkonákladovek se před odletem obvykle zvedají.
 
 Je to odhad, ne předpověď: porovnává se cena letenek na osobu bez dopravy na letiště a zavazadel.
@@ -759,7 +759,7 @@ parkoviště.
 
 Levný let v 6:00 z Vídně, Bratislavy nebo Katovic znamená vyrazit z Brna kolem druhé v noci (do Katovic už předchozí
 večer), kdy veřejná doprava nejede,
-a pozdní návrat končí doma po půlnoci. ATLAS proto sečte čas letu s odhadem cesty na letiště (týž odhad jako u ceny,
+a pozdní návrat končí doma po půlnoci. Letsi proto sečte čas letu s odhadem cesty na letiště (týž odhad jako u ceny,
 `server/lib/access.js`) – jen počítání s hodinami, bez jízdních řádů a bez dotazů na dopravce (`SearchHelp.reach`):
 
 - **Z domu** = odlet − 2 h na letišti (let mimo Schengen 2,5 h) − cesta na letiště; **doma** = přílet + 45 min na letišti (vystoupení, zavazadla)
@@ -787,7 +787,7 @@ a pozdní návrat končí doma po půlnoci. ATLAS proto sečte čas letu s odhad
 
 ### Aktuální ceny paliva a nabíjení
 
-Ceny nafty a benzínu bere ATLAS z otevřených dat (`server/lib/fuel.js`, `GET /api/fuel`):
+Ceny nafty a benzínu bere Letsi z otevřených dat (`server/lib/fuel.js`, `GET /api/fuel`):
 
 - **Česko:** ČSÚ – *Průměrné spotřebitelské ceny pohonných hmot – týdenní* (DataStat API, sada
   [CENPHMT](https://data.csu.gov.cz/datastat/info/SADA/CENPHMT), otevřená data
@@ -798,7 +798,7 @@ Ceny nafty a benzínu bere ATLAS z otevřených dat (`server/lib/fuel.js`, `GET 
   [Weekly Oil Bulletin](https://energy.ec.europa.eu/data-and-analysis/weekly-oil-bulletin_en), ceny s daněmi (EUR za 1000 l
   k pondělí; © Evropská unie, [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/), upraveno – výběr zemí, přepočet na
   Kč/l), na Kč aktuálním kurzem. Platí cena v zemi, odkud jedeš (z Bratislavy slovenská nafta, z Vídně rakouská,
-  přejezd po Chorvatsku chorvatská; země mimo EU → česká cena). Českou cenu z bulletinu ATLAS vezme, jen když ČSÚ neodpoví nebo je o víc než týden starší.
+  přejezd po Chorvatsku chorvatská; země mimo EU → česká cena). Českou cenu z bulletinu Letsi vezme, jen když ČSÚ neodpoví nebo je o víc než týden starší.
 - **Obnovení:** každý zdroj nejvýš jednou za 24 hodin (po chybě znovu za 2 h, timeout 8 s). Hledání na síť nikdy
   nečeká – počítá s posledními staženými cenami a nové stáhne na pozadí. Když zdroje nejsou k dispozici, platí
   **vestavěné ceny s datem** (ČSÚ za 40. týden 2026, bulletin k 28. 9. 2026 při kurzu ECB 24,397 Kč/€) s popiskem
@@ -824,7 +824,7 @@ Ceny nafty a benzínu bere ATLAS z otevřených dat (`server/lib/fuel.js`, `GET 
 ## Z letiště do města
 
 „Levná“ letenka na vzdálené letiště levná být nemusí: z Paříže-Beauvais jede do Paříže autobus za 17,90 € a 1 h 15,
-z Girony do Barcelony za 22 €, z Torpu do Osla za 289 NOK a přes hodinu a půl – a to každým směrem. ATLAS proto
+z Girony do Barcelony za 22 €, z Torpu do Osla za 289 NOK a přes hodinu a půl – a to každým směrem. Letsi proto
 u každé nabídky ukáže, kolik stojí a jak dlouho trvá cesta z letiště příletu do města (a z města na letiště odletu),
 a v *Další možnosti → Z letiště do města* (**ukázat cestu z letiště do města**, výchozí) ji pod cenou ukáže tam i zpět,
 na osobu – do ceny letenky se nepřičítá.
@@ -1087,7 +1087,7 @@ města se z ověřování nedá načíst, ceny podle výsledků vyhledávání (
 ## Vlak nebo bus místo letadla
 
 Do blízkých měst (Vídeň, Berlín, Mnichov, Budapešť, Krakov…) bývá vlak nebo autobus stejně rychlý jako letadlo
-i s cestou na letiště a odbavením – a mnohem levnější. ATLAS to ukáže sám, jen v Evropě a jen tam, kde to dává smysl:
+i s cestou na letiště a odbavením – a mnohem levnější. Letsi to ukáže samo, jen v Evropě a jen tam, kde to dává smysl:
 
 - **Výsledky letů** – u cílů v dosahu čip *🚆 ~4 h 20 · běžně ~450 Kč* (odhad; u zpátečního hledání cena tam i zpět –
   *· tam i zpět běžně ~900 Kč* –, ať jde porovnat s cenou letenek vedle; nejnižší cena *od ~299 Kč* je v popisku čipu;
@@ -1097,7 +1097,7 @@ i s cestou na letiště a odbavením – a mnohem levnější. ATLAS to ukáže 
   nabídka do tohoto cíle, která projde filtry výpisu, i s časem **svého** letu tam vč. přestupů – a když je jiná cesta
   aspoň o hodinu rychlejší, druhý řádek *⚡ nejrychlejší ~4 h 35 od 11 994 Kč*; cena a čas jsou vždy z téže cesty a
   u zpáteční platí čas pro oba směry (přímý let tam s návratem s přestupem na celý den „nejrychlejší“ není; u přesných
-  dat ATLAS nejrychlejší dvojici samostatných letenek složí sám, i když ji server mezi nejlevnějšími kombinacemi neposlal).
+  dat Letsi nejrychlejší dvojici samostatných letenek složí samo, i když ji server mezi nejlevnějšími kombinacemi neposlal).
   Když neprojde žádná, napíše „skryto filtry“) a tlačítko *Ukázat spoje*:
   skutečné spoje RegioJetu na zvolený den (čas, délka, přestupy, vlak/bus, cena od–do, volná místa), na vyžádání i zpět,
   a odkazy na RegioJet, FlixBus, IDOS a Google Mapy. Když se let nenajde nebo je jich málo, nabídne vlak/bus i chytrá
@@ -1129,7 +1129,7 @@ počítá z nabídek, které výpis po filtrech ukazuje (stejné pravidlo na ser
 |---|---|---|
 | **Odhad** (čip, srovnání, „běžně ~X Kč (od ~Y)“) | **Ceny** z živých cen RegioJetu **15. 10. 2026** (veřejné API webu, jednorázově: 45 tras z Prahy, Brna a Ostravy, 3 termíny za ~12, 33 a 61 dní po ~3 dnech; *od* = nejlevnější ze všech dní, *běžně* = medián nejlevnějšího spoje dne, který jde koupit). Praha ↔ 28 měst **změřeno** (Brno, Ostrava, Olomouc, Pardubice, Bratislava, Košice, Vídeň, Berlín, Drážďany, Mnichov, Frankfurt, Varšava, Krakov, Budapešť, Lvov, Benátky, Paříž, Amsterdam, Curych, Brusel…; *od* a čas = lepší z tohoto a z měření 13. 10. 2026 – nejrychlejší spoj a nejnižší cena RegioJetu a FlixBusu, průzkum `research/ground.md` ve větvi `pc-research`). Jinde **model podle vzdálenosti po pásmech** (Kč na osobu jedním směrem, *od* / *běžně*): **Česko a Slovensko** 30 + 0,85 / 30 + 0,95 Kč/km; **levný východ** mezi městy RegioJetu (Česko, Slovensko, Polsko, Maďarsko, Ukrajina) 140 + 0,5 / 100 + 0,85 Kč/km do 450 km a dál jen +0,1 Kč/km (Praha–Lvov běžně 449 Kč); **ostatní** (Německo, Rakousko, Švýcarsko, Francie, Benelux, Itálie a kam RegioJet nejezdí) 30 + 1,3 / 20 + 1,5 Kč/km i dál než 450 km – Praha → Gdaňsk (jen FlixBus ~900 Kč) vyjde běžně ~850 Kč, od ~750 Kč. Na 41 trasách (bez Lince a Salcburku – RegioJet tam prodává jen drahé partnerské vlaky za 1 340 a 2 010 Kč, FlixBus a ÖBB jezdí za ~300–600 Kč) klesl medián chyby *od* z 19,5 % na 10,8 % a *běžně* z 19,9 % na 13,3 %; *běžně* do ±25 % u 32 tras (dřív 25), nejhůř Praha–Vídeň +61 % (levná díky konkurenci – z Prahy ale platí změřená cena). Dřívější model byl na domácích trasách moc drahý (Praha–Olomouc 250 Kč, běžně 149 Kč) a do Německa moc levný (Frankfurt 380 Kč, běžně 639 Kč). **Čas** podle měření 13. 10.: do 450 km ~66 km/h, dál ~55 km/h + přestupy; vede-li přímka přes Alpy nebo Dinárské hory, o čtvrtinu déle (Praha–Klagenfurt ~7 h 20, ne 5 h 50); do Švédska a Norska po souši přes Øresundský most | bez sítě, počítá se u každého hledání a hledání nezpomalí; vždy označeno „odhad“ |
 | **RegioJet – živé ceny** | veřejné rozhraní webu regiojet.cz (`brn-ybus-pubapi.sa.cz`, bez klíče) | **jen ze serveru** (z prohlížeče cizího webu vrací 403) a **jen na vyžádání** – po kliknutí na *Ukázat spoje* nebo při výběru spoje v průvodci; mezipaměť 3 h, jeden dotaz naráz, aspoň 1 s mezi dotazy, nejvýš 60 za hodinu, timeout 8 s, jedno opakování (také s odstupem a v hodinovém stropu); při chybě platí odhad |
-| **FlixBus – jen odkaz** | jen UUID měst pro předvyplněný odkaz do e-shopu | podmínky FlixBusu zakazují automatické (komerční) využívání dat bez písemné smlouvy, proto ATLAS jeho ceny ani spoje **nenačítá**; UUID jsou pevně v `data/ground.json` a skript `scripts/build-ground.mjs` je jen převezme – z FlixBusu nic nestahuje |
+| **FlixBus – jen odkaz** | jen UUID měst pro předvyplněný odkaz do e-shopu | podmínky FlixBusu zakazují automatické (komerční) využívání dat bez písemné smlouvy, proto Letsi jeho ceny ani spoje **nenačítá**; UUID jsou pevně v `data/ground.json` a skript `scripts/build-ground.mjs` je jen převezme – z FlixBusu nic nestahuje |
 | **IDOS, Google Mapy – odkazy** | IDOS (vlaky ČD i zahraniční, autobusy) s datem; Google Mapy veřejnou dopravou bez data | ÖBB, DB, ČD, Trainline ani Omio data bez partnerské smlouvy nedávají – jen odkazy |
 
 Města a jejich ID jsou v `data/ground.json` (262 měst: 170 měst RegioJetu s polohou hlavní zastávky z jeho seznamu,
@@ -1170,7 +1170,7 @@ Zkopíruj `.env.example` na `.env`:
 | `PEXELS_API_KEY` | – | krásné fotky měst na kartách (radar, tipy, detail cíle) z Pexels – zdarma klíč na pexels.com/api (200 dotazů/h, fotky se drží 7 dní na serveru a 30 dní v prohlížeči; **Pexels teď nové klíče nevydává** – stávající klíč funguje dál). Bez klíče fotky z Unsplash (klíč níž), jinak z Wikimedia Commons (oceněné fotky z článku o městě) |
 | `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` | – | **krátké odkazy na sdílenou cestu** (`/c/Ab3kQ9xZ` místo `#trip=…` s tisíci znaky) s náhledem ve WhatsAppu (cíl, termín, fotka): cesta se uloží jen při sdílení, na 400 dní, v Redis od Upstash (zdarma 500 000 příkazů a 256 MB; console.upstash.com → Create database → REST API). Bez nich aplikace posílá dlouhý odkaz jako dřív (`/api/health` → `shortLinks`) |
 | `STATS_KEY` | – | klíč ke **statistikám pro majitele**: s ním `/api/stats` (a stránka `statistiky.html`, která se na klíč zeptá) odpoví jen s hlavičkou `Authorization: Bearer <klíč>`, bez něj jsou souhrnné počty veřejné a záznamy návštěv (`/api/traces`) nejdou číst vůbec. Dlouhý náhodný text, např. `openssl rand -hex 32` |
-| `UNSPLASH_ACCESS_KEY` | – | totéž z Unsplash, když Pexels klíč chybí nebo fotku nenajde. Zdarma: účet na [unsplash.com/developers](https://unsplash.com/developers) → *Your apps* → *New Application* (souhlas s podmínkami, název ATLAS) → do Renderu se vkládá **Access Key** (ne Secret key). Nová aplikace je v ukázkovém režimu (50 dotazů/h) – stačí, fotka města se drží 7 dní na serveru a 30 v prohlížeči; při vyčerpání limitu se Unsplash na 15 min vynechá a karta má zatím fotku z Wikimedie. Bere se jen fotka, v jejímž popisu, adrese nebo štítcích je jméno města; podle podmínek Unsplash se fotky vkládají přímo z jeho serveru a u každé je drobně „Foto: autor / Unsplash“ s odkazy (u Pexels „/ Pexels“) |
+| `UNSPLASH_ACCESS_KEY` | – | totéž z Unsplash, když Pexels klíč chybí nebo fotku nenajde. Zdarma: účet na [unsplash.com/developers](https://unsplash.com/developers) → *Your apps* → *New Application* (souhlas s podmínkami, název Letsi) → do Renderu se vkládá **Access Key** (ne Secret key). Nová aplikace je v ukázkovém režimu (50 dotazů/h) – stačí, fotka města se drží 7 dní na serveru a 30 v prohlížeči; při vyčerpání limitu se Unsplash na 15 min vynechá a karta má zatím fotku z Wikimedie. Bere se jen fotka, v jejímž popisu, adrese nebo štítcích je jméno města; podle podmínek Unsplash se fotky vkládají přímo z jeho serveru a u každé je drobně „Foto: autor / Unsplash“ s odkazy (u Pexels „/ Pexels“) |
 | `LITEAPI_KEY` | – | hotely s cenou na tvoje data a hodnocením hostů (zdarma klíč na dashboard.liteapi.travel; `sand_…` = testovací data, pak se použije Xotelo). Ostrý klíč má přednost před Xotelem a umožňuje provize |
 | `LITEAPI_WHITELABEL` | – | doména white-label rezervační stránky LiteAPI – tlačítko „detail“ pak vede tam místo na Booking.com |
 | `PARTNER_LOOKUP` | `1` | odkazy na Trip.com, Agodu a Hostelworld s termínem a hosty: server u nich jednou dohledá ID místa (jeden dotaz na místo a partnera, timeout 4 s, mezipaměť 30 dní); `0` = bez dotazů, odkazy jen s názvem místa (Trip.com hledání potvrdíš, Agoda úvodní stránka, Hostelworld stránka města bez dat). V DEMO se neptá nikdy |
@@ -1182,14 +1182,14 @@ Zkopíruj `.env.example` na `.env`:
 | `VERIFY_RATE_LIMIT` | jako `SEARCH_RATE_LIMIT` | max. živých ověření ceny (`/api/verify` – Kiwi.com) z jedné IP za 10 minut, zvlášť od hledání; po hledání „kamkoliv“ aplikace sama ověří nejvýš 3 ceny z mezipaměti mezi prvními 10 cíli, další jen na tlačítko „⚡ Ověřit cenu živě“ |
 | `EXPLORE_RATE_LIMIT` | 3× `SEARCH_RATE_LIMIT` | max. požadavků Objevuj (`/api/poi`, `/api/poi/trips`, `/api/poi/country`, `/api/itinerary`, `/api/roadtrip`, `/api/bike`, `/api/hike`, `/api/hikeplan`) z jedné IP za 10 minut, zvlášť od hledání (`0` = bez limitu). Počítá se jen požadavek, který opravdu jde na Wikidata, Wikipedii nebo BRouter – odpověď celá z mezipaměti serveru (stejné místo podruhé, návrat do Objevuj, už jednou spočítaná trasa) ne; v DEMO se počítá každý |
 | `SEARCH_CONCURRENCY` | `4` | nával uživatelů: kolik různých hledání smí běžet naráz (jedno = 1–3 s procesoru a desítky MB paměti). Stejné hledání, které už běží (od kohokoli), se k němu jen připojí a nic navíc nestojí. Viz [docs/skalovani.md](docs/skalovani.md) |
-| `SEARCH_QUEUE` | `20` | kolik dalších hledání čeká ve frontě; nad ní server nové hledání odmítne „ATLAS teď hledá pro hodně lidí najednou – zkus to prosím za minutu“ (503) místo pádu celého serveru. Hledání ve frontě, jehož klient odešel, se nespustí |
+| `SEARCH_QUEUE` | `20` | kolik dalších hledání čeká ve frontě; nad ní server nové hledání odmítne „Letsi teď hledá pro hodně lidí najednou – zkus to prosím za minutu“ (503) místo pádu celého serveru. Hledání ve frontě, jehož klient odešel, se nespustí |
 | `CACHE_SOFT_MB` | `320` | měkký strop paměti procesu (MB): nad ním server zahodí starší polovinu mezipaměti (Render zdarma má 512 MB) |
 | `REGIOJET_LIVE` | `1` | `0` = vypnout živé spoje RegioJetu (vlak/bus místo letadla zůstane jako odhad a odkazy) |
 | `REGIOJET_MAX_PER_HOUR` | `60` | nejvýš tolik dotazů na RegioJet za hodinu (pak jen odhad) |
 | `REGIOJET_GAP_MS` | `1000` | nejmenší odstup dotazů na RegioJet (ms) |
 | `FUEL_LIVE` | `1` | `0` = ceny paliva bez sítě (vestavěné orientační ceny s datem místo ČSÚ a Oil Bulletinu) |
 | `FUEL_TIMEOUT_MS` | `8000` | timeout stahování cen paliva z ČSÚ a Oil Bulletinu (ms) |
-| `MAPY_API_KEY` | – | volitelné, zdarma: [Mapy.com](#mapycom-volitelně-zdarma) – turistická mapa pod trasou pěšky a na kole, hledání vesnic, adres a míst (hrady, rozhledny) v Objevuj a záloha plánovače tras, když BRouter neodpovídá. Klíč: účet Seznam → [developer.mapy.com](https://developer.mapy.com/) → *Můj účet* → *Projekty* → *Nový projekt* (název ATLAS) → v projektu je hned první **API klíč** – ten zkopírovat do Renderu. Bez klíče vše jako dřív |
+| `MAPY_API_KEY` | – | volitelné, zdarma: [Mapy.com](#mapycom-volitelně-zdarma) – turistická mapa pod trasou pěšky a na kole, hledání vesnic, adres a míst (hrady, rozhledny) v Objevuj a záloha plánovače tras, když BRouter neodpovídá. Klíč: účet Seznam → [developer.mapy.com](https://developer.mapy.com/) → *Můj účet* → *Projekty* → *Nový projekt* (název Letsi) → v projektu je hned první **API klíč** – ten zkopírovat do Renderu. Bez klíče vše jako dřív |
 | `MAPY_MAX_PER_HOUR` | `340` | strop kreditů Mapy.com za hodinu (dlaždice mapy 1, hledání / trasa / výškový profil 4). 340 × 720 h ≈ 245 000 < 250 000 kreditů zdarma měsíčně – volné kredity tak nedojdou ani při zneužití; nad stropem se Mapy.com do konce hodiny vynechá (mapa OpenFreeMap, trasy BRouter, hledání z vlastního seznamu míst) |
 | `TILES_RATE_LIMIT` | `300` | max. dlaždic Mapy.com z jedné IP za 10 minut (každá – Mapy.com se neukládá) |
 | `PHOTOS_RATE_LIMIT` | `60` | max. dotazů na fotky měst (`/api/photos`, dávka až 30 karet) z jedné IP za 10 minut – jen ty, které nejdou celé z mezipaměti serveru (Wikimedia, Pexels, Unsplash mají strop pro celý server) |
@@ -1238,7 +1238,7 @@ počty a kontrolu povinných míst
 ### Mapy.com (volitelně, zdarma)
 
 S klíčem `MAPY_API_KEY` (postup v tabulce výše; základní tarif dává **250 000 kreditů měsíčně zdarma**, bez karty – když
-dojdou, služba do konce měsíce stojí, placená spotřeba se bez výslovného zapnutí nezapne) ATLAS přidá:
+dojdou, služba do konce měsíce stojí, placená spotřeba se bez výslovného zapnutí nezapne) Letsi přidá:
 
 - **🗺️ Turistickou mapu** (Mapy.com *outdoor*, značené turistické a cyklotrasy) pod trasu 🥾 Pěšky, 🚴 Na kole
   i 🚆 Vlakem tam, na kole zpět. Ostatní mapy zůstávají OpenFreeMap. Nad mapou je logo Mapy.com a copyright
@@ -1252,7 +1252,7 @@ dojdou, služba do konce měsíce stojí, placená spotřeba se bez výslovného
   a pod ní je „Plánují Mapy.com“. Po výpadku jde 5 minut každá nová trasa rovnou na Mapy.com. Když BRouter jede,
   trasy dál plánuje on – rozbor povrchu, značených tras a cyklostezek zůstává a kredity se šetří.
 
-**Klíč zůstává na serveru:** dotazy jdou z ATLASu s hlavičkou `X-Mapy-Api-Key` a dlaždice mapy si prohlížeč bere přes
+**Klíč zůstává na serveru:** dotazy jdou ze serveru Letsi s hlavičkou `X-Mapy-Api-Key` a dlaždice mapy si prohlížeč bere přes
 server (`/api/tiles/mapy/…`). Mapy.com sice umí klíč pro prohlížeč omezit na doménu, jenže hlavičku Referer podvrhne
 každý skript – cizí by pak vyčerpal volné kredity. Přes server navíc platí hodinový strop kreditů (`MAPY_MAX_PER_HOUR`),
 limit na IP a stačí jeden klíč v Renderu. **Nic se neukládá:** podmínky Mapy.com (od 1. 6. 2025, bod 4.6.2) zakazují
@@ -1326,7 +1326,7 @@ GitHub Pages nestačí (je to jen statický hosting bez serveru).
 
 ## Vyhledávače a náhledy odkazů
 
-Když někdo pošle odkaz na ATLAS (WhatsApp, Messenger, Facebook, X, Slack, iMessage), ukáže se náhled s obrázkem,
+Když někdo pošle odkaz na Letsi (WhatsApp, Messenger, Facebook, X, Slack, iMessage), ukáže se náhled s obrázkem,
 názvem a popisem. Vše skládá server (`server/lib/seo.js`) z jednoho místa – `server/brand.js` a `PUBLIC_URL`:
 
 - **Stránka** dostane `<title>`, popis, kanonickou adresu, Open Graph (`og:title`, `og:description`, `og:image`
@@ -1344,7 +1344,7 @@ názvem a popisem. Vše skládá server (`server/lib/seo.js`) z jednoho místa �
   odkaz nebo text s odkazem jde do schránky (Instagram klikací odkaz dovolí jen nálepkou ve Story); počítač obrázek
   stáhne. Odkaz `/#jed=…` otevře kamarádovi termín, počasí v tom měsíci a hledání letů na stejné dny z jeho letiště.
 - **`/robots.txt`** (vše povoleno, odkaz na mapu webu) a **`/sitemap.xml`** (jediná stránka – sekce aplikace jsou za `#`).
-- **Stránka 404** pro neznámé adresy mimo API: česky, světlá i tmavá podle systému, s tlačítkem *Otevřít ATLAS*, které
+- **Stránka 404** pro neznámé adresy mimo API: česky, světlá i tmavá podle systému, s tlačítkem *Otevřít Letsi*, které
   vezme s sebou i část adresy za `#`. Dřív server na každou neznámou adresu poslal stránku aplikace se stavem 200 –
   vyhledávačům se pak jevila jako nekonečno kopií úvodní stránky. Sekce i sdílené odkazy (`/#trip=`, `/#plan=`,
   `/#offer=`, `/#jed=`, `/#s=`, zkratky `/#flights`) jsou na `/`, takže se pro ně nic nemění; offline dá service worker na jakoukoli
@@ -1457,7 +1457,7 @@ sekundami – žádný text, místa, ceny, IP adresu ani prohlížeč; nejvýš 
 
 ## Odkazy do aplikací v telefonu
 
-Aplikace na cestování většinou veřejné API nemají, ATLAS je proto otevírá **odkazem**. Je-li aplikace v telefonu,
+Aplikace na cestování většinou veřejné API nemají, Letsi je proto otevírá **odkazem**. Je-li aplikace v telefonu,
 otevře se ona, jinak její web. Odkazy jsou malé štítky vedle odkazu na trasu (`SearchHelp.wazeUrl`, `PID_APP`, `pidLeg`):
 
 - **🚗 Navigovat ve Waze** (oficiální formát `https://waze.com/ul?ll=LAT,LON&navigate=yes`, developers.google.com/waze/deeplinks,
@@ -1477,20 +1477,20 @@ otevře se ona, jinak její web. Odkazy jsou malé štítky vedle odkazu na tras
 
 ## Aplikace na ploše a offline
 
-ATLAS jde přidat na plochu telefonu i počítače jako aplikaci (PWA): otevře se přes celou obrazovku bez lišty prohlížeče
+Letsi jde přidat na plochu telefonu i počítače jako aplikaci (PWA): otevře se přes celou obrazovku bez lišty prohlížeče
 a s vlastní ikonou a **uložené cesty a plány uvidíš i bez internetu**.
 
-- **Chrome, Edge, Android**: v postranním panelu (na mobilu v nabídce **Více**) je **📲 Přidat ATLAS na plochu** –
+- **Chrome, Edge, Android**: v postranním panelu (na mobilu v nabídce **Více**) je **📲 Přidat Letsi na plochu** –
   otevře instalační dialog prohlížeče. Na počítači jde instalovat i ikonou v adresním řádku.
-- **iPhone a iPad**: Safari instalaci nabídnout neumí, ATLAS proto ukáže návod **Sdílet → Přidat na plochu → Přidat**.
+- **iPhone a iPad**: Safari instalaci nabídnout neumí, Letsi proto ukáže návod **Sdílet → Přidat na plochu → Přidat**.
 - Spuštěnému z plochy se položka už nenabízí. Instalace a offline režim fungují jen přes https (Render) a na `localhost`.
 
 **Offline funguje**: aplikace se otevře z uložené kopie (nahoře pruh „📴 Jsi offline“), plánovač s uloženými cestami
 a kartou [📍 Dnes na cestě](#-dnes-na-cestě),
 rozpracovaná cesta z průvodce, hlídané ceny a navštívené země (vše je v localStorage prohlížeče), přehled zemí
 s doporučeními, vstupní podmínky a mapa navštívených zemí. **Nefunguje** nic, co potřebuje server nebo cizí web – hledání
-letů, ceny, ubytování, počasí, dlaždice map. Místo „Failed to fetch“ pak ATLAS napíše „Jsi offline – připoj se
-k internetu a zkus to znovu.“ (při připojení, ale nedostupném serveru „Server ATLAS je teď nedostupný…“).
+letů, ceny, ubytování, počasí, dlaždice map. Místo „Failed to fetch“ pak Letsi napíše „Jsi offline – připoj se
+k internetu a zkus to znovu.“ (při připojení, ale nedostupném serveru „Server Letsi je teď nedostupný…“).
 
 ### 💾 Přenos a záloha (PC ↔ telefon)
 
@@ -1510,7 +1510,7 @@ nic se neukládá na server a nepotřebuje to účet.
   obrazovku, velikost je na celé pixely displeje (ostřejší pro fotoaparát). Druhé zařízení po otevření odkazu ukáže, co
   přibude, a nabídne **Sloučit** (jako obnova ze zálohy – nic nesmaže) nebo **Nahradit…**: to nejdřív řekne, co by
   z tohoto zařízení zmizelo nebo se přepsalo, nabídne stáhnout zálohu, a hláška po nahrazení má **Vrátit**. Do
-  prázdného zařízení jen **📥 Přenést sem**. Odkaz jde i vložit (**📥 Mám odkaz z jiného zařízení**) – pro ATLAS na
+  prázdného zařízení jen **📥 Přenést sem**. Odkaz jde i vložit (**📥 Mám odkaz z jiného zařízení**) – pro Letsi na
   ploše iPhonu, který má jiné úložiště než Safari, kam se otevře odkaz z fotoaparátu. Motiv a nastavení zařízení se
   nepřenášejí. Testy: `test/qr.test.js` (příklady normy, matice referenčního kodéru segno pro všech 40 verzí × L/M,
   zpětné dekódování nezávislým dekodérem `test/qrdecode.js`), `test/transfer.test.js`.
@@ -1532,7 +1532,7 @@ nic se neukládá na server a nepotřebuje to účet.
   jen když tu ještě v žádném seznamu nejsou (volba tohoto zařízení zůstane), nejvýš 30 v každém. **🔖 Kódy rezervací** (jinak jen
   v zařízení) záloha nese a obnova k cestě doplní ty, které chybějí (stejné „co“ a kód = tatáž, nejvýš 6). Importovaná hlídání si nesou čas
   poslední kontroly, takže je kontrolka nehledá víc než ta přidaná ručně. Když se sloučený stav do úložiště prohlížeče
-  nevejde, nesloučí se nic a ATLAS to řekne.
+  nevejde, nesloučí se nic a Letsi to řekne.
 - **📌 Odložené nabídky** obnova doplní podle letu a nastavení hledání (nejvýš 12, s odletem v minulosti ne); nabídku,
   kterou zařízení už má, nahradí jen verze s novější cenou.
 - Soubor je **cizí vstup** (mohl ho poslat kdokoli): `public/js/backup.js` z něj postaví nové objekty jen se známými
@@ -1540,7 +1540,7 @@ nic se neukládá na server a nepotřebuje to účet.
   1 000, „Sbaleno“ 300 položek), cesty z průvodce přes `Trip.sanitizeTrip`, 📌 odložené nabídky přes `Pins.clean`
   (`public/js/pins.js` – odkazy jen http(s), čas ceny ne z budoucnosti), místa, data, časy, volby formuláře a čísla
   podle pevných pravidel; HTML, neznámé klíče a `__proto__` se nedostanou dál. Záloha z novější
-  verze ATLAS se odmítne s hláškou „aktualizuj aplikaci“.
+  verze Letsi se odmítne s hláškou „aktualizuj aplikaci“.
 - Nepřenáší se rozpracovaná cesta v průvodci (uložené cesty v plánovači ji mají celou), uložené výsledky hledání
   a radaru, nedávná hledání, paměť cen, Objevuj a motiv.
 - Otevření okna požádá prohlížeč o **trvalé úložiště** (`navigator.storage.persist()`), aby data sám nesmazal; okno
@@ -1558,7 +1558,7 @@ nic se neukládá na server a nepotřebuje to účet.
   staré stránky s novými skripty). `pwa.js` se od service workeru dozví, že stránka je z uložené kopie, vezme si její
   verzi a po probuzení serveru hned ověří, jestli není novější – pak nabídne „Obnovit“ (viz níže). Na stav serveru
   (`/api/health`) start čeká nejvýš 1 s, zdroje cen se doplní, až odpoví; trvá-li to přes 2,5 s, nahoře je pruh
-  „Čekám na server ATLASu…“ s letadlem na trase, které po odpovědi „doletí“ a pruh zmizí.
+  „Čekám na server Letsi…“ s letadlem na trase, které po odpovědi „doletí“ a pruh zmizí.
 - **Úvodní obrazovka aplikace na ploše** (`#launch` v `index.html`): navazuje na úvodní obrazovku Chromu, pak z ikony
   vylétne papírová vlaštovka, za letu se promění v letadlo (~0,9 s) a obrazovka se rozplyne do hotového přehledu;
   čeká-li se dál, letadlo přelétá přes obrazovku. S „omezeným pohybem“ v systému bez animací.
@@ -1617,7 +1617,7 @@ nic se neukládá na server a nepotřebuje to účet.
   - **aplikace na ploše** se po návratu (pryč aspoň 30 s) **sama obnoví** – úvodní animace a nová verze –, pokud je
     „v klidu“: nikde kurzor, žádné otevřené okno, hledání ani výsledky a pohled s uloženým stavem (přehled, cesta,
     mapa, země, plánovač, doporučení);
-  - jinak (a v prohlížeči vždy) ukáže **„✨ Je k dispozici nová verze ATLASu – Obnovit“** – nic se neobnoví samo, aby
+  - jinak (a v prohlížeči vždy) ukáže **„✨ Je k dispozici nová verze Letsi – Obnovit“** – nic se neobnoví samo, aby
     nezmizel rozepsaný formulář ani výsledky hledání.
 - Ikonu, název a úvodní obrazovku nainstalované aplikace na Androidu má Android uložené v instalaci (WebAPK); Chrome
   je podle manifestu aktualizuje sám – manifest kontroluje při spuštění nejvýš jednou denně, u změny ikony či názvu se
@@ -1636,7 +1636,7 @@ test hlídá, že uložené PNG odpovídají skriptu – po změně vzhledu ho s
 a kotva jako ikona) má i logo v bočním panelu aplikace – dřív tam byla zeměkoule.
 
 **Úvodní obrazovka na iPhonu a iPadu**: iOS ukáže od klepnutí na ikonu do prvního vykreslení stránky obrázek
-`apple-touch-startup-image` – bez něj bílou plochu, která u tmavé aplikace problikne. ATLAS má pro každý displej
+`apple-touch-startup-image` – bez něj bílou plochu, která u tmavé aplikace problikne. Letsi má pro každý displej
 (13 iPhonů na výšku, 9 iPadů na výšku i na šířku) jednobarevný obrázek v barvě úvodní obrazovky aplikace (`#080c1a`,
 `public/icons/splash/`, 1bitové PNG s paletou, 184–786 B, dohromady 16 kB). Odkazy v `index.html` vytvoří stejný
 `npm run build:icons` a test hlídá, že obrázky mají rozměry podle `media`. Ikonu a název dokreslí až úvodní obrazovka
@@ -1689,7 +1689,7 @@ prohlížeč (public/)                         server (server/, Node bez závisl
 
 - **Kamkoliv**: Ryanair a Travelpayouts vrátí nejlevnější lety do všech destinací jedním dotazem na letiště.
   Wizz Air se prochází trasu po trase v rámci rozpočtu dotazů. Když Ryanair vrátí termín, který nesedí na zadaný
-  počet nocí nebo dny v týdnu, ATLAS dohledá ceny po dnech a termín složí přesně. Z živých letů tam a zpět, které už
+  počet nocí nebo dny v týdnu, Letsi dohledá ceny po dnech a termín složí přesně. Z živých letů tam a zpět, které už
   má (Ryanair, Wizz Air – ne ceny z mezipaměti Travelpayouts, ani dohledané po dnech, ani celé zpáteční letenky), složí
   i kombinace dvou aerolinek a letišť: pro každý cíl 3 nejlevnější a z nich do výpisu ty, které zdroje samy nenabídly
   (jen v konečném výsledku, ne v průběžném). Lety k tomu drží po cílech jen nejlevnější let trasy a dne, průběžně zahodí
@@ -1789,7 +1789,7 @@ město ve 2. pádě, `from` = cena online předem, `sec` = sekundární zdroj); 
 
 Cestující s dětmi (`server/lib/search.js` `paxQuery`): vedle `adults` (1–9) volitelně `children` (děti 2–11 let, platí
 sedadlo) a `infants` (miminka do 2 let na klíně, nejvýš jedno na dospělého); sedadel (`seats` = dospělí + děti) nejvýš 9.
-Ceny zůstávají na osobu, `totalCzk` je za všechna sedadla – miminko se do ceny nepočítá (poplatek aerolinky za let ATLAS
+Ceny zůstávají na osobu, `totalCzk` je za všechna sedadla – miminko se do ceny nepočítá (poplatek aerolinky za let Letsi
 nezná, doplní se při nákupu). Wizz Air dostane v `adultCount` všechna sedadla (místo pro celou rodinu; `childCount` ani
 `infantCount` se neposílají – jak s nimi timetable počítá cenu, ověřené není), odkazy na rezervaci Ryanairu (`children`,
 `infants`) a Wizz Air (`…/dospělí/děti/miminka/null`) děti a miminka předvyplní. Kiwi.com, Aviasales a Ověřit (Google
@@ -1973,9 +1973,9 @@ přes víc míst jedou úseky v ty dny autem a ostatní vlakem / busem. Srovnáv
 
 ## Omezení (upřímně)
 
-- Ryanair a Wizz Air nemají veřejné API pro vývojáře; ATLAS používá stejná rozhraní jako jejich weby. Když je změní,
+- Ryanair a Wizz Air nemají veřejné API pro vývojáře; Letsi používá stejná rozhraní jako jejich weby. Když je změní,
   je potřeba upravit adaptér (testy v `test/providers.test.js` popisují očekávaný tvar odpovědí).
-- Ceny jsou základní tarif bez příplatků. Kabinový nebo odbavený kufr umí ATLAS přičíst (🧳 Zavazadla v „Další možnosti“),
+- Ceny jsou základní tarif bez příplatků. Kabinový nebo odbavený kufr umí Letsi přičíst (🧳 Zavazadla v „Další možnosti“),
   ale jen jako odhad podle dopravce (`server/lib/baggage.js`, stav 10/2026) – přesnou cenu ukáže až rezervace.
 - Kombinace dvou aerolinek / různých letišť jsou **dvě samostatné letenky** – při zpoždění prvního letu druhá aerolinka
   nečeká. Aplikace to u výsledku označí.
@@ -1988,7 +1988,7 @@ přes víc míst jedou úseky v ty dny autem a ostatní vlakem / busem. Srovnáv
   v Polsku; u cesty přes víc měst si ručním výběrem letů můžeš složit i návrat na jiné letiště, než kde auto parkuje
   (cena pak počítá, jako by ses vrátil k autu).
 - Časy *🏠 Kdy vyrazit* (z domu, domů, z ubytování na letiště) jsou odhad z modelu cesty na letiště, ne z jízdních
-  řádů – ATLAS neví, kdy jede první vlak nebo poslední bus; 2 h před odletem a 45 min po přistání jsou paušál.
+  řádů – Letsi neví, kdy jede první vlak nebo poslední bus; 2 h před odletem a 45 min po přistání jsou paušál.
 - Cesta z letiště do města: jízdné z ověřené tabulky (157 letišť, u 24 jen sekundární zdroj; 7. a 18. 10. 2026) se mění – dopravci zdražují, „od“ platí
   jen online předem a u řidiče nebo ve špičce bývá dráž; čas je typická jízda bez čekání (po půlnoci letištní bus často
   nejede a zbývá taxi). Počítá se jízdenka pro dospělého na osobu do jednoho místa v centru (nádraží, terminál), ne
@@ -1998,12 +1998,12 @@ přes víc míst jedou úseky v ty dny autem a ostatní vlakem / busem. Srovnáv
 - Přejezdy mezi místy trasy: čas autem je z trasy BRouteru s **průměrnými** faktory provozu a hranic – skutečná zácpa,
   stavba nebo fronta na hranici může cestu prodloužit o hodiny. Veřejná doprava je odhad z času autem, jen mezi městy
   z tabulky ~100 přímých vlaků čas podle jízdního řádu 2026 (typický nejrychlejší pravidelný spoj – ne každý vlak tak
-  jede, výluky, zpoždění ani změny jízdního řádu po 12. 12. 2026 v ní nejsou; živé jízdní řády ATLAS nenačítá) – konkrétní
+  jede, výluky, zpoždění ani změny jízdního řádu po 12. 12. 2026 v ní nejsou; živé jízdní řády Letsi nenačítá) – konkrétní
   spoj ověř přes odkaz. Země bez kódu z Wikidat se dopočítá podle nejbližšího letiště, takže
   u místa těsně u hranice může vyjít sousední země (Basilej → Francie).
 - Ceny hotelů z Xotela (TripAdvisor) jsou orientační – web je u rezervace může mít jinak (daně, poplatky, jiný pokoj)
   a hotel se od zjištění ceny (až 2 h, TripAdvisor sám se zpožděním) mohl vyprodat – proto „Ceny z …“ a ↻ Aktualizovat
-  ceny; ATLAS je přepočítá z EUR aktuálním kurzem. Xotelo je neoficiální API: může zpomalit, omezit dotazy nebo skončit
+  ceny; Letsi je přepočítá z EUR aktuálním kurzem. Xotelo je neoficiální API: může zpomalit, omezit dotazy nebo skončit
   (pak zůstanou odkazy). Místo na TripAdvisoru se hledá ve Wikidatech, kde ID chybí u řady měst (u velkých měst ho
   doplní tabulka) – takové místo dostane jen odkazy. Ceny se zjišťují jen pro 12 hotelů do 15 km od místa.
 - Odkazy na partnery ubytování: Booking.com, Airbnb, Hotels.com, Kayak a Google Hotels dostanou místo, data i počet hostů
@@ -2024,12 +2024,12 @@ přes víc míst jedou úseky v ty dny autem a ostatní vlakem / busem. Srovnáv
   předvyplní místo, termín i hosty; Trip.com zůstává anglicky a v eurech – koruny neumí, s `curr=CZK` ukázal dolary).
 - Vlak mimo tabulku přímých spojů je čas autem + cesta na nádraží: na regionálních tratích sedí, na rychlé trati,
   která v tabulce chybí, bývá ve skutečnosti kratší (mezi městy z tabulky platí jízdní řád – Vídeň → Brno ~1 h 50 min).
-- Cesta přes víc měst = samostatné letenky na každý let; přejezdy mezi městy (třeba Řím → Neapol) ATLAS nepočítá do ceny ani nehledá.
+- Cesta přes víc měst = samostatné letenky na každý let; přejezdy mezi městy (třeba Řím → Neapol) Letsi nepočítá do ceny ani nehledá.
 - Vlak/bus je mimo změřené trasy z Prahy jen **odhad podle vzdálenosti** (Alpy a Dinárské hory s přirážkou ~25 %) –
   pomalé tratě bez hor bývají delší (Praha–Linec, Ostrava–Krakov), rychlé kratší (Praha–Ostrava 3 h 16 místo ~4 h 15).
   Živé spoje má jen RegioJet – a do Rakouska ukazuje i pomalé spoje s přestupem přes partnery; ostatní dopravce ukáže
   až odkaz. Cena „od ~X Kč“ je kalibrovaná na nejnižší ceně RegioJetu i FlixBusu – kde jezdí jen RegioJet, bývá
-  skutečná cena vyšší (Praha–Frankfurt: RegioJet od 739 Kč, odhad ~380 Kč; FlixBus může být levnější, ATLAS ho nenačítá).
+  skutečná cena vyšší (Praha–Frankfurt: RegioJet od 739 Kč, odhad ~380 Kč; FlixBus může být levnější, Letsi ho nenačítá).
 - Kolín nad Rýnem vede RegioJet jen jako zastávku letiště Kolín/Bonn: v datech je to město Kolín (odkazy na Köln),
   spoje RegioJetu ale končí na letišti. Místa, která v `data/ground.json` nejsou (Lutych, Terst, Zelená Hora), mají
   v odkazech do IDOS a Google Map český název – ten tam nemusí projít.

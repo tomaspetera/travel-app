@@ -47,7 +47,7 @@ export function providerStatus() {
     {
       id: 'liteapi', name: 'Hotely (LiteAPI)', color: '#7c3aed', kind: 'stays', note: 'hotely s cenou a hodnocením hostů', enabled: liteapiLive(),
       hint: !config.liteapiKey ? `Volitelné: ostrý klíč z liteapi.travel → LITEAPI_KEY${config.xotelo ? ' (má přednost před TripAdvisorem, umožní provize)' : ' zapne nabídky hotelů s hodnocením'}`
-        : liteapiTestKey() ? `Testovací klíč LiteAPI (sand_…) vrací smyšlené hotely – ATLAS je neukazuje${config.xotelo ? ' (ceny hotelů dává TripAdvisor přes Xotelo)' : ', jen odkazy na partnery'}. Ostrý klíč zapne skutečné nabídky.` : null,
+        : liteapiTestKey() ? `Testovací klíč LiteAPI (sand_…) vrací smyšlené hotely – Letsi je neukazuje${config.xotelo ? ' (ceny hotelů dává TripAdvisor přes Xotelo)' : ', jen odkazy na partnery'}. Ostrý klíč zapne skutečné nabídky.` : null,
     },
     {
       // Xotelo: neoficiální bezplatné API nad TripAdvisorem – když není ostrý klíč LiteAPI (stays/index.js).

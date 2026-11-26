@@ -28,7 +28,7 @@ test('aplikace: odkaz pro kamaráda /j/<data> – stejná data jako #jed=, serve
   assert.equal(j, url.replace('/#jed=', '/j/'));
   const data = j.split('/j/')[1];
   assert.match(data, INVITE_RE);
-  assert.deepEqual({ ...inviteMeta(data) }, { title: 'Jede někdo se mnou? Madeira v listopadu ✈️', desc: 'Odlet: Praha. Klepni na termín a najdi si lety ze svého letiště – v ATLASu, zdarma a bez registrace.', place: 'Madeira' });
+  assert.deepEqual({ ...inviteMeta(data) }, { title: 'Jede někdo se mnou? Madeira v listopadu ✈️', desc: 'Odlet: Praha. Klepni na termín a najdi si lety ze svého letiště – v Letsi, zdarma a bez registrace.', place: 'Madeira' });
   // aplikace na /#jed=<data> načte totéž
   assert.equal((await C.fromHash('#jed=' + data)).dest, 'Madeira');
   assert.equal(C.pathUrl('https://atlas.example/index.html#jed=zAbc'), 'https://atlas.example/j/zAbc');
