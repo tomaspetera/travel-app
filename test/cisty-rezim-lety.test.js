@@ -72,7 +72,7 @@ test('„orientační“ místo „z cache“: štítek, malé označení pod ce
 });
 
 test('označení pod částkou: karta nabídky, řádek výpisu i karta radaru; věta nad výsledky, kalendářem i radarem', () => {
-  assert.match(fl, /<div class="pbox"><div class="pp">\$\{czk\(t\.perPersonCzk\)\}<\/div>\$\{cacheMark\(SearchHelp\.isCached\(t\)\)\}/, 'blok ceny karty nabídky (priceBox)');
+  assert.match(fl, /<div class="pbox">\$\{priceRows\(\{ per: t\.perPersonCzk, [^\n]*mark: cacheMark\(SearchHelp\.isCached\(t\)\) \}\)\}/, 'blok ceny karty nabídky (priceBox): označení za částkou');
   assert.match(fl, /<small>\/os\.<\/small>\$\{tkt\}\$\{liveHtml\(t\)\}<\/div>/, 'řádek Přehledu: „orientační“ pod cenou (liveHtml)');
   assert.match(fl, /let cls = 'faint', txt = 'orientační', title = CACHE_TIP;/);
   assert.match(fl, /<div class="rc-price">\$\{czk\(x\.czk\)\}<small>\/os\.<\/small>\$\{cacheMark\(radarOrient\(x\)\)\}<\/div>/, 'karta radaru');

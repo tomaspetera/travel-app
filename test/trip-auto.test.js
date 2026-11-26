@@ -71,7 +71,10 @@ test('⚡ Poskládej: jedno místo – hotel s nejlepším poměrem, bez auta, p
   const asked = fakeFetch(c);
   const s = render(c, 'flight');
   assert.match(s, /id="tfAuto">⚡ Poskládej celou cestu za mě<\/button>/);
-  assert.ok(s.indexOf('id="tfNext"') < s.indexOf('id="tfAuto"'), 'hlavní „Pokračovat“ zůstává první');
+  // ⚡ je hlavní volba hned pod letem, vedle ní vedlejší „krok za krokem“ (dřívější Pokračovat: Trasa →)
+  assert.ok(s.indexOf('id="tfAuto"') < s.indexOf('id="tfNext"') && s.indexOf('id="tfNext"') < s.indexOf('class="tf-costs"'), '⚡ první, hned pod letem');
+  assert.match(s, /<button class="btn" id="tfNext" data-next="Pokračovat: Trasa →">Projdu to krok za krokem →<\/button>/);
+  assert.equal(s.split('Pokračovat: Trasa →').length, 2, 'v kartě už není zdvojené Pokračovat (jen popisek plovoucí lišty)');
   await c.__els['#tfAuto'].onclick();
   for (let i = 0; i < 4; i++) await tick();
   assert.equal(t.step, 'summary');

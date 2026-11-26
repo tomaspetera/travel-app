@@ -42,14 +42,16 @@ test('Ubytování u jednoho cíle: „Vyberu později – jen odkazy →“ – 
   assert.match(step, /const sl = \$\('#stayLinks'\); if \(sl\) sl\.onclick = \(\) => \{ pickSeq\+\+; t\.stay = \{ mode: 'links', name: '', totalCzk: 0 \}; unbook\(t, 'stay'\); persist\(\); setStep\('car'\); \};/);
   assert.match(step, /t\.stay\.mode === 'links' \? 'vyberu později \(jen odkazy\)'/);
   // shrnutí: řádek bez ceny (ne „0 Kč“), v seznamu k rezervaci termín a „vyber přes odkaz“
-  assert.match(js, /: \['🏨', `Ubytování · \$\{nightsTxt\(nights\)\} – zatím bez ceny, vyber přes odkaz níž`, null\]\) : null\]\),/);
+  assert.match(js, /: \['🏨', `Ubytování · \$\{nightsTxt\(nights\)\} – zatím bez ceny, vyber přes odkaz níž`, null\]\)/);
   assert.match(js, /label: `Ubytování\$\{t\.stay\.mode === 'links' \? ` \(\$\{fmtDate\(checkin\)\}–\$\{fmtDate\(checkout\)\}\) – vyber přes odkaz` : t\.stay\.name \? ': ' \+ t\.stay\.name : ''\}/);
 });
 
 test('⚡ Poskládej cestu: říká, že hotel vybírá blízko centra (vybírá do 3 km, ne nejlepší poměr kdekoliv)', () => {
   const js = read('js/trip.js');
-  assert.match(js, /<small>Ubytování s nejlepším poměrem ceny a hodnocení blízko centra \(do 3 km\), bez auta a program na místě/);
-  assert.match(js, /'Skládám celou cestu – vybírám ubytování s nejlepším poměrem ceny a hodnocení blízko centra…'/);
+  // (slib jen s cenami hotelů na serveru – bez nich jiná věta, test/cesta-shrnuti.test.js)
+  assert.match(js, /stayPricesOn\(\) \? 'Ubytování s nejlepším poměrem ceny a hodnocení blízko centra \(do 3 km\), bez auta a program na místě'/);
+  assert.match(js, /stayPricesOn\(\) \? 'ubytování s nejlepším poměrem ceny a hodnocení blízko centra' : 'ubytování blízko centra'/);
+  assert.match(js, /`Skládám celou cestu – vybírám \$\{stayHunt\(\)\}…`/);
   assert.match(js, /if \(own\.length\) return \[3, 8\]\.map\(k => own\.filter\(x => !\(x\.distanceKm > k\)\)\)/, 'autoCands opravdu do 3 km');
 });
 
