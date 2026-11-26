@@ -80,7 +80,7 @@ test('pruvodce-2: „Sbaleno“ uložené cesty s věcmi podle počasí a odškr
   assert.equal(b.S.trips[0].checklist.find((x) => x.id === 'pack:cl-layer').done, true);
 });
 
-test('pruvodce-2: podnebí se nenačte (síť, server) → uložený seznam zůstane; místo bez údajů (404) seznam bez počasí dostane', async () => {
+test('pruvodce-2: podnebí se nenačte (síť, server) → uložený seznam zůstane; místo bez údajů (404, 400) seznam bez počasí dostane', async () => {
   const storage = memStorage();
   const a = load({ storage, fetch: ok });
   const t = lisbon();
@@ -90,7 +90,7 @@ test('pruvodce-2: podnebí se nenačte (síť, server) → uložený seznam zůs
   a.window.PreTrip.setDone(a.window.PreTrip.tripKey(t), 'pack:cl-layer', true);
   a.window.Trip.saveToPlanner({ quiet: true });
   const saved = plain(a.S.trips[0]);
-  for (const [what, fetch] of [['bez sítě', () => Promise.reject(new TypeError('Failed to fetch'))], ['chyba serveru', () => Promise.resolve({ ok: false, status: 503, json: async () => ({}) })]]) {
+  for (const [what, fetch] of [['bez sítě', () => Promise.reject(new TypeError('Failed to fetch'))], ['chyba serveru', () => Promise.resolve({ ok: false, status: 503, json: async () => ({}) })], ['moc dotazů', () => Promise.resolve({ ok: false, status: 429, json: async () => ({}) })]]) {
     const b = load({ storage, fetch });
     b.S.trips = plain([saved]);
     b.S.trip = plain(t);
@@ -100,12 +100,15 @@ test('pruvodce-2: podnebí se nenačte (síť, server) → uložený seznam zůs
     b.window.Trip.saveToPlanner({ quiet: true });
     assert.deepEqual(plain(b.S.trips[0].checklist), saved.checklist, what);
   }
-  // 404: pro místo nejsou údaje – to není chyba, seznam (bez věcí podle počasí) se sestaví jako dřív
-  const c = load({ storage, fetch: () => Promise.resolve({ ok: false, status: 404, json: async () => ({}) }) });
-  c.window.PreTrip.plannerChecklist(t);
-  await tick(); await tick();
-  const list = plain(c.window.PreTrip.plannerChecklist(t));
-  assert.ok(Array.isArray(list) && list.some((x) => x.id === 'pack:cl-weather') && !list.some((x) => x.id === 'pack:cl-layer'));
+  // 404: pro místo nejsou údaje, 400: neznámé letiště – to není výpadek, seznam (bez věcí podle počasí) se sestaví jako
+  // dřív (400 se nezmění ani po obnovení stránky – jinak by nová cesta měla napořád jen obecný seznam)
+  for (const status of [404, 400]) {
+    const c = load({ storage, fetch: () => Promise.resolve({ ok: false, status, json: async () => ({}) }) });
+    c.window.PreTrip.plannerChecklist(t);
+    await tick(); await tick();
+    const list = plain(c.window.PreTrip.plannerChecklist(t));
+    assert.ok(Array.isArray(list) && list.some((x) => x.id === 'pack:cl-weather') && !list.some((x) => x.id === 'pack:cl-layer'), String(status));
+  }
 });
 
 /* ---------- jen trip.js (zástupný DOM jako v trip-changes.test.js) ---------- */

@@ -200,8 +200,9 @@
     const hit = { data: null, done: false };
     climates.set(k, hit);
     const url = k.startsWith('iata:') ? `api/climate?iata=${encodeURIComponent(p.iata)}` : `api/climate?lat=${(+p.lat).toFixed(3)}&lon=${(+p.lon).toFixed(3)}`;
-    // 404 = místo bez údajů; výpadek sítě nebo serveru (err) není „bez podnebí“ – seznam pro plánovač z něj nevznikne
-    fetch(url).then(r => { if (!r.ok && r.status !== 404) throw new Error(`HTTP ${r.status}`); return r.ok ? r.json() : null; }).then(j => {
+    // 404 = místo bez údajů, 400 = neznámé letiště (napořád stejné); výpadek sítě nebo serveru (err) není „bez podnebí“ –
+    // seznam pro plánovač z něj nevznikne (z 400 by nevznikl nikdy a nová cesta by měla napořád jen obecný seznam)
+    fetch(url).then(r => { if (r.status >= 500 || r.status === 429) throw new Error(`HTTP ${r.status}`); return r.ok ? r.json() : null; }).then(j => {
       hit.data = j && okSeries(j.hi) && okSeries(j.lo) && okSeries(j.p) ? { hi: j.hi, lo: j.lo, p: j.p } : null;
     }, () => { hit.err = true; }).then(() => {
       hit.done = true;
