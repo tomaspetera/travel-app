@@ -37,7 +37,11 @@
   const range = 'U+1F1E6-1F1FF, U+1F3F4, U+E0062-E0063, U+E0065, U+E0067, U+E006C, U+E006E, U+E0073-E0074, U+E0077, U+E007F';
   // Chrome skládá rodinu jen z řezů stejné váhy – vlajkový řez proto musí mít každá váha, kterou
   // deklaruje css/atlas.css (Inter 400–800, Sora 600–800, každá váha zvlášť); rozsah „100 900“ nestačí.
-  const faces = [['Inter', [400, 500, 600, 700, 800]], ['Sora', [600, 700, 800]], ['Twemoji Country Flags', [400]]];
+  // Vzhled Letsi (css/letsi.css) píše text v 'Onest' a nadpisy a ceny v 'Letsi'; jejich řezy „700 900“
+  // tu jsou jako 700, 800 a 900 zvlášť ze stejného důvodu. Bez vzhledu Letsi se nic nestáhne navíc –
+  // prohlížeč písmo stáhne, až když v té rodině opravdu vykresluje vlajku. Hlídá test/flags.test.js.
+  const faces = [['Inter', [400, 500, 600, 700, 800]], ['Sora', [600, 700, 800]],
+    ['Onest', [400, 500, 600, 700, 800, 900]], ['Letsi', [600, 700, 800, 900]], ['Twemoji Country Flags', [400]]];
   const style = document.createElement('style');
   style.textContent = faces.flatMap(([f, ws]) => ws.map(w => `@font-face{font-family:"${f}";unicode-range:${range};src:url("vendor/flags/TwemojiCountryFlags.woff2") format("woff2");font-weight:${w};font-display:swap}`)).join('\n');
   document.head.appendChild(style);
