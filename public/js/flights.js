@@ -75,6 +75,11 @@
   const cacheNote = any => (any ? `<div class="faint cache-note">${CACHE_NOTE}</div>` : '');
   // karta radaru: příznak oc (od téhle verze), starší uložené karty jen podle zdroje letu tam
   const radarOrient = x => Boolean(x && (x.oc || x.prov === 'travelpayouts'));
+  // štítek nejvýhodnějších karet radaru [text, title]: orientační cenu nevydávat za ověřenou „super cenu“ (jako superTxt
+  // ve výpisu) – nikdo neví, jestli ještě platí
+  const radarHot = x => (radarOrient(x)
+    ? ['nejlevnější v hledání', 'Orientační cena z hledání jiných cestujících – vůči běžné ceně na tu vzdálenost jedna z nejvýhodnějších. Před nákupem ji ověř.']
+    : ['🔥 super cena', 'Jedna z nejvýhodnějších cen vůči běžné ceně na tu vzdálenost']);
 
   /* ---------- čistý režim: co ze zdrojů letů server opravdu má zapnuté (/api/health) ---------- */
   const provOn = (h, id) => Boolean(h && (h.providers || []).some(p => p.id === id && p.enabled));
@@ -95,6 +100,15 @@
     if (!d.length && !kiwi) return 'Ceny letů jsou z hledání na Aviasales (Travelpayouts) za posledních 48 hodin. U každé nabídky je odkaz na ověření.';
     const parts = [d.length ? `${d.join(' a ')} živě` : '', `${d.length ? 'ostatní' : 'aerolinky'} přes Travelpayouts / Aviasales`, kiwi ? 'živé ceny k vybranému letu přes Kiwi.com' : ''].filter(Boolean);
     return `<b>Všechny aerolinky jsou zapnuté</b> – ${parts.join(', ')}. Tady není co nastavovat.`;
+  }
+  /**
+   * Panel Zdroje cen (počítač, #srcBox): jen zdroje, které server opravdu používá. „Ryanair vypnuto“ nebo tlačítko
+   * „Zapnout hotely“ návštěvníkovi nic neřeknou (zapnout je může jen správce serveru – návod je ve ⋯ Další).
+   */
+  function srcBoxHtml(h = health) {
+    const ps = (h && Array.isArray(h.providers) ? h.providers : []).filter(p => p.enabled || p.kind === 'demo');
+    const st = p => (p.blocked ? 'blokováno' : p.tag ? esc(p.tag) : p.kind === 'cached' ? 'orientačně' : p.kind === 'demo' ? 'demo' : 'živě');
+    return `<div class="src-t">Zdroje cen</div>` + ps.map(p => `<div class="src on" title="${esc(p.note || '')}${p.hint ? ' – ' + esc(p.hint) : ''}"><i style="background:${p.color}"></i>${esc(p.name)}<span>${st(p)}</span></div>`).join('');
   }
 
   /* ---------- živé ověření cen z mezipaměti (Aviasales) přes /api/verify (Kiwi.com) ---------- */
@@ -206,8 +220,9 @@
   const plural = (n, one, few, many) => `${n} ${n === 1 ? one : n >= 2 && n <= 4 ? few : many}`;
   const provName = id => PROV[id]?.name || id;
   const provColor = id => PROV[id]?.color || '#64748b';
-  // Na tlačítko jen jméno prodejce („Kiwi.com“), bez vysvětlivky v závorce.
-  const shopName = id => provName(id).replace(/\s*\(.*\)\s*$/, '');
+  // Na tlačítko jen jméno prodejce („Kiwi.com“), bez vysvětlivky v závorce; u „Letenky (Aviasales)“ je prodejcem
+  // to v závorce („Tam: Aviasales“, ne „Tam: Letenky“).
+  const shopName = id => (id === 'travelpayouts' ? 'Aviasales' : provName(id).replace(/\s*\(.*\)\s*$/, ''));
   const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
 
   // Chyba bez hlášky serveru (výpadek, 502 z proxy, HTML místo JSON) česky, ne „HTTP 502“; hlášky serveru (limit hledání,
@@ -3379,7 +3394,7 @@
     const gc = g.ground ? groundCmp(res, g.ground, g.vis || [g.best]) : null;
     dpShow({
       id: x.id, label: x.label, cc: x.cc, country: x.country || '', lat: x.lat, lon: x.lon, aps: x.airports && x.airports.length ? x.airports : [t.out.to],
-      ar: res.arrivals && res.arrivals[t.out.to], d1: t.out.date, d2: back ? back.date : null, nights: back ? t.nights : null, czk: t.perPersonCzk,
+      ar: res.arrivals && res.arrivals[t.out.to], d1: t.out.date, d2: back ? back.date : null, nights: back ? t.nights : null, czk: t.perPersonCzk, oc: SearchHelp.isCached(t),
       arrDay: t.out.hasTime && t.out.arr ? String(t.out.arr).slice(0, 10) : t.out.date, // program od dne příletu (noční let)
       // zpět z jiného letiště / na jiné letiště jako na kartě radaru: „BRQ → WAW ↩ WMI → BRQ“, „BRQ → ERF ↩ BTS“
       route: `${t.out.from} → ${t.out.to}${back && (back.from !== t.out.to || back.to !== t.out.from) ? ` ↩ ${back.from !== t.out.to ? `${back.from} → ` : ''}${back.to}` : ''}`,
@@ -3402,6 +3417,7 @@
       legs: { out: { date: x.d1, from: x.from, to: x.to, hasTime: false }, back: x.d2 ? { date: x.d2, from: x.bf || x.to, to: x.bt || x.from, hasTime: false } : null, t: null },
       go: () => radarGo(x, q), goLbl: x.buy && x.buy.length ? 'Všechny termíny →' : 'Hledat lety sem →', buy: x.buy,
       why: x.why && x.whyT ? { text: x.why, title: x.whyT, lead: x.whyL || x.whyT } : null, // ✓ proč je karta nad levnější letenkou (na telefonu bez najetí myší)
+      oc: radarOrient(x), // orientační cena: v detailu štítek a „Otevřít“ místo „Koupit“ (jako na kartě a ve výpisu)
     }, from);
   }
   const dpFact = (ic, b, s, { cls = '', title = '' } = {}) => `<div class="dp-f${cls}"${title ? ` title="${esc(title)}"` : ''}><span class="dp-fi" aria-hidden="true">${ic}</span><div><b>${b}</b>${s ? `<small>${s}</small>` : ''}</div></div>`;
@@ -3437,7 +3453,9 @@
   function dpBuy(d) {
     const buy = (Array.isArray(d.buy) ? d.buy : []).filter(b => Array.isArray(b) && /^https?:\/\//i.test(String(b[0] || '')));
     const shop = p => (p === 'travelpayouts' ? 'na Aviasales' : 'u ' + shopName(p));
-    return buy.map(([u, p, leg]) => `<a class="btn primary" href="${esc(safeUrl(u))}" target="_blank" rel="noopener">${leg === 'out' ? 'Let tam' : leg === 'back' ? 'Let zpět' : 'Koupit let'} ${esc(shop(p))} ↗</a>`).join('');
+    // orientační cena není nabídka ke koupi – skutečnou cenu ukáže až prodejce (jako bookButtons)
+    const verb = d.oc ? 'Otevřít' : 'Koupit let';
+    return buy.map(([u, p, leg]) => `<a class="btn primary" href="${esc(safeUrl(u))}" target="_blank" rel="noopener">${leg === 'out' ? 'Let tam' : leg === 'back' ? 'Let zpět' : verb} ${esc(shop(p))} ↗</a>`).join('');
   }
   function dpHtml(d) {
     // „víkend“ podle termínu cesty, jak ho okno ukazuje (ne podle dne příletu – noční let pá → so by z pá–út udělal víkend)
@@ -3449,7 +3467,7 @@
       <div class="dp-hero" data-photo="${esc(d.label)}" style="--h:${ccHue(d.cc)}" aria-hidden="true"></div>
       <div class="dp-head"><span class="dp-flag" aria-hidden="true">${flag(d.cc)}</span><div class="dp-ttl"><h2 id="dpTitle">${esc(d.label)}</h2><div class="muted">${[esc(d.country), `letiště ${d.aps.map(esc).join(', ')}`].filter(Boolean).join(' · ')}</div></div>
         <button type="button" class="icon-btn dp-x" id="dpX" aria-label="Zavřít">${ico('M18 6L6 18M6 6l12 12')}</button></div>
-      <div class="dp-trip">✈︎ <span class="dp-nw">${esc(d.route)}</span> · ${day(d.d1)}${d.d2 ? ` – ${day(d.d2)}` : ''} · <span class="dp-nw">${d.d2 ? (d.nights != null ? nightsTxt(d.nights) : 'zpáteční') : 'jen tam'}</span> · <span class="dp-nw"><b>${czk(d.czk)}</b>/os.</span></div>
+      <div class="dp-trip">✈︎ <span class="dp-nw">${esc(d.route)}</span> · ${day(d.d1)}${d.d2 ? ` – ${day(d.d2)}` : ''} · <span class="dp-nw">${d.d2 ? (d.nights != null ? nightsTxt(d.nights) : 'zpáteční') : 'jen tam'}</span> · <span class="dp-nw"><b>${czk(d.czk)}</b>/os.${d.oc ? ` <span class="dp-est" title="${esc(CACHE_TIP)}">orientační</span>` : ''}</span></div>
       ${d.legs ? `<div class="dp-scal scal-slot">${scalBtn(false, 'id="dpScal"')}</div>` : ''}
       <div class="dp-chips">${ent}${c && c.cost ? `<span class="b dp-cost" title="Cenová hladina země – jídlo, doprava a ubytování na místě">ceny na místě ${costDots(c.cost)} ${COST_TXT[c.cost]}</span>` : ''}${c ? '<button type="button" class="linkbtn" id="dpCountry">Info o zemi</button>' : ''}</div>
       <div class="dp-facts">
@@ -5139,7 +5157,7 @@
       const cn = (byIso[x.cc] && byIso[x.cc].cs) || '';
       // počasí: do 9 dní předpověď (radarWx doplní), dál dlouhodobý průměr „🌡️ ~8°“ – ať má štítek každá karta
       const clim = x.th != null && !wxWin(x.d1) ? `<span class="b wxb clim" title="Dlouhodobý průměr denních maxim v ${MNS_IN[+x.d1.slice(5, 7) - 1]} – předpověď počasí bude asi 9 dní před odletem">🌡️ ~${x.th}°</span>` : '';
-      const bd = `${prefBadge(SearchHelp.destKeyOf(x.id), pl)}${newBadge(x.cc)}${pinned(x) ? ' <span class="b pin-b" title="Odložená nabídka – 📌 Porovnat">📌</span>' : ''}${radarChange(x)}${hot.has(i) ? '<span class="b hot" title="Jedna z nejvýhodnějších cen vůči běžné ceně na tu vzdálenost">🔥 super cena</span>' : ''}${x.why ? `<span class="b why" title="${esc(x.whyT || '')}">✓ ${esc(x.why)}</span>` : ''}${clim}`.trim();
+      const bd = `${prefBadge(SearchHelp.destKeyOf(x.id), pl)}${newBadge(x.cc)}${pinned(x) ? ' <span class="b pin-b" title="Odložená nabídka – 📌 Porovnat">📌</span>' : ''}${radarChange(x)}${hot.has(i) ? `<span class="b hot" title="${esc(radarHot(x)[1])}">${radarHot(x)[0]}</span>` : ''}${x.why ? `<span class="b why" title="${esc(x.whyT || '')}">✓ ${esc(x.why)}</span>` : ''}${clim}`.trim();
       return `<div class="card radar-card${hot.has(i) ? ' hot' : ''}" data-ri="${i}" data-photo="${esc(x.label)}" style="--h:${ccHue(x.cc)}">
       <div class="rc-badges">${bd}</div>
       ${dmBtn({ ...x, key: SearchHelp.destKeyOf(x.id) }, `data-rdm="${i}"`)}
@@ -5908,13 +5926,7 @@
 
   function renderSources() {
     const box = $('#srcBox'); if (!box || !health) return;
-    // hotely: stačí jeden zapnutý zdroj (LiteAPI s ostrým klíčem, jinak TripAdvisor přes Xotelo)
-    const tpOff = health.providers.some(p => p.id === 'travelpayouts' && !p.enabled);
-    const staysOff = health.providers.some(p => p.kind === 'stays') && !health.providers.some(p => p.kind === 'stays' && p.enabled);
-    box.innerHTML = `<div class="src-t">Zdroje cen</div>` + health.providers.map(p => `<div class="src ${p.enabled ? 'on' : ''}" title="${esc(p.note || '')}${p.hint ? ' – ' + esc(p.hint) : ''}"><i style="background:${p.color}"></i>${esc(p.name)}<span>${p.enabled ? (p.blocked ? 'blokováno' : p.tag ? esc(p.tag) : p.kind === 'cached' ? 'orientačně' : p.kind === 'demo' ? 'demo' : 'živě') : p.kind === 'stays' && !staysOff ? 'nepoužito' : 'vypnuto'}</span></div>`).join('')
-      + (tpOff || staysOff
-        ? `<button type="button" class="linkbtn" id="tpHelp" style="margin-top:6px">➕ Zapnout ${tpOff ? 'všechny aerolinky' : 'hotely s cenami'}</button>` : '');
-    const h = $('#tpHelp'); if (h) h.onclick = () => window.showSetupGuide(tpOff ? null : 'guideStays');
+    box.innerHTML = srcBoxHtml();
   }
 
   /**
@@ -6054,7 +6066,7 @@
     }
     // výsledky vykreslené dřív, než dorazily vstupní podmínky, doplnit o čipy
     if (window.Entry) Entry.whenReady(() => { guideEntry(); if (lastResult) rerender(true); });
-    PROV.travelpayouts = PROV.travelpayouts || { name: 'Ostatní aerolinky', color: '#c25100' };
+    PROV.travelpayouts = PROV.travelpayouts || { name: 'Letenky (Aviasales)', color: '#c25100' };
     PROV.mix = { name: 'kombinace', color: '#4970cc' };
     renderSources();
     buildForm();

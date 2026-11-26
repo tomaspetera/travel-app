@@ -1909,7 +1909,8 @@ export function groupOptions(trips) {
  */
 const RADAR_DEST = ['key', 'id', 'label', 'cc', 'lat', 'lon'];
 const RADAR_TRIP = ['perPersonCzk', 'tripCzk', 'flightCzk', 'groundCzk', 'arrCzk', 'destKey', 'distanceKm', 'nights', 'tempHi', 'bookUrl', 'provider'];
-const RADAR_LEG = ['from', 'to', 'date', 'dep', 'arr', 'hasTime', 'arrUnknown', 'stops', 'durationMin', 'estMin', 'layovers', 'provider', 'bookUrl'];
+// live: false = cena z mezipaměti (Aviasales) – podle ní radar značí kartu a detail „orientační“ (SearchHelp.isCached)
+const RADAR_LEG = ['from', 'to', 'date', 'dep', 'arr', 'hasTime', 'arrUnknown', 'stops', 'durationMin', 'estMin', 'layovers', 'provider', 'bookUrl', 'live'];
 const fieldsOf = (o, keys) => {
   const x = {};
   for (const k of keys) if (o[k] !== undefined) x[k] = o[k];

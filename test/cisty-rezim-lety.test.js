@@ -127,3 +127,60 @@ test('orientační cena: místo „🔥 Super cena“ „nejlevnější v tomto 
   assert.equal(advFor(null, true), null);
   assert.match(fl, /const cache = !t\.out\.live \|\| \(t\.back && !t\.back\.live\);\n\s+const adv = advFor\(x\.advice, cache\);/);
 });
+
+// zdrojové funkce úseku čistého režimu, které výš nejsou (radarHot, srcBoxHtml)
+const mod2 = (health = null) => new Function('health', 'esc', 'SearchHelp', `${src}; return { radarHot, srcBoxHtml };`)(health, esc, SearchHelp);
+
+test('radar: nejvýhodnější orientační cena není „🔥 super cena“ (jako superTxt ve výpisu), živá beze změny', () => {
+  const { radarHot } = mod2();
+  assert.equal(radarHot({ oc: 1, prov: 'travelpayouts' })[0], 'nejlevnější v hledání');
+  assert.match(radarHot({ prov: 'travelpayouts' })[1], /^Orientační cena/, 'starší karta bez oc podle zdroje');
+  assert.deepEqual(radarHot({ prov: 'ryanair' }), ['🔥 super cena', 'Jedna z nejvýhodnějších cen vůči běžné ceně na tu vzdálenost']);
+  // karta radaru bere štítek z radarHot, ne pevný text
+  assert.match(fl, /\$\{hot\.has\(i\) \? `<span class="b hot" title="\$\{esc\(radarHot\(x\)\[1\]\)\}">\$\{radarHot\(x\)\[0\]\}<\/span>` : ''\}/);
+  assert.doesNotMatch(fl, />🔥 super cena<\/span>/);
+});
+
+test('detail karty radaru: orientační cena se štítkem a „Otevřít … na Aviasales“ místo „Koupit let“', () => {
+  const dp = cut('  function dpBuy(d) {', '  function dpHtml(d) {');
+  const dpBuy = new Function('esc', 'safeUrl', 'shopName', `${dp}; return dpBuy;`)(esc, u => u, () => 'Ryanair');
+  assert.match(dpBuy({ buy: [['https://www.aviasales.com/x', 'travelpayouts']], oc: true }), />Otevřít na Aviasales ↗<\/a>$/);
+  assert.match(dpBuy({ buy: [['https://www.ryanair.com/x', 'ryanair']], oc: false }), />Koupit let u Ryanair ↗<\/a>$/, 'živá cena beze změny');
+  assert.match(dpBuy({ buy: [['https://a.example/x', 'ryanair', 'out']], oc: true }), />Let tam u Ryanair ↗/);
+  // náhled z karty radaru i z výsledků předá příznak, detail ho u ceny ukáže
+  assert.match(cut('  function openRadarPreview(', '  const dpFact ='), /\n\s+oc: radarOrient\(x\),/);
+  assert.match(cut('  function openDestPreview(', '  function openRadarPreview('), /czk: t\.perPersonCzk, oc: SearchHelp\.isCached\(t\),/);
+  assert.match(fl, /<b>\$\{czk\(d\.czk\)\}<\/b>\/os\.\$\{d\.oc \? ` <span class="dp-est" title="\$\{esc\(CACHE_TIP\)\}">orientační<\/span>` : ''\}/);
+});
+
+test('Zdroje cen (počítač): jen zapnuté zdroje, bez „vypnuto“ a tlačítka „Zapnout“ pro správce serveru', () => {
+  // jako /api/health v čistém režimu
+  const health = { demo: false, providers: [
+    { id: 'ryanair', name: 'Ryanair', color: '#073590', kind: 'live', enabled: false },
+    { id: 'wizzair', name: 'Wizz Air', color: '#c6007e', kind: 'live', enabled: false },
+    { id: 'kiwi', name: 'Kiwi.com (všechny aerolinky)', color: '#008471', kind: 'live', enabled: false },
+    { id: 'liteapi', name: 'Hotely (LiteAPI)', color: '#7c3aed', kind: 'stays', enabled: false, hint: 'Volitelné: ostrý klíč' },
+    { id: 'xotelo', name: 'Hotely (TripAdvisor)', color: '#00aa6c', kind: 'stays', tag: 'orientačně', enabled: true },
+    { id: 'osm', name: 'Ubytování (OpenStreetMap)', color: '#7ebc6f', kind: 'stays', tag: 'bez ceny', enabled: true },
+    { id: 'travelpayouts', name: 'Letenky (Aviasales)', color: '#c25100', kind: 'cached', enabled: true },
+  ] };
+  const html = mod2(health).srcBoxHtml();
+  for (const no of ['vypnuto', 'nepoužito', 'Zapnout', 'Ryanair', 'Kiwi', 'LiteAPI', 'tpHelp']) assert.ok(!html.includes(no), no);
+  assert.match(html, /Letenky \(Aviasales\)<span>orientačně<\/span>/);
+  assert.match(html, /Hotely \(TripAdvisor\)<span>orientačně<\/span>/);
+  assert.match(mod2({ providers: [{ ...health.providers[0], enabled: true }] }).srcBoxHtml(), /Ryanair<span>živě<\/span>/, 'zapnutý zdroj vidět');
+  assert.match(mod2({ demo: true, providers: [{ id: 'demo-air', name: 'Demo Air', kind: 'demo', enabled: true }] }).srcBoxHtml(), /Demo Air<span>demo<\/span>/);
+  assert.equal(mod2(null).srcBoxHtml(), '<div class="src-t">Zdroje cen</div>');
+  assert.doesNotMatch(fl, /id="tpHelp"/);
+});
+
+test('jméno zdroje Aviasales: „Letenky (Aviasales)“ v panelu a filtrech, „Aviasales“ v tlačítkách a průběhu hledání', async () => {
+  const { PROVIDER_INFO } = await import('../server/providers/index.js');
+  assert.equal(PROVIDER_INFO.travelpayouts.name, 'Letenky (Aviasales)');
+  assert.match(fl, /PROV\.travelpayouts = PROV\.travelpayouts \|\| \{ name: 'Letenky \(Aviasales\)'/, 'záloha, než dorazí /api/health');
+  const sn = fl.match(/ {2}const shopName = [^\n]+\n/);
+  assert.ok(sn, 'shopName');
+  const shopName = new Function('provName', `${sn[0]}; return shopName;`)(id => ({ travelpayouts: 'Letenky (Aviasales)', kiwi: 'Kiwi.com (všechny aerolinky)' })[id] || id);
+  assert.equal(shopName('travelpayouts'), 'Aviasales', '„Tam: Aviasales“, ne „Tam: Letenky“');
+  assert.equal(shopName('kiwi'), 'Kiwi.com');
+});

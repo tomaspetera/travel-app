@@ -127,7 +127,7 @@ test('radarResult: pole, která radar čte – i ta, která DEMO nemá (odkaz ob
     }],
   };
   const r = radarResult(res);
-  const keep = (l) => ({ from: l.from, to: l.to, date: l.date, dep: l.dep, arr: l.arr, hasTime: true, stops: l.stops, durationMin: l.durationMin, provider: 'kiwi', bookUrl: 'https://example.com/let' });
+  const keep = (l) => ({ from: l.from, to: l.to, date: l.date, dep: l.dep, arr: l.arr, hasTime: true, stops: l.stops, durationMin: l.durationMin, provider: 'kiwi', bookUrl: 'https://example.com/let', live: true });
   assert.deepEqual(r.groups, [{
     dest: { key: 'MIL', id: 'metro:MIL', label: 'Milán', cc: 'IT', lat: 45.46, lon: 9.19 },
     options: [{
@@ -141,6 +141,16 @@ test('radarResult: pole, která radar čte – i ta, která DEMO nemá (odkaz ob
   assert.deepEqual(r.arrivals, { BGY: { czk: 60, min: 50 } }, 'cesta do města jen k letištím nabídek');
   for (const k of ['query', 'mode', 'origins', 'providers', 'demo']) assert.equal(r[k], res[k], k);
   assert.equal(res.groups[0].best.out.carrierName, 'Ryanair', 'plný výsledek se nemění');
+});
+
+test('radarResult: cena z mezipaměti (live: false) zůstane poznat – karta i detail radaru ji označí „orientační“', () => {
+  const leg = (from, to, date) => ({ provider: 'travelpayouts', from, to, date, dep: `${date}T00:00:00`, hasTime: false, stops: 0, live: false, bookUrl: 'https://example.com/a' });
+  const t = { id: 'c', out: leg('PRG', 'BCN', '2026-12-01'), back: leg('BCN', 'PRG', '2026-12-04'), perPersonCzk: 1890, flightCzk: 1890, provider: 'travelpayouts', deal: { level: 'super', score: 3 } };
+  const r = radarResult({ groups: [{ dest: { key: 'BCN', id: 'metro:BCN', label: 'Barcelona', cc: 'ES' }, best: t, options: [t] }] });
+  const o = r.groups[0].options[0];
+  assert.equal(o.out.live, false);
+  assert.equal(o.back.live, false);
+  assert.equal(H.isCached(plain(o)), true, 'SearchHelp.isCached → oc u karty radaru');
 });
 
 test('radar: SearchHelp.radarRes doplní best jen zmenšenému výsledku, plný (starší server) nechá být', () => {
