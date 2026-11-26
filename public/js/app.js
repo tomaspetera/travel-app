@@ -337,6 +337,17 @@ function hashView() {
   go(v, { noHash: true, keepScroll: y != null });
   if (y != null) window.scrollTo(0, y);
 }
+/*
+ * Lety → Přehled → Lety ze spodní lišty: výpis výsledků tam, kde uživatel skončil – dřív go() vždy vyjel nahoru (posun si
+ * pamatoval jen krok historie pro Zpět, viewStep). Při odchodu z Letů se uloží posun a první řádek výpisu (mark); při
+ * návratu se posun vrátí, jen když je výpis pořád týž – nové hledání ho vyprázdní (startSearch v flights.js), takže
+ * jiný první řádek = nové výsledky – a nic se nehledá. Odeslání formuláře hledání (submit) uložený posun zahodí.
+ */
+let flKept = null;
+const flMark = () => { const r = $('#results'); return (r && r.firstElementChild) || null; };
+const flKeep = (y, mark) => (y > 0 && mark ? { y, mark } : null);
+const flBack = (kept, mark, busy) => (kept && mark && kept.mark === mark && !busy ? kept.y : null);
+document.addEventListener('submit', () => { flKept = null; }, true);
 function go(v, opts = {}) {
   // Plánovač je 🧳 Moje cesty v záložce Cesta: staré odkazy (#planner, zástupce na ploše) i „Otevřít plán →“ vedou
   // na seznam cest – i když je v průvodci rozpracovaná cesta
@@ -344,6 +355,11 @@ function go(v, opts = {}) {
   // kde uživatel byl – Zpět ho tam vrátí (viewStep); bez nového kroku historie (start, Zpět) se posun nečte: čtení
   // scrollY si vynutí rozvržení celé stránky ještě před vykreslením sekce (při startu na telefonu desítky ms navíc)
   const from = activeView, y0 = opts.noHash ? 0 : Math.round(window.scrollY || 0);
+  if (from === 'flights' && v !== 'flights') flKept = flKeep(Math.round(window.scrollY || 0), flMark());
+  // návrat na Lety (ne Zpět – ten má posun v kroku historie): uložený posun, je-li výpis pořád týž
+  const flY = v === 'flights' && from !== 'flights' && !opts.noHash && !opts.keepScroll ? flBack(flKept, flMark(), Boolean(window.Flights && Flights.busy && Flights.busy())) : null;
+  if (v === 'flights') flKept = null;
+  if (flY != null) opts = { ...opts, keepScroll: true };
   activeView = v;
   if (window.Count) Count.view(v, opts.mine); // souhrnný počet otevření sekce (count.js) – bez údajů o uživateli
   if (v !== 'dashboard') nowAsk = false;
@@ -360,6 +376,12 @@ function go(v, opts = {}) {
   const [ttl, sub] = WORLD_VIEWS.includes(v) ? NAV_INFO.world : NAV.find(x => x[0] === v).slice(1); $('#pageTitle').textContent = ttl; $('#pageSub').textContent = sub;
   // i left: 0 – posun na (0, 0) prohlížeč provede bez vynuceného rozvržení stránky (jen top by si ho vyžádal)
   if (!opts.keepScroll) window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
+  if (flY != null) {
+    window.scrollTo(0, flY);
+    // hledání spuštěné hned po přepnutí (Flights.searchTo: go('flights') a pak startSearch) výpis vyprázdní – pak nahoru
+    const m = flMark();
+    requestAnimationFrame(() => { if (activeView === 'flights' && flMark() !== m) window.scrollTo({ top: 0, left: 0, behavior: 'smooth' }); });
+  }
   if (!opts.noHash) histDo(() => viewStep(v, opts.drill, from === 'dashboard' || opts.drill ? y0 : null));
   if (v === 'map') initMap();
   if (v === 'countries') renderCountries();

@@ -90,6 +90,64 @@ test('velká data: odkaz ano, QR ne (víc než 2 953 bajtů verze 40-L); přes l
   assert.equal(T.fit(`${ORIGIN}/#sync=z${'A'.repeat(T.MAX_LINK + 1)}`).link, false);
 });
 
+// Typická cesta z průvodce, jak ji uloží saveToPlanner: program s popisy a fotkami z Wikidat a 30 „dalšími místy“,
+// „Před cestou“, „Sbaleno“ na míru (25 položek s id) a kopie toho, co vygeneroval průvodce (gen*).
+const POI = ['Alfama', 'Castelo de São Jorge', 'Belém', 'Klášter sv. Jeronýma', 'Belémská věž', 'Sintra', 'Palácio da Pena', 'LX Factory', 'Praça do Comércio', 'Elevador de Santa Justa', 'Oceanário', 'Muzeum Calouste Gulbenkian', 'Katedrála Sé', 'Bairro Alto', 'Miradouro da Senhora do Monte'];
+const poi = (name, i) => ({ id: `Q${1000 + i}`, name, description: `památka v Lisabonu, Portugalsko – ${name} patří k nejnavštěvovanějším místům města`, lat: 38.7 + i / 97, lon: -9.14 - i / 113, sitelinks: 40 + i, image: `https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/${encodeURIComponent(name)}_${i}.jpg/320px-${encodeURIComponent(name)}_${i}.jpg`, credit: `Foto: Autor ${i}, CC BY-SA 4.0`, wiki: { cs: name, en: `${name} (Lisbon)` }, category: 'sight', score: 60 + i / 3, cc: 'PT', visitMin: 60 + (i % 3) * 30, fromPrevKm: 1.2 + i / 10, fromPrevMin: 12 + i, transit: i % 4 === 0 });
+const CK = ['Zařídit: cestovní pojištění', 'Zařídit: vstupenky do Palácio da Pena', 'Zařídit: Lisboa Card', 'Pas nebo občanka', 'Kartička pojišťovny (EHIC)', 'Platební karta', 'Trocha eur v hotovosti', 'Nabíječka a powerbanka', 'Pohodlné boty (kopce a dlažba)', 'Lehká bunda do větru', 'Deštník', 'Sluneční brýle', 'Opalovací krém', 'Léky a lékárnička', 'Kartáček a pasta', 'Kosmetika do 100 ml', 'Plavky', 'Brýle nebo čočky', 'Sluchátka', 'Láhev na vodu', 'Batoh na výlety', 'Kopie dokladů v telefonu', 'Offline mapa Lisabonu', 'Jízdenka Viva Viagem', 'Svetr na večer'];
+function wizardTrip() {
+  const w = lisbon(), pois = POI.map(poi);
+  w.plan.days = w.plan.days.map((d, i) => ({ ...d, items: pois.slice(i * 2, i * 2 + 2) }));
+  w.plan.spare = [...pois.slice(10), ...POI.map((n, i) => poi(`${n} – okolí`, i + 20))].slice(0, 30);
+  w.pretrip = { acts: ['city'], custom: [], done: [] };
+  w.stay = { ...w.stay, url: 'https://www.booking.com/hotel/pt/lisboa-centro.cs.html?checkin=2026-11-12&checkout=2026-11-17&group_adults=2&no_rooms=1' };
+  const t = saved(w);
+  t.days = Object.fromEntries(w.plan.days.filter((d) => d.items.length).map((d) => [d.date, d.items.map((x) => x.name)]));
+  t.checklist = CK.map((x, i) => ({ t: x, done: false, id: i < 3 ? `todo:t${i}` : `pack:p${i}` }));
+  t.notes = `Ubytování: Hotel Lisboa Centro – 9 000 Kč ${w.stay.url}`;
+  return { ...t, genName: t.name, genNotes: t.notes, genBudget: t.budget, genDays: plain(t.days), genChecklist: t.checklist.map((x) => x.t) };
+}
+
+test('jedna typická cesta z průvodce se vejde do QR kódu (štíhle) a po příjmu má průvodce i „Sbaleno“; soubor zálohy zůstane celý', async () => {
+  const t = wizardTrip();
+  const full = B.pack({ trips: [t] }, {}, NOW), slim = B.packSlim({ trips: [t] }, {}, NOW);
+  const urlOf = async (json) => `${ORIGIN}/#${T.KIND}=${await ShareLink.pack(json)}`;
+  assert.equal(T.fit(await urlOf(full)).qr, null, 'celá cesta se do QR nevejde (to byla chyba)');
+  const url = await urlOf(slim), f = T.fit(url, { json: slim });
+  assert.ok(f.bytes <= 2953, `odkaz ${f.bytes} B`);  assert.ok(f.qr, 'QR kód');
+  assert.match(full, /"spare"|"description"/, 'záloha do souboru (pack) beze změny');
+  assert.doesNotMatch(slim, /"spare"|"description"|"image"/);
+  const inc = await T.read(T.payloadOf(decode(fromSvg(QR.svg(f.qr))).text), deps);
+  const r = inc.trips[0];
+  assert.equal(r.wizard.flight.out.to, 'LIS', 'Otevřít v průvodci');
+  assert.deepEqual(plain(r.wizard.plan.days.map((d) => d.items.map((x) => x.name))), plain(t.wizard.plan.days.map((d) => d.items.map((x) => x.name))), 'program dnů celý (bez popisů)');
+  assert.equal(r.checklist.length, CK.length);
+  assert.equal(r.checklist[0].id, 'todo:t0', 'spojení s „Před cestou“');
+  // co vygeneroval průvodce: druhé zařízení ho dopočítá z plánu – pozná pak, co uživatel upravil
+  assert.deepEqual(plain(r.genChecklist), CK);
+  assert.deepEqual(plain(r.genDays), plain(t.days));
+  assert.deepEqual([r.genName, r.genNotes, r.genBudget], [t.name, t.notes, t.budget]);
+  // stejná cesta v zařízení (celá) není „změněná“ jen kvůli vynechaným popisům
+  assert.deepEqual(plain(B.match({ trips: [t] }, inc, { txt: ctx.PlanShare.txt, ...deps }).map((m) => m.st)), ['same']);
+});
+
+test('štíhlý přenos: co uživatel v plánovači změnil, jde celé (gen* jen u nezměněných jako 1)', () => {
+  const t = { ...wizardTrip(), name: 'Můj Lisabon' };
+  t.checklist = [...t.checklist, { t: 'Vlastní věc', done: true }];
+  const s = B.slimTrip(t);
+  assert.equal(s.genName, t.genName);
+  assert.equal(s.genChecklist.length, CK.length);
+  assert.equal(s.genDays, 1);
+  assert.equal(s.genNotes, 1);
+  const r = B.parse(B.packSlim({ trips: [t] }), deps).trips[0];
+  assert.equal(r.name, 'Můj Lisabon');
+  assert.equal(r.genName, t.genName);
+  assert.deepEqual(plain(r.genChecklist), CK);
+  assert.equal(r.checklist.length, CK.length + 1);
+  const plannerTrip = B.parse(B.packSlim({ trips: [plannerOnly()] }), deps).trips[0];
+  assert.equal(plannerTrip.genDays, undefined, 'cesta jen z plánovače gen* nedostane');
+});
+
 test('payloadOf: z adresy i z vložené zprávy; bez #sync= nic', () => {
   assert.equal(T.payloadOf(`${ORIGIN}/#sync=zAbC-_9`), 'zAbC-_9');
   assert.equal(T.payloadOf(`Moje data z Letsi: ${ORIGIN}/#sync=zXY12 (otevři v telefonu)`), 'zXY12');
