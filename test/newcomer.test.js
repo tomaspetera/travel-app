@@ -104,7 +104,7 @@ test('drobnosti: filtr hodnocení hotelů s ⭐ a popiskem, hotový program „�
 
 test('vracející se uživatel: ⭐ Moje cíle s jednou větou o ceně (dřív 5 řádků při každém otevření Přehledu), podrobnosti v title', () => {
   const js = read('js/flights.js');
-  assert.match(js, /<div class="faint fav-note" title="Jen letenka – bez cesty na letiště, do města a zavazadel; s odletem od tohoto měsíce\. Telefon a počítač mají každý svou paměť cen\.">Cena = nejlevnější zpáteční letenka na osobu, jakou ATLAS viděl v tomhle zařízení\.<\/div>/);
+  assert.match(js, /<div class="faint fav-note" title="Jen letenka – bez cesty na letiště, do města a zavazadel; s odletem od tohoto měsíce\. Telefon a počítač mají každý svou paměť cen\.">Cena = nejlevnější zpáteční letenka na osobu, jakou Letsi zná z tohohle zařízení\.<\/div>/);
 });
 
 test('Lety u vracejícího se (už hledal): na telefonu bez úvodní fotky – tlačítko hledání nad spodní lištou', () => {

@@ -17,7 +17,7 @@ test('tipy v Letech: každý nejvýš ~170 znaků – na 360 px 5 řádků, víc
   // řez na 5 řádků je jen na telefonu (pruh do strany) – kdyby se zvedl, tenhle limit by šel povolit
   assert.match(noComments(read('css/flights.css')), /#flightTips \.tip p\{display:-webkit-box;-webkit-line-clamp:5;/);
   const hlid = ctx.TIPS.find((x) => x[1] === 'Hlídej cenu')[2];
-  assert.match(hlid, /dokud ho máš otevřený/, 'podstatná výhrada zůstala');
+  assert.match(hlid, /dokud máš aplikaci otevřenou/, 'podstatná výhrada zůstala');
 });
 
 test('patička výsledků Letů: vidět co cena je, zdroje odhadů, kurz a teplota až pod „Jak počítám“ (dřív 16–20 řádků)', () => {

@@ -63,9 +63,10 @@ const hash = (log) => createHash('sha256').update(log.join('\n')).digest('hex').
 
 test('ATLAS (bez data-brand="letsi"): karty se kreslí přesně jako před motivy', async () => {
   // otisky záznamu kreslení z doby před tabulkou motivů – Story i příspěvek, krátký i dlouhý cíl, s fotkou i bez
-  assert.equal(hash(await draw(TRIP)), '37971e1939f4dc0b');
-  assert.equal(hash(await draw(LONG)), '62a2387ecbaf757d');
-  assert.equal(hash(await draw(TRIP, { photo: true })), 'b4bc9965b8b23012');
+  // (od přejmenování nese značka na kartě název Letsi místo ATLAS, jinak je kresba stejná)
+  assert.equal(hash(await draw(TRIP)), 'e6652ccdf71164d1');
+  assert.equal(hash(await draw(LONG)), 'c9055e296c3638e1');
+  assert.equal(hash(await draw(TRIP, { photo: true })), 'a0ba9d62f9b72f94');
   // jiný vzhled než letsi (nebo žádný) je ATLAS
   assert.equal(hash(await draw(TRIP, { brand: 'atlas' })), hash(await draw(TRIP)));
 });

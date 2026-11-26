@@ -469,10 +469,10 @@ test('hledání země: štítky jen od začátku slova – „Itál“ nenajde E
   assert.match(appJs, /\(c\.tags \|\| \[\]\)\.some\(t => tagHit\(t, q\)\)/);
 });
 
-test('ikony v ⋯ Další: ➕ Přidat ATLAS na plochu, 📲 Přenést do jiného zařízení – každá jiná', () => {
+test('ikony v ⋯ Další: ➕ Přidat Letsi na plochu, 📲 Přenést do jiného zařízení – každá jiná', () => {
   const pwa = read('js/pwa.js'), tr = read('js/transfer.js');
-  assert.match(pwa, /const LABEL = '➕ Přidat ATLAS na plochu';/);
-  assert.match(pwa, /<h2 class="pwa-h">➕ ATLAS na plochu<\/h2>/);
+  assert.match(pwa, /const LABEL = '➕ Přidat Letsi na plochu';/);
+  assert.match(pwa, /<h2 class="pwa-h">➕ Letsi na plochu<\/h2>/);
   assert.doesNotMatch(pwa.replace(/\/\*[\s\S]*?\*\//g, ''), /📲/);
   assert.match(tr, /id="moreXfer">📲 Přenést do jiného zařízení/);
 });

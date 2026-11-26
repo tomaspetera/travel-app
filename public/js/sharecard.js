@@ -316,7 +316,7 @@
     y.fillText('Termín a lety z tvého letiště', 56, A + 230);
     y.fillStyle = T.link; y.font = `700 30px ${T.text}`; y.fillText('↓  klikni na odkaz', 56, A + 276);
     barcode(y, tw - 56 - 176, A + 198, 176, 62);
-    mark(y, tw - 56, A + 272, 26, 'ATLAS', T.muted, 'right');
+    mark(y, tw - 56, A + 272, 26, 'Letsi', T.muted, 'right');
     // výřezy po stranách předělu
     y.globalCompositeOperation = 'destination-out';
     [0, tw].forEach(cx => { y.beginPath(); y.arc(cx, A, 30, 0, Math.PI * 2); y.fill(); });
@@ -364,7 +364,7 @@
     y.fillStyle = T.link; y.font = `700 25px ${T.text}`;
     wrap(y, l2, sw, 2).forEach((ln, i) => y.fillText(ln, sx, 74 + ls.length * 36 + 12 + i * 31));
     barcode(y, sx, th - 34 - 30 - 18 - 52, sw, 52);
-    mark(y, sx, th - 34 - 30, 30, 'ATLAS', T.muted);
+    mark(y, sx, th - 34 - 30, 30, 'Letsi', T.muted);
     y.globalCompositeOperation = 'destination-out';
     [0, th].forEach(cy => { y.beginPath(); y.arc(M + 2, cy, 26, 0, Math.PI * 2); y.fill(); });
     y.globalCompositeOperation = 'source-over';
@@ -383,7 +383,7 @@
     const [p1, p2] = await Promise.all([photo(d.dest, 1080, 1920), photo(d.dest, 1080, 830)]);
     const make = async (a, b) => {
       const cs = { story: story(d, a), post: post(d, b) }, out = {};
-      for (const [k, cv] of Object.entries(cs)) out[k] = { canvas: cv, file: new File([await blobOf(cv)], `atlas-${k === 'story' ? 'story' : 'prispevek'}.jpg`, { type: 'image/jpeg' }) };
+      for (const [k, cv] of Object.entries(cs)) out[k] = { canvas: cv, file: new File([await blobOf(cv)], `letsi-${k === 'story' ? 'story' : 'prispevek'}.jpg`, { type: 'image/jpeg' }) };
       return out;
     };
     try { return await make(p1, p2); } catch (e) {
@@ -515,7 +515,7 @@
         ${d.id ? `<button type="button" class="btn primary jed-go" id="jedGo">✈️ ${past || (on && !join) ? 'Najít lety – ' + esc(d.dest) : join ? 'Najít lety – přidat se' : long ? 'Najít lety tam (pobyt přes 45 nocí – zpět hledej zvlášť)' : 'Najít lety na tenhle termín'}</button>
         <div class="faint jed-home">${home ? `Hledám z tvého letiště: <b>${esc(home.label)}</b> – můžeš ho změnit ve formuláři.` : 'Zeptám se, odkud letíš – Praha, Brno, Vídeň…'}</div>` : ''}
         <div class="note info jed-dm">💬 <div><b>Chceš jet?</b> Napiš kamarádovi tam, kde jsi to viděl – do komentářů nebo do zpráv.</div></div>
-        <div class="faint jed-foot">ATLAS – levné letenky a plánování cest. Zdarma, bez registrace. Odkaz nese jen cíl a termín.</div>
+        <div class="faint jed-foot">Letsi – levné letenky a plánování cest. Zdarma, bez registrace. Odkaz nese jen cíl a termín.</div>
       </div>
     </div>`);
     $$('#modal [data-close]').forEach(b => { b.onclick = () => modalClose(); });

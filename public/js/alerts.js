@@ -231,7 +231,7 @@
     const start = nextMonday9(now);
     return {
       title: `Zkontroluj ceny: ${w.label || 'hlídané hledání'}`,
-      description: [price, !gone && w.best && w.best.desc, 'Otevři ATLAS – cenu zkontroluji znovu.'].filter(Boolean).join('\n'),
+      description: [price, !gone && w.best && w.best.desc, 'Otevři Letsi – cenu zkontroluji znovu.'].filter(Boolean).join('\n'),
       start, durationMin: 15, rrule: `FREQ=WEEKLY;COUNT=${Math.max(1, remindCount(w && w.form, start.slice(0, 10)))}`,
       url, uid: `atlas-watch-${String(w.id).replace(/[^\w.-]/g, '')}`,
     };
@@ -570,7 +570,7 @@
     if (d != null && d < cfg.late) {
       return level === 'high'
         ? { kind: 'late', text: `${leftTxt(d)} – levněji už to nejspíš nebude`, why: 'cena je nad obvyklou – zkus jiné dny nebo letiště' }
-        : { kind: 'late', text: `${leftTxt(d)} – ceny u nízkonákladovek obvykle už spíš rostou`, why: atLow && st.n >= 2 ? 'teď je u nejnižší ceny, jakou ATLAS viděl – jestli ti termín sedí, nečekej' : 'jestli ti termín sedí, čekáním se nejspíš nic nezíská' };
+        : { kind: 'late', text: `${leftTxt(d)} – ceny u nízkonákladovek obvykle už spíš rostou`, why: atLow && st.n >= 2 ? 'teď je u nejnižší ceny, jaká tu zatím byla – jestli ti termín sedí, nečekej' : 'jestli ti termín sedí, čekáním se nejspíš nic nezíská' };
     }
     if (enough && st.span >= cfg.lowDays && atLow && st.swing >= cfg.trend && level !== 'high' && !(far && down)) {
       return { kind: 'buy', text: `Teď je nejníž za ${dnu(st.span)} hlídání – kup, jestli ti termín sedí`, why: 'levněji to ještě být může, ale nemusí' };
@@ -580,7 +580,7 @@
         ? { kind: 'late', text: `${leftTxt(d)} a cena je nad obvyklou – čekání se spíš nevyplatí`, why: 'ušetřit se dá spíš jiným dnem nebo letištěm' }
         : { kind: 'late', text: `${leftTxt(d)} – čekání se už spíš nevyplatí`, why: 'ceny u nízkonákladovek se před odletem obvykle zvedají – jestli ti cena sedí, kup' };
     }
-    const aim = t ? `ATLAS hlídá tvou cenu ${kc(t)}` : 'nastav si 🎯\u00a0cílovou cenu'; // 🎯 se neodtrhne od slova
+    const aim = t ? `Letsi hlídá tvou cenu ${kc(t)}` : 'nastav si 🎯\u00a0cílovou cenu'; // 🎯 se neodtrhne od slova
     if (!enough) return { kind: 'info', text: `Zatím sleduj${left}`, why: 'na radu z vývoje ceny je zatím málo kontrol' };
     // klesá: za týden levněji a teď nejníž (nebo se cena jinak moc nehýbe); levněji než před týdnem, ale nad nedávným
     // minimem o ≥ swing % = kolísá

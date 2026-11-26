@@ -98,7 +98,7 @@
       `✈️ ${o.dest.label} · ${o.back ? `${day(o.out.date)} – ${day(o.back.date)}${o.nights != null ? ` · ${nightsTxt(o.nights)}` : ''}` : `${day(o.out.date)} · jen tam`}`,
       `${kc(o.czk)}/os.${(o.pax > 1 || o.inf) && o.total ? ` (celkem ${kc(o.total)} za ${o.pax} os.${o.ch ? ` vč. ${o.ch} ${o.ch === 1 ? 'dítěte' : 'dětí'}` : ''}${o.inf ? ` + ${o.inf === 1 ? 'miminko' : `${o.inf} ${o.inf <= 4 ? 'miminka' : 'miminek'}`} (poplatek aerolinky navíc)` : ''})` : ''}${o.demo ? ' (DEMO – vymyšlená cena)' : ''}`,
       [`tam ${legTxt(o.out)}`, o.back ? `zpět ${legTxt(o.back)}` : '', air].filter(Boolean).join(' · '),
-      '(ATLAS – cena se mohla změnit, ověř ji před nákupem)',
+      '(Letsi – cena se mohla změnit, ověř ji před nákupem)',
     ].join('\n');
   }
 

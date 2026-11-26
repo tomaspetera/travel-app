@@ -126,7 +126,7 @@
     const host = typeof location !== 'undefined' && /^[\w.-]+$/.test(location.hostname || '') ? location.hostname : 'atlas';
     const stamp = stampUtc(Number.isFinite(opts.now) ? opts.now : Date.now());
     const name = cut(opts.name, 120).replace(/\s*\n\s*/g, ' ').trim();
-    const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//ATLAS//Cestovni planovac//CS', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH'];
+    const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Letsi//Cestovni planovac//CS', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH'];
     if (name) lines.push('X-WR-CALNAME:' + escText(name));
     const used = new Set();
     for (const ev of (Array.isArray(events) ? events : []).map(prepare).filter(Boolean)) {
