@@ -160,6 +160,47 @@ test('shrnutí cesty: věta 💛 Podpořit Letsi jen s odkazem z /api/health (ov
   assert.match(trip, /<a href="\$\{esc\(url\)\}" target="_blank" rel="noopener">💛 Podpořit Letsi ↗<\/a>/);
 });
 
+test('okno: krátký odkaz s adresou letsi.cz, ceny „orientační“ jako štítek ve výsledcích (ne ⏱ z mezipaměti)', () => {
+  const html = A.html({ version: 'v' });
+  assert.match(html, /<b>Krátký odkaz na sdílenou cestu<\/b> \(letsi\.cz\/c\/…\)/);
+  assert.doesNotMatch(html, /atlas…|⏱|z mezipaměti \(/);
+  assert.match(html, /ceny označené jako orientační můžou být starší/);
+});
+
+test('zásady, bod 4: každý klíč atlas_… z aplikace je v zásadách (přesně, nebo předpona s „…“)', () => {
+  const zasady = read('docs/pravni/zasady-ochrany-osobnich-udaju.md');
+  const named = [...zasady.matchAll(/`(atlas_[\w]*)(…?)`/g)];
+  const exact = new Set(named.filter((m) => !m[2]).map((m) => m[1]));
+  const prefixes = named.filter((m) => m[2]).map((m) => m[1]);
+  const files = readdirSync(new URL('../public/js/', import.meta.url)).filter((f) => f.endsWith('.js')).map((f) => `public/js/${f}`);
+  for (const f of [...files, 'public/index.html']) {
+    for (const [, key] of read(f).matchAll(/['"`](atlas_\w+)['"`]/g)) {
+      assert.ok(exact.has(key) || prefixes.some((p) => key.startsWith(p)), `${f}: klíč ${key} chybí v zásadách (bod 4)`);
+    }
+  }
+  // Letsi Plus si pamatuje den poslední otázky na cenu – bod 3.6 to musí říct (jinak „v zařízení se nic neukládá“)
+  assert.match(read('public/js/plus.js'), /ASK_KEY = 'atlas_price_q'/);
+  assert.match(zasady, /jen nabídka Letsi Plus si pamatuje den, kdy se naposledy zeptala na\s+cenu \(`atlas_price_q`/);
+});
+
+test('zásady a podmínky podle kódu: IP se maže po okně, sdílená cesta bez kódů rezervací, ceny letů orientační', () => {
+  const zasady = read('docs/pravni/zasady-ochrany-osobnich-udaju.md');
+  // RateLimiter.sweep maže adresu po uplynutí okna – zásady už nesmí slibovat jen „do restartu“
+  assert.match(read('server/lib/ratelimit.js'), /sweep\(now = Date\.now\(\)\)/);
+  assert.match(zasady, /server z paměti sám smaže\s+nejpozději po uplynutí okna/);
+  assert.doesNotMatch(zasady, /zmizí při dalším požadavku z ní/);
+  // shareJson vynechává 🔖 kódy rezervací i kód jízdenky
+  assert.match(read('public/js/trip.js'), /refs: undefined, rides: undefined, kod: undefined/);
+  assert.match(zasady, /čas založení, 🔖 kódy rezervací a kód jízdenky/);
+  assert.doesNotMatch(zasady, /výslovně se ale nevynechávají/);
+  // podmínky: štítek ve výsledcích je „orientační – ověř“ (flights.js cacheTag), žádné „⏱ z cache“
+  const podminky = read('docs/pravni/podminky-uzivani.md');
+  assert.match(read('public/js/flights.js'), />orientační – ověř<\/span>/);
+  assert.match(podminky, /označené \*\*orientační – ověř\*\*/);
+  assert.match(podminky, /Ceny letů jsou orientační: pocházejí z vyhledávání jiných cestujících na\s+Aviasales \(Travelpayouts\)/);
+  assert.doesNotMatch(podminky, /z cache|⏱/);
+});
+
 test('OPERATOR: pryč i C1 řídicí znaky a měkké rozdělení; zkrácení po znacích nerozpůlí emoji', () => {
   const c = String.fromCharCode;
   assert.equal(cleanOperator(`Jan${c(0x85)}Novák${c(0xad)}!`), 'Jan Novák !');

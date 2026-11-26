@@ -41,8 +41,9 @@ Ceny a spoje Letsi získává z **veřejných zdrojů a od partnerů**: webů Ry
 Aviasales, TripAdvisoru (přes Xotelo), LiteAPI, RegioJetu a dalších (přehled je v aplikaci v ⋯ Další → ℹ️ O aplikaci
 a soukromí). Proto:
 
-- Ceny se u prodejců mění i během minut. Ceny Ryanair, Wizz Air a Kiwi.com jsou zjištěné živě při hledání,
-  ceny z Travelpayouts pocházejí z vyhledávání za posledních ~48 hodin a jsou označené **⏱ z cache – ověř**.
+- Ceny se u prodejců mění i během minut. Ceny letů jsou orientační: pocházejí z vyhledávání jiných cestujících na
+  Aviasales (Travelpayouts) za posledních ~48 hodin a jsou označené **orientační – ověř**. Pokud jsou zapnuté živé
+  zdroje, jejich ceny se zjišťují při hledání.
   Výsledky starší než hodina aplikace označí časem; u výsledků starších 3 hodin první klepnutí na Koupit jen
   připomene stáří cen.
 - **Závazná je vždy cena, kterou ukáže prodejce před zaplacením.** Před nákupem ji ověř na jeho webu.
