@@ -4786,13 +4786,28 @@
           return true;
         }
       }
-      // jinou cestu (i tutéž s jiným obsahem) nahradí bez ptaní, jen když v ní nic není rozpracované (jako výběr letu z výsledků)
-      if (mine && mine.flight && progressOf(mine).length
-        && !confirm(same ? `Odkaz je na tvoji rozpracovanou cestu (${mine.dest?.label || mine.flight.out.to}), ale v jiné podobě (např. s jiným programem). Nahradit ji verzí z odkazu? Odškrtnuté rezervace zůstanou.`
-          : `Otevíráš sdílenou cestu (${t.dest.label || t.flight.out.to}). Nahradit jí tvoji rozpracovanou cestu (${mine.dest?.label || mine.flight.out.to})?`)) {
+      // tatáž cesta v jiné podobě: nahradit bez ptaní, jen když v ní nic není rozpracované (jako výběr letu z výsledků)
+      const mineName = mine && mine.flight && (mine.dest?.label || mine.flight.out.to);
+      if (same && progressOf(mine).length
+        && !confirm(`Odkaz je na tvoji rozpracovanou cestu (${mineName}), ale v jiné podobě (např. s jiným programem). Nahradit ji verzí z odkazu? Odškrtnuté rezervace zůstanou.`)) {
         history.replaceState(null, '', '#trip');
         return false;
       }
+      // cizí cesta: vlastní rozpracovaná se nejdřív uloží do Mých cest (leaveTrip, jako u otevření uložené) a zůstane tam –
+      // ptát se je potřeba jen u neuložené (např. jiná sdílená); po Zrušit cesta z odkazu nesmí beze slova zmizet
+      if (!same && !leaveTrip(mine, () => `Otevíráš sdílenou cestu (${t.dest.label || t.flight.out.to}). Tvoje rozpracovaná cesta (${mineName}) není uložená v Mých cestách – nahradit ji?`, true)) {
+        history.replaceState(null, '', '#trip');
+        toast('Sdílenou cestu jsem neotevřel – tvoje zůstala, jak byla', 'info', 9000, {
+          label: 'Uložit svou a otevřít',
+          run: () => {
+            try { saveToPlanner({ quiet: true }); } catch (e) { toast('Tvoji cestu se nepodařilo uložit', 'err'); return; }
+            history.replaceState(null, '', '#trip=' + m[1]);
+            importFromHash().then(ok => { if (ok) go('trip', { noHash: true }); });
+          },
+        });
+        return false;
+      }
+      const kept = !same && mineName && entryOf(mine); // vlastní cesta zůstala v Mých cestách (leaveTrip bez hlášky – přebila by ji ta níž)
       // tatáž cesta: odškrtnuté rezervace i čas založení zůstanou (plánovač ji aktualizuje, odškrtnutí karty se přidají)
       // cizí cesta je „sdílená“ (poznámka o stáří cen a 💾 Uložit si ji), dokud si ji příjemce neuloží; nová verze vlastní
       // cesty zůstane vlastní, nová verze ještě neuložené sdílené cesty dostane den sdílení z odkazu
@@ -4804,7 +4819,7 @@
       if (window.PreTrip) PreTrip.adopt(S.trip);
       persist();
       history.replaceState(null, '', '#trip');
-      toast('Načetl jsem sdílenou cestu');
+      toast(kept ? `Načetl jsem sdílenou cestu – ${mineName} zůstává v Mých cestách` : 'Načetl jsem sdílenou cestu');
       return true;
     } catch (e) {
       toast('Odkaz na cestu je poškozený', 'err');

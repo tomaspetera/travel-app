@@ -72,7 +72,7 @@ const pick = (...names) => names.map((n) => {
 function loadWith(stored) {
   const ctx = { localStorage: { getItem: () => JSON.stringify(stored) } };
   vm.createContext(ctx);
-  vm.runInContext(`${pick('LS', 'load', 'coarseGeo', 'migrateGeo', 'migratePrices', 'defState')}\nvar S = load();`, ctx, { filename: 'app-state.js' });
+  vm.runInContext(`${pick('LS', 'load', 'fixState', 'coarseGeo', 'migrateGeo', 'migratePrices', 'defState')}\nvar S = load();`, ctx, { filename: 'app-state.js' });
   return plain(ctx.S);
 }
 

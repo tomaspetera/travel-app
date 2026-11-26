@@ -906,11 +906,12 @@ test('vlastní odkaz na cestu otevřený v tomtéž prohlížeči: bez otázky, 
   b.Trip.render();
   b.els['#sumSave'].onclick();
   assert.deepEqual(b.c.S.trips.map((x) => x.tripId), [t.created], 'znovu uložená cesta se aktualizuje, ne zdvojí');
-  // stejné lety, ale jiný hotel: otázka; bez souhlasu zůstane rozpracovaná cesta
+  // stejné lety, ale jiný hotel (cizí cesta): rozpracovaná je v Mých cestách → bez otázky, zůstane tam i se změnou
+  // hotelu (leaveTrip ji předtím uloží) a otevře se cesta z odkazu
   const other = { ...t, stay: { mode: 'manual', name: 'U kamaráda', totalCzk: 5000 } };
   const c2 = open(other, false);
-  assert.equal(await c2.Trip.importFromHash(), false);
-  assert.deepEqual([c2.asked, c2.c.S.trip.stay.name], [1, 'U kamaráda']);
+  assert.equal(await c2.Trip.importFromHash(), true);
+  assert.deepEqual([c2.asked, c2.c.S.trip.stay.name, c2.c.S.trips.find((x) => x.tripId === t.created).wizard.stay.name], [0, 'Hotel Sakura', 'U kamaráda']);
   // bez rozpracovaného (jen vybraný let): bez otázky; cesta z odkazu je uložená v Mých cestách → otevře se ta uložená
   // (i s odškrtnutými rezervacemi), ne další neuložená kopie
   const d = open({ ...tokyo(), created: 5 }, false);

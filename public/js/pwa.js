@@ -144,7 +144,22 @@
     return (now = Date.now()) => (now - at >= ms ? ((at = now), true) : false);
   }
 
-  const api = { every, netError, installMode, isApi, slowError, withDeadline, readOrStall, whenOnline, flushOnline, retryAfterS, statusMsg, httpError, waitTxt, OFFLINE_MSG, DOWN_MSG, SLOW_MSG, API_WAIT, THEME, THEME_LETSI, addToMenu() {} };
+  /**
+   * Kroky návodu „Letsi na plochu“ pro iPhone a iPad. Aplikace na ploše má na iOS vlastní úložiště (oddělené od Safari)
+   * a začne prázdná – nesmí se slibovat „uložené cesty“; kdo už v Safari něco má (data), dostane 4. krok s přenosem
+   * (Transfer, pole „Mám odkaz z jiného zařízení“), jinak by si v prázdné aplikaci myslel, že o cesty přišel.
+   */
+  function iosSteps(share, data) {
+    return `<ol class="pwa-steps">
+        <li>Klepni na <b>Sdílet</b> ${share} – v Safari dole uprostřed, na iPadu nahoře vedle adresy.</li>
+        <li>Sjeď níž a vyber <b>Přidat na plochu</b>.</li>
+        <li>Potvrď <b>Přidat</b>. Letsi se pak otevře jako aplikace přes celou obrazovku a cesty, které si v ní uložíš, uvidíš i bez internetu.</li>
+        ${data ? `<li>Cesty ze Safari se do aplikace na ploše nepřenesou samy – má vlastní úložiště. Tady klepni na <b>Přenést</b>, odkaz si zkopíruj (nebo pošli) a v aplikaci na ploše ho vlož do <b>⋯ Další → Přenést do jiného zařízení → Mám odkaz z jiného zařízení</b>.
+          <div><button type="button" class="btn" id="pwaXfer"><span class="ico i-qr" aria-hidden="true"></span> Přenést</button></div></li>` : ''}
+      </ol>`;
+  }
+
+  const api = { every, iosSteps, netError, installMode, isApi, slowError, withDeadline, readOrStall, whenOnline, flushOnline, retryAfterS, statusMsg, httpError, waitTxt, OFFLINE_MSG, DOWN_MSG, SLOW_MSG, API_WAIT, THEME, THEME_LETSI, addToMenu() {} };
   window.Pwa = api;
   if (typeof document === 'undefined' || !document.documentElement) return; // testy v node:vm – jen funkce výše
 
@@ -244,13 +259,13 @@
   function iosHint() {
     if (typeof modalOpen !== 'function') return;
     const close = typeof ico === 'function' ? ico('M18 6L6 18M6 6l12 12') : '×';
+    // bez modulu zálohy nevíme, jestli tu něco je – krok s přenosem raději ukázat; bez modulu přenosu není kam poslat
+    const data = Boolean(window.Transfer) && (!window.Backup || !Backup.isEmpty(Backup.countsNow()));
     modalOpen(`<div class="modal-hero"><div class="mh-bg"></div><button class="modal-close" data-close aria-label="Zavřít">${close}</button>
       <div class="modal-hero-inner"><h2 class="pwa-h">➕ Letsi na plochu</h2><div class="pwa-sub">iPhone a iPad · pár vteřin</div></div></div>
-      <div class="modal-body"><ol class="pwa-steps">
-        <li>Klepni na <b>Sdílet</b> ${SHARE_ICO} – v Safari dole uprostřed, na iPadu nahoře vedle adresy.</li>
-        <li>Sjeď níž a vyber <b>Přidat na plochu</b>.</li>
-        <li>Potvrď <b>Přidat</b>. Letsi se pak otevře jako aplikace přes celou obrazovku a uložené cesty a plány uvidíš i bez internetu.</li>
-      </ol></div>`);
+      <div class="modal-body">${iosSteps(SHARE_ICO, data)}</div>`);
+    const x = document.getElementById('pwaXfer');
+    if (x) x.onclick = () => { modalClose(); Transfer.open(); };
   }
 
   /** Položka v nabídce „Více“ na mobilu (app.js ji přidá při otevření nabídky). */
