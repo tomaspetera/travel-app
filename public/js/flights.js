@@ -1534,6 +1534,8 @@
         signal: ctl.signal,
       })); // + cesty buněk mřížky termínů
       lastResult = res; lastResultAt = Date.now(); lastResultPayload = payload; restored = false;
+      // souhrnné počty (count.js): dokončené hledání (i bez výsledků) a z toho „kamkoliv“
+      if (window.Count) { Count.hit('search_done'); if (res.destination && res.destination.kind === 'anywhere') Count.hit('search_anywhere'); }
       PriceCheck.remember(res); // paměť cen v tomto prohlížeči („Je to dobrá cena?“)
       if (window.Trip && Trip.finalStats) Trip.finalStats(res); // let vybraný z průběžných výsledků: „Je to dobrá cena?“ až z konečného
       pinsFinal(res); // 📌 odložené nabídky, které hledání se stejným nastavením našlo znovu: nová cena a čas (výpis hned po tom)
@@ -1771,6 +1773,32 @@
   // Koupit u výsledků starších 3 h (i náhledu nedokončeného hledání): poprvé jen hláška s časem cen (odkaz by ji schoval
   // pod web prodejce), další klepnutí koupí.
   let ageWarned = 0;
+  /* ---------- klepnutí na odkaz u nabídky: počítadla a „Koupeno?“ po návratu ---------- */
+  // Druh odkazu u nabídky: ověření ceny (Google Lety, Skyscanner, ⚡ živě) / nákup (prodejce, Tam/Zpět, jedna rezervace)
+  const offerKind = (href, buy, live) => (live || /^https:\/\/www\.(google\.com\/travel|skyscanner\.)/.test(href || '') ? 'verify' : buy ? 'buy' : null);
+  // poprvé klíč k → true (a zapamatovat); znovu, nebo bez klíče → false – „Koupeno?“ nejvýš jednou za nabídku
+  const seenOnce = (seen, k) => k != null && !seen.has(k) && Boolean(seen.add(k));
+  let boughtAt = null; // nabídka, u které uživatel odešel k prodejci nebo ověřit cenu (jen v paměti stránky)
+  const boughtSeen = new Set();
+  function offerClick(e) {
+    if (e.defaultPrevented) return; // ageBuy: stará cena – odkaz se tentokrát neotevřel
+    const a = e.target.closest && e.target.closest('.trip-row a[href], .trip-row [data-live]');
+    const k = a && offerKind(a.getAttribute('href'), Boolean(a.closest('.tr-buy, .buy-cur')), a.dataset.live != null);
+    if (!k) return;
+    if (window.Count) Count.hit(k === 'buy' ? 'buy_click' : 'verify_click');
+    const row = a.closest('.trip-row'), p = $('[data-pick]', row), r = p && rowRegistry[+p.dataset.pick];
+    if (a.dataset.live == null && r) boughtAt = { tid: row.dataset.tid, r, res: shownRes || lastResult };
+  }
+  // Návrat z webu prodejce: u té nabídky tichý řádek do průvodce (jako „Naplánovat celou cestu“) – žádné okno
+  function boughtShow() {
+    const b = boughtAt;
+    if (!b || document.hidden) return;
+    boughtAt = null;
+    const row = $(`.trip-row[data-tid="${CSS.escape(b.tid)}"]`, $('#results'));
+    if (!row || !seenOnce(boughtSeen, b.tid)) return;
+    row.insertAdjacentHTML('beforeend', '<div class="tr-bought">Koupeno? <button type="button" class="linkbtn" data-bought>Doplň si k letence zbytek cesty →</button></div>');
+    $('[data-bought]', row).onclick = () => pickTrip(b.r.t, b.r.g, b.res);
+  }
   function ageBuy(e) {
     const a = e.target.closest && e.target.closest('a.book');
     if (!a || running || !lastResult) return;
@@ -5977,6 +6005,8 @@
     updateWatchBadges();
     startAutoCheck();
     $('#results').addEventListener('click', ageBuy);
+    $('#results').addEventListener('click', offerClick); // až po ageBuy – zadržený odkaz se nepočítá
+    document.addEventListener('visibilitychange', boughtShow);
     setInterval(ageTick, 5 * 60e3); // stáří výsledků a ceny letu v průvodci – jinde nebo se schovanou aplikací nic nedělá
   }
 

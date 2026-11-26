@@ -120,8 +120,9 @@
   /* 🧳 Naplánovat celou dovolenou: od 1280 px vpravo nahoře vedle nadpisu – pod příklady vět by úvod zvýšil o řádek
      a první řada radaru by na 1366 × 768 spadla pod ohyb; užší počítač ho má pod příklady jako telefon */
   @media (min-width:1280px){
-    #heroBox .hero-plan{position:absolute;top:0;right:0;margin-top:0}
+    #heroBox .hero-plans{position:absolute;top:0;right:0;margin-top:0;flex-direction:row}
     #heroBox h1,#heroBox p{max-width:min(760px,calc(100% - 270px))}
+    #heroBox h1{max-width:calc(100% - 620px)} /* vedle obou tlačítek (🧳 a ✈️ Letenku už mám) v jedné řadě */
   }
   /* klávesa „/“ skočí do pole Kam (app.js) – nenápadná nápověda u popisku Kam */
   .hero-search2 .hs-field:nth-child(2) .hs-lab::after{content:"/";display:inline-grid;place-items:center;min-width:16px;height:16px;

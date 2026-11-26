@@ -205,8 +205,12 @@ if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configur
               <button class="btn primary" type="submit">Najít lety</button>
             </form>
             <div class="smart-try" id="smartTry"></div>
-            <!-- 🧳 druhá cesta z úvodu: ATLAS neumí jen lety, ale celou dovolenou (průvodce cestou – app.js renderDash) -->
+            <!-- 🧳 druhá cesta z úvodu: ATLAS neumí jen lety, ale celou dovolenou (průvodce cestou – app.js renderDash);
+                 ✈️ letenka koupená jinde → průvodce bez hledání letu (trip.js haveTicket) -->
+            <div class="hero-plans">
             <button type="button" class="hero-plan" id="heroPlan">🧳 Naplánovat celou dovolenou <span aria-hidden="true">→</span></button>
+            <button type="button" class="hero-plan" id="heroOwn">✈️ Letenku už mám – doplň zbytek cesty <span aria-hidden="true">→</span></button>
+            </div>
           </div>
         </div>
         <!-- ↩ Pokračuj: rozpracovaná cesta v průvodci a poslední hledání (flights.js renderResume) -->

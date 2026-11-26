@@ -62,6 +62,8 @@ Navigační mapa repozitáře: kde co je a jak to spolu souvisí, aby se kód da
 
 ### Cesta a plánování
 - Start průvodce z letu, kroky → `public/js/trip.js`: `start()`, `render()`, `setStep()`, `stepTo()`, `STEPS`
+- ✈️ Letenku už mám (průvodce bez hledání, vlastní let `flight.own`, ruční cena `manual`) → `public/js/trip.js`: `haveTicket()`, `ownFlightTrip()`, `fullPlace()`; tlačítko `#heroOwn` v `public/index.html`, obsluha v `public/js/app.js` `renderDash()`
+- „Koupeno?“ po návratu od prodejce, počítadla klepnutí u nabídky → `public/js/flights.js`: `offerClick()`, `offerKind()`, `boughtShow()`, `seenOnce()`
 - Trasa přes víc míst v průvodci → `public/js/trip.js`: `routeStep()`, `suggestRoute()`, `routeEditor()`, `addBase()`, `refreshTransfers()`
 - Návrh trasy, noci, cena přejezdu → `server/lib/stayplan.js`: `planStay()`, `suggestRoute()`, `evaluateRoute()`, `splitNights()`, `transfer()`, `tollCzk()`
 - Čas přejezdu, trasa autem z BRouteru → `server/lib/transfers.js`: `transferTimes()`, `routeTransfers()`, `driveRoute()`, `railLink()`; `server/lib/brouter.js`: `brouterGet()`
@@ -388,6 +390,7 @@ Skripty (vše `node scripts/…`; README ## Data a licence má příkazy pro akt
 - Přehled, hlídání, uložený stav: `test/alerts.test.js`, `test/buytip.test.js`, `test/pins.test.js`, `test/since.test.js`, `test/tips.test.js`, `test/migrate.test.js`, `test/recs.test.js`, `test/world-trips.test.js`
 - Sdílení, záloha, přenos: `test/sharelink.test.js`, `test/sharecard.test.js`, `test/offershare.test.js`, `test/share-codes.test.js`, `test/backup.test.js`, `test/transfer.test.js`, `test/qr.test.js`
 - ⭐ Plus (falešné dveře, počítání cest, otázka na cenu, karta sešitu): `test/plus.test.js`
+- „Mám letenku“, „Koupeno?“ a zapojení počítadel (každá událost na jednom místě): `test/mam-letenku.test.js`
 - Vzhled, přístupnost, telefon a počítač: `test/a11y.test.js`, `test/css-ph.test.js`, `test/dark-visual.test.js`, `test/vzhled-letsi.test.js` (přepínač vzhledu Letsi, pravidla letsi.css), `test/desktop.test.js`, `test/desktop-trip.test.js`, `test/modal-scroll.test.js`, `test/phone-text.test.js`, `test/phone-visual.test.js`, `test/theme.test.js`, `test/history.test.js`, `test/newcomer.test.js`
 - Data, skripty a tahle mapa: `test/data.test.js`, `test/climate.test.js`, `test/places-build.test.js`, `test/mapa.test.js`
 

@@ -907,6 +907,7 @@ function showNow() {
 const WN_ID = '2026-11-26a';
 const WHATS_NEW = [
   ['⭐', 'ATLAS Plus', 'podívej se, co zůstane zdarma a co chystáme navíc – a řekni nám, kolik by ti stálo za to. Najdeš ho pod <b>Další</b> → <b>ATLAS Plus</b>.'],
+  ['✈️', 'Letenku už máš?', 'na <b>Přehledu</b> doplníš zbytek cesty – trasu, ubytování i program.'],
   ['🔒', 'Soukromí', 'počítám jen souhrnné denní počty, žádné sledování jednotlivců. Podrobnosti pod <b>Další</b> → <b>O aplikaci a soukromí</b>.'],
   ['🔄', 'Upravený plán od kamaráda bez kopií', 'když ti kamarád pošle novější verzi plánu, který už máš, nabídnu <b>🔄 Aktualizovat moji cestu</b> – převezmeš termín, let a program, tvoje odškrtnuté „Sbaleno“, kódy rezervací a vlastní aktivity zůstanou. Dřív vznikla druhá kopie.'],
   ['✏️', 'Cestu upravíš i po uložení', 'v <b>Cesty</b> → Moje cesty otevři cestu a klepni na <b>✏️ Upravit název a termín</b> – přejmenuješ ji, posuneš termín (program dnů se posune s ním) nebo změníš počet cestujících. Dřív to šlo jen smazat a založit znovu.'],
@@ -1325,6 +1326,8 @@ function renderDash() {
   renderPlanCard();
   if (window.Plus) Plus.renderCard($('#plusCard'), wnFirst); // 📒 sešit 14 dní před odletem (plus.js)
   const hp = $('#heroPlan'); if (hp) hp.onclick = () => go('trip');
+  // ✈️ letenka koupená jinde: průvodce bez hledání letu (formulář v trip.js, modul se načítá až na požádání)
+  const ho = $('#heroOwn'); if (ho) ho.onclick = () => { go('trip'); if (window.Lazy) Lazy.run('trip', () => Trip.haveTicket()); else if (window.Trip) Trip.haveTicket(); };
   $$('.link[data-go]').forEach(l => { l.onclick = () => go(l.dataset.go); kbClick(l); });
   if (window.Flights) { Flights.renderResume(); Flights.renderQuick(); Flights.renderWatch(); Flights.renderRadar(); Flights.renderFav(); Flights.renderPins(); }
 }
@@ -2900,6 +2903,7 @@ async function boot() {
     launchDone();
     if (window.Lazy) Lazy.soon(); // průvodce, Objevuj a Před cestou, až prohlížeč nemá co dělat (lazy.js)
     setTimeout(whatsNewPop, 1200); // ✨ novinky od minula – až po úvodní animaci
+    if (window.Count && document.documentElement.dataset.brand === 'letsi') Count.hit('look_letsi'); // kolik otevření je ve vzhledu Letsi
     if (window.Count) Count.hit('app_open'); // souhrnný počet otevření (count.js) – až po startu, nic nezdrží
   }
 }
