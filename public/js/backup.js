@@ -34,6 +34,35 @@
       data: { trips: S.trips || [], watch: S.watch || [], home: S.home || null, visited: S.visited || [], fav: S.fav || [], mute: S.mute || [], pretrip: pretrip || {}, own: cleanOwn(S.accessOwn), pins: S.pins || [] },
     });
   }
+  /*
+   * Štíhlá cesta pro 📲 přenos (odkaz a QR kód nejvýš 2 953 bajtů – celá se nevešla už jedna cesta z průvodce). Vynechá,
+   * co druhé zařízení doplní samo, stejně jako odkaz na cestu (#trip=, linkJson v trip.js): program bez popisů, fotek
+   * a „dalších míst“ (průvodce je vezme z načtených míst v okolí), trasa bez kandidátů, túra bez geometrie (zůstanou
+   * odkazy do map). Co vygeneroval průvodce (gen*) a v plánovači se nezměnilo, jde jen jako 1 – cleanTrip ho doplní
+   * z plánu, takže pořád pozná, co uživatel upravil. Soubor zálohy (pack přes text()) zůstává celý.
+   */
+  const r5 = v => (fin(v) ? Math.round(v * 1e5) / 1e5 : v); // ~1 m, jako linkJson
+  const ITEM = ['id', 'name', 'category', 'tripKind', 'visitMin', 'fromPrevKm', 'fromPrevMin', 'transit', 'boat', 'at', 'hoursNote', 'note', 'cc', 'includes', 'reach', 'why'];
+  const slimItem = x => (obj(x) ? { ...Object.fromEntries(ITEM.filter(k => x[k] != null && x[k] !== false && x[k] !== '').map(k => [k, x[k]])), lat: r5(x.lat), lon: r5(x.lon) } : x);
+  const slimPlan = p => (obj(p) && Array.isArray(p.days) ? { ...p, spare: undefined, days: p.days.map(d => (obj(d) ? { ...d, items: Array.isArray(d.items) ? d.items.map(slimItem) : d.items, ...(obj(d.hike) ? { hike: { ...d.hike, geometry: undefined } } : {}) } : d)) } : p);
+  function slimWiz(w) {
+    if (!obj(w)) return w;
+    const o = { ...w };
+    if ('plan' in w) o.plan = slimPlan(w.plan);
+    if (obj(w.route)) o.route = { ...w.route, candidates: undefined, bases: Array.isArray(w.route.bases) ? w.route.bases.map(b => (obj(b) ? { ...b, plan: slimPlan(b.plan) } : b)) : w.route.bases };
+    return o;
+  }
+  function slimTrip(t) {
+    if (!obj(t)) return t;
+    const o = { ...t };
+    if (obj(t.wizard)) o.wizard = slimWiz(t.wizard);
+    for (const [k, g] of [['name', 'genName'], ['notes', 'genNotes'], ['budget', 'genBudget']]) if (t[g] != null && t[g] === t[k]) o[g] = 1;
+    if (obj(t.genDays) && stable(t.genDays) === stable(t.days || {})) o.genDays = 1;
+    if (Array.isArray(t.genChecklist) && Array.isArray(t.checklist) && stable(t.genChecklist) === stable(t.checklist.map(x => (obj(x) ? x.t : x)))) o.genChecklist = 1;
+    return o;
+  }
+  /** Přenos (📲 odkaz, QR kód) → text JSON jako pack, jen cesty štíhle (slimTrip). */
+  const packSlim = (S, pretrip = {}, now = Date.now()) => pack({ ...S, trips: (S.trips || []).map(slimTrip) }, pretrip, now);
   // 🏠 Moje cena na letiště: { IATA: celé Kč 0–5 000 na osobu jedním směrem }, nejvýš 12 letišť (stejně jako
   // SearchHelp.ownClean a server – access.js normalizeOwn); neplatné položky pryč.
   const OWN_MAX = 12, OWN_MAX_CZK = 5000;
@@ -179,11 +208,14 @@
     const w = cleanWiz(raw.wizard, d);
     if (w) t.wizard = w;
     // co vygeneroval průvodce: stejně jako plán (beze změn textu), ať se pozná, co uživatel v plánovači upravil
-    if (raw.genName != null) t.genName = d.txt(raw.genName, 120, false, true);
-    if (raw.genBudget != null) t.genBudget = d.txt(raw.genBudget, 20);
-    if (raw.genNotes != null) t.genNotes = d.txt(raw.genNotes, LIM.notes, true, true);
-    if (obj(raw.genDays)) t.genDays = d.sanitizePlan({ start: plan.start, end: plan.end, days: raw.genDays }, LIM).days;
-    if (Array.isArray(raw.genChecklist)) t.genChecklist = raw.genChecklist.slice(0, LIM.ck).map(x => d.txt(x, LIM.ckLen, false, true)).filter(Boolean);
+    // 1 = beze změny proti plánu (štíhlý přenos, slimTrip) – doplní se z už pročištěného plánu
+    if (raw.genName === 1) t.genName = plan.name; else if (raw.genName != null) t.genName = d.txt(raw.genName, 120, false, true);
+    if (raw.genBudget === 1) t.genBudget = plan.budget; else if (raw.genBudget != null) t.genBudget = d.txt(raw.genBudget, 20);
+    if (raw.genNotes === 1) t.genNotes = plan.notes; else if (raw.genNotes != null) t.genNotes = d.txt(raw.genNotes, LIM.notes, true, true);
+    if (raw.genDays === 1) t.genDays = JSON.parse(JSON.stringify(plan.days));
+    else if (obj(raw.genDays)) t.genDays = d.sanitizePlan({ start: plan.start, end: plan.end, days: raw.genDays }, LIM).days;
+    if (raw.genChecklist === 1) t.genChecklist = plan.checklist.map(x => x.t);
+    else if (Array.isArray(raw.genChecklist)) t.genChecklist = raw.genChecklist.slice(0, LIM.ck).map(x => d.txt(x, LIM.ckLen, false, true)).filter(Boolean);
     const ex = cleanExplore(raw.explore, plan, d);
     if (ex) t.explore = ex;
     // druh výsledku, ze kterého cesta vznikla, a jeho poznámky (odkazy na trasu) – bez nich by „Jiná trasa“ po obnově
@@ -268,7 +300,8 @@
     const p = planOf(t, d);
     if (p && Array.isArray(p.checklist)) p.checklist = p.checklist.map(({ id, ...x }) => x);
     if (p) delete p.sid; // sdílením se cesta nezmění (sid dostane až při sdílení – starší záloha ho nemá)
-    return stable([p, t.wizard ? cleanWiz(t.wizard, d) : null]);
+    // průvodce štíhle (slimWiz): cesta ze 📲 přenosu bez popisů programu je pořád tatáž jako ta celá v zařízení
+    return stable([p, t.wizard ? slimWiz(cleanWiz(t.wizard, d)) : null]);
   };
 
   /**
@@ -726,9 +759,9 @@
   }
 
   // 📲 přenos odkazem (transfer.js): stav zařízení k zabalení (cesty bez tripId dostanou pid jako u zálohy – bez razítka
-  // „poslední záloha“: odkaz není soubor, který si uživatel schová) a jeho počty
-  const snapshot = () => text();
+  // „poslední záloha“: odkaz není soubor, který si uživatel schová; cesty štíhle – packSlim) a jeho počty
+  const snapshot = () => { if (ensurePids(S.trips)) save(); return packSlim(S, doneNow()); };
   const countsNow = () => counts(current());
 
-  window.Backup = { V, pack, parse, diff, merge, mergeDests, match, ensurePids, cleanForm, cleanRefs, summaryHtml, open, download, plannerTools, counts, countsTxt, isEmpty, replace, lost, incoming, snapshot, countsNow, WATCH_CAP, REFS_MAX, REF_LEN };
+  window.Backup = { V, pack, packSlim, slimTrip, parse, diff, merge, mergeDests, match, ensurePids, cleanForm, cleanRefs, summaryHtml, open, download, plannerTools, counts, countsTxt, isEmpty, replace, lost, incoming, snapshot, countsNow, WATCH_CAP, REFS_MAX, REF_LEN };
 })();

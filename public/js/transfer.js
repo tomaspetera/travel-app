@@ -9,7 +9,9 @@
    nezůstanou v historii ani v záložce. Druhé zařízení ukáže, co přibude, a nechá vybrat Sloučit nebo Nahradit
    (s potvrzením a Vrátit) – nikdy nic nepřepíše potichu.
    QR kód: bajtový režim, oprava M, a když se nevejde, L; verze 1–40 podle délky – tedy odkaz nejvýš 2 331 bajtů s M,
-   2 953 s L. Větší data jen odkazem (sdílení, schránka; nejvýš MAX_LINK znaků jako ShareLink) nebo souborem zálohy. */
+   2 953 s L. Aby se tam vešly i cesty z průvodce, jdou štíhle (Backup.packSlim: program bez popisů a „dalších míst“,
+   nezměněné gen* jen jako 1) – druhé zařízení je doplní samo. Větší data jen odkazem (sdílení, schránka; nejvýš
+   MAX_LINK znaků jako ShareLink) nebo souborem zálohy – QR kód se pak vůbec nenabízí. */
 (function () {
   const KIND = 'sync';
   const MAX_LINK = 200000; // ShareLink.unpack víc nepřijme
@@ -146,17 +148,16 @@
       if (my !== token || !box) return; // okno mezitím zavřené nebo otevřené znovu
       const f = fit(url, { json }), lead = $('#tfLead');
       // bez QR kódu: úvod o odkazu (ne „naskenuj“)
-      if ((!f.link || !f.qr) && lead) lead.innerHTML = `${f.link ? 'Pošli si odkaz do druhého zařízení a otevři ho tam' : 'Přenes data souborem zálohy'} – Letsi ukáže, co přibude, a nabídne <b>Sloučit</b> nebo <b>Nahradit</b>. Bez účtu, nic se neukládá na server.`;
+      if ((!f.link || !f.qr) && lead) lead.innerHTML = `${f.link ? 'Pošli si odkaz do druhého zařízení – AirDropem, Quick Share, e-mailem nebo do chatu sám sobě – a otevři ho tam' : 'Přenes data souborem zálohy'} – Letsi ukáže, co přibude, a nabídne <b>Sloučit</b> nebo <b>Nahradit</b>. Bez účtu, nic se neukládá na server.`;
       if (!f.link) {
         box.innerHTML = '<div class="note warn">⚠️ <div>Dat je i na odkaz moc – přenes je <b>souborem zálohy</b>.</div></div>';
         $('#tfSend').hidden = true;
         $('#tfFile').classList.add('primary');
         return;
       }
-      if (!f.qr) {
-        box.innerHTML = `<div class="note info">📏 <div>Dat je na QR kód moc. Pošli si odkaz – AirDropem, Quick Share, e-mailem nebo do chatu sám sobě – nebo soubor zálohy.</div></div>`;
-        return;
-      }
+      // QR kód se nevejde ani se štíhlými cestami (Backup.packSlim): QR se vůbec nenabízí (dřív tu stála jen hláška
+      // „Dat je na QR kód moc“ místo kódu) – úvod vede rovnou na odkaz, vedle je soubor zálohy
+      if (!f.qr) { box.remove(); return; }
       box.innerHTML = `<button type="button" class="tf-qr" id="tfQr" aria-label="QR kód s odkazem na přenos – klepnutím zvětšíš">${QR.svg(f.qr, { label: 'QR kód s odkazem na přenos dat' })}</button>
         <div class="faint tf-tip">Klepnutím ho zvětšíš přes celou obrazovku${f.qr.version > 25 ? ' – kód je hustý, fotoaparát drž blízko a rovně' : ''}</div>`;
       const btn = $('#tfQr'), svg = btn.querySelector('svg');
