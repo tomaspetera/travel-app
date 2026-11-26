@@ -50,7 +50,14 @@ let TOT = 197; const CONT_TOT = {};
 /* ================= STATE ================= */
 const LS = 'atlas_v1';
 let S = load();
-function load() { try { const d = JSON.parse(localStorage.getItem(LS)); if (d) return migratePrices(Object.assign(defState(), d), d.pv); } catch (e) { } return defState(); }
+function load() { try { const d = JSON.parse(localStorage.getItem(LS)); if (d) return migratePrices(fixState(Object.assign(defState(), d)), d.pv); } catch (e) { } return defState(); }
+// Poškozený uložený stav (ručně, starou verzí): seznam, který seznamem není, by shodil Přehled (S.trips.filter…) –
+// opraví se jen to pole, ostatní data zůstanou. Prázdná místa v Mých cestách pryč (x.tripId na null).
+function fixState(s) {
+  for (const k of ['visited', 'trips', 'watch', 'recent', 'fav', 'mute', 'pins', 'viewed']) if (!Array.isArray(s[k])) s[k] = [];
+  s.trips = s.trips.filter(x => x && typeof x === 'object' && !Array.isArray(x));
+  return s;
+}
 // Ceny letů jsou od pv 2 jen za letenku (+ zavazadla), dřív i s dopravou na letiště a do města: uložené karty radaru
 // se načtou znovu a „naposledy prohlížené“ ceny zapomenou – jinak by vedle nových cen vypadaly dráž („zlevnilo“).
 // Hlídané ceny si nový základ vezmou při příští kontrole (Alerts, w.pv), odložené nabídky se přepočítají (Pins).
@@ -63,12 +70,22 @@ function migratePrices(s, pv) {
 function defState() { return { visited: [], trips: [], theme: null, mapStyle: 'light', geo: {}, weather: {}, fx: null, home: null, watch: [], form: null, recent: [], radar: null, radarMode: 'all', radarHoliday: null, backupAt: null, accessOwn: {}, fav: [], mute: [], pins: [], viewed: [], pv: 2 }; }
 // Plné úložiště: uvolnit místo po uložených výsledcích posledního hledání (flights.js) – stav aplikace má přednost.
 // Vrací, jestli se stav uložil (💾 obnova ze zálohy při plném úložišti nic nesloučí).
+// Nejde uložit ani tak (úložiště plné nebo zablokované): jednou za návštěvu to říct – jinak by změny vypadaly
+// uložené a po zavření zmizely; při každém dalším uložení už ne (ukládá se při každé změně).
+let saveWarned = false;
 function save() {
   try {
     const s = JSON.stringify(S);
     try { localStorage.setItem(LS, s); } catch (e) { localStorage.removeItem('atlas_last'); localStorage.setItem(LS, s); }
     return true;
-  } catch (e) { return false; }
+  } catch (e) {
+    if (!saveWarned && typeof toast === 'function') {
+      saveWarned = true;
+      toast('Prohlížeč teď nic neukládá – změny po zavření zmizí. Uvolni místo, nebo si stáhni zálohu (soukromé okno po zavření zapomene všechno).', 'err', 9000,
+        window.Backup ? { label: 'Záloha', run: () => Backup.open() } : null);
+    }
+    return false;
+  }
 }
 let curIso = null;
 const visited = new Set(S.visited);

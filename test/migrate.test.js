@@ -15,7 +15,7 @@ const plain = (v) => JSON.parse(JSON.stringify(v));
 function loadWith(stored) {
   const ctx = { localStorage: { getItem: () => (stored === undefined ? null : JSON.stringify(stored)) } };
   vm.createContext(ctx);
-  vm.runInContext(`${pick('LS', 'load', 'migratePrices', 'defState')}\nvar S = load();`, ctx, { filename: 'app-state.js' });
+  vm.runInContext(`${pick('LS', 'load', 'fixState', 'migratePrices', 'defState')}\nvar S = load();`, ctx, { filename: 'app-state.js' });
   return plain(ctx.S);
 }
 const RADAR = { at: 1, items: [{ to: 'LIS', czk: 2400 }] };
