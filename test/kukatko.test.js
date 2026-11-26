@@ -260,6 +260,10 @@ test('usínání ve tmě (chovani.md 10): v tmavém režimu po 20 s klidu Noc, k
   for (const fn of b.doc.on.keydown) fn({});
   assert.equal(b.k.stav, 'koukam', 'klávesa ho probudí');
   assert.ok(b.timers.lastIndexOf(20000) > i, 'a usínání začne počítat znovu');
+  // klepnutí kamkoli ho probudí taky (telefon klávesnici většinou neukáže)
+  b.k.state('noc');
+  for (const fn of b.doc.on.pointerdown) fn({ clientX: 10, clientY: 10, pointerType: 'touch' });
+  assert.equal(b.k.stav, 'koukam', 'klepnutí ho probudí');
   // v noci (22–5 h) usíná i ve světlém režimu
   assert.ok(mountIn({ theme: 'light', hour: 23, usinaZa: 20000 }).timers.includes(20000));
 });

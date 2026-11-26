@@ -11,7 +11,7 @@
   const API_WAIT = 120e3;
   const SLOW_MSG = 'Server Letsi přes 2 minuty neodpovídá – spojení je nejspíš moc slabé. Zkus to znovu.';
   const THEME = { dark: '#080c1a', light: '#eef2fb' }; // --bg motivů z atlas.css = barva lišty a okna aplikace
-  const THEME_LETSI = { dark: '#14161F', light: '#F3F4F0' }; // vzhled Letsi (?vzhled=letsi): Noc a Vápno = --bg z letsi.css
+  const THEME_LETSI = { dark: '#14161F', light: '#F3F4F0' }; // vzhled Letsi (výchozí): Noc a Vápno = --bg z letsi.css
 
   /** Požadavek na API ATLASu (adresa pod api/ vůči stránce). */
   function isApi(input, base) {

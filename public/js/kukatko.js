@@ -1,8 +1,8 @@
-/* Kukátko Letsi · živý průvodce aplikací (vzhled Letsi, krok 4) – jen za přepínačem ?vzhled=letsi
+/* Kukátko Letsi · živý průvodce aplikací (vzhled Letsi, krok 4) – jen s <html data-brand="letsi"> (výchozí)
  * Knihovna je referenční implementace z balíku identity Letsi 2.1 (kukatko/kukatko.js) beze změny tvaru, časů a API;
  * úpravy pro ATLAS: (1) nic nedělá bez <html data-brand="letsi">, (2) mrkání se neplánuje kukátku mimo stránku,
  * (3) napojení na obrazovky ATLASu dole (část „Napojení na ATLAS“). Načte ho jen vložený skript na konci index.html,
- * a to jen se vzhledem Letsi – bez přepínače se nestáhne ani tenhle soubor, ani css/kukatko.css.
+ * a to jen se vzhledem Letsi – ve vzhledu ATLASu (?vzhled=atlas) se nestáhne ani tenhle soubor, ani css/kukatko.css.
  * Geometrie (blok GEO) je vygenerovaná z masteru – ručně neměnit. Barvy nemá v kódu: dává je css/kukatko.css.
  * Šetří baterii: žádná smyčka requestAnimationFrame. Pohyb dělají CSS přechody, mrkání hlídá jeden setTimeout,
  * který se při skryté stránce, při omezeném pohybu a v klidu vůbec neplánuje.

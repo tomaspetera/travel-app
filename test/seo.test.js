@@ -98,6 +98,12 @@ test('JSON-LD WebApplication: jen stálá fakta (zdarma, česky), žádná hodno
   assert.equal((evil.match(/<\/script>/g) || []).length, 1);
 });
 
+test('texty značky poctivě pro čistý režim: ceny jen orientační z mezipaměti, bez jmen aerolinek a slibů', () => {
+  // slib „nejlevnější“, „živé“ nebo „aktuální“ ceny a jména aerolinek by v náhledu odkazu a ve vyhledávači neplatily
+  const texts = [BRAND.name, BRAND.title, BRAND.description, BRAND.appDescription, BRAND.tagline, ...BRAND.points, BRAND.image.alt];
+  for (const t of texts) assert.doesNotMatch(t, /nejlevn|živ|aktuáln|ryanair|wizz|kiwi|easyjet|smartwings|ATLAS/i, t);
+});
+
 test('PUBLIC_URL: vlastní doména (.cz) v kanonické adrese, náhledu, robots.txt i sitemap.xml; neplatná → výchozí z brand.js', async () => {
   assert.equal(cleanSiteUrl('https://atlas.cz/'), 'https://atlas.cz');
   assert.equal(cleanSiteUrl(' https://www.atlas.cz/?x=1#y '), 'https://www.atlas.cz');
