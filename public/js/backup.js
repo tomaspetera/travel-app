@@ -730,5 +730,5 @@
   const snapshot = () => text();
   const countsNow = () => counts(current());
 
-  window.Backup = { V, pack, parse, diff, merge, mergeDests, match, ensurePids, cleanForm, cleanRefs, summaryHtml, open, plannerTools, counts, countsTxt, isEmpty, replace, lost, incoming, snapshot, countsNow, WATCH_CAP, REFS_MAX, REF_LEN };
+  window.Backup = { V, pack, parse, diff, merge, mergeDests, match, ensurePids, cleanForm, cleanRefs, summaryHtml, open, download, plannerTools, counts, countsTxt, isEmpty, replace, lost, incoming, snapshot, countsNow, WATCH_CAP, REFS_MAX, REF_LEN };
 })();
