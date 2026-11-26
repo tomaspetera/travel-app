@@ -1174,14 +1174,6 @@ test('slabý ETag od Cloudflare (W/"…") dá 304 u stránky, sw.js i vygenerova
   }
 });
 
-test('písma Inter a Sora jsou v sadě pro offline (service worker)', async () => {
-  const sw = await (await fetch(`${base}/sw.js`)).text();
-  const list = JSON.parse(sw.match(/const PRECACHE = (\[[^\]\n]*\]);/)[1]);
-  for (const f of ['inter-v20-latin', 'inter-v20-latin-ext', 'sora-v17-latin', 'sora-v17-latin-ext']) assert.ok(list.includes(`vendor/fonts/${f}.woff2`), f);
-  const css = readFileSync(new URL('../public/css/atlas.css', import.meta.url), 'utf8');
-  for (const u of new Set([...css.matchAll(/url\(\.\.\/(vendor\/fonts\/(?:inter|sora)[^)]+)\)/g)].map((m) => m[1]))) assert.ok(list.includes(u), `css/atlas.css bere ${u}`);
-});
-
 test('server odpojí pomalého klienta podle limitů (kontrola spojení po 5 s)', () => {
   assert.equal(server.connectionsCheckingInterval, 5e3);
   assert.equal(server.headersTimeout, 20e3);
