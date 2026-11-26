@@ -92,7 +92,7 @@ test('velká data: odkaz ano, QR ne (víc než 2 953 bajtů verze 40-L); přes l
 
 test('payloadOf: z adresy i z vložené zprávy; bez #sync= nic', () => {
   assert.equal(T.payloadOf(`${ORIGIN}/#sync=zAbC-_9`), 'zAbC-_9');
-  assert.equal(T.payloadOf(`Moje data z ATLASu: ${ORIGIN}/#sync=zXY12 (otevři v telefonu)`), 'zXY12');
+  assert.equal(T.payloadOf(`Moje data z Letsi: ${ORIGIN}/#sync=zXY12 (otevři v telefonu)`), 'zXY12');
   assert.equal(T.payloadOf('#sync=zQ'), 'zQ');
   assert.equal(T.payloadOf(`${ORIGIN}/#plan=zXY`), null);
   assert.equal(T.payloadOf(''), null);
@@ -103,7 +103,7 @@ test('cizí nebo poškozený odkaz: česká hláška; odkaz z novější verze �
   await assert.rejects(T.read('zNENI_TO_DEFLATE', deps), /poškozený/);
   await assert.rejects(T.read(null, deps), /poškozený/);
   await assert.rejects(T.read(await ShareLink.pack('{"x":1}'), deps), /není odkaz na přenos/);
-  await assert.rejects(T.read(await ShareLink.pack(JSON.stringify({ app: 'atlas', v: B.V + 1, data: {} })), deps), /novější verze ATLAS – obnov stránku/);
+  await assert.rejects(T.read(await ShareLink.pack(JSON.stringify({ app: 'atlas', v: B.V + 1, data: {} })), deps), /novější verze Letsi – obnov stránku/);
   // cizí vstup se pročistí: HTML a neznámá pole se nedostanou dál
   const evil = JSON.stringify({ app: 'atlas', v: B.V, data: { trips: [{ name: '<img src=x onerror=alert(1)>', dest: 'X', start: '2026-11-12', end: '2026-11-13', days: {}, checklist: [], evil: 1 }], fav: [{ id: 'metro:LIS', label: '<b>Lisabon</b>', __proto__: { polluted: 1 } }] } });
   const inc = await T.read(await ShareLink.pack(evil), deps);
@@ -254,7 +254,7 @@ test('prázdné zařízení: 📲 Přenést nabídne i obnovu ze souboru zálohy
   }
   // na telefonu je 💾 vždy v ⋯ Další (Moje cesty se bez uložené cesty neukážou), na počítači 📲 vlevo dole
   const bk = read('public/js/backup.js');
-  assert.match(bk, /otevři ATLAS → ⋯ Další → 💾 Přenos a záloha → 📂 Obnovit ze zálohy \(na počítači vlevo dole 📲 Přenést do jiného zařízení/);
+  assert.match(bk, /otevři Letsi → ⋯ Další → 💾 Přenos a záloha → 📂 Obnovit ze zálohy \(na počítači vlevo dole 📲 Přenést do jiného zařízení/);
   assert.doesNotMatch(bk, /'Cesty nebo ⋯ Další'/);
 });
 

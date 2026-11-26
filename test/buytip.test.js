@@ -155,7 +155,7 @@ test('buyTip: daleko před odletem – málo dat, kolísá (práh 10 %), klesá,
   const down = tip([1560, 1550, 1540, 1530, 1520, 1510, 1500, 1500], { days: 90 });
   assert.equal(down.text, 'Cena klesá, zatím počkej (zbývá 90 dní)');
   assert.equal(down.why, `za týden o ${kc(60)} (−4 %) – nastav si 🎯\u00a0cílovou cenu`);
-  assert.match(tip([1560, 1550, 1540, 1530, 1520, 1510, 1500, 1500], { days: 90, target: 1200 }).why, /ATLAS hlídá tvou cenu 1\s200/);
+  assert.match(tip([1560, 1550, 1540, 1530, 1520, 1510, 1500, 1500], { days: 90, target: 1200 }).why, /Letsi hlídá tvou cenu 1\s200/);
   assert.equal(tip([1500, 1505, 1510, 1500], { days: 90, level: 'high', lvlWhy: 'dráž než 90 % nabídek do tohoto cíle' }).why, '„Je to dobrá cena?“: dráž než 90 % nabídek do tohoto cíle');
   const up = tip([1450, 1460, 1470, 1480, 1490, 1500, 1500, 1510], { days: 90 });
   assert.equal(up.text, 'Cena stoupá – zatím sleduj (zbývá 90 dní)');

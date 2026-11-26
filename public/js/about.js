@@ -64,7 +64,7 @@
   }
 
   /** Předmět e-mailu: verze a obrazovka, ze které uživatel píše (ať je jasné, o čem je řeč). */
-  const subject = (version, screen) => `ATLAS – zpětná vazba (verze ${version || '?'}${screen ? `, obrazovka: ${screen}` : ''})`;
+  const subject = (version, screen) => `Letsi – zpětná vazba (verze ${version || '?'}${screen ? `, obrazovka: ${screen}` : ''})`;
   /** mailto: odkaz, nebo null bez platné adresy. */
   function mailto(email, version, screen) {
     if (!okEmail(email)) return null;
@@ -80,21 +80,21 @@
     const op = typeof operator === 'string' ? operator.trim().slice(0, 200) : '';
     return `<div class="modal-body about-modal">
       <h3 style="margin-bottom:8px">ℹ️ O aplikaci a soukromí</h3>
-      <p style="font-size:14px">ATLAS najde levné letenky ze všech letišť ve tvém okolí a poskládá z nich celou cestu – ubytování, dopravu na letiště i na místě, program a shrnutí s odkazy k rezervaci. Je zdarma, bez účtu a bez registrace. Letenky ani hotely sám neprodává: rezervuješ vždy přímo u aerolinky nebo partnera.</p>
+      <p style="font-size:14px">Letsi najde levné letenky ze všech letišť ve tvém okolí a poskládá z nich celou cestu – ubytování, dopravu na letiště i na místě, program a shrnutí s odkazy k rezervaci. Je zdarma, bez účtu a bez registrace. Letenky ani hotely neprodává: rezervuješ vždy přímo u aerolinky nebo partnera.</p>
       <h4 class="ab-h">Jak to funguje a z čeho žiju</h4>
       <p style="font-size:14px">Ceny porovnávám, letenku i ubytování koupíš vždy přímo u aerolinky nebo prodejce. Hledání a plánování je zdarma a bez reklam. <b>Žádná aerolinka ani partner si za lepší pozici neplatí.</b>${earn ? ` ${earn}` : ''}</p>
       <h4 class="ab-h">Odkud jsou data</h4>
       <ul class="ab-list">${sources(health).map(([i, t, d]) => `<li><span aria-hidden="true">${i}</span> <b>${h(t)}</b> – ${h(d)}</li>`).join('')}</ul>
       <p class="faint" style="font-size:12px">Předpověď <a href="https://www.met.no/en" target="_blank" rel="noopener">MET Norway</a> a seznam míst <a href="https://www.geonames.org/" target="_blank" rel="noopener">GeoNames</a> jsou pod licencí <a href="https://creativecommons.org/licenses/by/4.0/deed.cs" target="_blank" rel="noopener">CC BY 4.0</a>, v aplikaci upravené (denní souhrny, výběr míst). Stejně ceny paliva z <a href="https://data.csu.gov.cz/datastat/info/SADA/CENPHMT" target="_blank" rel="noopener">ČSÚ</a> a <a href="https://energy.ec.europa.eu/data-and-analysis/weekly-oil-bulletin_en" target="_blank" rel="noopener">Weekly Oil Bulletin</a> (© Evropská unie; upraveno – přepočet na Kč/l) a vlajky <a href="https://twitter.github.io/twemoji" target="_blank" rel="noopener">Twemoji</a>. Letiště obsahují data © <a href="https://openflights.org/data" target="_blank" rel="noopener">OpenFlights</a> pod licencí <a href="https://opendatacommons.org/licenses/odbl/1-0/" target="_blank" rel="noopener">ODbL</a>. Fotky měst dodávají <a href="https://www.pexels.com" target="_blank" rel="noopener">Pexels</a>, Unsplash a Wikimedia Commons – autor je u každé fotky pod ⓘ. Kurzy: <a href="https://www.exchangerate-api.com" target="_blank" rel="noopener">Rates By Exchange Rate API</a>.</p>
-      <p style="font-size:14px;margin-top:10px">ATLAS není spojen s žádnou leteckou společností ani prodejcem; ceny a odkazy jsou z veřejných a partnerských zdrojů.</p>
+      <p style="font-size:14px;margin-top:10px">Letsi není spojen s žádnou leteckou společností ani prodejcem; ceny a odkazy jsou z veřejných a partnerských zdrojů.</p>
       <h4 class="ab-h">Co se ukládá a kam</h4>
       <ul class="ab-list">
         <li><b>Jen v tomhle prohlížeči na tomhle zařízení</b> (localStorage): cesty, hlídané ceny, odložené nabídky, domov, navštívené země, oblíbená a skrytá místa, poslední i rozepsané hledání a nastavení. Na jiné zařízení je přeneseš odkazem s QR kódem (📲 Přenést do jiného zařízení) nebo zálohou.</li>
         <li><b>Na serveru nic o tobě</b>: žádný účet ani profil. <b>Žádné cookies ani sledování jednotlivců</b> – kromě záznamu návštěvy bez jména a IP adresy, pokud ho sám zapneš v Další (Pomáhat se zlepšováním). Počítám jen souhrnné denní počty (kolikrát se otevřela aplikace, kolik proběhlo hledání, kolik cest vzniklo, kde aplikace nic nenašla nebo selhala a které možnosti lidé volí v krátkých otázkách) – bez osobních údajů a bez vazby na tebe nebo tvoje zařízení. Jinak jen cesty, které sám sdílíš krátkým odkazem (níže).</li>
         <li><b>Co se na server posílá</b> – jen to, co je potřeba k odpovědi: u hledání letů odkud, kam, termín, počet cestujících, zavazadla a cesta na letiště (i 🏠 vlastní ceny); u ubytování místo, termín a počet hostů; v Objevuj místo a volby plánu; polohu, jen když sám použiješ 📍 Moje poloha nebo Moje okolí. Server odpovědi chvíli drží v mezipaměti (bez vazby na tebe) a IP adresu si kvůli limitům požadavků pamatuje nejdéle hodinu od posledního požadavku (u hledání 10 minut), pak ji sám smaže.</li>
-        <li><b>Přímo z prohlížeče</b> se načítají mapy (OpenFreeMap) a fotky (Unsplash, Pexels, Wikimedia) – tyhle služby vidí tvou IP adresu jako u každého webu. Počasí, kurzy a hledání míst jdou přes server ATLASu, tvou adresu tedy nevidí.</li>
+        <li><b>Přímo z prohlížeče</b> se načítají mapy (OpenFreeMap) a fotky (Unsplash, Pexels, Wikimedia) – tyhle služby vidí tvou IP adresu jako u každého webu. Počasí, kurzy a hledání míst jdou přes server Letsi, tvou adresu tedy nevidí.</li>
         <li><b>Krátký odkaz na sdílenou cestu</b> (atlas…/c/…): když klepneš na Poslat kamarádům nebo Sdílet plán, cesta se uloží na serveru na 400 dní, aby šel odkaz otevřít – bez jména a kódů rezervací, nic dalšího se k němu neukládá. Bez krátkého odkazu (i u odkazu 📲 přenosu) nese data část adresy za #, kterou prohlížeč na server neposílá. Po klepnutí na odkaz k rezervaci jsi na webu partnera a platí jeho pravidla.</li>
-        ${pay ? '<li><b>Příspěvek</b> (💛 Podpořit ATLAS): platíš na stránce Stripe, která platbu zpracovává – aplikace ani server ATLASu údaje o platbě a kartě nedostanou. Provozovatel ve Stripe uvidí jen údaje k přijaté platbě (jméno, e-mail, částku a poslední 4 číslice karty).</li>' : ''}
+        ${pay ? '<li><b>Příspěvek</b> (💛 Podpořit Letsi): platíš na stránce Stripe, která platbu zpracovává – aplikace ani server Letsi údaje o platbě a kartě nedostanou. Provozovatel ve Stripe uvidí jen údaje k přijaté platbě (jméno, e-mail, částku a poslední 4 číslice karty).</li>' : ''}
       </ul>
       ${typeof help === 'boolean' ? `<button type="button" class="btn ghost" id="abHelp" role="switch" aria-checked="${help}">🤝 Pomáhat se zlepšováním <span class="faint">${help ? 'zapnuto' : 'vypnuto'}</span></button>
       <p class="faint" style="font-size:12.5px">Záznam obrazovek a hlavních akcí při návštěvě s náhodným číslem návštěvy, bez textu, míst, cen, jména a IP adresy; smaže se do 31 dnů. Ve výchozím stavu vypnuto, vypnutím smažu i záznam právě probíhající návštěvy.</p>` : ''}
@@ -103,9 +103,9 @@
       <p style="font-size:14px">Pořadí určuje jen zvolené řazení (cena, termín, vzdálenost, dny dovolené…), placené pozice nejsou.</p>
       <h4 class="ab-h">Ceny jsou orientační</h4>
       <p style="font-size:14px">Aerolinky a hotely ceny mění i během minut a ceny z mezipaměti (⏱) můžou být starší. Platí cena, kterou ukáže web prodejce před zaplacením – <b>vždy ji ověř u partnera</b>.</p>
-      ${pay ? `<h4 class="ab-h">Podpoř ATLAS</h4>
-      <p style="font-size:14px">ATLAS je zdarma a bez reklam v pořadí výsledků. Jestli ti pomohl, můžeš poslat dobrovolný příspěvek – částku si zvolíš, zaplatíš kartou na stránce Stripe.</p>
-      <a class="btn" id="abSupport" href="${h(pay)}" target="_blank" rel="noopener">💛 Podpořit ATLAS ↗</a>` : ''}
+      ${pay ? `<h4 class="ab-h">Podpoř Letsi</h4>
+      <p style="font-size:14px">Letsi je zdarma a bez reklam v pořadí výsledků. Jestli ti to pomohlo, můžeš poslat dobrovolný příspěvek – částku si zvolíš, zaplatíš kartou na stránce Stripe.</p>
+      <a class="btn" id="abSupport" href="${h(pay)}" target="_blank" rel="noopener">💛 Podpořit Letsi ↗</a>` : ''}
       ${mail ? `<a class="btn primary" id="abMail" href="${h(mail)}">💬 Napsat nám</a>` : ''}
       ${op ? `<h4 class="ab-h">Provozovatel</h4><p style="font-size:14px" id="abOp">${h(op)}</p>` : ''}
       <p class="faint" style="font-size:12.5px;margin-top:12px">Verze ${h(version || '?')}${build ? ` · sestavení ${h(build)}` : ''}</p>

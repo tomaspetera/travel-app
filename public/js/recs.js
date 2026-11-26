@@ -194,7 +194,7 @@
       if (c.safety >= 5) tags.push('velmi bezpečné'); else if (c.safety >= 4) tags.push('bezpečné');
       // proč (věty pod kartou): počasí v měsíci, letenka z radaru, ⭐ / 👀, s dětmi
       const why = [];
-      if (useSea) why.push({ ic: '🏖️', t: `${sw.place}: ~${sw.hi}${NB}°C přes den`, title: `${sw.place} ${MON_LOC[m - 1]}: průměrné denní maximum u letiště ${clim.sea.iata} (dlouhodobý průměr, ne předpověď; teplotu moře ATLAS nezná)` });
+      if (useSea) why.push({ ic: '🏖️', t: `${sw.place}: ~${sw.hi}${NB}°C přes den`, title: `${sw.place} ${MON_LOC[m - 1]}: průměrné denní maximum u letiště ${clim.sea.iata} (dlouhodobý průměr, ne předpověď; teplotu moře Letsi nezná)` });
       else if (clim && Number.isFinite(clim.hi)) why.push({ ic: seaWanted && seaOk ? '🏖️' : '🌡️', t: `${short(clim.city)}: ~${clim.hi}${NB}°C přes den`, title: `${clim.city} ${MON_LOC[m - 1]}: průměrné denní maximum u letiště ${clim.iata} (dlouhodobý průměr, ne předpověď)` });
       if (fl) why.push({ ic: '✈️', t: `tam i zpět od ${kc(fl.czk)}`, title: `Radar na Přehledu: nejlevnější zpáteční letenka do země z ${fl.from || 'okolí domova'}, odlet ${dm(fl.d1)} (cena na osobu bez dopravy na letiště)` });
       if (fav) why.push({ ic: '⭐', t: `Moje cíle: ${fav.slice(0, 2).join(', ')}`, title: 'Máš tu cíl v ⭐ Moje cíle' });

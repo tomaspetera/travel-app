@@ -5,7 +5,7 @@
    otázky na cenu a skryté karty sešitu – žádný identifikátor. Čisté funkce (bez DOM) testuje test/plus.test.js. */
 (function () {
   // název placené verze na jednom místě – při přejmenování na Letsi se mění jen tady
-  const NAME = 'ATLAS Plus';
+  const NAME = 'Letsi Plus';
   const YEAR_CZK = 399, MONTH_CZK = 149;
   const PRICES = [0, 199, 399, 599, 799];
   const ASK_DAYS = 30; // otázka na cenu nejvýš jednou za 30 dní
@@ -157,7 +157,7 @@
       <table class="plus-table"><thead><tr><th scope="col">Co</th><th scope="col">Zdarma</th><th scope="col">Plus <small>${SOON}</small></th></tr></thead>
         <tbody>${FREE.map(([what, a, b]) => `<tr><th scope="row">${h(what)}</th><td>${cell(a)}</td><td>${cell(b)}</td></tr>`).join('')}</tbody></table>
       <p class="plus-small">Plus: ${kc(YEAR_CZK)} na rok, nebo ${kc(MONTH_CZK)} na měsíc.</p>
-      <p class="faint plus-small">Z čeho ATLAS žije: z provizí partnerů, z předplatného Plus a z dobrovolných příspěvků. Reklamu neprodáváme a pořadí výsledků si nikdo nekoupí.</p>
+      <p class="faint plus-small">Z čeho Letsi žije: z provizí partnerů, z předplatného Plus a z dobrovolných příspěvků. Reklamu neprodáváme a pořadí výsledků si nikdo nekoupí.</p>
       <div id="plusAfter"><button type="button" class="btn primary block" id="plusWant">Chci Plus</button></div>
     </div>`;
   }

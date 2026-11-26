@@ -1547,7 +1547,7 @@
       ${!ov.back && f.back ? `<div class="note info" style="margin:8px 0 0">ℹ️ <div>Let zpět (${esc(f.back.from)} → ${esc(f.back.to)}) se nepočítá – byl součástí letenky. Cestu zpět si zařiď zvlášť${ov.q ? ', nebo v <b>🔄 Změnit spoje</b> zaškrtni „i zpět vlakem / busem“' : ''}.</div></div>` : ''}
       <div class="ov-sum"><span>Vlak / bus celkem za ${paxTxt(t)}:</span><b>${czk(costs(t).overland)}</b>${[ov.out, ov.back].some(g => g && g.source !== 'regiojet') ? '<span class="b warn">odhad – cenu ověř v odkazu</span>' : [ov.out, ov.back].some(g => g && g.demo) ? '<span class="b warn">DEMO – vymyšlené spoje a ceny</span>' : '<span class="b good">ceny RegioJetu z hledání</span>'}</div>
       ${window.Ground ? Ground.linksHtml(ov.links && ov.links.out) : ''}
-      <div class="faint" style="font-size:12px;margin-top:6px">Jízdenky ATLAS neprodává – kup je u dopravce (RegioJet, FlixBus, ČD přes IDOS). Ceny i volná místa se mohou změnit.</div>
+      <div class="faint" style="font-size:12px;margin-top:6px">Jízdenky Letsi neprodává – kup je u dopravce (RegioJet, FlixBus, ČD přes IDOS). Ceny i volná místa se mohou změnit.</div>
       <div class="row wrap" style="margin-top:14px;gap:8px"><button class="btn" id="ovFly">✈️ Radši letět (${esc(f.out.from)} → ${esc(f.out.to)})</button>${ov.q ? '<button class="btn" id="ovEdit">🔄 Změnit spoje</button>' : ''}<button class="btn primary" id="tfNext">Pokračovat →</button></div>
       <div id="ovPick"></div></div>`;
     $('#ovFly').onclick = () => setOverland(t, null);
@@ -2511,7 +2511,7 @@
   // Partnerský (affiliate) odkaz přes Travelpayouts – i uložený v cestě (vybraný hotel, odkaz ve shrnutí).
   const affUrl = u => /^https:\/\/tp\.media\//.test(String(u || ''));
   // Odkazy na partnery; affiliate odkazy viditelně označené (zákon o ochraně spotřebitele, rel=sponsored).
-  const SPONSOR_NOTE = '<div class="faint" style="font-size:11.5px;margin-top:6px">Odkazy označené „reklama“ jsou partnerské (affiliate): při rezervaci přes ně může ATLAS dostat provizi. Cenu pro tebe to nezvyšuje a pořadí nabídek to neovlivňuje.</div>';
+  const SPONSOR_NOTE = '<div class="faint" style="font-size:11.5px;margin-top:6px">Odkazy označené „reklama“ jsou partnerské (affiliate): při rezervaci přes ně může Letsi dostat provizi. Cenu pro tebe to nezvyšuje a pořadí nabídek to neovlivňuje.</div>';
   // Barvy značek partnerů ubytování (jen podklad bílé zkratky; neznámé id → barva skupiny) – světlé o kus tmavší, ať má
   // zkratka aspoň 4,5 : 1 (Airbnb, Trip.com, Kayak, Hostelworld měly 3,9–4,46 : 1).
   const BRAND = { booking: '#003580', 'booking-best': '#003580', airbnb: '#d53959', trip: '#2470e1', hotelscom: '#c8102e', kayak: '#d0450e', google: '#1a73e8', hostelworld: '#d0461b', agoda: '#5b3a9b' };
@@ -3996,7 +3996,7 @@
       const url = hl && hl.support && hl.support.url, el = $('#sumSupport');
       if (!el || !About.okPay(url)) return;
       // (zdarma je ATLAS, ne příspěvek – dřívější „– je zdarma a částku si zvolíš“ se dalo číst obráceně)
-      el.innerHTML = `ATLAS je zdarma. Jestli ti pomohl naplánovat cestu, můžeš přispět částkou podle sebe: <a href="${esc(url)}" target="_blank" rel="noopener">💛 Podpořit ATLAS ↗</a>`;
+      el.innerHTML = `Letsi je zdarma. Jestli ti to s cestou pomohlo, můžeš přispět částkou podle sebe: <a href="${esc(url)}" target="_blank" rel="noopener">💛 Podpořit Letsi ↗</a>`;
       el.hidden = false;
     }, () => { /* bez serveru bez věty */ });
     // při překreslení (rate 0) se jen vrátí už položená otázka, nová se nelosuje; sdílená cesta není jeho plán
@@ -4006,7 +4006,7 @@
     $('#sumShare').onclick = () => (window.Count && Count.hit('share'), window.ShareCard ? ShareCard.open(cardData(t), { send: share, prime: () => ShareLink.short('trip', linkJson(t)) }) : share());
     // odkaz se zkomprimuje hned, aby ho kliknutí jen zkopírovalo (Safari dovolí zápis do schránky jen v obsluze kliknutí)
     if (window.ShareLink) ShareLink.prepare('trip', linkJson(t));
-    $('#sumIcs').onclick = () => (window.Count && Count.hit('calendar_export'), icsDownload(`atlas-${t.dest.label}-${checkin}`, calendarEvents(t), { name: `Cesta: ${t.dest.label}` }));
+    $('#sumIcs').onclick = () => (window.Count && Count.hit('calendar_export'), icsDownload(`letsi-${t.dest.label}-${checkin}`, calendarEvents(t), { name: `Cesta: ${t.dest.label}` }));
     $('#sumNew').onclick = () => newAfterPast(); // hotová cesta zůstane v Mých cestách
     // 📒 Sešit cesty (plus.js, zatím falešné dveře): náhled z uložené cesty, jinak z průvodce
     const ses = window.Plus && $('#sumSesit');
@@ -4450,7 +4450,7 @@
    *  kopírování a přepínání do WhatsAppu, jinak do schránky; vrací Promise kvůli testům. */
   function share() {
     const t = T(), { checkin, checkout } = stayDates(t);
-    return ShareLink.send('trip', linkJson(t), { title: `🧳 ${tripName(t)}`, text: `🧳 ${tripName(t)} ${fmtDate(checkin)}–${fmtDate(checkout)} – let, ubytování a program v ATLASu:` })
+    return ShareLink.send('trip', linkJson(t), { title: `🧳 ${tripName(t)}`, text: `🧳 ${tripName(t)} ${fmtDate(checkin)}–${fmtDate(checkout)} – let, ubytování a program v Letsi:` })
       .then(r => (r.shared || r.aborted ? null : r.copied ? toast('Odkaz zkopírován – pošli ho komukoliv') : prompt('Zkopíruj odkaz:', r.url)));
   }
 

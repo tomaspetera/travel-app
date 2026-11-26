@@ -47,7 +47,7 @@
       throw new Error(/velký/.test(e && e.message) ? 'Odkaz na přenos je moc velký – přenes data souborem zálohy' : 'Odkaz na přenos je poškozený – nech si ho poslat znovu (celý)');
     }
     try { return Backup.parse(json, deps); } catch (e) {
-      throw new Error(/novější/.test(e && e.message) ? 'Odkaz je z novější verze ATLAS – obnov stránku a otevři ho znovu' : 'Tohle není odkaz na přenos z ATLASu');
+      throw new Error(/novější/.test(e && e.message) ? 'Odkaz je z novější verze Letsi – obnov stránku a otevři ho znovu' : 'Tohle není odkaz na přenos z Letsi');
     }
   }
 
@@ -98,7 +98,7 @@
 
   const PASTE = `<details class="tf-paste"><summary>📥 Mám odkaz z jiného zařízení</summary>
       <div class="row"><input class="input" id="tfIn" type="url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="Vlož odkaz s #sync=…" aria-label="Odkaz na přenos z jiného zařízení"><button type="button" class="btn" id="tfLoad">Načíst</button></div>
-      <p class="faint">Hodí se pro ATLAS na ploše iPhonu: odkaz z fotoaparátu se otevře v Safari, které má svoje úložiště – zkopíruj ho a vlož sem.</p></details>`;
+      <p class="faint">Hodí se pro Letsi na ploše iPhonu: odkaz z fotoaparátu se otevře v Safari, které má svoje úložiště – zkopíruj ho a vlož sem.</p></details>`;
   function wirePaste() {
     const go = () => {
       const p = payloadOf($('#tfIn').value);
@@ -117,7 +117,7 @@
     if (Backup.isEmpty(c)) {
       modalOpen(`<div class="modal-body tf-modal">
         <h3>📲 Přenést do jiného zařízení</h3>
-        <p class="muted tf-lead">V tomhle zařízení zatím nic uloženého není. Data sem přeneseš z druhého: otevři tam ATLAS → <b>⋯ Další</b> (na počítači vlevo dole) → <b>📲 Přenést do jiného zařízení</b> a QR kód naskenuj fotoaparátem tohohle telefonu – nebo si odtamtud pošli odkaz. Máš soubor zálohy? Obnovíš ho tady.</p>
+        <p class="muted tf-lead">V tomhle zařízení zatím nic uloženého není. Data sem přeneseš z druhého: otevři tam Letsi → <b>⋯ Další</b> (na počítači vlevo dole) → <b>📲 Přenést do jiného zařízení</b> a QR kód naskenuj fotoaparátem tohohle telefonu – nebo si odtamtud pošli odkaz. Máš soubor zálohy? Obnovíš ho tady.</p>
         <div class="bk-actions"><button type="button" class="btn" id="tfFile">📂 Obnovit ze souboru zálohy</button></div>
         ${PASTE}</div>`);
       $('details.tf-paste').open = true;
@@ -129,7 +129,7 @@
     const json = Backup.snapshot(), my = ++token, send = native() ? '📤 Poslat odkaz' : '🔗 Kopírovat odkaz';
     modalOpen(`<div class="modal-body tf-modal">
       <h3>📲 Přenést do jiného zařízení</h3>
-      <p class="muted tf-lead" id="tfLead">Naskenuj QR kód fotoaparátem druhého telefonu – ATLAS se tam otevře, ukáže, co přibude, a nabídne <b>Sloučit</b> nebo <b>Nahradit</b>. Bez účtu, data jdou jen v odkazu (na server ne).</p>
+      <p class="muted tf-lead" id="tfLead">Naskenuj QR kód fotoaparátem druhého telefonu – Letsi se tam otevře, ukáže, co přibude, a nabídne <b>Sloučit</b> nebo <b>Nahradit</b>. Bez účtu, data jdou jen v odkazu (na server ne).</p>
       <div class="tf-qr-box" id="tfBox"><div class="faint tf-wait">Připravuji QR kód…</div></div>
       <p class="tf-sum"><b>Přenese se:</b> ${h(Backup.countsTxt(c))}</p>
       <div class="bk-actions"><button type="button" class="btn primary" id="tfSend">${send}</button><button type="button" class="btn" id="tfFile">💾 Soubor zálohy</button></div>
@@ -137,7 +137,7 @@
       ${PASTE}</div>`);
     // připravený odkaz (komprese je asynchronní) – klepnutí na Kopírovat pak zapíše do schránky hned (Safari)
     const e = ShareLink.prepare(KIND, json);
-    $('#tfSend').onclick = () => ShareLink.send(KIND, json, { title: 'ATLAS – moje data', text: '📲 Moje data z ATLASu – otevři na druhém zařízení:' })
+    $('#tfSend').onclick = () => ShareLink.send(KIND, json, { title: 'Letsi – moje data', text: '📲 Moje data z Letsi – otevři na druhém zařízení:' })
       .then(r => (r.shared || r.aborted ? null : r.copied ? toast('Odkaz zkopírován – otevři ho na druhém zařízení (e-mail nebo chat sám sobě)') : prompt('Zkopíruj odkaz a otevři ho na druhém zařízení:', r.url)));
     $('#tfFile').onclick = () => Backup.open();
     wirePaste();
@@ -146,7 +146,7 @@
       if (my !== token || !box) return; // okno mezitím zavřené nebo otevřené znovu
       const f = fit(url, { json }), lead = $('#tfLead');
       // bez QR kódu: úvod o odkazu (ne „naskenuj“)
-      if ((!f.link || !f.qr) && lead) lead.innerHTML = `${f.link ? 'Pošli si odkaz do druhého zařízení a otevři ho tam' : 'Přenes data souborem zálohy'} – ATLAS ukáže, co přibude, a nabídne <b>Sloučit</b> nebo <b>Nahradit</b>. Bez účtu, nic se neukládá na server.`;
+      if ((!f.link || !f.qr) && lead) lead.innerHTML = `${f.link ? 'Pošli si odkaz do druhého zařízení a otevři ho tam' : 'Přenes data souborem zálohy'} – Letsi ukáže, co přibude, a nabídne <b>Sloučit</b> nebo <b>Nahradit</b>. Bez účtu, nic se neukládá na server.`;
       if (!f.link) {
         box.innerHTML = '<div class="note warn">⚠️ <div>Dat je i na odkaz moc – přenes je <b>souborem zálohy</b>.</div></div>';
         $('#tfSend').hidden = true;
