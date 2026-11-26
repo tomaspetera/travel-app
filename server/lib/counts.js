@@ -15,6 +15,12 @@ export const EVENTS = [
   'limit_shown', 'limit_plus', 'limit_download', 'limit_replace',
   'plus_page', 'plus_offer_shown', 'plus_offer_click', 'sesit_shown', 'sesit_click',
   'price_0', 'price_199', 'price_399', 'price_599', 'price_799', 'look_letsi',
+  // odpovědi na krátké otázky (public/js/count.js Count.ask) – jen klepnutá volba, zobrazení otázky se nepočítá
+  'mq_empty_place', 'mq_empty_dates', 'mq_empty_lost', 'mq_empty_try',
+  'mq_price_same', 'mq_price_higher', 'mq_price_gone',
+  'mq_restart_date', 'mq_restart_price', 'mq_restart_lost', 'mq_restart_try',
+  'mq_trip_good', 'mq_trip_missing', 'mq_trip_lost',
+  'mq_ex_city', 'mq_ex_nature', 'mq_ex_region', 'mq_ex_other',
 ];
 export const TTL_DAYS = 400;
 export const MAX_BODY = 256; // {"e":"plus_offer_shown"} má 24 bajtů – víc je něco jiného než count.js

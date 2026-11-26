@@ -29,5 +29,51 @@
     if (e) hit(e);
   }
 
-  window.Count = { hit, view, viewEvent };
+  /*
+   * Krátká otázka na jedno klepnutí: řádek s volbami hned za prvkem el (ne okno ani toast). o = { id, q (otázka),
+   * opts: [[název události, popisek], …], rate (podíl případů, kdy se zeptá: 0.25 = 1 ze 4), done(název, řádek) }.
+   * Nejvýš jedna otázka za načtení stránky – víc by obtěžovalo. Neposílá se nic, dokud člověk sám neklepne na volbu:
+   * zobrazení otázky se nepočítá (automaticky posílaný počet čeká na posouzení advokátem). Volný text se neposílá.
+   * Nic se neukládá do zařízení, takže po obnovení stránky se může zeptat znovu.
+   */
+  let asked = null; // otázka ukázaná na téhle stránce: { id, row, open }
+  function ask(el, o) {
+    try {
+      if (!el || !el.insertAdjacentElement || !o || !Array.isArray(o.opts)) return null;
+      if (asked) {
+        // překreslení obsahu řádek zahodí – nezodpovězená otázka se stejným id se vrátí na nové místo (znovu se nelosuje)
+        if (asked.open && asked.id === o.id && !asked.row.isConnected) { el.insertAdjacentElement('afterend', asked.row); return asked.row; }
+        return null;
+      }
+      if (!(Math.random() < o.rate)) return null;
+      const row = document.createElement('div');
+      row.className = 'row wrap mq';
+      row.dataset.mq = o.id;
+      row.setAttribute('role', 'group');
+      row.setAttribute('aria-label', o.q);
+      row.style.cssText = 'gap:6px;margin:10px 0 0';
+      const q = document.createElement('b');
+      q.textContent = o.q;
+      row.append(q);
+      const btn = (cls, text) => { const b = document.createElement('button'); b.type = 'button'; b.className = cls; b.textContent = text; row.append(b); return b; };
+      const me = asked = { id: o.id, row, open: true };
+      for (const [e, label] of o.opts) {
+        btn('fchip', label).onclick = () => {
+          me.open = false;
+          hit(e);
+          row.replaceChildren('Díky!');
+          row.setAttribute('role', 'status');
+          if (o.done) o.done(e, row);
+        };
+      }
+      const x = btn('linkbtn', '✕');
+      x.setAttribute('aria-label', 'Zavřít otázku');
+      x.style.padding = '4px 8px'; // ✕ je malé – větší plocha pro prst
+      x.onclick = () => { me.open = false; row.remove(); };
+      el.insertAdjacentElement('afterend', row);
+      return row;
+    } catch (err) { return null; } // otázka nesmí nic rozbít
+  }
+
+  window.Count = { hit, view, viewEvent, ask };
 })();

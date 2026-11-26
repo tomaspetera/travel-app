@@ -28,6 +28,15 @@
   ];
   const VIEWS = [['view_dashboard', 'Přehled'], ['view_flights', 'Lety'], ['view_trip', 'Průvodce cestou'], ['view_trips', 'Moje cesty'], ['view_explore', 'Objevuj'], ['view_world', 'Svět (mapa a země)']];
   const TABLE = [['app_open', 'Otevř.'], ['search_done', 'Hled.'], ['verify_click', 'Ověř.'], ['buy_click', 'Prokl.'], ['trip_started', 'Prův.'], ['trip_saved', 'Ulož.']];
+  // Krátké otázky (Count.ask v count.js): přesné znění a volby jako v aplikaci. Počítá se jen klepnutá odpověď –
+  // zobrazení ne, takže podíl odpovědí ze zobrazení spočítat nejde.
+  const QUESTIONS = [
+    { q: 'Prázdný výsledek letů: Co by ti teď pomohlo nejvíc?', opts: [['mq_empty_place', 'Jiné letiště poblíž'], ['mq_empty_dates', 'Volnější termíny'], ['mq_empty_lost', 'Nevím, co zkusit'], ['mq_empty_try', 'Jen zkouším']] },
+    { q: 'Po návratu od prodejce: Seděla cena u prodejce?', opts: [['mq_price_same', 'Ano'], ['mq_price_higher', 'Byla vyšší'], ['mq_price_gone', 'Let už nebyl']] },
+    { q: 'Po ↺ Začít znovu: Proč začínáš znovu?', opts: [['mq_restart_date', 'Jiný let nebo termín'], ['mq_restart_price', 'Moc draho'], ['mq_restart_lost', 'Nevyznal/a jsem se'], ['mq_restart_try', 'Jen zkouším']] },
+    { q: 'Shrnutí cesty: Pomohl ti průvodce naplánovat cestu?', opts: [['mq_trip_good', 'Ano, hodně'], ['mq_trip_missing', 'Něco chybělo'], ['mq_trip_lost', 'Nevyznal/a jsem se']] },
+    { q: 'Objevuj bez výsledku: Co jsi hledal/a?', opts: [['mq_ex_city', 'Město'], ['mq_ex_nature', 'Vesnici nebo přírodu'], ['mq_ex_region', 'Oblast nebo zemi'], ['mq_ex_other', 'Něco jiného']] },
+  ];
   const PERIODS = [7, 30, 90];
   const FEW = 30; // pod 30 odpověďmi rozložení ještě hodně skáče s každou další
 
@@ -101,6 +110,14 @@
     return { label: d.label, shown, clicks: d.clicks.map(([e, label]) => ({ label, n: num(total, e), pct: pct(num(total, e), shown) })) };
   });
 
+  /** Rozložení odpovědí na jednu otázku z QUESTIONS: každá volba s procentem ze všech odpovědí a zda je jich málo. */
+  function dist(total, question) {
+    const options = question.opts.map(([e, label]) => ({ e, label, n: num(total, e) }));
+    const answers = options.reduce((s, o) => s + o.n, 0);
+    for (const o of options) o.pct = pct(o.n, answers);
+    return { q: question.q, options, answers, few: answers < FEW };
+  }
+
   /** Řádky tabulky po dnech: nejnovější nahoře (server posílá od nejstaršího), chybějící událost 0. */
   function dayRows(days, events = TABLE.map(([e]) => e)) {
     return (Array.isArray(days) ? days : [])
@@ -123,6 +140,7 @@
   };
 
   window.Stats = { MAIN, PRICES, DOORS, VIEWS, TABLE, PERIODS, FEW, num, pct, totals, funnel, median, survey, doors, dayRows, period, fmtNum, fmtPct, fmtKc, fmtDay };
+  Object.assign(window.Stats, { QUESTIONS, dist });
 
   /* ---------- vykreslení (jen ve stránce) ---------- */
   const root = typeof document !== 'undefined' && document.getElementById('stats');
@@ -143,6 +161,9 @@
     const doorBody = doors(total).map((d) => `<h3>${esc(d.label)}</h3>`
       + table([row('Zobrazeno', fmtNum(d.shown), ''), ...d.clicks.map((c) => row(c.label, fmtNum(c.n), fmtPct(c.pct)))])).join('')
       + table([row('Stránka Plus otevřená', fmtNum(num(total, 'plus_page')), '')]);
+    const answers = QUESTIONS.map((x) => dist(total, x)).map((d) => `<h3>${esc(d.q)}</h3>`
+      + table(d.options.map((o) => row(o.label, fmtNum(o.n), fmtPct(o.pct))))
+      + `<p>Odpovědí: <b>${fmtNum(d.answers)}</b>.</p>` + (d.few ? `<p class="warn">Málo odpovědí (méně než ${FEW}) – na závěr to nestačí.</p>` : '')).join('');
     const views = table([...VIEWS.map(([e, label]) => row(label, fmtNum(num(total, e)), null)), row('Vzhled Letsi zapnutý', fmtNum(num(total, 'look_letsi')), null)]);
     const rows = dayRows(stats && stats.days);
     const daily = rows.length
@@ -153,6 +174,7 @@
       + section('Kolik by dali za Plus', svBody)
       + section('Zájem o Plus', doorBody, 'Procento = klepnutí ze zobrazení.')
       + section('Návštěvy sekcí', views)
+      + section('Odpovědi na otázky', answers, 'Krátké otázky v aplikaci (odpověď jedním klepnutím). Kolikrát se otázka ukázala, se nepočítá – procento je ze všech odpovědí.')
       + section('Po dnech', daily, 'Dny podle UTC, nejnovější nahoře. Otevř. = otevření, Hled. = hledání, Ověř. = ověření ceny, Prokl. = proklik k prodejci, Prův. = průvodce, Ulož. = uložená cesta.');
   }
 

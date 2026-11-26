@@ -22,9 +22,9 @@ after(() => server.close());
 const T0 = Date.UTC(2027, 0, 12, 10, 0, 0);
 const DAY = 86400e3;
 
-test('pevný seznam událostí: 33 názvů, jen ty se počítají', () => {
-  assert.equal(EVENTS.length, 33);
-  assert.equal(new Set(EVENTS).size, 33);
+test('pevný seznam událostí: 51 názvů, jen ty se počítají', () => {
+  assert.equal(EVENTS.length, 51);
+  assert.equal(new Set(EVENTS).size, 51);
   for (const e of ['app_open', 'view_trips', 'search_done', 'buy_click', 'trip_saved', 'limit_shown', 'plus_offer_click', 'sesit_click', 'price_0', 'price_799', 'look_letsi']) assert.ok(EVENTS.includes(e), e);
   assert.ok(EVENTS.every((e) => /^[a-z0-9_]{3,20}$/.test(e)));
   const c = makeCounter(memoryCounts(), { now: () => T0 });
@@ -214,13 +214,15 @@ function loadCount({ beacon = true, online = true, fetchOk = true } = {}) {
 }
 
 test('count.js: nic neukládá do prohlížeče – žádné cookies, úložiště ani identifikátor', () => {
-  assert.doesNotMatch(COUNT_SRC, /document\.cookie|localStorage|sessionStorage|indexedDB|caches\.|crypto\.|randomUUID|Math\.random|userAgent|screen\.|Date\.now/);
+  assert.doesNotMatch(COUNT_SRC, /document\.cookie|localStorage|sessionStorage|indexedDB|caches\.|crypto\.|randomUUID|userAgent|screen\.|Date\.now/);
+  // náhoda jen k výběru, jestli se Count.ask zeptá – nikam se neposílá ani neukládá (test/mikro-otazky.test.js)
+  assert.deepEqual(COUNT_SRC.match(/Math\.random\(\)[^;]*/g), ['Math.random() < o.rate)) return null']);
   // běh v prohlížeči, kde úložiště ani cookies vůbec nejsou: sáhnutí na ně by skončilo chybou
   const { C, log, ctx } = loadCount();
   C.hit('app_open');
   assert.deepEqual(log.beacons, [{ url: 'https://letsi.example/app/api/count', body: '{"e":"app_open"}' }], 'jen název události');
   assert.equal(log.fetches.length, 0);
-  assert.deepEqual(Object.keys(ctx.Count).sort(), ['hit', 'view', 'viewEvent']);
+  assert.deepEqual(Object.keys(ctx.Count).sort(), ['ask', 'hit', 'view', 'viewEvent']);
 });
 
 test('count.js: offline nic, bez sendBeacon fetch s keepalive, chyba se nikdy neprojeví', async () => {
