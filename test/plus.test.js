@@ -161,7 +161,7 @@ test('každá událost z plus.js je v seznamu EVENTS serveru; název placené ve
   assert.match(SRC, /hit\(`price_\$\{b\.dataset\.price\}`\)/);
   assert.equal(SRC.match(/Letsi Plus/g).length, 1, 'jen const NAME');
   // po „Nechat si obě“ (Plus chystáme) zmizí věta o měsíčním předplatném a obnovení – nic takového zatím neběží
-  assert.match(SRC, /thanks: \(\) => \{ if \(sheet\) \{ sheet\.querySelector\('\.plus-small'\)\.hidden = true;/);
+  assert.match(SRC, /thanks: n => \{ if \(sheet\) \{ sheet\.querySelector\('\.plus-small'\)\.hidden = true;/);
   assert.equal(P.NAME, 'Letsi Plus');
 });
 
