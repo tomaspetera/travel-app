@@ -191,13 +191,15 @@ test('bez živého ověření (Kiwi vypnuté): žádné „Ověřit živou cenu�
     assert.deepEqual(asked, ['api/verify'], 'první otevření kroku cenu ověří samo');
     assert.match(render(c, 'summary'), /id="sumAge">↻ Ověř cenu</);
   }
-  // čistý režim: stav serveru dorazí až po prvním vykreslení → krok se překreslí bez tlačítek
+  // čistý režim: stav serveru dorazí až po prvním vykreslení → krok se překreslí bez tlačítek a samočinné ověření
+  // na stav počká (dřív se při prvním otevření průvodce ověřovalo dřív, než stav serveru dorazil)
   const c = load(CLEAN);
   const asked = fakeFetch(c);
   const t = begin(c, { at: old, verified: false });
-  t.verifiedAt = 1; // první vykreslení ještě neví (chová se jako dřív) – samočinné ověření tu neřešíme
   render(c, 'flight');
   await tick(); await tick();
+  assert.equal(t.verifiedAt, undefined);
+  assert.deepEqual(asked, [], 'ani první otevření průvodce se v čistém režimu samo neověřuje');
   let s = sp(c.__els['#tripStep'].innerHTML);
   assert.doesNotMatch(s, /tfVerify|Ověřit živou cenu|Ověř cenu|tfAge/);
   assert.match(s, /<div class="faint tf-age">hledáno [^<]*\(před 3 dny\)<\/div><div class="faint tf-seller">Aktuální cenu a volná místa uvidíš až u prodejce\.<\/div>/);

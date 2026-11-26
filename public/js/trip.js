@@ -348,22 +348,22 @@
   /* ---------- čistý režim: co server podle /api/health umí ---------- */
   // Stav serveru má aplikace z načítání (Flights.warm). Dokud známý není, chová se průvodce jako dřív – nic neschovává
   // a nic neslibuje jinak; přijde-li až po vykreslení a něco mění, krok Let / Shrnutí se překreslí (jednou).
-  let health = null, healthAsk = false;
+  // healthAsk = rozběhnuté čtení stavu (slib) – samočinné ověření ceny v kroku Let na něj počká (flightStep)
+  let health = null, healthAsk = null;
   const provOn = (h, ids) => h.providers.some(p => p && ids.includes(p.id) && p.enabled === true);
   /** Jde živé ověření ceny letu (Kiwi.com)? Vypnuté → tlačítka „Ověřit“ se nekreslí a samo se nic neověřuje. */
   const liveOn = (h = health) => !h || !Array.isArray(h.providers) || provOn(h, ['kiwi']);
   /** Má server ceny hotelů (TripAdvisor přes Xotelo, LiteAPI; ukázková data je mají taky)? Jinak zbývá OpenStreetMap bez cen. */
   const stayPricesOn = (h = health) => !h || !Array.isArray(h.providers) || h.demo === true || provOn(h, ['xotelo', 'liteapi']);
   function healthSoon() {
-    if (health || healthAsk || !(window.Flights && Flights.warm)) return;
-    healthAsk = true;
-    Promise.resolve(Flights.warm()).then(h => {
-      healthAsk = false;
+    if (health || healthAsk || !(window.Flights && Flights.warm)) return healthAsk;
+    return (healthAsk = Promise.resolve(Flights.warm()).then(h => {
+      healthAsk = null;
       if (!h || !Array.isArray(h.providers)) return;
       health = h;
       const t = T(), step = t && { flight: flightStep, summary: summaryStep }[t.step];
       if (step && !mineFor && $('#tripStep') && (!liveOn() || !stayPricesOn())) step();
-    }, () => { healthAsk = false; });
+    }, () => { healthAsk = null; }));
   }
   /** Cena letenek je orientační (z mezipaměti Aviasales – některý let má live === false), ne živá od aerolinky. */
   const flightCached = t => Boolean(t && t.flight && !ovOn(t) && allLegs(t).some(l => l && l.live === false));
@@ -811,7 +811,7 @@
   const memAgeMs = t => Math.max(0, ...[t.out, t.back].map(l => +(l && l.memAgeMin)).filter(Number.isFinite)) * 6e4;
   // Doprava na letiště z hledání (o = letiště z result.origins) i s polohou letiště ap – navigace autem ve Waze
   const groundOf = o => (o && o.ground ? { ...o.ground, ...(Number.isFinite(o.lat) && Number.isFinite(o.lon) ? { ap: { lat: o.lat, lon: o.lon } } : {}) } : null);
-  // at = čas cen výsledku, ze kterého let je (flight.pricedAt – „cena z 3. 10. 14:12“ v kroku Let a ve Shrnutí);
+  // at = čas cen výsledku, ze kterého let je (flight.pricedAt – „hledáno 3. 10. 14:12“ v kroku Let a ve Shrnutí);
   // cena z paměti tras o její stáří dřív
   // stops = cíle letů cesty přes víc měst (t.mid = lety mezi nimi): trasa podle letů (flyBases)
   function start({ t, g, result, ccs = null, at = 0, stops = null }) {
@@ -1306,7 +1306,7 @@
     else if (y < (head ? head.getBoundingClientRect().bottom : 0) || y + 200 > end) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
   /**
-   * Průvodce zůstává otevřený (Android drží aplikaci, nákup za pár dní): „cena z …“ v kroku Let a ve Shrnutí znovu
+   * Průvodce zůstává otevřený (Android drží aplikaci, nákup za pár dní): „hledáno …“ v kroku Let a ve Shrnutí znovu
    * s aktuálním „před …“ (a „ze včera“), po dni i s „↻ Ověř cenu“, u zakoupené letenky bez něj. Jen ten řádek – výsledek
    * ověření, rozepsané a posun stránky zůstanou. Volá flights.js při návratu do aplikace a každých 5 min, Shrnutí po
    * odškrtnutí letenky. → true = přepsáno.
@@ -1356,8 +1356,12 @@
     wireAge();
     wirePrice(t);
     const os = $('#ovStart'); if (os) os.onclick = () => overlandPicker(t);
-    // Při prvním zobrazení vybraného letu ověř cenu automaticky (jednou za cestu) – jen když ji server ověřit umí.
-    if (!t.verifiedAt && !fly && liveOn()) { t.verifiedAt = Date.now(); persist(); verifyFlight({ auto: true }); }
+    // Při prvním zobrazení vybraného letu ověř cenu automaticky (jednou za cestu) – jen když ji server ověřit umí. Stav
+    // serveru (healthSoon) se načte až po prvním vykreslení – bez počkání by se v čistém režimu ověřovalo hned při otevření.
+    if (!t.verifiedAt && !fly) Promise.resolve(healthSoon()).then(() => {
+      if (T() !== t || t.step !== 'flight' || t.verifiedAt || !liveOn() || !$('#tfAlt')) return;
+      t.verifiedAt = Date.now(); persist(); verifyFlight({ auto: true });
+    });
   }
 
   /**
