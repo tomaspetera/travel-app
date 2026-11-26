@@ -160,3 +160,23 @@ test('flags.js: bez úložiště, s poškozeným záznamem nebo bez plátna fung
   const e = runFlags({ store, canvasThrows: true });
   assert.deepEqual([e.styles.length, Object.keys(store).length], [0, 0]);
 });
+
+test('flags.js: vlajkový řez má každá rodina a váha z @font-face v css/atlas.css i css/letsi.css', () => {
+  // Chrome skládá rodinu jen z řezů stejné váhy: chybí-li vlajkový řez k některé váze, ukáže na Windows písmena
+  // místo vlajek. Test hlídá, aby se to při změně písem znovu nerozjelo (jako u vzhledu Letsi).
+  const made = new Set([...runFlags().styles[0].matchAll(/font-family:"([^"]+)";[^}]*font-weight:(\d+);/g)].map((m) => `${m[1]} ${m[2]}`));
+  // Caveat kreslí jen pevný nápis bez vlajek na plátno sdílecí karty (sharecard.js) – vlajkový řez nepotřebuje.
+  const skip = new Set(['Caveat']);
+  const need = [];
+  for (const f of ['public/css/atlas.css', 'public/css/letsi.css']) {
+    for (const [, body] of read(f).matchAll(/@font-face\s*\{([^}]*)\}/g)) {
+      const family = body.match(/font-family:\s*['"]?([^'";]+)/)[1];
+      if (skip.has(family)) continue;
+      // „700 900“ = každá stovka zvlášť (700, 800, 900), jedna váha = sama sebe
+      const [lo, hi = lo] = body.match(/font-weight:\s*([\d ]+)/)[1].trim().split(/\s+/).map(Number);
+      for (let w = lo; w <= hi; w += 100) need.push(`${family} ${w}`);
+    }
+  }
+  assert.ok(need.includes('Inter 400') && need.includes('Onest 900') && need.includes('Letsi 600'), 'čtení @font-face z CSS');
+  assert.deepEqual([...new Set(need)].filter((x) => !made.has(x)), [], 'váhy bez vlajkového řezu ve flags.js');
+});
