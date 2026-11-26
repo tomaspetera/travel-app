@@ -17,6 +17,9 @@ const MIN_MS = 3 * 36e5;
 const STALE_MS = 12 * 36e5; // výpadek MET: radši předpověď do 12 h starou než žádnou
 const MAX_KEYS = 3000; // ~10 dní × 6 čísel na místo – i plná mezipaměť je pár MB
 const GAP_MS = 60; // rozestup dotazů → nejvýš ~16 za sekundu (podmínky: celkem pod 20/s)
+// Po chybě MET (5xx, 429, timeout) se 2 min neptat vůbec: podmínky chtějí při chybách ustoupit a fronta (2 naráz,
+// timeout 10 s) by se jinak plnila místy všech lidí – předpověď by visela minuty i po zotavení MET.
+const DOWN_MS = 2 * 60e3;
 
 /** MET symbol_code („lightrainshowers_day“) → kód WMO, se kterým počítá aplikace (ikony wIco, Weather.rainy). */
 export function wmoOf(symbol) {
@@ -124,6 +127,7 @@ const store = new Map(); // 'lat,lon' → { at, exp, lm, tz, days, now }
 const inflight = new Map();
 const run = limiter(2);
 let nextAt = 0;
+let downUntil = 0;
 let warned203 = false;
 const pace = async () => {
   const now = Date.now(), at = Math.max(now, nextAt);
@@ -135,6 +139,8 @@ const userAgent = () => `${BRAND.name}/2.0 ${config.publicUrl}`;
 const expOf = (res) => Math.max(Date.now() + MIN_MS, Date.parse(res.headers.get('expires')) || 0);
 
 async function load(lat, lon, old) {
+  // místo, které čekalo ve frontě, když MET selhal – hned pryč, bez dotazu
+  if (Date.now() < downUntil) throw new Error('MET Norway po chybě chvíli vynechán');
   await pace();
   const headers = { 'User-Agent': userAgent(), Accept: 'application/json' };
   if (old?.lm) headers['If-Modified-Since'] = old.lm; // podmínky: stejná data znovu nestahovat
@@ -162,8 +168,11 @@ export async function weatherAt(pts, { allow = () => true } = {}) {
     const old = store.get(k);
     if (old && old.exp > Date.now()) return pub(old);
     if (!inflight.has(k)) {
-      if (!allow()) return old && Date.now() - old.at < STALE_MS ? pub(old) : null;
-      const p = run(() => load(lat, lon, old)).then((v) => {
+      if (Date.now() < downUntil || !allow()) return old && Date.now() - old.at < STALE_MS ? pub(old) : null;
+      const p = run(() => load(lat, lon, old)).catch((e) => {
+        if (Date.now() >= downUntil) downUntil = Date.now() + DOWN_MS;
+        throw e;
+      }).then((v) => {
         store.delete(k); // nejnovější na konec – při plné mezipaměti vypadnou nejdéle neobnovená místa
         store.set(k, v);
         if (store.size > MAX_KEYS) store.delete(store.keys().next().value);
@@ -187,5 +196,6 @@ export function _resetWeather() {
   inflight.clear();
   zones.clear();
   nextAt = 0;
+  downUntil = 0;
   warned203 = false;
 }
