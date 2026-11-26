@@ -1,7 +1,8 @@
 /* ATLAS – ℹ️ O aplikaci a soukromí (⋯ Další): co ATLAS je, odkud bere data, co se kde ukládá a posílá, jak se řadí
    výsledky, verze a 💬 Napsat nám. Texty o soukromí odpovídají kódu: uložené věci jsou jen v localStorage prohlížeče,
    server nemá účty ani cookies a nic nezapisuje na disk; ukládá jen cesty sdílené krátkým odkazem (server/lib/
-   shortlinks.js – Upstash, 400 dní). test/about.test.js hlídá, že se to nezmění potichu.
+   shortlinks.js – Upstash, 400 dní) a souhrnné denní počty událostí bez vazby na člověka či zařízení (server/lib/
+   counts.js). test/about.test.js hlídá, že se to nezmění potichu.
    Tlačítko 💬 Napsat nám je jen s adresou z /api/health (feedback.email = proměnná FEEDBACK_EMAIL na serveru) –
    v kódu žádná adresa není. Stejně 💛 Podpořit ATLAS (support.url = SUPPORT_URL, platební odkaz Stripe) a provozovatel
    (operator = OPERATOR). */
@@ -88,7 +89,7 @@
       <h4 class="ab-h">Co se ukládá a kam</h4>
       <ul class="ab-list">
         <li><b>Jen v tomhle prohlížeči na tomhle zařízení</b> (localStorage): cesty, hlídané ceny, odložené nabídky, domov, navštívené země, oblíbená a skrytá místa, poslední i rozepsané hledání a nastavení. Na jiné zařízení je přeneseš odkazem s QR kódem (📲 Přenést do jiného zařízení) nebo zálohou.</li>
-        <li><b>Na serveru nic o tobě</b>: žádný účet ani profil, <b>žádné cookies, analytika ani měření návštěvnosti</b>. Jen cesty, které sám sdílíš krátkým odkazem (níže).</li>
+        <li><b>Na serveru nic o tobě</b>: žádný účet ani profil. <b>Žádné cookies ani sledování jednotlivců.</b> Počítám jen souhrnné denní počty (kolikrát se otevřela aplikace, kolik proběhlo hledání, kolik cest vzniklo) – bez osobních údajů a bez vazby na tebe nebo tvoje zařízení. Jinak jen cesty, které sám sdílíš krátkým odkazem (níže).</li>
         <li><b>Co se na server posílá</b> – jen to, co je potřeba k odpovědi: u hledání letů odkud, kam, termín, počet cestujících, zavazadla a cesta na letiště (i 🏠 vlastní ceny); u ubytování místo, termín a počet hostů; v Objevuj místo a volby plánu; polohu, jen když sám použiješ 📍 Moje poloha nebo Moje okolí. Server odpovědi chvíli drží v mezipaměti (bez vazby na tebe) a IP adresu si kvůli limitům požadavků pamatuje nejdéle hodinu od posledního požadavku (u hledání 10 minut), pak ji sám smaže.</li>
         <li><b>Přímo z prohlížeče</b> se načítají mapy (OpenFreeMap) a fotky (Unsplash, Pexels, Wikimedia) – tyhle služby vidí tvou IP adresu jako u každého webu. Počasí, kurzy a hledání míst jdou přes server ATLASu, tvou adresu tedy nevidí.</li>
         <li><b>Krátký odkaz na sdílenou cestu</b> (atlas…/c/…): když klepneš na Poslat kamarádům nebo Sdílet plán, cesta se uloží na serveru na 400 dní, aby šel odkaz otevřít – bez jména a kódů rezervací, nic dalšího se k němu neukládá. Bez krátkého odkazu (i u odkazu 📲 přenosu) nese data část adresy za #, kterou prohlížeč na server neposílá. Po klepnutí na odkaz k rezervaci jsi na webu partnera a platí jeho pravidla.</li>
