@@ -164,12 +164,18 @@
       row.append(q);
       const btn = (cls, text) => { const b = document.createElement('button'); b.type = 'button'; b.className = cls; b.textContent = text; row.append(b); return b; };
       const me = asked = { id: o.id, row, open: true };
+      // hlášení „Díky!“: oblast role=status musí na stránce být už před odpovědí – přidanou až s textem čtečka nepřečte
+      const st = document.createElement('span');
+      st.setAttribute('role', 'status');
       for (const [e, label] of o.opts) {
         btn('fchip', label).onclick = () => {
           me.open = false;
           hit(e);
-          row.replaceChildren('Díky!');
-          row.setAttribute('role', 'status');
+          for (const c of [...row.children]) if (c !== st) c.remove(); // st zůstane na místě (vložený znovu = nová oblast)
+          st.textContent = 'Díky!';
+          // tlačítko s fokusem zmizelo – fokus na poděkování, ne na začátek stránky
+          st.tabIndex = -1;
+          if (st.focus) st.focus({ preventScroll: true });
           if (o.done) o.done(e, row);
         };
       }
@@ -177,6 +183,7 @@
       x.setAttribute('aria-label', 'Zavřít otázku');
       x.style.padding = '4px 8px'; // ✕ je malé – větší plocha pro prst
       x.onclick = () => { me.open = false; row.remove(); };
+      row.append(st);
       el.insertAdjacentElement(o.at || 'afterend', row);
       return row;
     } catch (err) { return null; } // otázka nesmí nic rozbít

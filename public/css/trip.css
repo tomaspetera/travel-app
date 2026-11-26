@@ -743,7 +743,11 @@ table.cost tr.entry-tot td{font-weight:800;border-bottom:none}
 .mt-back .linkbtn{font-weight:700;font-size:13.5px}
 .trip-mine .trip-grid{margin-bottom:16px}
 .mt-cur{font-weight:700;color:var(--accent-ink);font-size:13px;margin-bottom:6px}
-.mt-det{display:block;margin-top:8px;font-size:12.5px;text-align:left}
+/* min-height: plocha pro prst (dřív 16 px vysoký řádek textu) */
+.mt-det{display:block;min-height:32px;margin-top:2px;font-size:12.5px;text-align:left}
+/* název cesty jako tlačítko (karta s vnitřním tlačítkem není sama tlačítkem, app.js myTrips) – vzhled názvu beze změny */
+.tt-name>.tt-open{padding:0;margin:0;border:0;background:none;font:inherit;color:inherit;letter-spacing:inherit;text-shadow:inherit;text-align:inherit;cursor:pointer}
+.tt-name>.tt-open:focus-visible{outline:2px solid currentColor;outline-offset:2px;border-radius:4px}
 .mt-past{margin:0 0 16px}
 /* telefon a tablet: menší karty – fotka jako pruh, let na jeden řádek – ať se na obrazovku vejdou asi 4 cesty místo 2½
    (na počítači zůstávají velké karty vedle sebe, desktop-explore.css) */
@@ -757,7 +761,7 @@ table.cost tr.entry-tot td{font-weight:800;border-bottom:none}
   .trip-mine .trip-body .bar{margin-bottom:3px}
   .trip-mine .tb-fl{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .trip-mine .mt-cur{margin-bottom:4px}
-  .trip-mine .mt-det{margin-top:5px}
+  .trip-mine .mt-det{margin-top:0}
 }
 .mt-past>summary{cursor:pointer;font-weight:700;color:var(--muted);padding:6px 0 10px}
 .mt-more{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}

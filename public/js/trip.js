@@ -4339,6 +4339,7 @@
       ...(tripCountries(t).length > 1 || (tripCountries(t).length && !byIso[t.dest.cc]) ? { isos: tripCountries(t) } : {}),
       ...(tripVia(t).length ? { via: tripVia(t) } : {}),
       start: outLeg(t).date, end: backLeg(t) ? backLeg(t).date : checkout, pax: String(paxN(t)), budget: String(budgetOf(t) || c.total), flight: flightTxt,
+      totalCzk: c.total, // cena celkem – karta v Mých cestách ji odliší od „Můj rozpočet“ (app.js tripMoney)
       ...(ov ? { ground: groundBriefs(ov) } : { legs: allLegs(t).map(legBrief) }), days,
       // „Sbaleno“: seznam z „Před cestou“ (úkoly a věci na míru, i s odškrtnutím), bez dat obecný PACK
       checklist: ck || PACK.map(x => ({ t: x, done: false })), notes,
