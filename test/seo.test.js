@@ -159,11 +159,25 @@ test('neznámá adresa mimo API: česká stránka 404 s odkazem do aplikace; str
     assert.match(html, /Tahle stránka neexistuje/);
     assert.ok(html.includes(`<title>Stránka nenalezena · ${esc(BRAND.name)}</title>`));
     assert.ok(html.includes(`<a id="home" href="/">Otevřít ${esc(BRAND.name)}</a>`), 'odkaz do aplikace');
-    // CSP: nic cizího, jen vložené styly a jediný skript podle otisku
+    // CSP: nic cizího, jen vložené styly, jediný skript podle otisku a logo s písmem z vlastního serveru
     const csp = r.headers.get('content-security-policy');
-    assert.equal(csp, `default-src 'none'; script-src ${inlineScriptHashes(html).join(' ')}; style-src 'unsafe-inline'; img-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'`);
+    assert.equal(csp, `default-src 'none'; script-src ${inlineScriptHashes(html).join(' ')}; style-src 'unsafe-inline'; img-src 'self'; font-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'`);
     assert.equal(inlineScriptHashes(html).length, 1);
   }
+  // vzhled Letsi 2.1: Vápno/Noc, Pistácie pod textem Noc, žádný přechod ani stará modrá a fialová ATLASu
+  const html = await (await fetch(`${base}/c/neplatny`)).text();
+  assert.doesNotMatch(html, /gradient|background-clip/i);
+  assert.doesNotMatch(html, /#22d3ee|#5b8cff|#a855f7|#eef2fb|#080c1a/i);
+  assert.ok(html.includes('<meta name="theme-color" content="#F3F4F0" media="(prefers-color-scheme: light)">'));
+  assert.ok(html.includes('<meta name="theme-color" content="#14161F" media="(prefers-color-scheme: dark)">'));
+  assert.match(html, /--bg:#F3F4F0;[^}]*--text:#14161F/);
+  assert.match(html, /prefers-color-scheme:dark\)\{:root\{[^}]*--bg:#14161F;[^}]*--text:#F3F4F0/);
+  assert.match(html, /background:#D6DE82;color:#14161F/);
+  assert.doesNotMatch(html, /fonts\.googleapis|fonts\.gstatic|<svg/);
+  // logo a písmo absolutní cestou ze značky – soubory musí existovat (i z hluboké adresy)
+  const files = [...html.matchAll(/(?:src|srcset)="(\/[^"]+)"|url\((\/[^)]+)\)/g)].map((m) => m[1] || m[2]);
+  assert.ok(files.includes('/vendor/letsi/letsi-logo-hlavni.svg') && files.includes('/vendor/letsi/letsi-logo-negativ.svg'), 'logo Letsi');
+  for (const f of files) assert.equal((await fetch(`${base}${f}`)).status, 200, f);
   const head = await fetch(`${base}/neexistujici-stranka`, { method: 'HEAD' });
   assert.deepEqual([head.status, await head.text()], [404, '']);
   // odkaz s cestou navíc a sdílenou cestou za #: tlačítko ji vezme s sebou (část za # server nevidí)

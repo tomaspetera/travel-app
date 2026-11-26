@@ -99,7 +99,9 @@ export function manifestFor(json, brand = BRAND) {
 /**
  * Stránka 404 pro neznámé adresy mimo API: česky, světlá i tmavá podle systému, s odkazem do aplikace. Část adresy
  * za # (sdílená cesta, plán, nabídka – prohlížeč ji serveru nepošle) si odkaz vezme s sebou, kdyby někdo poslal odkaz
- * s cestou navíc. Bez souborů z aplikace (styly vložené, logo jako SVG) – ukáže se stejně v každé hloubce adresy.
+ * s cestou navíc. Vzhled Letsi 2.1 jako public/css/letsi.css: Vápno a Noc, Pistácie jen pod textem Noc, žádné
+ * přechody. Styly vložené; logo a písmo Onest z vlastního serveru absolutní cestou – ukáže se stejně v každé hloubce
+ * adresy. Logo přes <img> rovnou ze značky (public/vendor/letsi/, beze změny), tmavá varianta podle systému.
  */
 export function notFoundHtml(brand = BRAND) {
   const name = esc(brand.name);
@@ -110,26 +112,30 @@ export function notFoundHtml(brand = BRAND) {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
 <title>Stránka nenalezena · ${name}</title>
-<meta name="theme-color" content="#eef2fb" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#080c1a" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#F3F4F0" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#14161F" media="(prefers-color-scheme: dark)">
 <style>
-:root{color-scheme:light;--bg:#eef2fb;--card:#fff;--text:#0f1830;--muted:#56638a;--border:rgba(13,22,48,.1);--btn:#0f1830;--btn-text:#fff}
-@media (prefers-color-scheme:dark){:root{color-scheme:dark;--bg:#080c1a;--card:#111a32;--text:#eaf0ff;--muted:#94a3c8;--border:rgba(255,255,255,.09);--btn:#fff;--btn-text:#0b1226}}
+@font-face{font-family:'Onest';font-style:normal;font-weight:400;font-display:swap;src:url(/vendor/fonts/letsi/onest-400.woff2) format('woff2')}
+@font-face{font-family:'Onest';font-style:normal;font-weight:700 900;font-display:swap;src:url(/vendor/fonts/letsi/onest-700.woff2) format('woff2')}
+:root{color-scheme:light;--bg:#F3F4F0;--card:#FFFFFF;--text:#14161F;--muted:#585D56;--border:#DFE2DA}
+@media (prefers-color-scheme:dark){:root{color-scheme:dark;--bg:#14161F;--card:#1D2029;--text:#F3F4F0;--muted:#A6ACB6;--border:#2A2E3A}}
 *{box-sizing:border-box;margin:0}
-body{min-height:100vh;min-height:100dvh;display:grid;place-items:center;padding:24px 16px;background:var(--bg);color:var(--text);font:16px/1.5 Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
-main{width:100%;max-width:420px;padding:32px 24px;border:1px solid var(--border);border-radius:22px;background:var(--card);text-align:center}
-.logo{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:24px;font:800 20px/1 Sora,Inter,system-ui,sans-serif;letter-spacing:.02em}
-.logo svg{width:40px;height:40px;border-radius:11px;background:linear-gradient(135deg,#22d3ee 0%,#5b8cff 45%,#a855f7 100%)}
-.code{font:800 56px/1 Sora,Inter,system-ui,sans-serif;background:linear-gradient(135deg,#22d3ee 0%,#5b8cff 45%,#a855f7 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
+body{min-height:100vh;min-height:100dvh;display:grid;place-items:center;padding:24px 16px;background:var(--bg);color:var(--text);font:16px/1.5 Onest,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{width:100%;max-width:420px;padding:32px 24px;border:1px solid var(--border);border-radius:20px;background:var(--card);text-align:center}
+.logo{display:block;margin:0 auto 24px}
+.logo img{display:block;width:162px;height:36px;margin:0 auto}
+/* kód jednobarevně barvou textu – přechod v textu identita nepovoluje */
+.code{font:800 56px/1 Onest,system-ui,sans-serif;color:var(--text)}
 h1{margin:12px 0 8px;font-size:22px;line-height:1.3}
 p{margin-bottom:24px;color:var(--muted)}
-a{display:inline-flex;align-items:center;justify-content:center;min-height:48px;padding:12px 24px;border-radius:16px;background:var(--btn);color:var(--btn-text);font-weight:700;text-decoration:none}
-a:focus-visible{outline:3px solid #5b8cff;outline-offset:3px}
+/* Pistácie jen jako plná plocha pod textem Noc – v obou režimech stejně */
+a{display:inline-flex;align-items:center;justify-content:center;min-height:48px;padding:12px 24px;border-radius:14px;background:#D6DE82;color:#14161F;font-weight:700;text-decoration:none}
+a:focus-visible{outline:3px solid var(--text);outline-offset:3px}
 </style>
 </head>
 <body>
 <main>
-<div class="logo"><svg viewBox="-0.316 -0.866 25.532 25.532" aria-hidden="true"><path d="M20 6 10 13 4 10z" fill="#fff"/><path d="M20 6 13 19 10 13z" fill="#fff" fill-opacity=".8"/></svg>${name}</div>
+<picture class="logo"><source srcset="/vendor/letsi/letsi-logo-negativ.svg" media="(prefers-color-scheme: dark)"><img src="/vendor/letsi/letsi-logo-hlavni.svg" alt="${name}" width="162" height="36"></picture>
 <div class="code" aria-hidden="true">404</div>
 <h1>Tahle stránka neexistuje</h1>
 <p>Odkaz je asi neúplný nebo zastaralý. Lety, cesty i plánovač najdeš v aplikaci.</p>
@@ -143,8 +149,8 @@ a:focus-visible{outline:3px solid #5b8cff;outline-offset:3px}
 `;
 }
 
-/** CSP stránky 404: nic cizího, jen vložené styly a její jediný skript podle otisku. */
-export const notFoundCsp = (html) => `default-src 'none'; script-src ${inlineScriptHashes(html).join(' ')}; style-src 'unsafe-inline'; img-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'`;
+/** CSP stránky 404: nic cizího, jen vložené styly, její jediný skript podle otisku a logo s písmem z vlastního serveru. */
+export const notFoundCsp = (html) => `default-src 'none'; script-src ${inlineScriptHashes(html).join(' ')}; style-src 'unsafe-inline'; img-src 'self'; font-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'`;
 
 /** Vygenerovaná odpověď s ETagem podle obsahu (levné 304) a HEAD bez těla. */
 export function sendGenerated(req, res, status, body, headers) {
