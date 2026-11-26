@@ -46,7 +46,7 @@ import { RateLimiter } from './lib/ratelimit.js';
 import { upstashCounts, memoryCounts, makeCounter, clampDays, MAX_BODY as COUNT_MAX } from './lib/counts.js';
 import { upstashStore, memoryStore, cachedStore, createShare, loadShare, sharePage, inviteMeta, invitePage, ogPhoto, PREVIEW_BOT, PREVIEW_CSP, MAX_JSON as SHARE_MAX, ID_RE as SHARE_ID } from './lib/shortlinks.js';
 import { sharedRuns, gate, perClient, recentResults, breathe } from './lib/crowd.js';
-import { SECURITY_HEADERS, API_CSP, clientIp, crossSite } from './lib/security.js';
+import { SECURITY_HEADERS, API_CSP, pageCsp, clientIp, crossSite } from './lib/security.js';
 
 const PUBLIC = path.join(config.root, 'public');
 const DATA = path.join(config.root, 'data');
@@ -1192,6 +1192,9 @@ async function route(req, res) {
   // ve vendor/ mají mezipaměť jako dřív. Výjimka: adresa s otiskem obsahu ze stránky (js/app.js?v=…) – ta se už nikdy
   // nezmění, takže ji prohlížeč drží napořád a na server nejde (serveFile, server/lib/pwa.js versionAssets).
   const maxAge = /\.(?:html|js|css|webmanifest)$/.test(rel) ? 0 : rel.startsWith('/vendor/') ? 86400 * 30 : 60;
+  // Jiná stránka z public/ (statistiky.html) má stejnou CSP jako stránka aplikace – bez ní by v ní šel spustit
+  // jakýkoli vložený skript. Vložené skripty takové stránky nemají, otisky se tedy nepočítají.
+  if (/\.html$/i.test(file)) res.setHeader('Content-Security-Policy', pageCsp(''));
   if (serveFile(req, res, file, { maxAge, version: url.searchParams.get('v') })) return;
   // Neznámá adresa: česká stránka 404 s odkazem do aplikace. Dřív stránka aplikace se stavem 200 – vyhledávačům se pak
   // každá adresa jevila jako kopie úvodní stránky. Aplikace má sekce i sdílené odkazy za # na „/“, takže je to nemění;

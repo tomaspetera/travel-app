@@ -1439,6 +1439,12 @@ jen pod tímto atributem – bez přepínače se aplikace nezmění. Platí pro 
 serveru (`public/vendor/fonts/letsi/`, licence SIL OFL) a stáhnou se, jen když je vzhled zapnutý. Rajče (červená tečka
 „slunce“) a kurzíva „si“ v tomto kroku nejsou – přijdou s kukátkem.
 
+## Statistiky pro majitele
+
+Souhrnné počty z `GET /api/stats` čitelně na telefonu: `…/statistiky.html` (období 7 / 30 / 90 dní, `?dni=7`) – hlavní
+čísla, trychtýř od otevření po uloženou cestu, průzkum ceny Plus, zájem o Plus a tabulka po dnech. Z aplikace na ni nic
+nevede, vyhledávače ji nemají (noindex) a do offline sady aplikace nepatří; ukazuje jen veřejné souhrnné počty.
+
 ## Odkazy do aplikací v telefonu
 
 Aplikace na cestování většinou veřejné API nemají, ATLAS je proto otevírá **odkazem**. Je-li aplikace v telefonu,
