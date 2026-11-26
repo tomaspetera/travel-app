@@ -206,6 +206,7 @@ test('rankOsm: téměř stejný záznam (název začíná druhým, do 300 m) jen
   assert.deepEqual(out.map((x) => x.id), ['osm:way/2', 'osm:node/3', 'osm:node/4']);
 });
 
+const realNow = Date.now;
 test('OSM: výpadek Nominatimu – 2 min se neptá ani u jiných míst ve frontě (jinak by hledání čekala za timeouty)', async () => {
   const stub = stubFetch(() => ({ status: 503, body: 'down' }));
   const prev = config.mock;
@@ -217,7 +218,20 @@ test('OSM: výpadek Nominatimu – 2 min se neptá ani u jiných míst ve front�
     assert.equal(stub.calls.length, 1, 'na Nominatim jen první dotaz');
     await assert.rejects(osmLodging(at(3)), /Nominatim teď není dostupný/);
     assert.equal(stub.calls.length, 1);
+    // místa vynechaná pojistkou si výpadek nepamatují 10 min: po 2 min se zeptají znovu (jen to první čeká 10 min)
+    const now = Date.now();
+    Date.now = () => now + 2 * 60e3 + 1;
+    stub.restore();
+    const ok = stubFetch(() => ({ status: 200, body: [] }));
+    try {
+      assert.deepEqual(await osmLodging(at(1)), []);
+      await assert.rejects(osmLodging(at(0)), /Nominatim teď není dostupný/);
+      assert.equal(ok.calls.length, 3, 'jen místo 1 (3 fráze)');
+    } finally {
+      ok.restore();
+    }
   } finally {
+    Date.now = realNow;
     config.mock = prev;
     stub.restore();
     resetNominatim();
