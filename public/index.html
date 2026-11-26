@@ -585,5 +585,8 @@ if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configur
 <script src="js/qr.js"></script>
 <script src="js/transfer.js"></script>
 <script src="js/plus.js"></script>
+<!-- kukátko, živý průvodce (vzhled Letsi, krok 4: js/kukatko.js, ten si přidá css/kukatko.css) – jen s data-brand="letsi";
+     bez přepínače se nestáhne nic, proto ho nenačítá značka se src, ale tenhle skript -->
+<script>if (document.documentElement.getAttribute('data-brand') === 'letsi') document.body.appendChild(Object.assign(document.createElement('script'), { src: 'js/kukatko.js' }));</script>
 </body>
 </html>

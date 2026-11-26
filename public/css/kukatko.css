@@ -1,0 +1,78 @@
+/* Kukátko Letsi · vzhled a pohyb (vzhled Letsi, krok 4; patří k js/kukatko.js). Převzaté z balíku identity 2.1
+   (kukatko/kukatko.css) a přizpůsobené ATLASu. Soubor načítá js/kukatko.js až se vzhledem Letsi, a přesto je každé
+   pravidlo pod :root[data-brand="letsi"] – bez přepínače by se nic nezměnilo, ani kdyby se soubor načetl.
+   Barvy 2.1: rám a zorničky Noc, okénka Vápno (otvory do plochy); v tmavém režimu Vápno a okénka do pozadí; slunce
+   v oku a u ceny Rajče (--letsi-slunce), na obrazovce jen jedno. Tokeny --letsi-kukatko* letsi.css zatím nemá, proto
+   platí hodnoty za čárkou. Motiv řídí <html data-theme> (úvodní skript ho nastaví vždy), ne prefers-color-scheme.
+   Pohyb jsou jen CSS přechody: když se nic neděje, nic se nepočítá. Kukátko je ozdoba (stav hlásí aplikace textem):
+   aria-hidden, nebere klepnutí ani fokus. */
+:root[data-brand="letsi"] .kukatko {
+  --k-ram: var(--letsi-kukatko, #14161F);
+  --k-okno: var(--letsi-kukatko-okenko, #F3F4F0);
+  --k-zor: var(--letsi-kukatko-zornicka, #14161F);
+  --k-slunce: var(--letsi-slunce, #DF3A14);
+  --k-tp: 180ms;                          /* zorničky: rychlý přeskok s doběhem (sakáda) */
+  --k-ep: cubic-bezier(.3, .7, .4, 1);
+  --k-tc: 200ms;                          /* clony (víčka) – délku a křivku nastavuje kukatko.js podle akce */
+  --k-ec: cubic-bezier(.4, 0, .2, 1);
+  display: inline-block;
+  flex: none;
+  vertical-align: middle;
+  pointer-events: none;
+  user-select: none;
+}
+:root[data-brand="letsi"] .kukatko .k-ram,
+:root[data-brand="letsi"] .kukatko .k-clona { fill: var(--k-ram); }
+:root[data-brand="letsi"] .kukatko .k-okno { fill: var(--k-okno); }
+:root[data-brand="letsi"] .kukatko .k-zor { fill: var(--k-zor); transition: transform var(--k-tp) var(--k-ep), opacity 80ms linear; }
+:root[data-brand="letsi"] .kukatko .k-zor.k-sl { fill: var(--k-slunce); }        /* slunce v oku: jen při „Mám to“ */
+/* hlava jde za očima o kousek pomaleji: oči vedou, hlava se dotočí */
+:root[data-brand="letsi"] .kukatko .k-hlava { transition: transform calc(var(--k-tp) + 80ms) cubic-bezier(.25, .8, .3, 1); }
+:root[data-brand="letsi"] .kukatko .k-clona { transition: transform var(--k-tc) var(--k-ec); }
+
+/* tmavý režim: kukátko ve Vápně, okénka jsou otvory do pozadí (master mark-negativ); plocha pod kukátkem říká svou
+   barvu přes --k-pozadi */
+:root[data-brand="letsi"][data-theme="dark"] .kukatko {
+  --k-ram: var(--letsi-kukatko, #F3F4F0); --k-zor: var(--letsi-kukatko-zornicka, #F3F4F0);
+  --k-okno: var(--k-pozadi, var(--letsi-kukatko-okenko, #14161F));
+}
+/* plocha značky (Pistácie: hlavička Přehledu) v obou režimech pozitiv jako ikona: rám a zorničky Noc, okénka Vápno.
+   Kukátko ve Vápně by na Pistácii zmizelo (1,3 : 1) a Pistácie má stát vždy s Nocí. */
+:root[data-brand="letsi"] .k-znacka .kukatko {
+  --k-ram: #14161F; --k-zor: #14161F; --k-okno: #F3F4F0;
+}
+
+/* bez pohybu: omezený pohyb v systému, klid, první vykreslení – jen statický výraz */
+:root[data-brand="letsi"] .kukatko.k-ticho * { transition: none !important; }
+@media (prefers-reduced-motion: reduce) {
+  :root[data-brand="letsi"] .kukatko * { transition: none !important; }
+}
+
+/* slunce, které při „Mám to“ vyletí z oka a dosedne před nejlevnější cenu. Je to pořád jedno slunce. V UI pod 24 px
+   bez lemu, vždy hned u čísla. */
+:root[data-brand="letsi"] .k-letici-slunce {
+  position: absolute; z-index: 60; display: block; border-radius: 50%;
+  background: var(--letsi-slunce, #DF3A14); pointer-events: none; will-change: transform;
+}
+:root[data-brand="letsi"] .k-slunce-cil {
+  display: inline-block; width: .5em; height: .5em; margin: 0 .3em 0 .1em; border-radius: 50%; vertical-align: .08em;
+  background: var(--letsi-slunce, #DF3A14); opacity: 0; transition: opacity 60ms linear; pointer-events: none;
+}
+:root[data-brand="letsi"] .k-slunce-cil.k-sviti { opacity: 1; }
+
+/* ---- kde kukátko v ATLASu bydlí ---- */
+/* Přehled: vlevo od titulku, titulek se zalomí vedle něj (nic nepřekrývá) */
+:root[data-brand="letsi"] .hero h1.kuk-s { display: flex; align-items: center; gap: 12px; }
+:root[data-brand="letsi"] .kuk-host { display: inline-flex; flex: none; pointer-events: none; }
+/* Lety: vlastní řádek mezi průběhem hledání a výsledky (ne v nich – flights.js je přepisuje celé) */
+:root[data-brand="letsi"] .kuk-rada {
+  --k-pozadi: var(--bg);
+  display: flex; align-items: center; gap: 10px; min-height: 36px; margin: 0 4px 12px;
+  font-size: 14px; line-height: 1.3; color: var(--text); pointer-events: none;
+}
+:root[data-brand="letsi"] .kuk-rada[hidden] { display: none; }
+:root[data-brand="letsi"] .kuk-hlas:empty { display: none; }
+/* štítek „Mám to“: plná Pistácie s Nocí (12,57 : 1), stejně ve světlém i tmavém režimu */
+:root[data-brand="letsi"] .kuk-hlas.kuk-mam {
+  padding: 4px 10px; border-radius: 999px; background: var(--letsi-pistacie, #D6DE82); color: #14161F; font-weight: 600;
+}

@@ -51,8 +51,9 @@ test('index.html: lazy.js před ostatními skripty stránky; odložené moduly n
 test('service worker ukládá pro offline všechny skripty z public/js – i odložené moduly a lazy.js', async () => {
   const { serviceWorker, shellAssets, contentVersion } = await import('../server/lib/pwa.js');
   const { precache, html } = serviceWorker({ publicDir: path.join(ROOT, 'public'), dataDir: path.join(ROOT, 'data') });
-  // statistiky.js patří k samostatné stránce pro majitele (public/statistiky.html), ne k aplikaci – offline ji nikdo nepotřebuje
-  const all = readdirSync(path.join(ROOT, 'public/js')).filter((f) => f.endsWith('.js') && f !== 'statistiky.js').map((f) => `js/${f}`);
+  // statistiky.js patří k samostatné stránce pro majitele (public/statistiky.html), ne k aplikaci – offline ji nikdo nepotřebuje;
+  // kukatko.js (vzhled Letsi za přepínačem) se bez přepínače nesmí stáhnout vůbec, ani do zásoby pro offline (test/kukatko.test.js)
+  const all = readdirSync(path.join(ROOT, 'public/js')).filter((f) => f.endsWith('.js') && f !== 'statistiky.js' && f !== 'kukatko.js').map((f) => `js/${f}`);
   assert.ok(all.length >= 20);
   // pod adresou s otiskem obsahu, jakou má stránka od serveru (i v data-later) – ne pod holou adresou
   for (const u of all) {
