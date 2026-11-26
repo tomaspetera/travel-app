@@ -57,8 +57,10 @@ test('všechna tlačítka koupě ve flights.js (výsledky, víc měst, detail ra
   assert.doesNotMatch(FL, /class="btn sm book"[^\n]*?rel="noopener"/);
 });
 
-test('štítek na tlačítku: barva textu tlačítka (šedý by na barevné ploše nebyl čitelný)', () => {
-  assert.match(read('public/css/trip.css'), /^\.btn \.ad-tag\{color:inherit;border-color:currentColor\}$/m);
+test('štítek na tlačítku: barva textu tlačítka (šedý by na barevné ploše nebyl čitelný), na úzkém tlačítku pod textem', () => {
+  assert.match(read('public/css/trip.css'), /^\.btn \.ad-tag\{color:inherit;border-color:currentColor;margin-left:0\}/m);
+  // Tam/Zpět vedle sebe na 412 px: bez zalomení by se text vedle štítku zúžil na tři řádky („Tam:“ / „Aviasales“ / „↗“)
+  assert.match(read('public/css/flights.css'), /^\.btn\.book\{flex-wrap:wrap;row-gap:4px\}$/m);
 });
 
 /** load() z app.js s uloženým stavem (jako test/migrate.test.js). */
@@ -99,6 +101,19 @@ test('načtení stavu: dřív uložená přesná 📍 Moje poloha (domov, formul
   // bez domova a formuláře (nový uživatel, starý stav) nic nespadne
   const empty = loadWith({ pv: 2 });
   assert.deepEqual([empty.home, empty.form, empty.recent], [null, null, []]);
+});
+
+test('načtení stavu v pořadí jako v app.js: zaokrouhlení nespadne a ostatní data zůstanou (const před load() = prázdný stav)', () => {
+  // vybírání podle jména výše pořadí změní – tady skutečný úsek app.js od LS po defState, jak běží v prohlížeči
+  const a = APP.indexOf("const LS = 'atlas_v1';"), b = APP.indexOf('\n', APP.indexOf('function defState()'));
+  assert.ok(a > 0 && b > a, 'app.js: úsek stavu');
+  const me = { id: 'geo:50.0877,14.4212|Moje poloha', label: 'Moje poloha', flag: '📍', type: 'place' };
+  const ctx = { localStorage: { getItem: () => JSON.stringify({ pv: 2, visited: ['CZ', 'AT'], trips: [{ id: 1 }], home: { from: [me], radius: 150 } }) } };
+  vm.createContext(ctx);
+  vm.runInContext(`${APP.slice(a, b)}\nthis.S = S;`, ctx, { filename: 'app-state-order.js' });
+  const s = plain(ctx.S);
+  assert.deepEqual([s.visited, s.trips], [['CZ', 'AT'], [{ id: 1 }]]);
+  assert.equal(s.home.from[0].id, 'geo:50.09,14.42|Moje poloha');
 });
 
 test('Objevuj → Tady: poloha na 3 desetinná místa před openOther (adresa /api/poi i atlas_explore_v1)', () => {

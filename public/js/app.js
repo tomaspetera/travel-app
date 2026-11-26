@@ -53,7 +53,9 @@ let S = load();
 function load() { try { const d = JSON.parse(localStorage.getItem(LS)); if (d) return migrateGeo(migratePrices(Object.assign(defState(), d), d.pv)); } catch (e) { } return defState(); }
 // 📍 Moje poloha jde ven jen na ~1 km (SearchHelp.myPlace, 2 desetinná místa) – na letiště do 150 km to stačí. Dřív
 // uložený domov, formulář a Nedávno měly 4 místa (~11 m, skoro adresa domu v logu serveru): při načtení zaokrouhlit.
-const coarseGeo = p => { const m = p && /^geo:(-?[\d.]+),(-?[\d.]+)\|Moje poloha$/.exec(p.id || ''); return m ? { ...p, id: `geo:${(+m[1]).toFixed(2)},${(+m[2]).toFixed(2)}|Moje poloha` } : p; };
+// Deklarace funkce, ne const: load() běží výš (let S = load()) a const by tam ještě neexistovalo – výjimku by catch
+// v load() spolkl a vrátil prázdný stav, který první save() uloží přes všechna data uživatele.
+function coarseGeo(p) { const m = p && /^geo:(-?[\d.]+),(-?[\d.]+)\|Moje poloha$/.exec(p.id || ''); return m ? { ...p, id: `geo:${(+m[1]).toFixed(2)},${(+m[2]).toFixed(2)}|Moje poloha` } : p; }
 function migrateGeo(s) {
   const fix = o => (o && Array.isArray(o.from) ? { ...o, from: o.from.map(coarseGeo) } : o);
   return { ...s, home: fix(s.home), form: fix(s.form), recent: Array.isArray(s.recent) ? s.recent.map(r => (r && r.form ? { ...r, form: fix(r.form) } : r)) : s.recent };
