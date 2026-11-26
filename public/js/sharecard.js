@@ -69,20 +69,50 @@
   }
 
   /* ---------- kreslení karet (canvas) ---------- */
-  const INK = '#0f1830', MUTED = '#56638a', BLUE = '#1d4ed8', VIOLET = '#6d28d9';
+  /* Barvy a písma karet podle vzhledu: ATLAS, nebo Letsi 2.1 (<html data-brand="letsi">, css/letsi.css). Karta je
+     obrázek, CSS proměnné na ni nedosáhnou – proto vlastní tabulka. Letsi podle pravidel palety: Pistácie jen jako plná
+     plocha a vždy s Nocí, světlé plochy Vápno, žádné barevné přechody ani sklo, Rajče vůbec, ceny a odkazy barvou textu.
+     Ztmavení přes fotku (scrim) zůstává – je to průhledná Noc kvůli čitelnosti, ne barevný přechod. bg a mark: pole =
+     přechod, řetězec = plná barva; pillLine null = bez obrysu. Písma Letsi doplní theme() podle toho, co je načtené. */
+  const THEMES = {
+    atlas: {
+      ink: '#0f1830', muted: '#56638a', link: '#1d4ed8', hand: '#6d28d9', plane: '#2563eb', track: '#c3cbe0',
+      cut: '#d3d9e8', cut2: '#e3e8f3', strip: '#eef2fb', page: '#eef2fb', ticket: '#fff', ticketShadow: 'rgba(15,24,48,.18)',
+      bg: ['#0e7490', '#1e3a8a', '#5b21b6'], scrim: '8,12,26', title: '#fff', credit: 'rgba(255,255,255,.8)', shadow: 'rgba(0,0,0,.5)',
+      pillBg: 'rgba(255,255,255,.16)', pillLine: 'rgba(255,255,255,.42)', pillText: '#fff', mark: ['#22d3ee', '#5b8cff', '#a855f7'], markLine: '#fff',
+      head: 'Sora, Inter, sans-serif', text: 'Inter, sans-serif',
+    },
+    letsi: {
+      ink: '#14161F', muted: '#585D56', link: '#14161F', hand: '#14161F', plane: '#14161F', track: '#C9CDC2',
+      cut: '#C9CDC2', cut2: '#DFE2DA', strip: '#DFE2DA', page: '#D6DE82', ticket: '#F3F4F0', ticketShadow: 'rgba(20,22,31,.18)',
+      bg: '#14161F', scrim: '20,22,31', title: '#F3F4F0', credit: 'rgba(243,244,240,.8)', shadow: 'rgba(20,22,31,.5)',
+      pillBg: '#D6DE82', pillLine: null, pillText: '#14161F', mark: '#D6DE82', markLine: '#14161F',
+    },
+  };
+  let T = THEMES.atlas; // motiv právě kreslených karet (nastaví render)
+  const isLetsi = () => { const e = document.documentElement; return Boolean(e && e.dataset && e.dataset.brand === 'letsi'); };
+  /** Motiv podle vzhledu. Letsi: Unbounded ('Letsi') a Onest jen načtené – jinak by canvas měřil a kreslil náhradním
+   *  písmem a karta by neseděla s ostatními; bez nich systémové písmo (jako záloha v letsi.css). */
+  function theme() {
+    if (!isLetsi()) return THEMES.atlas;
+    const ok = f => { try { return Boolean(document.fonts && document.fonts.check(f)); } catch (e) { return false; } };
+    const onest = ok('700 30px Onest') ? 'Onest, ' : '';
+    return { ...THEMES.letsi, head: `${ok('800 100px Letsi') ? 'Letsi, ' : ''}${onest}system-ui, sans-serif`, text: `${onest}system-ui, sans-serif` };
+  }
   const PLANE = 'M21 15.5v-1.7l-7.5-4.6V4a1.5 1.5 0 0 0-3 0v5.2L3 13.8v1.7l7.5-2.3V18l-2 1.4V21l3.5-1 3.5 1v-1.6l-2-1.4v-4.8z';
   const LOGO = 'M22 2L11 13M22 2l-7 20-4-9-9-4z';
   const wait = ms => new Promise(r => setTimeout(r, ms));
 
   // Písma: Inter a Sora má stránka, Caveat („třeba ty?“) jen karta – všechna z vlastního serveru (@font-face v css/atlas.css,
   // vendor/fonts), fonts.load je stáhne, až je karta potřebuje. Nenačtené písmo (bez sítě) nevadí – rozměry se měří
-  // (measureText), karta jen bude v náhradním písmu.
+  // (measureText), karta jen bude v náhradním písmu. Vzhled Letsi místo Sory a Interu stahuje Unbounded a Onest (css/letsi.css).
   let fontsP = null;
   function fonts() {
     if (fontsP) return fontsP;
     const load = (f, s) => (document.fonts && document.fonts.load ? document.fonts.load(f, s).catch(() => { }) : null);
-    const all = Promise.all([load('800 100px Sora', 'Jede někdo se mnou?'), load('700 50px Sora', 'Praha'), load('800 30px Inter', 'HLEDÁM PARŤÁKA'),
-      load('700 30px Inter', 'klikni'), load('600 22px Inter', 'foto'), load('700 70px Caveat', HAND)]);
+    const [H, X] = isLetsi() ? ['Letsi', 'Onest'] : ['Sora', 'Inter'];
+    const all = Promise.all([load(`800 100px ${H}`, 'Jede někdo se mnou?'), load(`700 50px ${H}`, 'Praha'), load(`800 30px ${X}`, 'HLEDÁM PARŤÁKA'),
+      load(`700 30px ${X}`, 'klikni'), load(`600 22px ${X}`, 'foto'), load('700 70px Caveat', HAND)]);
     fontsP = Promise.race([all, wait(8000)]); // pomalá síť: karta se kreslí, zatímco okno ukazuje „Chystám obrázky…“
     return fontsP;
   }
@@ -120,11 +150,14 @@
     stops.forEach(([p, c]) => g.addColorStop(p, c));
     x.fillStyle = g; x.fillRect(0, Y0, x.canvas.width, Y1 - Y0);
   }
-  // pozadí bez fotky: tmavý přechod v barvách ATLASu
+  // pozadí bez fotky: tmavý přechod v barvách ATLASu, u Letsi plná Noc
   function noPhoto(x, w, h) {
-    const g = x.createLinearGradient(0, 0, w, h);
-    g.addColorStop(0, '#0e7490'); g.addColorStop(0.5, '#1e3a8a'); g.addColorStop(1, '#5b21b6');
-    x.fillStyle = g; x.fillRect(0, 0, w, h);
+    if (Array.isArray(T.bg)) {
+      const g = x.createLinearGradient(0, 0, w, h);
+      g.addColorStop(0, T.bg[0]); g.addColorStop(0.5, T.bg[1]); g.addColorStop(1, T.bg[2]);
+      x.fillStyle = g;
+    } else x.fillStyle = T.bg;
+    x.fillRect(0, 0, w, h);
   }
   /** Text s prostrkáním (štítky „ODKUD“, „HLEDÁM PARŤÁKA…“) → šířka. align 'right' kreslí doleva od X. */
   function spaced(x, s, X, Y, sp, align = 'left', draw = true) {
@@ -161,45 +194,49 @@
     x.save(); x.setLineDash(dash); x.lineWidth = wdt; x.strokeStyle = color; x.beginPath(); x.moveTo(X0, Y0); x.lineTo(X1, Y1); x.stroke(); x.restore();
   }
   function barcode(x, X, Y, w, h) {
-    x.fillStyle = INK;
+    x.fillStyle = T.ink;
     const pat = [5, 4, 2, 6, 3, 4, 5, 3, 2, 5, 4, 2, 3, 6];
     for (let cx = X, i = 0; cx < X + w; i++) { const bw = pat[i % pat.length] * (i % 2 ? 0 : 1); if (bw) x.fillRect(cx, Y, Math.min(bw, X + w - cx), h); cx += pat[i % pat.length]; }
   }
-  // značka ATLAS: zaoblený čtverec v barvách aplikace s papírovou vlaštovkou + název
+  // značka ATLAS: zaoblený čtverec v barvách aplikace (u Letsi Pistácie s Nocí) s papírovou vlaštovkou + název
   function mark(x, X, Y, size, label, color, align = 'left') {
-    x.font = `700 ${Math.round(size * 0.8)}px Inter, sans-serif`;
+    x.font = `700 ${Math.round(size * 0.8)}px ${T.text}`;
     const tw = spaced(x, label, 0, 0, 2, 'left', false), total = size + 10 + tw, X0 = align === 'right' ? X - total : X;
-    const g = x.createLinearGradient(X0, Y, X0 + size, Y + size);
-    g.addColorStop(0, '#22d3ee'); g.addColorStop(0.45, '#5b8cff'); g.addColorStop(1, '#a855f7');
-    x.fillStyle = g; rr(x, X0, Y, size, size, size * 0.3); x.fill();
+    if (Array.isArray(T.mark)) {
+      const g = x.createLinearGradient(X0, Y, X0 + size, Y + size);
+      g.addColorStop(0, T.mark[0]); g.addColorStop(0.45, T.mark[1]); g.addColorStop(1, T.mark[2]);
+      x.fillStyle = g;
+    } else x.fillStyle = T.mark;
+    rr(x, X0, Y, size, size, size * 0.3); x.fill();
     x.save(); x.translate(X0 + size * 0.2, Y + size * 0.2); x.scale(size * 0.6 / 24, size * 0.6 / 24);
-    x.strokeStyle = '#fff'; x.lineWidth = 2.6; x.lineCap = 'round'; x.lineJoin = 'round'; x.stroke(new Path2D(LOGO)); x.restore();
+    x.strokeStyle = T.markLine; x.lineWidth = 2.6; x.lineCap = 'round'; x.lineJoin = 'round'; x.stroke(new Path2D(LOGO)); x.restore();
     x.fillStyle = color; x.textBaseline = 'middle';
     spaced(x, label, X0 + size + 10, Y + size / 2 + 1, 2);
     x.textBaseline = 'alphabetic';
   }
   function pill(x, s, X, Y, size) {
-    x.font = `800 ${size}px Inter, sans-serif`;
+    x.font = `800 ${size}px ${T.text}`;
     const sp = size * 0.17, w = spaced(x, s, 0, 0, sp, 'left', false), h = size + size * 0.95, padX = size;
-    x.fillStyle = 'rgba(255,255,255,.16)'; rr(x, X, Y, w + padX * 2, h, h / 2); x.fill();
-    x.lineWidth = 2; x.strokeStyle = 'rgba(255,255,255,.42)'; x.stroke();
-    x.fillStyle = '#fff'; x.textBaseline = 'middle';
+    // ATLAS: skleněný štítek s obrysem; Letsi sklo nemá – plná Pistácie bez obrysu
+    x.fillStyle = T.pillBg; rr(x, X, Y, w + padX * 2, h, h / 2); x.fill();
+    if (T.pillLine) { x.lineWidth = 2; x.strokeStyle = T.pillLine; x.stroke(); }
+    x.fillStyle = T.pillText; x.textBaseline = 'middle';
     spaced(x, s, X + padX, Y + h / 2 + 1, sp);
     x.textBaseline = 'alphabetic';
     return h;
   }
   // nadpis s měkkým stínem (čitelný na světlé i tmavé fotce)
   function shadowed(x, fn, blur = 40, dy = 6) {
-    x.save(); x.shadowColor = 'rgba(0,0,0,.5)'; x.shadowBlur = blur; x.shadowOffsetY = dy; fn(); x.restore();
+    x.save(); x.shadowColor = T.shadow; x.shadowBlur = blur; x.shadowOffsetY = dy; fn(); x.restore();
   }
   function label(x, s, X, Y, size, align = 'left') {
-    x.font = `800 ${size}px Inter, sans-serif`; x.fillStyle = MUTED;
+    x.font = `800 ${size}px ${T.text}`; x.fillStyle = T.muted;
     spaced(x, s, X, Y, size * 0.17, align);
   }
-  // „třeba ty?“ jako dopsané propiskou: fialově, mírně šikmo
+  // „třeba ty?“ jako dopsané propiskou: fialově (Letsi Nocí), mírně šikmo
   function hand(x, X, Y, size, maxW) {
     x.save(); x.translate(X, Y); x.rotate(-4 * Math.PI / 180);
-    fit(x, HAND, '700 {s}px Caveat, "Segoe Print", "Bradley Hand", cursive', size, maxW); x.fillStyle = VIOLET; x.textAlign = 'left';
+    fit(x, HAND, '700 {s}px Caveat, "Segoe Print", "Bradley Hand", cursive', size, maxW); x.fillStyle = T.hand; x.textAlign = 'left';
     x.fillText(HAND, 0, 0); x.restore();
   }
 
@@ -211,40 +248,40 @@
     x.textBaseline = 'alphabetic';
     // KAM
     const kz = kamSize(d.dest, s.kam);
-    x.font = `800 ${kz}px Sora, Inter, sans-serif`;
+    x.font = `800 ${kz}px ${T.head}`;
     let lines = wrap(x, d.dest, s.kamMax);
     const last = lines.length - 1;
-    if (x.measureText(lines[last]).width > s.kamMax) fit(x, lines[last], '800 {s}px Sora, Inter, sans-serif', kz, s.kamMax);
-    x.fillStyle = INK; x.textAlign = 'right';
+    if (x.measureText(lines[last]).width > s.kamMax) fit(x, lines[last], `800 {s}px ${T.head}`, kz, s.kamMax);
+    x.fillStyle = T.ink; x.textAlign = 'right';
     lines.forEach((ln, i) => x.fillText(ln, R, bottom - (last - i) * kz * 0.98));
     const kw = Math.max(...lines.map(ln => x.measureText(ln).width));
     x.textAlign = 'left';
     label(x, 'KAM', R, bottom - last * kz * 0.98 - kz * 0.8 - s.gap, s.lbl, 'right');
     // ODKUD
     const from = d.f || '';
-    const fz = from ? fit(x, from, '700 {s}px Sora, Inter, sans-serif', s.from, Math.max(120, R - L - kw - s.mid)) : 0;
+    const fz = from ? fit(x, from, `700 {s}px ${T.head}`, s.from, Math.max(120, R - L - kw - s.mid)) : 0;
     const fw = from ? x.measureText(from).width : 0; // před label() – ten přepne písmo
     if (from) {
-      x.fillStyle = INK; x.fillText(from, L, bottom - 4);
+      x.fillStyle = T.ink; x.fillText(from, L, bottom - 4);
       label(x, 'ODKUD', L, bottom - 4 - fz * 0.82 - s.gap, s.lbl);
     }
     // dráha s letadlem
     const a = L + fw + s.pad, b = R - kw - s.pad, cy = bottom - s.from * 0.42;
     if (b - a > s.plane * 2) {
       const m = (a + b) / 2;
-      dashed(x, a, cy, m - s.plane * 0.7, cy, s.dash, '#c3cbe0');
-      dashed(x, m + s.plane * 0.7, cy, b, cy, s.dash, '#c3cbe0');
-      plane(x, m, cy, s.plane, '#2563eb');
+      dashed(x, a, cy, m - s.plane * 0.7, cy, s.dash, T.track);
+      dashed(x, m + s.plane * 0.7, cy, b, cy, s.dash, T.track);
+      plane(x, m, cy, s.plane, T.plane);
     }
     return lines.length;
   }
   /** Počet řádků cíle na letence (dlouhý název se zalomí) – podle něj výška horní části letenky. */
-  function kamLines(x, dest, base, maxW) { x.font = `800 ${kamSize(dest, base)}px Sora, Inter, sans-serif`; return wrap(x, dest, maxW).length; }
+  function kamLines(x, dest, base, maxW) { x.font = `800 ${kamSize(dest, base)}px ${T.head}`; return wrap(x, dest, maxW).length; }
   /** Pole letenky (KDY / POČASÍ / VEDLE MĚ): štítek a hodnota, šířka sloupce col. */
   function field(x, lbl, val, X, Y, col, s) {
     label(x, lbl, X, Y - s.val - s.gap, s.lbl);
-    x.fillStyle = INK;
-    fit(x, val, '700 {s}px Sora, Inter, sans-serif', s.val, col);
+    x.fillStyle = T.ink;
+    fit(x, val, `700 {s}px ${T.head}`, s.val, col);
     x.fillText(val, X, Y);
   }
   const fieldsOf = d => [['KDY', MONTHS[monthOf(d) - 1]], d.temp != null ? ['POČASÍ', `~${d.temp} °C`] : d.b ? ['DÉLKA', nightsTxt(days(d.o, d.b))] : null].filter(Boolean);
@@ -253,39 +290,39 @@
   function story(d, ph) {
     const W = 1080, H = 1920, c = canvas(W, H), x = c.getContext('2d');
     if (ph) cover(x, ph.img, 0, 0, W, H); else noPhoto(x, W, H);
-    vgrad(x, 0, 960, [[0, 'rgba(8,12,26,.68)'], [0.48, 'rgba(8,12,26,.34)'], [1, 'rgba(8,12,26,0)']]);
-    vgrad(x, 840, H, [[0, 'rgba(8,12,26,0)'], [0.55, 'rgba(8,12,26,.46)'], [1, 'rgba(8,12,26,.82)']]);
+    vgrad(x, 0, 960, [[0, `rgba(${T.scrim},.68)`], [0.48, `rgba(${T.scrim},.34)`], [1, `rgba(${T.scrim},0)`]]);
+    vgrad(x, 840, H, [[0, `rgba(${T.scrim},0)`], [0.55, `rgba(${T.scrim},.46)`], [1, `rgba(${T.scrim},.82)`]]);
     const ph1 = pill(x, 'HLEDÁM PARŤÁKA NA CESTU', 84, 292, 30);
     shadowed(x, () => {
-      x.fillStyle = '#fff';
-      const z = Math.min(fit(x, 'Jede někdo', '800 {s}px Sora, Inter, sans-serif', 162, 912), fit(x, 'se mnou?', '800 {s}px Sora, Inter, sans-serif', 162, 912));
-      x.font = `800 ${z}px Sora, Inter, sans-serif`;
+      x.fillStyle = T.title;
+      const z = Math.min(fit(x, 'Jede někdo', `800 {s}px ${T.head}`, 162, 912), fit(x, 'se mnou?', `800 {s}px ${T.head}`, 162, 912));
+      x.font = `800 ${z}px ${T.head}`;
       const y1 = 292 + ph1 + 30 + z * 0.8;
       x.fillText('Jede někdo', 84, y1); x.fillText('se mnou?', 84, y1 + z * 0.95);
     }, 44, 8);
     // letenka 936 × 557: trasa | čárkovaný předěl s výřezy | pole | výzva s čárovým kódem
     const tw = 936, t = canvas(tw, 557), y = t.getContext('2d');
     const A = kamLines(y, d.dest, 96, 560) > 1 ? 236 : 196, th = A + 321; // předěl pod trasou, letenka pod ním 321 px
-    y.fillStyle = '#fff'; rr(y, 0, 0, tw, th, 44); y.fill();
+    y.fillStyle = T.ticket; rr(y, 0, 0, tw, th, 44); y.fill();
     route(y, d, 56, tw - 56, A - 36, { kam: 96, kamMax: 560, from: 56, lbl: 24, gap: 10, pad: 26, plane: 54, mid: 140, dash: 4 });
-    dashed(y, 56, A, tw - 56, A, 4, '#d3d9e8', [16, 12]);
+    dashed(y, 56, A, tw - 56, A, 4, T.cut, [16, 12]);
     const col = (tw - 112 - 48) / 3, fs = fieldsOf(d), fy = A + 120;
     fs.forEach(([l, v], i) => field(y, l, v, 56 + i * (col + 24), fy, col, { lbl: 24, val: 50, gap: 22 }));
     const hx = 56 + fs.length * (col + 24);
     label(y, 'VEDLE MĚ', hx, fy - 50 - 22, 24);
     hand(y, hx, fy + 16, 74, tw - 40 - hx);
-    y.fillStyle = '#eef2fb'; y.fillRect(0, A + 172, tw, 3);
-    y.fillStyle = INK; fit(y, 'Termín a lety z tvého letiště', '800 {s}px Inter, sans-serif', 36, tw - 112 - 200);
+    y.fillStyle = T.strip; y.fillRect(0, A + 172, tw, 3);
+    y.fillStyle = T.ink; fit(y, 'Termín a lety z tvého letiště', `800 {s}px ${T.text}`, 36, tw - 112 - 200);
     y.fillText('Termín a lety z tvého letiště', 56, A + 230);
-    y.fillStyle = BLUE; y.font = '700 30px Inter, sans-serif'; y.fillText('↓  klikni na odkaz', 56, A + 276);
+    y.fillStyle = T.link; y.font = `700 30px ${T.text}`; y.fillText('↓  klikni na odkaz', 56, A + 276);
     barcode(y, tw - 56 - 176, A + 198, 176, 62);
-    mark(y, tw - 56, A + 272, 26, 'ATLAS', MUTED, 'right');
+    mark(y, tw - 56, A + 272, 26, 'ATLAS', T.muted, 'right');
     // výřezy po stranách předělu
     y.globalCompositeOperation = 'destination-out';
     [0, tw].forEach(cx => { y.beginPath(); y.arc(cx, A, 30, 0, Math.PI * 2); y.fill(); });
     y.globalCompositeOperation = 'source-over';
-    x.save(); x.shadowColor = 'rgba(0,0,0,.5)'; x.shadowBlur = 46; x.shadowOffsetY = 30; x.drawImage(t, 0, 0, tw, th, 72, H - 392 - th, tw, th); x.restore();
-    if (ph) { x.font = '400 22px Inter, sans-serif'; x.fillStyle = 'rgba(255,255,255,.8)'; x.textAlign = 'right'; x.fillText(ph.credit, W - 84, H - 336); x.textAlign = 'left'; }
+    x.save(); x.shadowColor = T.shadow; x.shadowBlur = 46; x.shadowOffsetY = 30; x.drawImage(t, 0, 0, tw, th, 72, H - 392 - th, tw, th); x.restore();
+    if (ph) { x.font = `400 22px ${T.text}`; x.fillStyle = T.credit; x.textAlign = 'right'; x.fillText(ph.credit, W - 84, H - 336); x.textAlign = 'left'; }
     return c;
   }
 
@@ -293,44 +330,45 @@
    *  i Instagram (tam odkaz v popisku klikací není). */
   function post(d, ph) {
     const W = 1080, H = 1350, P = 880, c = canvas(W, H), x = c.getContext('2d');
-    x.fillStyle = '#eef2fb'; x.fillRect(0, 0, W, H);
+    // pod fotkou plocha za letenkou (Letsi: plná Pistácie, na ní jen letenka s Nocí)
+    x.fillStyle = T.page; x.fillRect(0, 0, W, H);
     x.save(); x.beginPath(); x.rect(0, 0, W, P); x.clip();
     if (ph) cover(x, ph.img, 0, 0, W, P); else noPhoto(x, W, P);
-    vgrad(x, P * 0.28, P, [[0, 'rgba(8,12,26,0)'], [0.42, 'rgba(8,12,26,.4)'], [1, 'rgba(8,12,26,.84)']]);
+    vgrad(x, P * 0.28, P, [[0, `rgba(${T.scrim},0)`], [0.42, `rgba(${T.scrim},.4)`], [1, `rgba(${T.scrim},.84)`]]);
     x.restore();
-    if (ph) shadowed(x, () => { x.font = '400 18px Inter, sans-serif'; x.fillStyle = '#fff'; x.textAlign = 'right'; x.fillText(ph.credit, W - 48, 44); x.textAlign = 'left'; }, 6, 1);
-    const z = Math.min(fit(x, 'Jede někdo', '800 {s}px Sora, Inter, sans-serif', 112, 950), fit(x, 'se mnou?', '800 {s}px Sora, Inter, sans-serif', 112, 950));
+    if (ph) shadowed(x, () => { x.font = `400 18px ${T.text}`; x.fillStyle = T.title; x.textAlign = 'right'; x.fillText(ph.credit, W - 48, 44); x.textAlign = 'left'; }, 6, 1);
+    const z = Math.min(fit(x, 'Jede někdo', `800 {s}px ${T.head}`, 112, 950), fit(x, 'se mnou?', `800 {s}px ${T.head}`, 112, 950));
     const y2 = P - 64, y1 = y2 - z * 0.96;
     shadowed(x, () => {
-      x.fillStyle = '#fff'; x.font = `800 ${z}px Sora, Inter, sans-serif`;
+      x.fillStyle = T.title; x.font = `800 ${z}px ${T.head}`;
       x.fillText('Jede někdo', 64, y1); x.fillText('se mnou?', 64, y2);
     }, 30, 6);
     pill(x, 'HLEDÁM PARŤÁKA NA CESTU', 64, y1 - z * 0.8 - 22 - 48, 24);
     // letenka 984 × 378: hlavní část 700 (trasa | předěl | pole) | perforace s výřezy | ústřižek s výzvou
     const tw = 984, th = 378, M = 700, t = canvas(tw, th), y = t.getContext('2d');
-    y.fillStyle = '#fff'; rr(y, 0, 0, tw, th, 36); y.fill();
+    y.fillStyle = T.ticket; rr(y, 0, 0, tw, th, 36); y.fill();
     const two = kamLines(y, d.dest, 72, 380) > 1, ry = two ? 160 : 138;
     route(y, d, 44, M - 44, ry, { kam: 72, kamMax: 380, from: 44, lbl: 20, gap: 8, pad: 20, plane: 40, mid: 110, dash: 3 });
-    dashed(y, 44, ry + 38, M - 44, ry + 38, 3, '#e3e8f3', [12, 10]);
+    dashed(y, 44, ry + 38, M - 44, ry + 38, 3, T.cut2, [12, 10]);
     const col = (M - 88 - 36) / 3, fs = fieldsOf(d);
     fs.forEach(([l, v], i) => field(y, l, v, 44 + i * (col + 18), 330, col, { lbl: 20, val: 40, gap: 16 }));
     const hx = 44 + fs.length * (col + 18);
     label(y, 'VEDLE MĚ', hx, 330 - 40 - 16, 20);
     hand(y, hx, 344, 60, M - 16 - hx);
-    dashed(y, M + 2, 30, M + 2, th - 30, 4, '#d3d9e8', [14, 11]);
+    dashed(y, M + 2, 30, M + 2, th - 30, 4, T.cut, [14, 11]);
     const sx = M + 36, sw = tw - sx - 30;
     const [l1, l2] = ['Chceš jet? Napiš mi', 'pošlu ti termín →'];
-    y.fillStyle = INK; y.font = '800 30px Inter, sans-serif';
+    y.fillStyle = T.ink; y.font = `800 30px ${T.text}`;
     const ls = wrap(y, l1, sw, 3);
     ls.forEach((ln, i) => y.fillText(ln, sx, 74 + i * 36));
-    y.fillStyle = BLUE; y.font = '700 25px Inter, sans-serif';
+    y.fillStyle = T.link; y.font = `700 25px ${T.text}`;
     wrap(y, l2, sw, 2).forEach((ln, i) => y.fillText(ln, sx, 74 + ls.length * 36 + 12 + i * 31));
     barcode(y, sx, th - 34 - 30 - 18 - 52, sw, 52);
-    mark(y, sx, th - 34 - 30, 30, 'ATLAS', MUTED);
+    mark(y, sx, th - 34 - 30, 30, 'ATLAS', T.muted);
     y.globalCompositeOperation = 'destination-out';
     [0, th].forEach(cy => { y.beginPath(); y.arc(M + 2, cy, 26, 0, Math.PI * 2); y.fill(); });
     y.globalCompositeOperation = 'source-over';
-    x.save(); x.shadowColor = 'rgba(15,24,48,.18)'; x.shadowBlur = 30; x.shadowOffsetY = 18; x.drawImage(t, 48, P + 44); x.restore();
+    x.save(); x.shadowColor = T.ticketShadow; x.shadowBlur = 30; x.shadowOffsetY = 18; x.drawImage(t, 48, P + 44); x.restore();
     return c;
   }
 
@@ -341,6 +379,7 @@
    */
   async function render(d) {
     await fonts();
+    T = theme(); // až po fonts() – theme() se ptá, která písma Letsi se opravdu načetla
     const [p1, p2] = await Promise.all([photo(d.dest, 1080, 1920), photo(d.dest, 1080, 830)]);
     const make = async (a, b) => {
       const cs = { story: story(d, a), post: post(d, b) }, out = {};
