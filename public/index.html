@@ -159,7 +159,7 @@ if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configur
       </div>
       <div>
         <div class="brand-name">Letsi</div>
-        <div class="brand-tag">letenky odkudkoliv kamkoliv</div>
+        <div class="brand-tag">levné letenky z okolí</div>
       </div>
     </div>
     <nav class="nav" id="nav" aria-label="Sekce"></nav>
@@ -204,7 +204,7 @@ if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configur
           <div class="hero-bg"></div><div class="hero-aurora"></div><div class="hero-grain"></div>
           <div class="hero-inner">
             <h1 id="heroGreet">Kam poletíme?</h1>
-            <p>Prohledám všechna letiště ve tvém okolí najednou – Ryanair, Wizz Air i další aerolinky – a spočítám i cestu na letiště. K letu ti pak poskládám celou dovolenou: ubytování, program i cenu celkem.</p>
+            <p>Projdu všechna letiště ve tvém okolí najednou, ukážu orientační ceny letenek a spočítám i cestu na letiště. K letu ti pak poskládám celou dovolenou: ubytování, program i cenu celkem.</p>
             <form class="hero-search2" id="heroSearch" autocomplete="off">
               <!-- třídy pi pi-dark (jinak je přidá až PlaceInput): pole mají výšku už před načtením skriptů – bez poskočení -->
               <div class="hs-field"><span class="hs-lab">Odkud</span><div class="place-input pi pi-dark" id="heroFrom"></div></div>
@@ -256,7 +256,7 @@ if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configur
       <!-- FLIGHTS -->
       <section class="view" id="view-flights">
         <!-- fotka cíle (bez cíle krásné místo dne) s nadpisem, formulář částečně na ní; po hledání (sbalený formulář) zmizí -->
-        <div class="fl-hero" id="flHero"><div class="fl-hero-in"><h1>Najdi nejlevnější letenky</h1><p>Ze všech letišť v okolí najednou – i s odhadem cesty na letiště</p></div></div>
+        <div class="fl-hero" id="flHero"><div class="fl-hero-in"><h1>Najdi levné letenky</h1><p>Ze všech letišť v okolí najednou – i s odhadem cesty na letiště</p></div></div>
         <div class="card search-sum" id="searchSum" hidden></div>
         <form class="card search-card" id="searchForm" autocomplete="off">
           <div class="sf-grid sf-route">
@@ -412,7 +412,7 @@ if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configur
           </details>
 
           <div class="row wrap sf-actions" style="margin-top:16px">
-            <button class="btn primary big" id="doSearch" type="submit">🔎 Najít nejlevnější lety</button>
+            <button class="btn primary big" id="doSearch" type="submit">🔎 Najít lety</button>
             <button class="btn ghost" id="watchBtn" type="button" title="Uložit hledání – cenu pak kontroluji, dokud máš aplikaci otevřenou v prohlížeči">♡ Hlídat cenu</button>
             <button class="btn ghost" id="formReset" type="button" title="Vyprázdnit formulář a schovat výsledky – odkud zůstane z domova">↺ Začít znovu</button>
             <label class="check-inline roll-opt" id="rollLbl" hidden><input type="checkbox" id="rollOn"> 📅 Hlídat s posouváním termínu</label>
@@ -433,12 +433,12 @@ if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configur
         <details class="card smart-guide" id="smartGuide">
           <summary><span>💡 Jak hledat chytře</span><span class="faint">hlavně dálkové lety – Amerika, Asie</span></summary>
           <ol class="sg-list">
-            <li><b>Buď flexibilní ± 3 dny.</b> U přesných dat zvol „± 3 dny“, nebo hledej „Flexibilně“ a otevři pohled 📅 Kalendář. Posun o den dva může ušetřit stovky, u dálkových letů i tisíce korun. U přesných dat ukáže pruh 📅 Nejbližší dny ceny okolních dnů, pokud je zná (hlavně Ryanair a Wizz Air) – jinak jiný den vyhledáš jedním kliknutím.</li>
+            <li><b>Buď flexibilní ± 3 dny.</b> U přesných dat zvol „± 3 dny“, nebo hledej „Flexibilně“ a otevři pohled 📅 Kalendář. Posun o den dva může ušetřit stovky, u dálkových letů i tisíce korun. U přesných dat ukáže pruh 📅 Nejbližší dny ceny okolních dnů, pokud je zná – jinak jiný den vyhledáš jedním kliknutím.</li>
             <li><b>Nejdřív celá země nebo světadíl, pak město.</b> Do „Kam“ napiš třeba „USA“ nebo „Asie“ – uvidíš, kam je to nejlevnější (New York, Miami, Bangkok…). Pak hledej to nejlevnější město na přesná data.</li>
             <li><b>Přidej přestupní letiště – Vídeň, Mnichov, Berlín, Frankfurt.</b> Bývá odtud víc přímých dálkových letů a často i nižší ceny. U dálkových cílů je Letsi přidává automaticky, jinak je zadej do „Odkud“ vedle svého města. Kolik zhruba stojí cesta na letiště, uvidíš u každé nabídky.</li>
             <li><b>Zkus jednosměrné letenky každým směrem.</b> Hledej „Jen tam“ zvlášť tam a zvlášť zpět – dvě jednosměrné letenky bývají někdy levnější než zpáteční. Tam do New Yorku a zpět z Bostonu nebo cestu přes víc měst slož v <b>🗺️ Víc měst</b> (tlačítko ↩ Návrat z jiného města) – každý let hledám zvlášť a hlídám, aby na sebe navazovaly.</li>
             <li><b>Dálkové lety rezervuj obvykle 2–5 měsíců předem</b> a hledání si ulož tlačítkem ♡ Hlídat cenu – Letsi cenu kontroluje, dokud máš stránku otevřenou, a na Přehledu ukáže, když klesne.</li>
-            <li><b>Ověř cenu i jinde.</b> Kiwi.com neprodává všechny aerolinky (např. British Airways). U výsledků proklikni „Ověřit: Google Flights · Skyscanner“ – uvidíš i lety, které Letsi nenajde.</li>
+            <li><b>Ověř cenu i jinde.</b> Ceny v Letsi jsou orientační a některé aerolinky v nich chybí. U výsledků proklikni „Ověřit: Google Flights · Skyscanner“ – uvidíš i lety, které Letsi nenajde.</li>
             <li id="sgEntry"><b>Hlídej vstupní podmínky.</b> Do USA je nutná ESTA a do Kanady eTA (obě i když tam jen přestupuješ), do Británie ETA – vyřizuj je jen na oficiálních webech. Letsi je ukáže u výsledků (🛂) a podrobně v detailu země.</li>
             <li><b>Odlet uprostřed týdne</b> (út–čt) bývá často levnější než v pátek nebo v neděli – není to ale pravidlo, záleží na trase a sezóně.</li>
           </ol>

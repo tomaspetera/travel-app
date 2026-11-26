@@ -442,7 +442,7 @@ test('placeForms: „Kutné Hory“ → Kutná Hora, „Mariánských Lázní“
   assert.deepEqual([F('Řím'), F('Hradce Králové'), F('Brno Londýn')], [[], [], []]);
 });
 
-test('✨ Zkus napsat: věta přes víc měst jen s domovem, který jde najít (ne „📍 Moje poloha“); Kamkoliv nejlevněji „3–9 nocí“, ne „týden“', () => {
+test('✨ Zkus napsat: věta přes víc měst jen s domovem, který jde najít (ne „📍 Moje poloha“); Kamkoliv levně „3–9 nocí“, ne „týden“', () => {
   const fl = readFileSync(new URL('../public/js/flights.js', import.meta.url), 'utf8');
   const src = fl.slice(fl.indexOf('const homeWord = '), fl.indexOf('function paintSmartTry()'));
   const ctx = { S: {}, MNS_IN: ['lednu', 'únoru', 'březnu', 'dubnu', 'květnu', 'červnu', 'červenci', 'srpnu', 'září', 'říjnu', 'listopadu', 'prosinci'], today: () => '2026-10-30' };
@@ -453,7 +453,7 @@ test('✨ Zkus napsat: věta přes víc měst jen s domovem, který jde najít (
   assert.ok(at({ id: 'BRQ', label: 'Brno (BRQ)' }).includes('Brno → Řím → Barcelona → Brno'));
   assert.ok(!at({ id: 'geo:50.0880,14.4208|Moje poloha', type: 'place', label: 'Moje poloha' }).some((x) => /→/.test(x)), 'Moje poloha: bez věty přes víc měst');
   assert.ok(!at(null).some((x) => /→/.test(x)), 'bez domova taky');
-  // Rychlé hledání bez délky (Kamkoliv nejlevněji): vlastní 3–9 nocí, ne předvolba „týden“ (5–9)
+  // Rychlé hledání bez délky (Kamkoliv levně): vlastní 3–9 nocí, ne předvolba „týden“ (5–9)
   assert.match(fl, /else Object\.assign\(f, \{ len: 'custom', nMin: 3, nMax: 9, outDays: \[\], backDays: \[\] \}\);/);
 });
 
