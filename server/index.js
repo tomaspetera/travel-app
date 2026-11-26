@@ -271,7 +271,7 @@ const TOO_MANY = { error: 'Příliš mnoho hledání za krátkou dobu – zkus t
 // config.searchConcurrency naráz, dalších config.searchQueue čeká, nad tím 503 česky (aplikace hlášku ukáže).
 const searchRuns = sharedRuns();
 const searchGate = gate(config.searchConcurrency, config.searchQueue);
-const BUSY = { error: 'ATLAS teď hledá pro hodně lidí najednou – zkus to prosím za minutu.' };
+const BUSY = { error: 'Letsi teď hledá pro hodně lidí najednou – zkus to prosím za minutu.' };
 // Fronta je společná – jedna adresa v ní smí mít naráz nejvýš config.searchPerClient hledání (běží i čekají), jinak by ji
 // v rámci svého limitu zaplnila sama a ostatní by dostávali 503. Místo se vrátí, jakmile hledání skončí (i chybou) nebo
 // klient odejde (zavřená stránka, zrušené hledání) – i když jeho hledání, pokud už běží, ještě doběhne.
@@ -616,7 +616,7 @@ async function route(req, res) {
     // API je jen pro ATLAS: z cizího webu (skript, obrázek, formulář) 403 – viz crossSite; odpověď API se nikdy
     // nevykreslí jako stránka (CSP bez ničeho)
     res.setHeader('Content-Security-Policy', API_CSP);
-    if (crossSite(req)) return sendJson(req, res, 403, { error: 'API ATLASu jde používat jen z aplikace ATLAS.' });
+    if (crossSite(req)) return sendJson(req, res, 403, { error: 'API Letsi jde používat jen z aplikace Letsi.' });
   }
   if (p === '/healthz') {
     res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' });

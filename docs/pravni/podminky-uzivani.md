@@ -1,12 +1,12 @@
-# Podmínky užívání – ATLAS (návrh pro advokáta)
+# Podmínky užívání – Letsi (návrh pro advokáta)
 
 > **Návrh, ne platný text.** Sepsáno podle skutečného chování kódu ke dni 16. 11. 2026 (podmínka spuštění č. 3
 > z plánu 1.2). Údaje v hranatých závorkách doplní provozovatel – repozitář je veřejný. Poznámky „Kde v kódu“
 > a oddíl Otázky pro advokáta do zveřejněné verze nepatří.
 
-## 1. Kdo ATLAS provozuje
+## 1. Kdo Letsi provozuje
 
-Aplikaci ATLAS (web https://atlas-letenky.onrender.com a aplikace na plochu z něj nainstalovaná) provozuje:
+Aplikaci Letsi (web https://atlas-letenky.onrender.com a aplikace na plochu z něj nainstalovaná) provozuje:
 
 - [jméno a příjmení]
 - IČO: [IČO]
@@ -15,19 +15,19 @@ Aplikaci ATLAS (web https://atlas-letenky.onrender.com a aplikace na plochu z n�
 
 (dále „provozovatel“). Používáním aplikace s těmito podmínkami souhlasíš.
 
-## 2. Co ATLAS je
+## 2. Co Letsi je
 
-ATLAS je **vyhledávač a plánovač cest**: hledá levné letenky z letišť v tvém okolí, ukazuje ubytování, dopravu na
+Letsi je **vyhledávač a plánovač cest**: hledá levné letenky z letišť v tvém okolí, ukazuje ubytování, dopravu na
 letiště a na místě, počasí, vstupní podmínky a pomáhá poskládat program cesty.
 
-**ATLAS nic neprodává.** Není aerolinka, cestovní kancelář ani zprostředkovatel prodeje. Letenky, ubytování, jízdenky
+**Letsi nic neprodává.** Není aerolinka, cestovní kancelář ani zprostředkovatel prodeje. Letenky, ubytování, jízdenky
 a půjčení auta si kupuješ vždy **přímo u prodejce** (aerolinka, Kiwi.com, Booking.com, Airbnb, RegioJet…), na jehož
 web tě odkaz pošle. Smlouvu uzavíráš s ním a platí jeho obchodní podmínky.
 
 ## 3. Zdarma a bez registrace
 
-Používání ATLASu je **zdarma**, bez účtu a registrace. Za služby se neplatí; dobrovolný příspěvek
-(💛 Podpořit ATLAS) je dar – nic za něj nedostáváš a na rozsah služby nemá vliv.
+Používání Letsi je **zdarma**, bez účtu a registrace. Za služby se neplatí; dobrovolný příspěvek
+(💛 Podpořit Letsi) je dar – nic za něj nedostáváš a na rozsah služby nemá vliv.
 
 Provozovatel může službu kdykoli změnit, omezit nebo ukončit. Na dostupnost služby není nárok – server může být
 krátce nedostupný (na bezplatném hostingu se po nečinnosti probouzí až minutu) a zdroje dat mohou vypadnout.
@@ -37,7 +37,7 @@ krátce nedostupný (na bezplatném hostingu se po nečinnosti probouzí až min
 
 ## 4. Ceny a spoje jsou orientační
 
-Ceny a spoje ATLAS získává z **veřejných zdrojů a od partnerů**: webů Ryanair a Wizz Air, Kiwi.com, Travelpayouts /
+Ceny a spoje Letsi získává z **veřejných zdrojů a od partnerů**: webů Ryanair a Wizz Air, Kiwi.com, Travelpayouts /
 Aviasales, TripAdvisoru (přes Xotelo), LiteAPI, RegioJetu a dalších (přehled je v aplikaci v ⋯ Další → ℹ️ O aplikaci
 a soukromí). Proto:
 
@@ -62,13 +62,13 @@ a soukromí). Proto:
 ## 5. Konečná cena letenky a zavazadla
 
 Podle nařízení (ES) č. 1008/2008 (čl. 23) musí cena letenky od prvního zobrazení obsahovat všechny nevyhnutelné
-daně, letištní a jiné poplatky; volitelné příplatky se uvádějí zvlášť a srozumitelně. ATLAS dnes cenu ukazuje takto:
+daně, letištní a jiné poplatky; volitelné příplatky se uvádějí zvlášť a srozumitelně. Letsi dnes cenu ukazuje takto:
 
 - Cena ve výsledcích je **za osobu**, za letenku v nejlevnějším tarifu tak, jak ji vrátí zdroj (aerolinka, Kiwi.com,
   Aviasales). U rodiny se ukazuje i celková cena za sedadla (děti platí jako dospělí, miminko na klíně bez poplatku
   aerolinky).
 - **Zavazadla jsou volitelná a ukazují se zvlášť.** Výchozí hledání je bez zavazadel. Když v hledání zvolíš kabinový
-  kufr nebo kufr k odbavení, ATLAS k ceně připočte **odhad** příplatku podle ceníku dopravce a ukáže rozpis
+  kufr nebo kufr k odbavení, Letsi k ceně připočte **odhad** příplatku podle ceníku dopravce a ukáže rozpis
   („letenka 1 234 Kč + zavazadla ~800 Kč“, „Cena letenek na osobu vč. zavazadel“). Ve Shrnutí cesty stojí, zda jsou
   zavazadla odhad, v ceně tarifu, nebo zda jsou letenky bez zavazadel.
 - **Doprava na letiště a do města** se do ceny letenky nezapočítává – je u nabídky zvlášť jako odhad.
@@ -114,7 +114,7 @@ bez jejich vědomí.
 
 ## 9. Licence dat a autorská práva
 
-ATLAS používá otevřená data a díla třetích stran pod jejich licencemi:
+Letsi používá otevřená data a díla třetích stran pod jejich licencemi:
 
 - **OpenStreetMap** – mapová data © přispěvatelé OpenStreetMap, licence ODbL (podklad map OpenFreeMap © OpenMapTiles,
   hranice oblastí, trasy BRouter, chaty a restaurace přes Overpass, ubytování bez ceny přes Nominatim),
@@ -154,7 +154,7 @@ Kontakt pro dotazy a stížnosti: [e-mail].
 
 ## Otázky pro advokáta
 
-1. **Vztahuje se čl. 23 nařízení 1008/2008 na ATLAS?** ATLAS letenky neprodává, jen zobrazuje ceny a odkazuje
+1. **Vztahuje se čl. 23 nařízení 1008/2008 na Letsi?** Letsi letenky neprodává, jen zobrazuje ceny a odkazuje
    (srovnávač). Pokud ano: aplikace ceny přebírá od zdrojů a **v kódu nelze ověřit, že obsahují všechny nevyhnutelné
    poplatky** – např. administrativní poplatek či poplatek za platbu kartou u Wizz Air, servisní poplatek Kiwi.com,
    poplatek za miminko (Shrnutí výslovně píše „bez poplatku za miminko“). Ceny Travelpayouts jsou až ~48 h staré.
@@ -181,7 +181,7 @@ Kontakt pro dotazy a stížnosti: [e-mail].
    a „souhlasu používáním“, když uživatel nic nepotvrzuje?
 6. **Podpořit (Stripe).** Je dobrovolný příspěvek s volitelnou částkou dar (bez protiplnění)? Jaké daňové a účetní
    povinnosti z toho plynou a má tlačítko nést text „Objednávka zavazující k platbě“ (požadavek v CLAUDE.md platí pro
-   platební tlačítko obecně)? Dnes se tlačítko jmenuje „💛 Podpořit ATLAS ↗“ a platí se na stránce Stripe.
+   platební tlačítko obecně)? Dnes se tlačítko jmenuje „💛 Podpořit Letsi ↗“ a platí se na stránce Stripe.
 7. **Zveřejnění a změny.** V aplikaci dnes podmínky ani zásady nejsou – jen okno ℹ️ O aplikaci a soukromí. Kde je
    zobrazit (odkaz v okně, patička na počítači) a jak oznamovat změny, když aplikace nemá účty ani e-maily (jen okno
    Novinky)?

@@ -92,13 +92,13 @@ export function metaOf(kind, o) {
     const place = txt(o && o.dest && o.dest.label, 60) || bases[0] || '';
     const name = bases.length > 1 ? bases.join(' → ') : place;
     const out = ymd((ov && ov.out && ov.out.date) || (f.out && f.out.date)), back = ymd((ov && ov.back && ov.back.date) || (f.back && f.back.date));
-    return { title: txt(`${name || 'Cesta'} ${datesTxt(out, back)}`, 90), desc: 'Let, ubytování a program po dnech – otevři cestu v ATLASu a ulož si ji.', place };
+    return { title: txt(`${name || 'Cesta'} ${datesTxt(out, back)}`, 90), desc: 'Let, ubytování a program po dnech – otevři cestu v Letsi a ulož si ji.', place };
   }
   const place = txt(o && o.dest, 60), name = txt(o && o.name, 70) || place || 'Plán cesty';
   const dates = datesTxt(ymd(o && o.start), ymd(o && o.end));
   // název plánu z průvodce už datum má („Lisabon 12.11.“) – druhé „· 12.–17. 11.“ by ho zdvojilo
   const hasDate = /\d{1,2}\.\s?\d{1,2}\./.test(name);
-  return { title: txt(hasDate || !dates ? name : `${name} · ${dates}`, 90), desc: 'Plán cesty z ATLASu – program po dnech, otevři ho a ulož si ho.', place };
+  return { title: txt(hasDate || !dates ? name : `${name} · ${dates}`, 90), desc: 'Plán cesty z Letsi – program po dnech, otevři ho a ulož si ho.', place };
 }
 
 /**
@@ -155,7 +155,7 @@ const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replac
 export const PREVIEW_BOT = /facebookexternalhit|facebookcatalog|meta-externalagent|WhatsApp|Twitterbot|TelegramBot|Slackbot|Discordbot|LinkedInBot|Pinterest|SkypeUriPreview|Viber|Applebot|Googlebot|bingbot/i;
 export function sharePage(id, rec, base, fallbackImg, { bot = false } = {}) {
   const m = rec.m || {};
-  return previewPage({ url: `${base}/c/${id}`, to: `/#s=${id}`, title: m.title || 'Cesta z ATLASu', desc: m.desc, img: m.img, wait: 'Otevírám cestu v ATLASu…' }, fallbackImg, { bot });
+  return previewPage({ url: `${base}/c/${id}`, to: `/#s=${id}`, title: m.title || 'Cesta z Letsi', desc: m.desc, img: m.img, wait: 'Otevírám cestu v Letsi…' }, fallbackImg, { bot });
 }
 
 /* ---------- Pozvánka „Jede někdo se mnou?“ /j/<data>: náhled odkazu bez úložiště ---------- */
@@ -176,7 +176,7 @@ export function inviteMeta(data) {
     if (!dest || !out || (o.v != null && o.v !== 1)) return null;
     return {
       title: `Jede někdo se mnou? ${dest} ${MONTHS_IN[+out.slice(5, 7) - 1]} ✈️`,
-      desc: `${from ? `Odlet: ${from}. ` : ''}Klepni na termín a najdi si lety ze svého letiště – v ATLASu, zdarma a bez registrace.`,
+      desc: `${from ? `Odlet: ${from}. ` : ''}Klepni na termín a najdi si lety ze svého letiště – v Letsi, zdarma a bez registrace.`,
       place: dest,
     };
   } catch (e) {
@@ -185,7 +185,7 @@ export function inviteMeta(data) {
 }
 /** Stránka /j/<data>: náhled pozvánky a přesměrování do aplikace (jako /c/). */
 export function invitePage(data, m, base, fallbackImg, { bot = false } = {}) {
-  return previewPage({ url: `${base}/j/${data}`, to: `/#jed=${data}`, title: m.title, desc: m.desc, img: m.img, wait: 'Otevírám pozvánku v ATLASu…' }, fallbackImg, { bot });
+  return previewPage({ url: `${base}/j/${data}`, to: `/#jed=${data}`, title: m.title, desc: m.desc, img: m.img, wait: 'Otevírám pozvánku v Letsi…' }, fallbackImg, { bot });
 }
 
 /**
@@ -198,11 +198,11 @@ function previewPage({ url, to, title, desc = '', img = null, wait }, fallbackIm
   const meta = (k, v, a = 'property') => `<meta ${a}="${k}" content="${esc(v)}">`;
   return `<!doctype html>
 <html lang="cs"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>${esc(title)} · ATLAS</title>
+<title>${esc(title)} · Letsi</title>
 ${meta('description', desc || '', 'name')}
 ${meta('robots', 'noindex', 'name')}
 ${meta('og:type', 'website')}
-${meta('og:site_name', 'ATLAS')}
+${meta('og:site_name', 'Letsi')}
 ${meta('og:locale', 'cs_CZ')}
 ${meta('og:url', url)}
 ${meta('og:title', title)}
