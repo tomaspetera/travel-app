@@ -167,7 +167,7 @@ export function makeTraces(store, { cap = CAP, hourCap = HOUR_CAP, flushMs = FLU
       return true;
     },
     flush,
-    /** ID návštěvy, o které server ví (čeká na zápis nebo zapsaná dnes) – další kroky nejsou nová návštěva. */
+    /** ID návštěvy, o které server ví (čeká na zápis nebo zapsaná dnes či včera) – další kroky nejsou nová návštěva. */
     has,
     async traces(days = 30) {
       const t = now();
