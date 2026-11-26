@@ -1375,10 +1375,12 @@
   const SELLER = 'Aktuální cenu a volná místa uvidíš až u prodejce.';
   const sellerHtml = t => (!liveOn() && !ovOn(t) && !t.flight.own ? `<div class="faint tf-seller">${SELLER}</div>` : '');
   // „↻ Ověř cenu“ v kroku Let (ověří hned) a ve Shrnutí (krok Let a ověřit tam – jednou, i u cesty, která se ještě
-  // neověřovala); výsledek ověření pak do obrazovky
+  // neověřovala); výsledek ověření pak do obrazovky. Tlačítko se mohlo vykreslit dřív, než dorazil stav serveru
+  // (healthSoon) – klepnutí na něj počká a bez živého ověření jen překreslí krok (bez tlačítka, s větou SELLER).
+  const liveThen = go => Promise.resolve(healthSoon()).then(() => (liveOn() ? go() : render()));
   function wireAge() {
-    const a = $('#tfAge'); if (a) a.onclick = () => verifyFlight({ show: true });
-    const s = $('#sumAge'); if (s) s.onclick = () => { const t = T(); if (!t.verifiedAt) t.verifiedAt = Date.now(); t.step = 'flight'; persist(); render(); verifyFlight({ show: 'top' }); };
+    const a = $('#tfAge'); if (a) a.onclick = () => liveThen(() => verifyFlight({ show: true }));
+    const s = $('#sumAge'); if (s) s.onclick = () => liveThen(() => { const t = T(); if (!t.verifiedAt) t.verifiedAt = Date.now(); t.step = 'flight'; persist(); render(); verifyFlight({ show: 'top' }); });
   }
   /**
    * Výsledek ověření (#tfAlt) je pod letem, tlačítky a cenou – na telefonu často pod spodní lištou, klepnutí by vypadalo,
@@ -1443,7 +1445,7 @@
     $('#tfBack').onclick = () => go('flights');
     $('#tfNext').onclick = () => setStep('route');
     const ab = $('#tfAuto'); if (ab) ab.onclick = () => autoTrip();
-    const vb = $('#tfVerify'); if (vb) vb.onclick = () => verifyFlight({ show: true });
+    const vb = $('#tfVerify'); if (vb) vb.onclick = () => liveThen(() => verifyFlight({ show: true }));
     wireAge();
     wirePrice(t);
     const os = $('#ovStart'); if (os) os.onclick = () => overlandPicker(t);
@@ -1463,6 +1465,7 @@
     const t = T();
     const f = t.flight;
     if (f.own) return; // vlastní let nikdo neprodává – není co ověřovat
+    if (!liveOn()) return; // bez živého zdroje na serveru (čistý režim) by „Ověřuji…“ slibovalo, co se nestane
     const host = $('#tfAlt');
     host.innerHTML = '<div class="loading-row"><span class="spin dark"></span> Ověřuji aktuální ceny u všech aerolinek…</div>';
     if (show) altIntoView(show === 'top');
