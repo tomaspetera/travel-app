@@ -38,7 +38,7 @@
   --nav-shadow:0 2px 10px rgba(20,22,31,.08);
   --shadow:0 1px 2px rgba(20,22,31,.04);
   --shadow-lg:0 20px 50px rgba(20,22,31,.18);
-  --btn-bg:#FFFFFF; --btn-sh:none; --input-bg:#FFFFFF; --input-line:#C9CDC2;
+  --btn-bg:#FFFFFF; --btn-sh:none; --input-bg:#FFFFFF; --input-line:#878D80;
 }
 :root[data-brand="letsi"][data-theme="dark"]{
   --bg:#14161F; --bg2:#1D2029; --bg-grad:#14161F;
@@ -54,7 +54,7 @@
   --nav-bg:#14161F; --nav-line:#2A2E3A; --nav-ico:#A6ACB6;
   --nav-shadow:0 2px 10px rgba(0,0,0,.3);
   --shadow:none; --shadow-lg:0 20px 50px rgba(0,0,0,.45);
-  --btn-bg:#1D2029; --btn-sh:none; --input-bg:#1D2029; --input-line:#3A3F4D;
+  --btn-bg:#1D2029; --btn-sh:none; --input-bg:#1D2029; --input-line:#666C7C;
 }
 
 /* ============ PÍSMA ============ */
@@ -85,7 +85,7 @@
 /* čipy: Pistáciová pěna s Nocí (v tmavém #2A2E3A s Vápnem) */
 :root[data-brand="letsi"] .chip.accent,:root[data-brand="letsi"] .app-chip{background:var(--surface-2);color:var(--text);border-color:var(--border)}
 /* odkaz = text barvou písma s podtržením (ne modrá) */
-:root[data-brand="letsi"] :is(.linkbtn,.section-head .link,.now-card a,.now-card .linkbtn,.foot-more>summary,.sc-go,.entry-detail a,.entry-card a){color:var(--text);text-decoration:underline;text-underline-offset:2px;text-decoration-thickness:1px}
+:root[data-brand="letsi"] :is(.linkbtn,.section-head .link,.now-card a,.now-card .linkbtn,.foot-more>summary,.sc-go,.entry-detail a,.entry-card a,.pt-card a){color:var(--text);text-decoration:underline;text-underline-offset:2px;text-decoration-thickness:1px}
 :root[data-brand="letsi"] :is(.trip-live .live-h,.day-now,.nw-d,.nw-rows .nw-day){color:var(--text)}
 /* plochy --grad a --accent (aktivní krok, den v týdnu, pořadí, skóre, kroky uvítání): text v protibarvě, bez barevné záře;
    bílé písmo by v tmavém na Vápně (--accent) zmizelo */
@@ -141,7 +141,8 @@
 /* záhlaví okna bez fotky („Je to dobrá cena?“, podrobnosti): Pistácie s Nocí */
 :root[data-brand="letsi"] .modal-hero:not(.ph){color:#14161F}
 :root[data-brand="letsi"] .modal-hero:not(.ph) .mh-bg{background:#D6DE82;opacity:1;filter:none}
-:root[data-brand="letsi"] .modal-hero:not(.ph) .modal-hero-inner{text-shadow:none}
+/* stín i na názvu a podtitulku – mají vlastní text-shadow (atlas.css) a na Pistácii dělaly šedou auru */
+:root[data-brand="letsi"] .modal-hero:not(.ph) :is(.modal-hero-inner,.mh-name,.mh-sub,.mh-blurb){text-shadow:none}
 :root[data-brand="letsi"] .modal-hero:not(.ph) :is(.faint,.muted,p,small){color:var(--letsi-text-2-na-znacce)}
 /* dlaždice a hlavičky bez fotky: místo barevného přechodu plná tmavá plocha (bílý text na ní zůstává čitelný) */
 :root[data-brand="letsi"] :is(.dest[data-photo],.trip-top,.trip-top[data-photo],.trip-top.warm,.cmp-ph,.radar-card,.dp-hero,.w-ph,.trip-head,.jed-hero):not(.ph){background:var(--letsi-dlazdice)}
@@ -188,8 +189,9 @@
 
 /* ============ KROK 2: SOUČÁSTI PODLE MANUÁLU (rohy a stíny z tokenů: karta 20, formulář a panel 22, štítek 14) ============ */
 :root[data-brand="letsi"]{--letsi-r-l:22px;--letsi-roleta:#D8DBD0;--letsi-okno:#FFFFFF}
-:root[data-brand="letsi"][data-theme="light"]{--shadow:none;--input-line:#DFE2DA}
-:root[data-brand="letsi"][data-theme="dark"]{--letsi-roleta:#343A48;--letsi-okno:#262A36;--input-line:#3A3F4D}
+/* linka pole aspoň 3 : 1 proti kartě (WCAG 1.4.11) – dřív 1,3 : 1 a na slunci nebylo poznat, kde pole je */
+:root[data-brand="letsi"][data-theme="light"]{--shadow:none;--input-line:#878D80}
+:root[data-brand="letsi"][data-theme="dark"]{--letsi-roleta:#343A48;--letsi-okno:#262A36;--input-line:#666C7C}
 /* karty: bílá s linkou 1 px, bez stínu a bez skla */
 :root[data-brand="letsi"] .card{box-shadow:none;-webkit-backdrop-filter:none;backdrop-filter:none}
 :root[data-brand="letsi"] :is(.search-card,.cal-box){border-radius:var(--letsi-r-l)}
@@ -337,3 +339,23 @@
 @media(max-width:860px){
   :root[data-brand="letsi"] .main:has(#view-dashboard.active) #pageTitle{width:121px;height:26px;font-size:0;background:currentColor;-webkit-mask:url(../vendor/letsi/letsi-logo-mala-mono.svg) left center/contain no-repeat;mask:url(../vendor/letsi/letsi-logo-mala-mono.svg) left center/contain no-repeat}
 }
+
+/* ============ PŘEDSTARTOVNÍ KONTROLA: zbytky ATLASu (mapy, sklo, Před cestou) ============ */
+/* mapy: neutrální moře a bílá pevnina místo modré; tmavá mapa v Noci. Cenové barvy (--map-cheap…) nesou význam,
+   zůstávají. Tmavá varianta má vyšší specifičnost, jinak by ji světlá (načtená po atlas.css) přebila. */
+:root[data-brand="letsi"]{--map-sea:#DFE2DA;--map-land:#FFFFFF;--map-hover:#EDEFD6;--map-line:#8E949E;--map-text:#14161F;--map-halo:#FFFFFF}
+:root[data-brand="letsi"][data-map="dark"]{--map-sea:#14161F;--map-land:#262A36;--map-hover:#2A2E3A;--map-line:#585D56;--map-text:#F3F4F0;--map-halo:#14161F}
+/* navštívené země plnou barvou místo duhového přechodu; legenda stejnou barvou jako mapa */
+:root[data-brand="letsi"] .map-path.visited,:root[data-brand="letsi"] .legend .vis-dot{fill:#14161F;background:#14161F}
+:root[data-brand="letsi"][data-map="dark"] .map-path.visited,:root[data-brand="letsi"][data-map="dark"] .legend .vis-dot{fill:#D6DE82;background:#D6DE82}
+/* bez skla: panel karty cíle plná Noc (bílý text má lepší kontrast než na průsvitném), vlajka a ovládání mapy
+   plné plochy */
+:root[data-brand="letsi"] :is(.dest-panel,.dest[data-photo] .flag,.map-chip,.map-zoom){-webkit-backdrop-filter:none;backdrop-filter:none}
+:root[data-brand="letsi"] .dest-panel{background:#14161F;border-color:transparent}
+:root[data-brand="letsi"] .dest[data-photo] .flag{background:#F3F4F0;border-color:transparent}
+:root[data-brand="letsi"] :is(.map-chip,.map-zoom){background:var(--card);border-color:var(--border);color:var(--text);box-shadow:none}
+:root[data-brand="letsi"] .map-zoom button{color:var(--text)}
+:root[data-brand="letsi"] .map-zoom button:hover{background:var(--surface-2)}
+/* Před cestou: lem položek z palety (varování, jinak šedá linka) místo jantarové a mátové */
+:root[data-brand="letsi"] .pt-item.lv-must{border-left-color:var(--letsi-varovani)}
+:root[data-brand="letsi"] .pt-item.lv-info{border-left-color:var(--border-2)}
