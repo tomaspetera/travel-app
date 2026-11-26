@@ -43,7 +43,7 @@ import { BRAND } from './brand.js';
 import { mapyOn, mapyReady, mapyStatus, parseTile, mapyTile } from './lib/mapy.js';
 import { cleanReport, recordClientError, clientErrorCount, MAX_BODY as CLIENT_ERR_MAX } from './lib/clienterr.js';
 import { RateLimiter } from './lib/ratelimit.js';
-import { upstashCounts, memoryCounts, makeCounter, clampDays, MAX_BODY as COUNT_MAX } from './lib/counts.js';
+import { upstashCounts, memoryCounts, makeCounter, clampDays, statsKeyOk, EVENTS, SERVER_EVENTS, MAX_BODY as COUNT_MAX } from './lib/counts.js';
 import { upstashStore, memoryStore, cachedStore, createShare, loadShare, sharePage, inviteMeta, invitePage, ogPhoto, PREVIEW_BOT, PREVIEW_CSP, MAX_JSON as SHARE_MAX, ID_RE as SHARE_ID } from './lib/shortlinks.js';
 import { sharedRuns, gate, perClient, recentResults, breathe } from './lib/crowd.js';
 import { SECURITY_HEADERS, API_CSP, pageCsp, clientIp, crossSite } from './lib/security.js';
@@ -227,6 +227,10 @@ const previewPhoto = async (place) => ogPhoto(String(((await Promise.race([cityP
 // adresa slouží jen limitu (countHits), nikam se neukládá.
 const counter = makeCounter(config.upstashUrl && config.upstashToken ? upstashCounts(config.upstashUrl, config.upstashToken) : memoryCounts());
 const countHits = new RateLimiter(); // události z prohlížeče (/api/count): 120 za 10 minut z jedné adresy
+// …a stejná událost z jedné adresy nejvýš 30× za 10 minut (klíč adresa|událost jen v paměti limitu, k počtům se
+// neukládá) – jedna adresa tak jedno číslo nenafoukne celým limitem 120
+const countPairs = new RateLimiter();
+const statsFails = new RateLimiter({ windowMs: 60 * 60e3 }); // špatný klíč k /api/stats: 10 za hodinu z jedné adresy
 const wxHits = new RateLimiter(); // předpověď mimo mezipaměť serveru (MET Norway)
 const fxHits = new RateLimiter(); // kurzy pro okno země (/api/fx): klient je bere jednou denně, 60 za 10 minut stačí
 // clientIp (server/lib/security.js): na Renderu adresa od Cloudflare, ne podvrhnutelná první z X-Forwarded-For
@@ -402,18 +406,26 @@ async function handleSearch(req, res) {
   const old = ready ? undefined : _recentSearches.stale(recentKey);
   const oldLine = old && Math.round((Date.now() - old.at) / 1000) < keys.maxAgeS ? staleLine(old.value, old.at) : null;
   const fresh = !ready && !oldLine && !searchRuns.has(shareKey);
-  if (fresh && searchGate.full()) return sendJson(req, res, 503, BUSY, { 'Retry-After': '60' });
+  if (fresh && searchGate.full()) {
+    counter.hit('search_busy');
+    return sendJson(req, res, 503, BUSY, { 'Retry-After': '60' });
+  }
   // Strop na adresu: nové hledání nad ním hned 429 (do limitu adresy se nepočítá). Připojení ke stejnému běžícímu
   // hledání frontu nezabere – projde vždy, ale počítá se (drží běh naživu, i když ten, kdo ho spustil, odešel).
   const ip = clientIp(req);
-  if (fresh && _searchClients.full(ip, config.searchPerClient)) return sendJson(req, res, 429, MANY_AT_ONCE, { 'Retry-After': '30' });
+  if (fresh && _searchClients.full(ip, config.searchPerClient)) {
+    counter.hit('search_limit');
+    return sendJson(req, res, 429, MANY_AT_ONCE, { 'Retry-After': '30' });
+  }
   // Stejné hledání z téže adresy ještě běží (obnovená stránka, druhý panel, dvojí spuštění): do limitu se podruhé
   // nepočítá – připojí se k běžícímu (searchRuns). Zdarma jen jedna kopie navíc, víc ne.
   const key = `${ip}|${text}`;
   const free = runningSearches.get(key) === 1;
-  if (!free && rateLimited(req)) return sendJson(req, res, 429, TOO_MANY);
   // Cesta přes víc měst = hledání několika úseků → do limitu se počítá dvakrát.
-  if (!free && body && body.trip === 'multi' && rateLimited(req)) return sendJson(req, res, 429, TOO_MANY);
+  if (!free && (rateLimited(req) || (body.trip === 'multi' && rateLimited(req)))) {
+    counter.hit('search_limit');
+    return sendJson(req, res, 429, TOO_MANY);
+  }
   runningSearches.set(key, (runningSearches.get(key) || 0) + 1);
   const release = _searchClients.take(ip);
   res.once('close', release); // klient odešel (nebo odpověď skončila) – místo hned, nečeká se na konec hledání
@@ -489,9 +501,16 @@ async function streamSearch(req, res, body, shareKey = JSON.stringify(body), { r
       const w = breathe(true);
       if (w) await w;
       write({ type: 'result', result });
+      // shortcut: hotový výsledek z paměti (ready, starší výsledek radaru) je hotový řádek JSON a prázdnotu z něj
+      // nepoznáme bez rozbalení 1–2 MB – počítá se jen nově spočítané hledání; kdyby poměr klamal, značit při keepResult
+      const ev = searchEvent(result);
+      if (ev) counter.hit(ev);
     }
   } catch (e) {
-    if (!(e instanceof UserError)) console.error('[search]', e);
+    if (!(e instanceof UserError)) {
+      console.error('[search]', e);
+      counter.hit('search_error'); // chyba serveru; UserError (např. žádné letiště v okolí) je odpověď na zadání
+    }
     // text neočekávané chyby (názvy proměnných, adresy zdrojů) jen do logu, uživateli česky obecně
     write({ type: 'error', error: e instanceof UserError ? e.message : 'Chyba serveru – hledání se nepovedlo, zkus to prosím za chvíli znovu.' });
   } finally {
@@ -499,6 +518,16 @@ async function streamSearch(req, res, body, shareKey = JSON.stringify(body), { r
   }
   if (out) out.end();
   else res.end();
+}
+
+/**
+ * Serverový počet k doběhlému hledání: bez nabídek 'search_empty', a když přitom žádný zdroj neodpověděl (všechny
+ * skončily chybou nebo výpadkem) 'search_error'; s nabídkami null. Cesta přes víc měst nemá skupiny, ale kombinace.
+ */
+export function searchEvent(r) {
+  if (!r || (r.mode === 'multi' ? r.combos : r.groups)?.length) return null;
+  const ps = Array.isArray(r.providers) ? r.providers : [];
+  return ps.length && ps.every((s) => s && (s.error || s.outage)) ? 'search_error' : 'search_empty';
 }
 
 /**
@@ -615,7 +644,10 @@ async function route(req, res) {
     }
     const r = cleanReport(b);
     const line = r && recordClientError(r);
-    if (line) console.warn(line);
+    if (line) {
+      console.warn(line);
+      counter.hit('js_error');
+    }
     res.writeHead(204, { 'Cache-Control': 'no-store' });
     return res.end();
   }
@@ -630,14 +662,31 @@ async function route(req, res) {
     } catch (e) {
       return badBody(req, res, e);
     }
+    const e = b && b.e;
+    // serverové počty z prohlížeče nebrat; limit adresa|událost jen u známých názvů – nesmysl nezabere paměť limitu
+    if (SERVER_EVENTS.includes(e)) return sendJson(req, res, 400, { error: 'Neznámá událost' });
+    const wait = EVENTS.includes(e) && countPairs.hit(`${clientIp(req)}|${e}`, 30);
+    if (wait) {
+      req.retryAfter = wait;
+      return sendJson(req, res, 429, { error: 'Příliš mnoho požadavků' });
+    }
     if (!counter.hit(b && b.e)) return sendJson(req, res, 400, { error: 'Neznámá událost' });
     res.writeHead(204, { 'Cache-Control': 'no-store' });
     return res.end();
   }
   if (p === '/api/stats') {
-    // Denní součty událostí za posledních ?days= dní (1–90, výchozí 30) – jen čísla, žádné osobní údaje
+    // Denní součty událostí za posledních ?days= dní (1–90, výchozí 30) – jen čísla, žádné osobní údaje. S nastaveným
+    // STATS_KEY jen pro provozovatele (hlavička Authorization: Bearer <klíč>); bez něj veřejné jako dřív, ať nasazení
+    // bez klíče stránku Statistiky nerozbije (při startu to server vypíše do logu).
+    if (config.statsKey && !statsKeyOk(req.headers.authorization, config.statsKey)) {
+      // do limitu jen špatný klíč – stránka se napoprvé ptá bez klíče (pak teprve ukáže pole) a to pokus není.
+      // Správný klíč projde vždy; hádání dlouhého náhodného klíče po 10 za hodinu je beznadějné.
+      if (req.headers.authorization && rateLimited(req, 10, statsFails)) return sendJson(req, res, 429, { error: 'Příliš mnoho pokusů – zkus to později.' });
+      return sendJson(req, res, 401, { error: 'Chybí klíč ke statistikám.' }, { 'WWW-Authenticate': 'Bearer' });
+    }
     try {
-      return sendJson(req, res, 200, await counter.stats(clampDays(url.searchParams.get('days'))), { 'Cache-Control': 'public, max-age=300' });
+      // s klíčem bez veřejné mezipaměti (sendJson dává no-store), jinak jako dřív 5 minut
+      return sendJson(req, res, 200, await counter.stats(clampDays(url.searchParams.get('days'))), config.statsKey ? {} : { 'Cache-Control': 'public, max-age=300' });
     } catch (e) {
       return sendJson(req, res, 503, { error: 'Počty teď nejsou dostupné.' });
     }
@@ -668,7 +717,12 @@ async function route(req, res) {
     if (!SHARE_ID.test(id) || !shareStore) return sendJson(req, res, 404, { error: 'Odkaz neexistuje nebo vypršel.' });
     if (shareGetLimited(req, id)) return sendJson(req, res, 429, { error: 'Příliš mnoho odkazů najednou – zkus to za pár minut.' });
     const r = await loadShare(shareStore, id);
-    if (!r) return sendJson(req, res, 404, { error: 'Odkaz neexistuje nebo vypršel.' });
+    // jen platné id: zkomolený odkaz (useknutý v chatu) i zkoušení náhodných id skončí výš bez počtu
+    if (!r) {
+      counter.hit('shared_broken');
+      return sendJson(req, res, 404, { error: 'Odkaz neexistuje nebo vypršel.' });
+    }
+    counter.hit('shared_open');
     return sendJson(req, res, 200, { k: r.k, j: r.j }, { 'Cache-Control': 'public, max-age=86400' });
   }
   if (p === '/api/places') {
@@ -732,7 +786,10 @@ async function route(req, res) {
   if (p === '/api/stays') {
     if (rateLimited(req)) return sendJson(req, res, 429, { error: 'Příliš mnoho požadavků – zkus to za pár minut.' });
     // ID místa u Trip.com, Agody a Hostelworldu pro odkazy s termínem (v DEMO a s PARTNER_LOOKUP=0 bez sítě)
-    return sendJson(req, res, 200, await searchStays(Object.fromEntries(url.searchParams), { partners: partnerLookups() }));
+    const stays = await searchStays(Object.fromEntries(url.searchParams), { partners: partnerLookups() });
+    // pobyt nad 30 nocí má záměrně jen odkazy na partnery (ceny API nevrací) – to není „nic nenašlo“
+    if (!stays.items.length && stays.query.nights <= 30) counter.hit('stay_empty');
+    return sendJson(req, res, 200, stays);
   }
   if (p === '/api/verify') {
     // Živé ověření konkrétních dat napříč aerolinkami (Kiwi.com) – průvodce cestou a ceny z mezipaměti ve výpisu.
@@ -1264,12 +1321,13 @@ if (process.argv[1] && path.resolve(process.argv[1]) === path.join(config.root, 
     if (!config.mock && !config.travelpayoutsToken) {
       console.log('Tip: zdarma token z travelpayouts.com (TRAVELPAYOUTS_TOKEN v .env) přidá všechny ostatní aerolinky.');
     }
+    if (!config.statsKey) console.warn('⚠️  STATS_KEY není nastavený – souhrnné počty (/api/stats, statistiky.html) může číst kdokoli.');
     warmUp().catch((e) => console.warn('Předehřátí selhalo:', e.message));
   });
   // Hosting při nasazení nové verze posílá SIGTERM – dokonči rozběhnuté požadavky a skonči.
   const shutdown = (sig) => {
     console.log(`${sig}: ukončuji server…`);
-    // počty z posledních minut by s procesem zmizely – konec až po jejich zápisu (nejvýš 10 s, viz níž)
+    // počty z posledních (až 30) minut by s procesem zmizely – konec až po jejich zápisu (nejvýš 10 s, viz níž)
     const counted = counter.flush();
     server.close(() => counted.finally(() => process.exit(0)));
     setTimeout(() => process.exit(0), 10000).unref();

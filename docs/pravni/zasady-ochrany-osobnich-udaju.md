@@ -38,15 +38,18 @@ přišlo z jedné adresy, a nad limitem další na chvíli odmítne. K tomu si p
 tedy prvních 64 bitů) a časy posledních požadavků z ní.
 
 - **Kde:** jen v operační paměti serveru, nikam se nezapisuje (žádný soubor ani databáze).
-- **Jak dlouho:** započítávají se požadavky za posledních 10 minut (u hlášení chyb a u vytváření krátkých odkazů za
-  posledních 60 minut). Starší časy se už nepoužívají; záznam adresy z paměti zmizí při dalším požadavku z ní, při
+- **Jak dlouho:** započítávají se požadavky za posledních 10 minut (u hlášení chyb, u vytváření krátkých odkazů a u
+  špatného klíče ke statistikám za posledních 60 minut). U souhrnného počítání (bod 3.6) se navíc počítá, kolikrát
+  přišla z jedné adresy stejná událost (nejvýš 30 za 10 minut); adresa se k tomu drží jen v paměti limitu spolu
+  s názvem události, k počtům se neukládá. Starší časy se už nepoužívají; záznam adresy z paměti zmizí při dalším požadavku z ní, při
   úklidu po překročení 5 000 adres nebo nejpozději při restartu serveru. Server se na bezplatném tarifu hostingu uspí
   po 15 minutách bez návštěvy a paměť se tím vymaže. [ověřit – viz Otázky, bod 1]
 - **Účel a právní základ:** ochrana služby a zdrojů dat před zahlcením a zneužitím – oprávněný zájem (čl. 6 odst. 1
   písm. f) GDPR).
 
 > Kde v kódu: `server/lib/ratelimit.js` (třída `RateLimiter`, okno 10 min, strop 5 000 adres, `prune`),
-> `server/index.js` funkce `rateLimited()` a seznam limitů (`clientErrs` a `shareHits` s oknem 60 min),
+> `server/index.js` funkce `rateLimited()` a seznam limitů (`clientErrs`, `shareHits` a `statsFails` s oknem 60 min,
+> `countPairs` s klíčem adresa|událost),
 > `server/lib/security.js` funkce `clientIp()` a `ipKey()` (IPv6 → /64, adresa z hlavičky `CF-Connecting-IP`),
 > `render.yaml` (`plan: free`, usínání po 15 min). Zápis na disk server nemá (`writeFile`/`appendFile` se v `server/`
 > nepoužívá).
@@ -135,29 +138,40 @@ bodu 3.3, **IP adresy ani obsah hledání sám nezapisuje**.
 
 ### 3.6 Souhrnné denní počty
 
-Abychom věděli, které části aplikace lidé používají a co zlepšit, počítá server, **kolikrát za den** se něco stalo:
+Abychom věděli, které části aplikace lidé používají a kde narážejí, počítá se, **kolikrát za den** se něco stalo:
 otevření aplikace, otevření sekce (Přehled, Lety, Cesty, Objevuj, Svět), proběhlé hledání, klepnutí na ověření ceny
-nebo na odkaz k prodejci, založení a uložení cesty, sdílení, export do kalendáře a klepnutí u nabídky placené verze
-(včetně toho, jakou cenu bys byl ochotný zaplatit).
+nebo na odkaz k prodejci, založení a uložení cesty, sdílení, export do kalendáře, klepnutí u nabídky placené verze
+(včetně toho, jakou cenu bys byl ochotný zaplatit) a odpovědi na krátké otázky (jen zvolená možnost). Server si navíc
+sám ze svých odpovědí počítá, kde aplikace narazila: hledání bez výsledku, hledání odmítnuté kvůli limitu nebo plnému
+serveru, hledání, které skončilo chybou, ubytování bez nabídek, otevření sdíleného odkazu a odkaz, který neexistuje
+nebo vypršel, a přijaté hlášení chyby aplikace (bod 3.3).
 
-- **Co se posílá:** jen název události z pevného seznamu (např. `search_done`). Neposílá se, co jsi hledal, kam
-  jedeš, ani nic o tobě.
+- **Co se posílá:** jen název události z pevného seznamu (např. `search_done`). Počty „kde aplikace narazila“ si server
+  udělá sám ze svých odpovědí, aplikace k tomu nic neposílá. Neposílá se, co jsi hledal nebo napsal, kam jedeš, ceny
+  ani nic o tobě.
 - **Co se ukládá:** jedno číslo na den a událost (např. „12. 1. 2027 – hledání: 148“). Neukládá se IP adresa, údaje
   o prohlížeči ani zařízení, čas jednotlivé události ani žádný identifikátor. Události nejde spojit mezi sebou ani
   s tebou – nejde zjistit, kdo co dělal, ani že dvě události udělal tentýž člověk.
 - **V tvém zařízení:** nic. Počítání nepoužívá cookies, úložiště prohlížeče ani jiný identifikátor a bez připojení
   se nepočítá.
-- **IP adresa** poslouží jen ochraně proti přetížení podle bodu 3.1 (nejvýš 120 událostí za 10 minut z jedné adresy);
-  k počtům se neukládá.
+- **IP adresa** poslouží jen ochraně proti přetížení podle bodu 3.1 (nejvýš 120 událostí za 10 minut z jedné adresy,
+  z toho nejvýš 30 stejných); k počtům se neukládá.
 - **Kde a jak dlouho:** databáze Upstash Redis (jako krátké odkazy), 400 dní, pak je Upstash sám smaže; počty
-  z posledních nejvýš 10 minut čekají na zápis v paměti serveru. Součty jsou veřejné (`/api/stats`).
+  z posledních nejvýš 30 minut čekají na zápis v paměti serveru. Součty vidí jen provozovatel – stránka statistik
+  a `/api/stats` jsou za klíčem. [ověřit – klíč `STATS_KEY` musí být na serveru nastavený před spuštěním, bez něj
+  jsou součty veřejné]
+- **Krátké otázky:** na pár místech se aplikace zeptá jednou krátkou otázkou. Odpověď je dobrovolná a pošle se, jen
+  když sám klepneš na některou možnost; ✕ otázku zavře a nic se nepošle. Počítá se jen zvolená možnost (jako jiné
+  události výš) a v zařízení se nic neukládá.
 - **Právní základ:** souhrnné počty nejsou osobní údaje – nevztahují se k určené ani určitelné osobě. Samotné
   přijetí požadavku (IP adresa) viz bod 3.1. [ověřit – viz Otázky, bod 13]
 
 > Kde v kódu: `public/js/count.js` (`hit()` – tělo `{ e }`, žádné úložiště prohlížeče), `server/lib/counts.js`
-> (`EVENTS`, `makeCounter()` – klíč `cnt:<den UTC>:<událost>`, `TTL_DAYS = 400`; `hit()` dostane jen název události),
-> `server/index.js` obsluha `/api/count` (limit `countHits`, tělo nejvýš 256 bajtů) a `/api/stats`,
-> `test/pocitadla.test.js`.
+> (`EVENTS`, `SERVER_EVENTS` – počty, které dělá jen server a z prohlížeče se nepřijmou; `makeCounter()` – klíč
+> `cnt:<den UTC>:<událost>`, `TTL_DAYS = 400`, zápis jednou za `FLUSH_MS` = 30 min; `hit()` dostane jen název události),
+> `server/index.js` obsluha `/api/count` (limity `countHits` a `countPairs`, tělo nejvýš 256 bajtů), `/api/stats`
+> (klíč `STATS_KEY`, `statsKeyOk()`) a serverové počty v `handleSearch()`, `streamSearch()` (`searchEvent()`),
+> `/api/stays`, `/api/share/<id>` a `/api/client-error`, `test/pocitadla.test.js`.
 
 ## 4. Co zůstává jen ve tvém zařízení
 
@@ -339,5 +353,18 @@ Zásady můžeme upravit, když se změní aplikace nebo předpisy. Aktuální z
     (Irsko / USA) je smluvní stranou podle účtu provozovatele?
 13. **Souhrnné denní počty bez souhlasu** (bod 3.6). Server počítá jen denní součty událostí bez IP adresy,
     identifikátoru a bez čehokoli uloženého v zařízení (žádné cookies ani localStorage). Stačí to k závěru, že nejde
-    o osobní údaje ani o přístup do koncového zařízení podle § 89 odst. 3 ZEK, takže souhlas není potřeba? Vadí, že
-    jsou součty veřejné?
+    o osobní údaje ani o přístup do koncového zařízení podle § 89 odst. 3 ZEK, takže souhlas není potřeba? Součty
+    nově vidí jen provozovatel (`/api/stats` za klíčem `STATS_KEY`) – stačí to, nebo vadí i to, že jemné denní součty
+    vidí on?
+    - **Klientské počty.** Spadá klientský JavaScript bez cookies, který sám pošle název události z pevného seznamu
+      (otevření aplikace a sekce, klepnutí, výsledek hledání; plánovaně i klepnutí na části aplikace a stav sítě),
+      pod § 89 odst. 3 ZEK ve výkladu EDPB 2/2023? Stačí přístup podle rizika? Týká se to i dnešních 33 počtů na
+      produkci. Počty, které si server dělá sám ze svých odpovědí (hledání bez výsledku, limit, chyba, nefunkční
+      sdílený odkaz), od prohlížeče nic navíc nepotřebují. Odpověď je potřeba před rozšířením klientských počtů,
+      zhruba do poloviny prosince 2026.
+    - **Záložní cesta při „souhlas nutný“:** všechny klientské počty (dnešní i nové) poběží jen po zapnutí přepínače
+      v Další (např. „Pomáhat se zlepšováním“) a text 3.6 se upraví. Serverové počty zůstanou bez souhlasu.
+    - **Krátké otázky:** odpověď pošle člověk sám klepnutím na možnost (✕ otázku zavře bez odeslání). Je to jiná
+      situace než automaticky odeslaný počet?
+    - **Události odvozené z uloženého stavu** (`limit_shown`, `plus_offer_shown`, `sesit_shown` – ukážou se podle toho,
+      co má aplikace uložené v localStorage, např. počet cest): stejné posouzení jako u klientských počtů, nebo jiné?

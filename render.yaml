@@ -22,4 +22,6 @@ services:
 # ℹ️ O aplikaci: FEEDBACK_EMAIL (💬 Napsat nám), SUPPORT_URL (💛 Podpořit ATLAS – platební odkaz Stripe
 #   https://buy.stripe.com/…, kde si člověk zvolí částku) a OPERATOR (provozovatel, např. „Jan Novák, IČO 12345678, Praha“).
 #   Bez nich se tlačítka a řádek neukážou.
+# Statistiky jen pro provozovatele: STATS_KEY (dlouhý náhodný text, např. `openssl rand -hex 32`) – stránka
+#   statistiky.html se na něj zeptá. Bez něj jsou souhrnné počty /api/stats veřejné.
 # PORT nenastavovat – Render ho dodá sám a server ho čte.
