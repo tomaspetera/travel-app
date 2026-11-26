@@ -196,7 +196,7 @@
       const why = [];
       if (useSea) why.push({ ic: '🏖️', t: `${sw.place}: ~${sw.hi}${NB}°C přes den`, title: `${sw.place} ${MON_LOC[m - 1]}: průměrné denní maximum u letiště ${clim.sea.iata} (dlouhodobý průměr, ne předpověď; teplotu moře Letsi nezná)` });
       else if (clim && Number.isFinite(clim.hi)) why.push({ ic: seaWanted && seaOk ? '🏖️' : '🌡️', t: `${short(clim.city)}: ~${clim.hi}${NB}°C přes den`, title: `${clim.city} ${MON_LOC[m - 1]}: průměrné denní maximum u letiště ${clim.iata} (dlouhodobý průměr, ne předpověď)` });
-      if (fl) why.push({ ic: '✈️', t: `tam i zpět od ${kc(fl.czk)}`, title: `Radar na Přehledu: nejlevnější zpáteční letenka do země z ${fl.from || 'okolí domova'}, odlet ${dm(fl.d1)} (cena na osobu bez dopravy na letiště)` });
+      if (fl) why.push({ ic: '✈️', t: `tam i zpět od ${kc(fl.czk)}`, title: `Kam letět levně na Přehledu: nejlevnější zpáteční letenka do země z ${fl.from || 'okolí domova'}, odlet ${dm(fl.d1)} (cena na osobu bez dopravy na letiště)` });
       if (fav) why.push({ ic: '⭐', t: `Moje cíle: ${fav.slice(0, 2).join(', ')}`, title: 'Máš tu cíl v ⭐ Moje cíle' });
       else if (seen) why.push({ ic: '👀', t: `zaujalo tě: ${seen.slice(0, 2).join(', ')}`, title: 'Nedávno sis tenhle cíl rozbalil ve výsledcích hledání' });
       if (was) why.push({ ic: '🗺️', t: 'už jsi tu byl/a', title: 'Země je na mapě navštívených nebo v proběhlé cestě – v Doporučení je níž, ať vidíš i nové země' });

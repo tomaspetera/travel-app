@@ -348,7 +348,7 @@ Letsi nemůže najít spoje.
 ## 8. Změny zásad
 
 Zásady můžeme upravit, když se změní aplikace nebo předpisy. Aktuální znění je vždy v aplikaci
-(⋯ Další → ℹ️ O aplikaci a soukromí) [doplnit odkaz] s datem účinnosti.
+(⋯ Další → ℹ️ O aplikaci a soukromí) a na adrese https://letsi.cz/soukromi, s datem účinnosti.
 
 Účinné od: [datum]
 
