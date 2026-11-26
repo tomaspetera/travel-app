@@ -89,7 +89,8 @@ test('Objevuj: otevření v místě volání (ne v openPlace), nenalezené míst
   assert.doesNotMatch(body(PLACES, 'function openPlace(s, o = { start: true, days: true }) {'), /deep\(|ex_open_/);
   // exNotFound volá i prázdný okruh – nenalezené místo se počítá až v hledání
   assert.doesNotMatch(body(PLACES, 'function exNotFound(el, text) {'), /deep\(/);
-  assert.match(PLACES, /else \{ exNotFound\(q\.closest\('\.ex-search'\), sugFor\); deep\('place_none_explore', sugFor\); \}/);
+  // jednou za pokus (missNext zvýší n jen u nového textu, ne u dopsaného písmene ani téhož textu znovu)
+  assert.match(PLACES, /else \{ const n = exMiss\.n; exNotFound\(q\.closest\('\.ex-search'\), sugFor\); if \(exMiss\.n > n\) deep\('place_none_explore'\); \}/);
   assert.match(PLACES, /pick\(sugs\[\+o\.dataset\.i\], 'ex_open_sug'\)/);
   assert.match(PLACES, /if \(a === 'pick'\) pick\(sugs\[act\], enter\);/);
   assert.match(PLACES, /if \(r\.length\) pick\(r\[0\], enter\); else show\(\);/);

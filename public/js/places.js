@@ -1663,7 +1663,9 @@
         : sugHtml(sugs, act, err);
       dd.hidden = false;
       // nenalezené místo: otázka pod hledáním, ne v nabídce – ta se při klepnutí jinam zavře a otázka by zmizela pod prstem
-      if (!wc && !px && !err && sugFor) { if (sugs.length) exFound(); else { exNotFound(q.closest('.ex-search'), sugFor); deep('place_none_explore', sugFor); } }
+      // place_none_explore jednou za pokus jako otázka 5 (missNext): dopsané písmeno u nenalezeného textu („Londm“ →
+      // „Londmn“) ani nové vykreslení téhož textu není další nenalezené místo
+      if (!wc && !px && !err && sugFor) { if (sugs.length) exFound(); else { const n = exMiss.n; exNotFound(q.closest('.ex-search'), sugFor); if (exMiss.n > n) deep('place_none_explore'); } }
       const sm = $('[data-smart]', dd); if (sm) sm.onmousedown = e => { e.preventDefault(); runSmart(px); };
       $$('.pi-opt:not([data-smart])', dd).forEach(o => o.onmousedown = e => { e.preventDefault(); pick(sugs[+o.dataset.i], 'ex_open_sug'); });
     };
