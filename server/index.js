@@ -38,7 +38,7 @@ import { cityPhotos, photosCached } from './lib/photos.js';
 import { groundQuery, groundInfo, GroundError } from './lib/ground.js';
 import { fuelInfo, fuelText, refreshFuel } from './lib/fuel.js';
 import { serveIndex, serveServiceWorker, contentVersion } from './lib/pwa.js';
-import { headTags, robotsTxt, sitemapXml, sendGenerated, serveManifest, serveNotFound } from './lib/seo.js';
+import { headTags, robotsTxt, sitemapXml, sendGenerated, serveManifest, serveNotFound, movedTo } from './lib/seo.js';
 import { BRAND } from './brand.js';
 import { mapyOn, mapyReady, mapyStatus, parseTile, mapyTile } from './lib/mapy.js';
 import { cleanReport, recordClientError, clientErrorCount, MAX_BODY as CLIENT_ERR_MAX } from './lib/clienterr.js';
@@ -611,6 +611,15 @@ async function route(req, res) {
     return sendText(res, 400, 'Neplatná adresa.');
   }
   const p = url.pathname;
+
+  // stará adresa Renderu → vlastní doména (PUBLIC_URL), jen stránky – viz movedTo v server/lib/seo.js
+  const moved = movedTo({ host: req.headers.host, method: req.method, path: p, search: url.search, dest: req.headers['sec-fetch-dest'] },
+    config.publicUrl, { preview: process.env.IS_PULL_REQUEST === 'true' });
+  if (moved) {
+    // 301 s mezipamětí na hodinu (ne napořád): kdyby se doména měnila, prohlížeče přesměrování brzy zapomenou
+    res.writeHead(301, { Location: moved, 'Cache-Control': 'public, max-age=3600' });
+    return res.end();
+  }
 
   if (p.startsWith('/api/')) {
     // API je jen pro ATLAS: z cizího webu (skript, obrázek, formulář) 403 – viz crossSite; odpověď API se nikdy

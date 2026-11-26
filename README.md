@@ -1367,8 +1367,10 @@ uložená data.
 **Doména (hotovo 26. 11. 2026):** `letsi.cz` registrovaná u WEDOS (DNS: záznam A `216.24.57.1`, CNAME `www` →
 `atlas-letenky.onrender.com`), na Renderu v **Custom Domains** `letsi.cz` i `www.letsi.cz` (www přesměruje na letsi.cz,
 certifikát vydává Render sám) a `PUBLIC_URL=https://letsi.cz` – obojí i v `render.yaml`. Stará adresa
-`atlas-letenky.onrender.com` běží dál; data v prohlížeči (cesty, nastavení) jsou ale vázaná na adresu – kdo začal na staré,
-přenese si je přes ⋯ Další → Přenos a záloha.
+`atlas-letenky.onrender.com` stránky trvale (301) přesměruje na letsi.cz (`movedTo()` v `server/lib/seo.js`); API, soubory,
+`/healthz` a `sw.js` ne, takže otevřená záložka nebo aplikace na ploše ze staré adresy nespadne. Data v prohlížeči (cesty,
+nastavení) jsou vázaná na adresu – na letsi.cz se začíná načisto (kdo chce, přenese si je přes ⋯ Další → Přenos a záloha
+na staré adrese dřív, než ji otevře znovu).
 
 | Co | Kde to změnit |
 |---|---|

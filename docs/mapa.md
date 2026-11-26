@@ -143,6 +143,7 @@ Navigační mapa repozitáře: kde co je a jak to spolu souvisí, aby se kód da
 - IP klienta, blokace cizích webů (403) → `server/lib/security.js`: `clientIp()`, `ipKey()`, `crossSite()`
 - Statika, otisky ?v=, komprese → `server/index.js`: `serveFile()`, `versionOf()`, `packedBody()`, `sendJson()`; `server/lib/pwa.js`: `serveIndex()`, `versionAssets()`
 - Titulek, OG, robots, sitemap, 404, manifest → `server/lib/seo.js`: `headTags()`, `robotsTxt()`, `sitemapXml()`, `serveNotFound()`, `serveManifest()`
+- Stará adresa Renderu (`atlas-letenky.onrender.com`) → 301 na vlastní doménu `PUBLIC_URL` (jen stránky, ne API/soubory/`/healthz`/`sw.js`) → `server/lib/seo.js` `movedTo()`, zapojené na začátku `route()` v `server/index.js`
 - Název aplikace, doména → `server/brand.js`: `BRAND`; `server/config.js`: `cleanSiteUrl()` (PUBLIC_URL)
 - 💬 Napsat nám / 💛 Podpořit / provozovatel → `server/config.js`: `cleanEmail()`, `cleanPayUrl()`, `cleanOperator()`; `public/js/about.js`: `okEmail()`, `okPay()`
 - Chyby z prohlížeče v logu Renderu → `public/js/errlog.js`: `report()`, `makeReport()`; `server/lib/clienterr.js`: `cleanReport()`, `recordClientError()`
