@@ -486,6 +486,9 @@ test('service worker – směrování (čistá funkce): API, POST, cizí weby a 
   // krátký odkaz na cestu je stránka serveru (náhled a přesměrování na /#s=…), ne aplikace: pod adresu aplikace by se
   // uložil a offline by se otevíral místo ní (a přesměrovával dokola)
   for (const u of ['/c/Ab3kQ9xZ', '/c/Ab3kQ9xZ?fbclid=1']) assert.equal(route(u, { mode: 'navigate' }), null, u);
+  // stránka Statistiky pro majitele taky není aplikace: uložená pod adresu rozsahu by se offline otevírala místo ní
+  assert.equal(route('/statistiky.html?dni=7', { mode: 'navigate' }), null);
+  assert.equal(route('/js/statistiky.js'), null);
   assert.equal(route('/css/c/x.css'), 'asset', 'jen /c/ na začátku rozsahu');
   for (const u of ['https://tiles.openfreemap.org/planet/1/2/3.pbf', 'https://fonts.googleapis.com/css2?family=Inter', 'https://fonts.gstatic.com/s/inter.woff2',
     'https://api.open-meteo.com/v1/forecast?x=1', 'https://www.booking.com/x', 'http://atlas.test/js/app.js', 'https://atlas.test:8443/js/app.js']) {

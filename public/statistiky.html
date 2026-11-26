@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- stránka pro majitele: vyhledávače ji nemají a z aplikace na ni nic nevede; čísla jsou ale veřejná (GET /api/stats) -->
+<meta name="robots" content="noindex">
+<meta name="color-scheme" content="light dark">
+<title>Statistiky – ATLAS</title>
+<!-- styly ve stránce, ne v css/ aplikace: stránka je samostatná a do offline sady aplikace nepatří (public/sw.js) -->
+<style>
+  :root { --bg: #fff; --fg: #1b1d21; --muted: #5f6570; --line: #e2e4e8; --head: #f4f5f7; --warn: #8a4b00; --on: #1b1d21; --on-fg: #fff; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #15171a; --fg: #e8e9ec; --muted: #a0a5ae; --line: #30343a; --head: #1f2226; --warn: #f0b46a; --on: #e8e9ec; --on-fg: #15171a; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 40rem; margin: 0 auto; padding: 16px 14px 40px; }
+  h1 { font-size: 1.4rem; margin: 0 0 4px; }
+  h2 { font-size: 1.1rem; margin: 28px 0 8px; padding-bottom: 4px; border-bottom: 1px solid var(--line); }
+  h3 { font-size: 1rem; margin: 16px 0 4px; }
+  p { margin: 6px 0; }
+  .hint, .lead { color: var(--muted); font-size: .9rem; }
+  .warn { color: var(--warn); font-weight: 600; }
+  .periods { display: flex; gap: 8px; margin: 14px 0 0; }
+  .periods button { flex: 1; min-height: 44px; font: inherit; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; }
+  .periods button[aria-pressed="true"] { background: var(--on); color: var(--on-fg); border-color: var(--on); font-weight: 600; }
+  table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+  th, td { padding: 7px 4px; border-bottom: 1px solid var(--line); text-align: right; }
+  th[scope="row"] { text-align: left; font-weight: 400; }
+  .list td:nth-child(2) { font-weight: 600; width: 5.5em; }
+  .list .note { color: var(--muted); font-size: .9rem; width: 9.5em; }
+  .list .sub th { padding-left: 18px; color: var(--muted); }
+  .scroll { overflow-x: auto; }
+  .days { font-size: .9rem; }
+  .days thead th { background: var(--head); font-weight: 600; }
+  .days th[scope="row"] { white-space: nowrap; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Statistiky</h1>
+  <p class="lead">Souhrnné denní počty z aplikace – žádné údaje o lidech, jen kolikrát se co stalo.</p>
+  <div class="periods" role="group" aria-label="Období">
+    <button type="button" data-days="7">7 dní</button>
+    <button type="button" data-days="30" aria-pressed="true">30 dní</button>
+    <button type="button" data-days="90">90 dní</button>
+  </div>
+  <div id="stats" aria-live="polite"><p>Načítám…</p></div>
+</main>
+<script src="js/statistiky.js"></script>
+</body>
+</html>
