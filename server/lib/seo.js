@@ -62,6 +62,22 @@ export function headTags(base, brand = BRAND) {
 }
 
 /** robots.txt: roboti smí všude, mapa webu na veřejné adrese. */
+/**
+ * Stará adresa Renderu (…onrender.com) po přechodu na vlastní doménu (PUBLIC_URL): kam stránku trvale přesměrovat, nebo
+ * null. Jen stránky – navigace, sdílené odkazy /c/…, roboti bez Sec-Fetch-Dest. API, /healthz, sw.js a soubory stránek
+ * ne: otevřená záložka nebo aplikace na ploše ze staré adresy dál funguje (CSP 'self' by soubory z jiné domény
+ * zablokovala) a na novou adresu se dostane při dalším otevření. Bez vlastní domény, v náhledu PR a na jiném hostu nic.
+ */
+export function movedTo({ host, method, path, search = '', dest }, publicUrl, { preview = false } = {}) {
+  let target;
+  try { target = new URL(publicUrl); } catch { return null; }
+  const h = String(host || '').toLowerCase().replace(/:\d+$/, '');
+  if (preview || !h.endsWith('.onrender.com') || target.hostname.endsWith('.onrender.com') || h === target.hostname) return null;
+  if ((method !== 'GET' && method !== 'HEAD') || path.startsWith('/api/') || path === '/healthz' || path === '/sw.js') return null;
+  if (dest && dest !== 'document') return null; // soubor stránky (skript, styl, písmo, obrázek, manifest, worker…)
+  return `${target.origin}${path}${search}`;
+}
+
 export const robotsTxt = (base) => `User-agent: *\nAllow: /\n\nSitemap: ${urlAt(base, 'sitemap.xml')}\n`;
 
 /** sitemap.xml: jediná veřejná stránka – sekce aplikace jsou za # (roboti je neuvidí jako samostatné stránky). */

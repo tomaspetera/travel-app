@@ -12,7 +12,8 @@ process.env.ATLAS_MOCK = '1';
 const { createServer } = await import('../server/index.js');
 const { config, cleanSiteUrl } = await import('../server/config.js');
 const { BRAND } = await import('../server/brand.js');
-const { headTags, manifestFor, notFoundHtml } = await import('../server/lib/seo.js');
+const { headTags, manifestFor, notFoundHtml, movedTo } = await import('../server/lib/seo.js');
+const http = await import('node:http');
 const { inlineScriptHashes, SECURITY_HEADERS } = await import('../server/lib/security.js');
 const { serviceWorker } = await import('../server/lib/pwa.js');
 const { ogSource, pngChunks, TEXT_KEY } = await import('../scripts/build-og-image.mjs');
@@ -246,4 +247,37 @@ test('náhledový obrázek: PNG 1200 × 630 do 300 kB, vygenerovaný z aktuáln�
   const r = await fetch(`${base}/${BRAND.image.path}`);
   assert.deepEqual([r.status, r.headers.get('content-type')], [200, 'image/png']);
   assert.ok(Buffer.from(await r.arrayBuffer()).equals(buf));
+});
+
+test('stará adresa Renderu: stránky trvale na vlastní doménu, API, soubory a /healthz ne; bez domény nic', async () => {
+  const L = 'https://letsi.cz', R = 'atlas-letenky.onrender.com';
+  const go = (o, url = L, opt) => movedTo({ host: R, method: 'GET', path: '/', search: '', ...o }, url, opt);
+  assert.equal(go({}), 'https://letsi.cz/');
+  assert.equal(go({ path: '/c/Ab3kQ9xZ', search: '?fbclid=1' }), 'https://letsi.cz/c/Ab3kQ9xZ?fbclid=1', 'sdílený odkaz i s parametry');
+  assert.equal(go({ host: `${R}:443`, dest: 'document', method: 'HEAD' }), 'https://letsi.cz/', 'port, navigace, HEAD');
+  for (const o of [{ path: '/api/health' }, { path: '/healthz' }, { path: '/sw.js' }, { method: 'POST' },
+    { path: '/js/app.js', dest: 'script' }, { path: '/manifest.webmanifest', dest: 'manifest' }, { host: 'letsi.cz' },
+    { host: 'localhost:3000' }, { host: '127.0.0.1' }]) assert.equal(go(o), null, JSON.stringify(o));
+  assert.equal(go({}, `https://${R}`), null, 'bez vlastní domény se nikam nepřesměrovává');
+  assert.equal(go({}, 'není adresa'), null);
+  assert.equal(go({}, L, { preview: true }), null, 'náhled PR (IS_PULL_REQUEST) má vlastní adresu');
+  // skutečný požadavek přes server: Host staré adresy a vlastní doména v PUBLIC_URL
+  const was = config.publicUrl;
+  config.publicUrl = L;
+  const ask = (path, headers = {}) => new Promise((resolve, reject) => {
+    const r = http.request(`${base}${path}`, { headers: { host: R, ...headers } }, (res) => { res.resume(); resolve(res); });
+    r.on('error', reject); r.end();
+  });
+  try {
+    const page = await ask('/?v=1', { 'sec-fetch-dest': 'document' });
+    assert.equal(page.statusCode, 301);
+    assert.equal(page.headers.location, 'https://letsi.cz/?v=1');
+    assert.equal(page.headers['cache-control'], 'public, max-age=3600');
+    assert.equal((await ask('/healthz')).statusCode, 200);
+    assert.equal((await ask('/api/health')).statusCode, 200);
+    assert.notEqual((await ask('/css/atlas.css', { 'sec-fetch-dest': 'style' })).statusCode, 301);
+    assert.equal((await ask('/', { host: '127.0.0.1' })).statusCode, 200, 'jiný host se nepřesměruje');
+  } finally {
+    config.publicUrl = was;
+  }
 });
