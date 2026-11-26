@@ -120,6 +120,17 @@
     for (const d of plan?.days || []) for (const p of d.items) if (!have.has(p.id)) { have.add(p.id); extra.push(p); }
     return extra.length ? [...items, ...extra] : items;
   };
+  // Otázka 5 „Co jsi hledal/a?“ při druhém nenalezení bez úspěchu mezi nimi. Dopsání nebo smazání písmene u nenalezeného
+  // textu („Londm“ → „Londmn“ → „Londm“) je pořád tentýž pokus, ne druhý. miss = { n, text } → nový stav po nenalezení.
+  const missNext = (miss, text) => ({ n: miss.text && text && (text.startsWith(miss.text) || miss.text.startsWith(text)) ? miss.n : miss.n + 1, text });
+  const EX_ASK = { id: 'ex', q: 'Co jsi hledal/a?', rate: 1,
+    opts: [['mq_ex_city', 'Město'], ['mq_ex_nature', 'Vesnici nebo přírodu'], ['mq_ex_region', 'Oblast nebo zemi'], ['mq_ex_other', 'Něco jiného']] };
+  let exMiss = { n: 0, text: '' };
+  const exFound = () => { exMiss = { n: 0, text: '' }; };
+  function exNotFound(el, text) {
+    exMiss = missNext(exMiss, text);
+    if (exMiss.n >= 2 && window.Count && Count.ask) Count.ask(el, EX_ASK);
+  }
   // Enter v hledání: návrhy k právě napsanému textu → vyber; jinak (čeká se, stará odpověď, chyba) hledej hned.
   const enterAction = ({ text, sugFor, count, err }) => (text.length < 2 ? 'none' : sugFor === text && !err ? (count ? 'pick' : 'none') : 'fetch');
   // Logo Mapy.com (podmínka jejich API): u návrhů z Mapy.com („Hledají i Mapy.com“) a nad turistickou mapou.
@@ -1643,6 +1654,8 @@
         : px ? `<div class="pi-opt pi-smart on" data-smart="1"><span class="pi-flag">✨</span><span class="pi-t"><b>${esc([px.place ? `📍 ${smartNames.get(px.place) || px.place}` : `📍 ${ex.place.label}`, ...px.chips].join(' · '))}</b><small>klepni nebo Enter – najdu místo a naplánuju</small></span><span class="pi-type">plánovat</span></div>`
         : sugHtml(sugs, act, err);
       dd.hidden = false;
+      // nenalezené místo: otázka pod hledáním, ne v nabídce – ta se při klepnutí jinam zavře a otázka by zmizela pod prstem
+      if (!wc && !px && !err && sugFor) { if (sugs.length) exFound(); else exNotFound(q.closest('.ex-search'), sugFor); }
       const sm = $('[data-smart]', dd); if (sm) sm.onmousedown = e => { e.preventDefault(); runSmart(px); };
       $$('.pi-opt:not([data-smart])', dd).forEach(o => o.onmousedown = e => { e.preventDefault(); pick(sugs[+o.dataset.i]); });
     };
@@ -1656,7 +1669,7 @@
       let down = false;
       const s = px.place ? await smartPlace(px.place).catch(e => { down = Boolean(e && e.down) && (e.offline ? 'offline' : true); return null; }) : ex.place;
       if (my !== smartSeq) return;
-      if (!s) { dd.innerHTML = `<div class="pi-empty">${down === 'offline' ? 'Jsi offline – místo půjde dohledat po připojení k internetu' : down ? 'Místa teď nejde dohledat – zkontroluj připojení a zkus to znovu' : `Místo „${esc(px.place)}“ jsem nenašel – zkus jen jeho název`}</div>`; return; }
+      if (!s) { dd.innerHTML = `<div class="pi-empty">${down === 'offline' ? 'Jsi offline – místo půjde dohledat po připojení k internetu' : down ? 'Místa teď nejde dohledat – zkontroluj připojení a zkus to znovu' : `Místo „${esc(px.place)}“ jsem nenašel – zkus jen jeho název`}</div>`; if (!down) exNotFound(q.closest('.ex-search'), q.value.trim()); return; }
       dd.hidden = true; q.blur();
       exploreApply(px, s);
       // věta bez místa („na 2 dny“): v poli zase otevřené místo, ne text věty
@@ -2723,6 +2736,10 @@
     const on = (sel, ev, fn) => { const el = $(sel, body); if (el) el[ev] = fn; };
     $$('[data-cat]', body).forEach(b => b.onclick = () => { ex.cat = b.dataset.cat; paintExplore(); });
     $$('[data-rad]', body).forEach(b => b.onclick = () => setRadius(+b.dataset.rad));
+    // prázdný okruh je pro otázku 5 nenalezení (jednou na místo a okruh – překreslení není další pokus)
+    if (ex.items.length) exFound();
+    // ve sbaleném seznamu (kolo, pěšky, výlety) by otázka nebyla vidět a zabrala by jedinou otázku stránky
+    else if (!(fr && fr.busy) && !bz) { const em = $('#exList .empty', body); exNotFound(em && !em.closest('details:not([open])') ? em : null, `\u0000${p.label}|${ex.radius}|`); }
     on('#exPlaces', 'ontoggle', e => { ex.listOpen = e.target.open; });
     $$('[data-mode]', body).forEach(b => b.onclick = () => { if (ex.mode !== b.dataset.mode) { ex.mode = b.dataset.mode; paintExplore(); } });
     $$('[data-transport]', body).forEach(b => b.onclick = () => { ex.autoTransit = null; if (ex.transport !== b.dataset.transport) { ex.transport = b.dataset.transport; paintExplore(); } });
@@ -3036,7 +3053,7 @@
   window.Places = {
     renderExplore, renderPlanner, retheme, routeMap, dayRoute, gmDir, openAt, preview, previewHtml, openCountryView, makeHikePlan,
     // jen pro testy (test/places-ui.test.js)
-    _t: { hikesAt, wxAvgWhy, tripDropUndo, tripPlaces, ownPlaces, savedPlaces, tripDatesFor, inspSub, searchedPlaces, plural, placesTxt, mustTxt, inRadius, needsFetch, outsideIds, planIds, withPlanStops, enterAction, sugHtml, waitHtml, errLead, errHtml, httpErr, mustBtn, poiCard,
+    _t: { hikesAt, wxAvgWhy, tripDropUndo, tripPlaces, ownPlaces, savedPlaces, tripDatesFor, inspSub, searchedPlaces, plural, placesTxt, mustTxt, inRadius, needsFetch, outsideIds, planIds, withPlanStops, enterAction, missNext, sugHtml, waitHtml, errLead, errHtml, httpErr, mustBtn, poiCard,
       uiSnapshot, uiRestore, okStart, pushRecent, samePlace, cleanPlace, getJson, firstSentence, descHtml, inclHtml, gq, poiQ, centerQ, gmDir, dayLbl, slug, gpxOf, SLOW_MS, UI_LS,
       countryCs, stopQ, mapyDir, dayLinks, planHtml, tripHtml, MAPY_WP, emptyHtml, planEmptyHtml, variantTxt, routeHtml, ROUTE_VARIANTS, blankHtml, looksEnglish, surfaceRows, surfaceHtml,
       afterDark, routeBack, sunSlot, sunHtml, fillSun, toHm, modeBtns, previewPick, previewCard, moreTxt, poiUrl, pvFor, PREVIEW_KM, ex, loadExplore,

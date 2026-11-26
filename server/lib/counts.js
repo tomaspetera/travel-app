@@ -23,6 +23,12 @@ export const EVENTS = [
   'plus_page', 'plus_offer_shown', 'plus_offer_click', 'sesit_shown', 'sesit_click',
   'price_0', 'price_199', 'price_399', 'price_599', 'price_799', 'look_letsi',
   ...SERVER_EVENTS,
+  // odpovědi na krátké otázky (public/js/count.js Count.ask) – jen klepnutá volba, zobrazení otázky se nepočítá
+  'mq_empty_place', 'mq_empty_dates', 'mq_empty_lost', 'mq_empty_try',
+  'mq_price_same', 'mq_price_higher', 'mq_price_gone',
+  'mq_restart_date', 'mq_restart_price', 'mq_restart_lost', 'mq_restart_try',
+  'mq_trip_good', 'mq_trip_missing', 'mq_trip_lost',
+  'mq_ex_city', 'mq_ex_nature', 'mq_ex_region', 'mq_ex_other',
 ];
 // Strop seznamu: s každým názvem roste nejhorší počet zápisů do Upstash (rozpočet v test/pocitadla.test.js)
 export const MAX_EVENTS = 150;
