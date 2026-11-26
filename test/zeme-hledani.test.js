@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 
 const read = (f) => readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
 const app = read('public/js/app.js');
@@ -34,10 +34,10 @@ test('Objevuj → Celá země: výběr země najde hovorové názvy přes ccByNa
   const ctx = { console, URLSearchParams, byIso };
   ctx.window = ctx;
   vm.createContext(ctx);
-  vm.runInContext(app.match(/^const (esc|enc|flag|safeUrl|cssUrl|pad|fmtYMD) = .*$/gm).join('\n'), ctx);
+  vm.runInContext(app.match(/^const (esc|enc|flag|safeUrl|cssUrl|pad|fmtYMD|COUNTRY_ALIAS) = .*$/gm).join('\n'), ctx);
   vm.runInContext(read('public/js/places.js'), ctx, { filename: 'places.js' });
   const { ccAliasHits } = ctx.Places._t;
-  for (const [t, iso] of HOVOROVE) assert.ok(ccAliasHits(t).has(iso), t);
+  for (const [t, iso] of [...HOVOROVE, ['skotsko', 'GB'], ['wales', 'GB']]) assert.ok(ccAliasHits(t).has(iso), t);
   assert.ok(!ccAliasHits('usa').has('GB'));
   assert.equal(ccAliasHits('').size, 0, 'prázdné pole: nic navíc (ukáže se vše)');
   assert.match(read('public/js/places.js'), /al\.has\(b\.dataset\.cc\)/, 'wirePicker shodu přes ccAliasHits používá');
@@ -67,13 +67,14 @@ this.paintWeather = paintWeather;`, ctx);
   assert.doesNotMatch(read('public/js/places.js'), /met\.no/);
 });
 
-test('logo Mapy.com: buď z vlastního serveru, nebo ho zásady uvádějí mezi službami, které vidí IP adresu', () => {
-  const js = ['places.js', 'app.js', 'flights.js', 'trip.js'].map((f) => read(`public/js/${f}`)).join('\n');
+test('logo Mapy.com z vlastního serveru: prohlížeč se api.mapy.com neptá, jak slibují zásady', () => {
+  const js = readdirSync(new URL('../public/js/', import.meta.url)).filter((f) => f.endsWith('.js')).map((f) => read(`public/js/${f}`)).join('\n');
   // obrázek (src nebo konstanta s .svg/.png) z api.mapy.com; odkazy <a href> na podmínky a copyright smí zůstat
-  const cizi = /['"`]https:\/\/api\.mapy\.com\/[^'"`]*\.(svg|png)['"`]/.test(js);
-  if (!cizi) return;
+  assert.doesNotMatch(js, /['"`]https:\/\/api\.mapy\.com\/[^'"`]*\.(svg|png)['"`]/);
+  assert.match(read('public/js/places.js'), /const MAPY_LOGO = 'vendor\/mapy-logo\.svg';/);
+  assert.match(read('public/vendor/mapy-logo.svg'), /^<svg[^>]*viewBox="0 0 100 30"/);
   const z = read('docs/pravni/zasady-ochrany-osobnich-udaju.md');
   const tab = z.split('### 5.1')[1].split('### 5.2')[0];
-  assert.match(tab, /^\| \*\*Mapy\.com\*\*.*logo/m, 'Mapy.com (logo) v tabulce služeb, kam se ptá prohlížeč');
-  assert.doesNotMatch(tab, /^Mapy\.com[^\n]*\n?[^\n]*tyto služby tvou IP adresu nevidí/m, 'věta o IP nesmí Mapy.com vylučovat celé');
+  assert.doesNotMatch(tab, /^\| \*\*Mapy\.com/m, 'Mapy.com nepatří mezi služby, kam se ptá prohlížeč');
+  assert.match(tab, /Mapy\.com \(turistická mapa, návrhy míst, trasy\)[^]*?přes server\s+Letsi\*\* – tyto služby tvou IP adresu nevidí/);
 });
