@@ -122,7 +122,7 @@ Navigační mapa repozitáře: kde co je a jak to spolu souvisí, aby se kód da
 - Odkazy v adrese při startu → `public/js/app.js`: `shortFromHash()`, `importPlanFromHash()`, `openOfferFromHash()`, `openJedFromHash()`, `openWatchFromHash()`
 - 💾 Záloha do souboru → `public/js/backup.js`: `pack()`, `parse()`, `merge()`, `preview()`, `apply()`, `restore()`
 - 📲 Přenos do jiného zařízení → `public/js/transfer.js`: `open()`, `fromHash()`, `receive()`; `public/js/qr.js`: `encode()`, `svg()`
-- Service worker, offline: co obsluhuje (`route()`: API, /c/, /j/ ne), kdy ukládá (`networkFirst()`, `remember()`) → `public/sw.js`; co předem uloží (PRECACHE = `shellAssets()` ze stránky + `RUNTIME_ASSETS` + `cssAssets()` = písma a obrázky z url() ve stylech), BUILD a otisky souborů → `server/lib/pwa.js`: `serviceWorker()`, `contentVersion()`
+- Service worker, offline: co obsluhuje (`route()`: API, /c/, /j/ ne), kdy ukládá (`networkFirst()`, `remember()`) → `public/sw.js`; co předem uloží (PRECACHE = `shellAssets()` ze stránky + `RUNTIME_ASSETS` + `cssAssets()` = písma a obrázky z url() ve stylech bez Interu a Sory – `OLD_FONTS`), BUILD a otisky souborů → `server/lib/pwa.js`: `serviceWorker()`, `contentVersion()`
 - Nová verze, offline pruh, instalace, české chyby sítě → `public/js/pwa.js`: `checkVersion()`, `install()`, `httpError()`, `netError()`, `whenOnline()`
 - Odložené moduly a knihovny map → `public/js/lazy.js`: `need()`, `run()`, `soon()`, `url()`
 - Navigace, Zpět, okno, hlášky, stav S, motiv → `public/js/app.js`: `go()`, `buildNav()`, `histPop()`, `histSub()` (krok uvnitř sekce: Zpět z 🔎 Prozkoumat na přehled země), `modalOpen()`, `modalClose()`, `toast()`, `save()`, `applyTheme()`
@@ -345,7 +345,7 @@ Tabulka odpovídá pořadí větví v `route()` (`server/index.js`). Limity jsou
 - `public/css/desktop-flights.css` – desktop Lety, Přehled a Země (výsledky ve dvou sloupcích od 1200 px, radar, filtry Zemí).
 - `public/css/desktop-explore.css` – desktop Objevuj (seznam a přilepená mapa), plánovač, Doporučení, Mapa, okna ve dvou sloupcích.
 - `public/css/desktop-trip.css` – desktop průvodce: lišta kroků, od 1280 px krok a Přehled cesty vpravo (`#tripAside`), Shrnutí ve dvou sloupcích.
-- `public/vendor/` – knihovny bez npm: `maplibre/` (MapLibre GL 5.24.0), `d3.min.js` 7.9.0, `topojson-client.min.js`, `countries-110m.json` (mapa světa, v PRECACHE), `flags/` (Twemoji), `fonts/` (Inter, Sora, Caveat, OFL; `fonts/letsi/` Onest a Unbounded pro `css/letsi.css` a náhledový obrázek), `letsi/` (ikony rozhraní, logo, znak a favicon z identity Letsi 2.1, původ v `letsi/README.md`); licence `public/vendor/LICENSES.txt`.
+- `public/vendor/` – knihovny bez npm: `maplibre/` (MapLibre GL 5.24.0), `d3.min.js` 7.9.0, `topojson-client.min.js`, `countries-110m.json` (mapa světa; jako knihovny map ne v PRECACHE), `flags/` (Twemoji), `fonts/` (Inter, Sora – jen starý vzhled, ne v PRECACHE; Caveat, OFL; `fonts/letsi/` Onest a Unbounded pro `css/letsi.css` a náhledový obrázek), `letsi/` (ikony rozhraní, logo, znak a favicon z identity Letsi 2.1, původ v `letsi/README.md`); licence `public/vendor/LICENSES.txt`.
 - `public/icons/` – ikony PWA (icon-96/192/512, maskable, apple-touch) a `splash/` (31 obrazovek iOS, každá světlá a `-tmava`), generuje `scripts/build-icons.mjs`; vedle `public/og-image.png` (náhled odkazu, `scripts/build-og-image.mjs`).
 - `public/data/pretrip.json` – data Před cestou (EHIC, DROZD, řidičák, zásuvky, telefony; ověřeno 2026-10), čte `public/js/pretrip.js`, v PRECACHE.
 

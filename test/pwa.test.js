@@ -297,6 +297,17 @@ test('seznam pro offline: stránka, vše z index.html a data – každý soubor 
   }
 });
 
+test('seznam pro offline: písma vzhledu Letsi a Caveat (karta ke sdílení) ano, Inter, Sora (starý vzhled) a mapa světa bez knihoven map ne', async () => {
+  const body = await (await fetch(`${base}/sw.js`)).text();
+  const list = JSON.parse(body.match(/^const PRECACHE = (\[.*\]);/m)[1]);
+  assert.match(read('public/css/atlas.css'), /inter-v20-latin\.woff2/, 'styly je dál nabízejí – vyřadit je musí seznam');
+  assert.deepEqual(list.filter((u) => /^vendor\/fonts\/(?:inter|sora)-/.test(u)), []);
+  assert.ok(!list.includes('vendor/countries-110m.json'));
+  assert.ok(!RUNTIME_ASSETS.some((u) => /countries-110m|inter-|sora-/.test(u)));
+  for (const f of ['onest-400', 'onest-700', 'unbounded-600', 'unbounded-700']) assert.ok(list.includes(`vendor/fonts/letsi/${f}.woff2`), `v seznamu chybí ${f}`);
+  assert.ok(list.includes('vendor/fonts/caveat-v23-700-latin.woff2') && list.includes('vendor/fonts/caveat-v23-700-latin-ext.woff2'));
+});
+
 test('verze v adrese: stránka má skripty a styly s otiskem obsahu → Cloudflare i prohlížeč je drží napořád; jiný otisk a holá adresa jako dřív', async () => {
   const res = await fetch(`${base}/`);
   const page = await res.text();
@@ -1045,6 +1056,49 @@ test('pwa.js: po návratu online se jednou znovu načte, co se offline nenačetl
   assert.deepEqual(calls, ['radar 2', 'explore', 'x']);
   Pwa.flushOnline(); // další návrat online: jen jednou, žádné opakování
   assert.equal(calls.length, 3);
+});
+
+test('pwa.js: schovaná karta se po 30 min na novou verzi neptá (neprobudí uspaný server), po návratu na stránku ověří hned', async () => {
+  // stránka v co nejmenším falešném DOM: stačí, aby pwa.js doběhl k části 5 (kontrola verze); http mimo localhost =
+  // bez service workeru, verzi zjišťuje jen HEAD sw.js
+  const el = () => ({ hidden: false, dataset: {}, setAttribute() { }, append() { }, after() { }, prepend() { }, before() { }, querySelector: () => el() });
+  const on = {}, onDoc = {}, timers = [], heads = [];
+  let now = 1e9;
+  const document = {
+    documentElement: { dataset: {} }, hidden: true, visibilityState: 'hidden', baseURI: 'http://letsi.test/', body: el(), activeElement: null,
+    querySelector: (s) => (s === 'meta[name="atlas-build"]' ? { getAttribute: () => 'aaa' } : null),
+    querySelectorAll: () => [], getElementById: () => null, createElement: el, addEventListener: (t, f) => { onDoc[t] = f; },
+  };
+  const window = {
+    fetch: (u) => { heads.push(u); return Promise.resolve({ ok: true, headers: { get: () => 'bbb' } }); },
+    addEventListener: (t, f) => { on[t] = f; },
+  };
+  const ctx = {
+    window, document, navigator: { onLine: true, userAgent: '', platform: '' }, location: { protocol: 'http:', hostname: 'letsi.test' },
+    URL, console, setTimeout, clearTimeout, AbortController, AbortSignal, setInterval: (f) => timers.push(f), Date: { now: () => now, parse: Date.parse },
+  };
+  vm.createContext(ctx);
+  vm.runInContext(read('public/js/pwa.js'), ctx, { filename: 'pwa.js' });
+  const settle = () => new Promise((r) => setTimeout(r, 5));
+
+  await on.load();
+  await settle();
+  assert.deepEqual(heads, ['sw.js'], 'po načtení jednou (stránka z uložené kopie)');
+  assert.equal(timers.length, 1);
+  now += 31 * 60e3;
+  timers[0]();
+  await settle();
+  assert.equal(heads.length, 1, 'schovaná karta: časovač nic neposílá');
+
+  document.hidden = false;
+  document.visibilityState = 'visible';
+  onDoc.visibilitychange();
+  await settle();
+  assert.equal(heads.length, 2, 'návrat na stránku: ověří hned');
+  now += 31 * 60e3;
+  timers[0]();
+  await settle();
+  assert.equal(heads.length, 3, 'viditelná stránka se dál ptá po 30 min');
 });
 
 test('ETag podle obsahu: znovu nasazený nezměněný soubor (nový čas změny) odpoví 304, změněný 200', async () => {

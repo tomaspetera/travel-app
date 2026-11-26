@@ -258,7 +258,7 @@
   /* ---------- 🌍 země podle názvu („Francie“, „ve Francii“, „Česká republika“, „Italy“) ---------- */
   const foldName = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
   const CC_ALIAS = { 'ceska republika': 'CZ', cechy: 'CZ', 'czech republic': 'CZ', anglie: 'GB', britanie: 'GB', 'velka britanie': 'GB', uk: 'GB',
-    holandsko: 'NL', holland: 'NL', usa: 'US', amerika: 'US', 'spojene staty': 'US' };
+    holandsko: 'NL', holland: 'NL', usa: 'US', amerika: 'US', 'spojene staty': 'US', emiraty: 'AE' };
   let ccNames = null, ccNamesN = 0;
   // název (česky, anglicky, přezdívka) → kód země; znovu, když přibydou země (načítají se po startu)
   function ccByName() {
@@ -280,6 +280,22 @@
   }
   // ✨ věta jen se zemí (bez dnů, druhu plánu a zájmů) → kód země pro přehled celé země
   const wholeCountryOf = px => (px && px.place && !px.days && !px.mode && !(px.interests && px.interests.length) && !px.km ? countryOfText(px.place) : '');
+  // ✨ věta se zemí a zájmem, který má kategorii v přehledu země („Chorvatsko u moře“, „Itálie hrady“, „Rakousko hory“)
+  // bez dnů, druhu plánu a délky → { cc, cat }; dřív se „u moře“ zahodilo, nebo z věty byl program v hlavním městě
+  const CC_INT = [[/^(?:mor[eiu]|morem|plaz\w*|pobrezi|koupani)$/, 'beach'], [/^hor(?:y|ach|ami|am)?$/, 'mountain'],
+    [/^(?:jezer\w*|vodopad\w*)$/, 'lake'], [/^(?:hrad\w*|zam(?:k\w*|ek))$/, 'castle']];
+  const CC_PREP = /^(?:u|k|ke|na|do|v|ve|po|za)$/;
+  function wholeCountryCat(text, px) {
+    if (px && (px.days || px.mode || px.km)) return null;
+    let cat = '';
+    const rest = String(text || '').trim().split(/\s+/).filter(w => {
+      const f = foldName(w).replace(/[.,!?]+$/, ''), c = CC_INT.find(([re]) => re.test(f));
+      if (c) { cat = cat || c[1]; return false; }
+      return !CC_PREP.test(f);
+    }).join(' ').replace(/^(?:a|i)\s+|\s+(?:a|i)$/gi, ''); // „Itálie hrady a zámky“
+    const cc = cat ? countryOfText(rest) : '';
+    return cc ? { cc, cat } : null;
+  }
   // v poli hledání: u přehledu země název země („Francie“), jinak místo
   const qLabel = () => (ex.place ? (ex.radius === COUNTRY && countryCs(ex.place.cc)) || ex.place.label : '');
   /**
@@ -289,9 +305,12 @@
   function countrySugs(text) {
     const q = foldName(text), exact = countryOfText(text);
     const low = t => String(t || '').normalize('NFC').toLowerCase().replace(/\s+/g, ' ').trim(), ql = low(text), dia = q !== ql;
-    const sameDia = cc => !dia || [byIso[cc]?.cs, byIso[cc]?.en].some(n => n && low(n).startsWith(ql));
+    // i začátek slova uvnitř názvu („Emiráty“ → Spojené arabské emiráty, „Korea“ → Jižní Korea) – dřív jen začátek
+    // celého názvu; shody od začátku názvu mají přednost (do dvou návrhů se vejdou)
+    const word = (n, x) => n.split(' ').some(w => w.startsWith(x));
+    const sameDia = cc => !dia || [byIso[cc]?.cs, byIso[cc]?.en].some(n => n && word(low(n), ql));
     const ccs = exact ? [exact] : [];
-    if (q.length >= 3) for (const [n, cc] of ccByName()) if (n.startsWith(q) && !ccs.includes(cc) && sameDia(cc)) ccs.push(cc);
+    if (q.length >= 3) for (const inner of [false, true]) for (const [n, cc] of ccByName()) if ((inner ? word(n, q) : n.startsWith(q)) && !ccs.includes(cc) && sameDia(cc)) ccs.push(cc);
     return ccs.slice(0, 2).map(cc => ({ ccPick: cc, label: `${countryCs(cc)} – celá země`, sub: 'města, další cíle, památky UNESCO a národní parky', flag: flag(cc), ...(cc === exact ? { full: true } : {}) }));
   }
   /**
@@ -829,6 +848,20 @@
    * je pro stejná místa a volby stejné (server bez náhody), takže vrácení místa a nové naplánování bez keep vrátí
    * program, jak byl.
    */
+  // ✕ v plánu: tlačítko s překreslením zmizí a fokus (klávesnice, čtečka) by spadl na začátek stránky – pořadí ✕ se
+  // zapamatuje a po překreslení dostane fokus ✕ na stejném místě (poslední, když ubylo), bez zastávek nadpis dne
+  let dropAt = null;
+  const dropMark = (host, b) => { dropAt = $$('[data-drop]', host).indexOf(b); };
+  function dropRefocus(host) {
+    if (dropAt == null || !host) return;
+    const i = dropAt, a = document.activeElement;
+    dropAt = null;
+    if (a && a !== document.body && a.isConnected) return; // fokus mezitím jinde (psaní, jiné tlačítko) – nebrat
+    const bs = $$('[data-drop]', host), el = bs[Math.min(i, bs.length - 1)] || $('.day-plan h4', host);
+    if (!el) return;
+    if (!bs.length) el.tabIndex = -1;
+    el.focus();
+  }
   function dropUndo(st, id, plan, replan) {
     const was = st.must.has(id);
     const name = plan && plan.days ? (plan.days.flatMap(d => d.items).find(x => x.id === id) || {}).name : '';
@@ -1004,7 +1037,8 @@
       fillWx($('#tpPlan', host));
       if (onRural) onRural(isRural(plan));
       drawOnMap(st, center, st.items.filter(p => plan.days.some(d => d.items.some(q => q.id === p.id)) || p.category !== 'daytrip'), plan, p => { const el = $(`[data-poi="${CSS.escape(p.id)}"]`, host); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' }); });
-      $$('[data-drop]', host).forEach(b => b.onclick = () => dropUndo(st, b.dataset.drop, plan, run));
+      $$('[data-drop]', host).forEach(b => b.onclick = () => { dropMark(host, b); dropUndo(st, b.dataset.drop, plan, run); });
+      dropRefocus(host);
       $$('[data-must]', host).forEach(b => b.onclick = e => { e.stopPropagation(); st.must.add(b.dataset.must); st.exclude.delete(b.dataset.must); run(); });
     };
     $$('[data-int]', host).forEach(b => b.onclick = () => { st.interests.has(b.dataset.int) ? st.interests.delete(b.dataset.int) : st.interests.add(b.dataset.int); b.classList.toggle('on', st.interests.has(b.dataset.int)); b.setAttribute('aria-pressed', st.interests.has(b.dataset.int)); run(); });
@@ -1317,14 +1351,15 @@
     // jen místa z databáze letů (letiště, města, země, oblasti) – geokódované vesnice (geo:…, „Brná“ pro „Brna“) ne;
     // shoda i podle jiného názvu (en „Rome“, místní „Roma“, „Toscana“) → hledá se český název („Řím“, „Toskánsko“)
     // at = známé místo s polohou a zemí (letiště, metropole, město; u oblasti její letiště, u země hlavní město)
-    let known = null, region = null, at = null;
+    let known = null, region = null, at = null, capCc = '';
     for (const [i, c] of cands.entries()) {
       const it = fl[i].find(x => !/^geo:/.test(x.id || '') && [x.label, x.en, ...(x.aliases || [])].some(n => n && same(n, c)));
       if (!it) continue;
       known = String(it.label).replace(/\s*\(.*\)$/, ''); at = it;
       if (it.type === 'region') { region = await regionCity(it); if (region) { known = region.name; at = region.ap; } }
-      // země („Itálie na týden“): geokódování ji nezná – program v hlavním městě (jako přehled země)
-      if (it.type === 'country') { const cap = await capitalOf(it.cc); if (cap) { known = cap.name; at = cap.it; } }
+      // země („Itálie na týden“): geokódování ji nezná – program v hlavním městě (jako přehled země); capitalOf u místa
+      // řekne Objevuj, že to město uživatel nenapsal (hláška a na víc dní okruh – exploreApply)
+      if (it.type === 'country') { const cap = await capitalOf(it.cc); if (cap) { known = cap.name; at = cap.it; capCc = it.cc; } }
       break;
     }
     const geo = async c => (await getJson('api/geocode?q=' + enc(c)).catch(() => ({ items: [] }))).items || [];
@@ -1339,7 +1374,7 @@
     const own = (a, name) => ({ label: name, lat: +a.lat, lon: +a.lon, cc: a.cc || '' });
     for (const c of known ? [known] : [...cands.slice(1), cands[0]]) {
       const items = await geo(c), hit = ok && ok.cc ? inCc(items, c, ok, !region) || (region ? null : own(ok, c)) : items.find(it => same(it.label, c)) || (known && !region ? items[0] : null);
-      if (hit) return region ? { ...hit, region: region.key } : hit;
+      if (hit) return region ? { ...hit, region: region.key } : capCc ? { ...hit, capitalOf: capCc } : hit;
     }
     // město oblasti, které geokódování česky nezná (Heraklion → jen „Heraklion Airport Terminal“): poloha letiště
     if (region) return { label: region.name, lat: region.ap.lat, lon: region.ap.lon, cc: region.ap.cc || '', region: region.key };
@@ -1373,6 +1408,10 @@
     const it = (j.items || []).find(x => x && x.cc === cc && ['metro', 'city', 'airport'].includes(x.type) && Number.isFinite(+x.lat) && Number.isFinite(+x.lon));
     return it ? { name, it } : null;
   }
+  // ✨ věta se zemí: hláška, proč se otevřelo hlavní město („Itálie: začínám v hlavním městě Řím…“) – jinak by Řím
+  // vypadal jako omyl; názvy v 1. pádě (skloňování podle země by u stovky zemí nesedělo)
+  const capitalNote = s => (s && s.capitalOf && countryCs(s.capitalOf)
+    ? `${countryCs(s.capitalOf)}: začínám v hlavním městě ${String(s.label || '').replace(/\s*\(.*\)$/, '')} – celou zemi najdeš pod Celá země` : '');
   /** ✨ Volby z věty do Objevuj: druh plánu, dny, délka trasy, od kdy, zájmy; plán se po načtení míst sestaví sám. */
   function exploreApply(px, s) {
     // věta bez druhu plánu, ale s dny nebo zájmy („Lisabon na 3 dny“, „Řím s dětmi“) = program ve městě – ne kolo
@@ -1382,6 +1421,8 @@
     if (ex.radius === COUNTRY) ex.radius = ex.lastKm || 10;
     if (px.mode) ex.mode = px.mode;
     else if (s && s.region && px.days >= 2) ex.mode = 'loop';
+    // země na víc dní („Itálie na týden“): okruh z hlavního města – ne týden pěšky po Římě
+    else if (s && s.capitalOf && px.days > 3) ex.mode = 'loop';
     // hory a příroda na víc dní („Krkonoše na 3 dny“): túra na každý den, ne program po místech
     else if (s && hikesAt(s) && px.days >= 2) { ex.mode = 'hike'; ex.hike.kind = 'days'; }
     else if (px.days || px.interests.length) ex.mode = 'city';
@@ -1656,11 +1697,18 @@
     // věta s volbami („Lisabon na 3 dny“), nebo jen otázka kolem místa („co vidět v Římě“ → Řím)
     // svátky jako u hledání letů („Paříž na Den boje za svobodu“ = jeho prodloužený víkend, ne odhad)
     const exOpts = () => { const t = fmtYMD(new Date()), H = window.SearchHelp; return { today: t, ...(H ? { holidays: H.holidayList(t), holidayDates: H.holidayDates, longWeekend: H.longWeekend } : {}) }; };
-    const smartOf = text => { const px = window.Smart && Smart.parseExplore(text, exOpts()); return px && (px.chips.length || (px.place && Smart.fold(px.place) !== Smart.fold(text))) && (px.place || ex.place) ? px : null; };
+    // cw = země s kategorií („Chorvatsko u moře“ → přehled Chorvatska s plážemi) – i když parseExplore „u moře“ nezná
+    const smartOf = text => {
+      const px = window.Smart && Smart.parseExplore(text, exOpts());
+      if (!px) return null;
+      px.cw = wholeCountryCat(text, px);
+      return px.cw || ((px.chips.length || (px.place && Smart.fold(px.place) !== Smart.fold(text))) && (px.place || ex.place)) ? px : null;
+    };
     const show = () => {
       const px = smartOf(q.value.trim());
-      const wc = px && wholeCountryOf(px);
-      dd.innerHTML = wc ? `<div class="pi-opt pi-smart on" data-smart="1"><span class="pi-flag">${flag(wc)}</span><span class="pi-t"><b>${esc(countryCs(wc))} – celá země</b><small>klepni nebo Enter – města, další cíle, UNESCO a národní parky</small></span><span class="pi-type">země</span></div>`
+      const wc = px && (px.cw ? px.cw.cc : wholeCountryOf(px));
+      const catTxt = px && px.cw ? ` · ${(CC_CATS.find(c => c[0] === px.cw.cat) || ['', ''])[1]}` : '';
+      dd.innerHTML = wc ? `<div class="pi-opt pi-smart on" data-smart="1"><span class="pi-flag">${flag(wc)}</span><span class="pi-t"><b>${esc(countryCs(wc))} – celá země${esc(catTxt)}</b><small>klepni nebo Enter – města, další cíle, UNESCO a národní parky</small></span><span class="pi-type">země</span></div>`
         : px ? `<div class="pi-opt pi-smart on" data-smart="1"><span class="pi-flag">✨</span><span class="pi-t"><b>${esc([px.place ? `📍 ${smartNames.get(px.place) || px.place}` : `📍 ${ex.place.label}`, ...px.chips].join(' · '))}</b><small>klepni nebo Enter – najdu místo a naplánuju</small></span><span class="pi-type">plánovat</span></div>`
         : sugHtml(sugs, act, err);
       dd.hidden = false;
@@ -1675,6 +1723,8 @@
     const runSmart = async px => {
       const my = ++smartSeq; // novější věta předbíhá starší (pomalé hledání místa)
       // „do Francie“, „co vidět v Itálii“ (země bez dnů, druhu plánu a zájmů) = přehled celé země
+      // „Chorvatsko u moře“: přehled země rovnou s kategorií – paintCountry ji sám načte (loadCountryCat)
+      if (px.cw) { dd.hidden = true; q.blur(); ex.cCat = px.cw.cat; remember(); return openWholeCountry(px.cw.cc); }
       const wc = wholeCountryOf(px);
       if (wc) { dd.hidden = true; q.blur(); return openWholeCountry(wc); }
       dd.innerHTML = '<div class="pi-empty"><span class="spin dark"></span> Hledám místo…</div>'; dd.hidden = false;
@@ -1686,6 +1736,7 @@
       if (!s) { dd.innerHTML = `<div class="pi-empty">${down === 'offline' ? 'Jsi offline – místo půjde dohledat po připojení k internetu' : down ? 'Místa teď nejde dohledat – zkontroluj připojení a zkus to znovu' : `Místo „${esc(px.place)}“ jsem nenašel – zkus jen jeho název`}</div>`; if (!down) exNotFound(q.closest('.ex-search'), q.value.trim()); return; }
       dd.hidden = true; q.blur();
       exploreApply(px, s);
+      const note = capitalNote(s); if (note) toast(note, '', 5000);
       // věta bez místa („na 2 dny“): v poli zase otevřené místo, ne text věty
       if (px.place) deep('ex_open_smart');
       if (px.place) openPlace(s, { start: !px.start, days: !px.days }); else { q.value = qLabel(); paintExplore(); }
@@ -2777,12 +2828,17 @@
       if (trip || busy[seqKey]) replanSoon(seqKey);
     });
     // odkaz v kartě (Wikipedie, Google Maps) jen otevře odkaz – kartu nezaměří (dřív atribut onclick se stopPropagation v HTML – ten CSP nepustí)
-    $$('#exList [data-poi]', body).forEach(c => c.onclick = e => { if (!e.target.closest('a')) focus(ex.items.find(i => i.id === c.dataset.poi), c, 'seznam'); });
+    // karty míst i z klávesnice (Tab, Enter) – kbClick z app.js
+    const kb = c => { if (typeof kbClick === 'function') kbClick(c); };
+    $$('#exList [data-poi]', body).forEach(c => { c.onclick = e => { if (!e.target.closest('a')) focus(ex.items.find(i => i.id === c.dataset.poi), c, 'seznam'); }; kb(c); });
     const lm = $('#exListMore', body); if (lm) lm.onclick = () => { ex.listAll = true; $('#exList', body).classList.add('all'); lm.remove(); };
-    $$('#exPlanOut [data-poi]', body).forEach(c => c.onclick = e => {
-      if (e.target.closest('a,button')) return;
-      const pool = trip ? [...trip.days.flatMap(d => d.stops), ...trip.spare] : [...(ex.plan?.days || []).flatMap(d => d.items), ...st.items, ...ex.items];
-      focus(pool.find(i => i.id === c.dataset.poi), c, 'plán');
+    $$('#exPlanOut [data-poi]', body).forEach(c => {
+      c.onclick = e => {
+        if (e.target.closest('a,button')) return;
+        const pool = trip ? [...trip.days.flatMap(d => d.stops), ...trip.spare] : [...(ex.plan?.days || []).flatMap(d => d.items), ...st.items, ...ex.items];
+        focus(pool.find(i => i.id === c.dataset.poi), c, 'plán');
+      };
+      kb(c);
     });
     // „Chci vidět“: počítadlo u „Sestavit program“; hotový program se přeplánuje sám.
     // i program, který se teprve skládá (busy) – dotaz odešel bez téhle volby
@@ -3005,7 +3061,8 @@
     on('#routeOther', 'onclick', () => replan($('#routeOther'), { other: true }));
     on('#exRetry', 'onclick', () => replan(null, { other: er?.other }));
     on('#routeGpx', 'onclick', () => downloadText(`letsi-${hikeMode ? 'pesky' : rr.kind === 'train' ? 'vlak-kolo' : 'kolo'}-${slug(p.label)}-${rr.km}km.gpx`, gpxOf(rr, routeName(rr, p)), 'application/gpx+xml'));
-    $$('[data-drop]', body).forEach(b => b.onclick = () => dropUndo(st, b.dataset.drop, ex.plan, () => replan()));
+    $$('[data-drop]', body).forEach(b => b.onclick = () => { dropMark(body, b); dropUndo(st, b.dataset.drop, ex.plan, () => replan()); });
+    dropRefocus(body);
     $$('[data-tdrop]', body).forEach(b => b.onclick = () => tripDropUndo(b.dataset.tdrop, trip,() => { onlyThisTrip(); replan(); }));
     $$('[data-tmust]', body).forEach(b => b.onclick = e => { e.stopPropagation(); ex.tripMust.add(b.dataset.tmust); ex.tripEx.delete(b.dataset.tmust); onlyThisTrip(); replan(); });
     // 🎒 Výlet sem (místo z okolí v okruhu 50/100 km): jednodenní výlety s tímto místem – naplánují se hned
@@ -3080,7 +3137,7 @@
       afterDark, routeBack, sunSlot, sunHtml, fillSun, toHm, modeBtns, previewPick, previewCard, moreTxt, poiUrl, pvFor, PREVIEW_KM, ex, loadExplore,
       plannerEntry, findTripFor, mergeInto, busyDays, saveHtml, flyTarget, flyDates, idosUrl, idosOn, homeCity, prefsOf, makePlan, dropUndo, planTimes, tripTimes, roadSpan, carSkipFor,
       RADII, CITY_KM, COUNTRY, cityKm, farOn, withFar, driveMin, countryItems, countryCard, countryTarget, C_GROUPS, CC_CATS, countryPick, loadCountryCat, setRadius, paintCountry, loadFar,
-      countryOfText, countrySugs, sugOrder, openPlace, countryBack, wholeCountryOf, pickerHtml, openWholeCountry, CC_POP, smartPlace, smartName, setPlace, natureMode, exploreApply, hikeNature,
+      countryOfText, countrySugs, sugOrder, wholeCountryCat, capitalNote, dropMark, dropRefocus, openPlace, countryBack, wholeCountryOf, pickerHtml, openWholeCountry, CC_POP, smartPlace, smartName, setPlace, natureMode, exploreApply, hikeNature,
       makeHikePlan, hikePlanHtml, hikeDayHtml, rainTxt, kidsTxt, foodTxt, startTxt, isRural, HIKE_KINDS, curKey, keyKind },
   };
 })();

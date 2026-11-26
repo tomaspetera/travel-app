@@ -12,7 +12,7 @@ import path from 'node:path';
 import {
   AIRPORTS, COUNTRIES, COUNTRY_BY_ISO, METRO_BY_CODE, airportsInCountry, airportsNear, getAirport, sizePenaltyKm,
 } from './airports.js';
-import { CITIES, COUNTRY_ALIASES, EXONYMS, NATURE, REGIONS } from './names.js';
+import { ADMIN1_CS, CITIES, COUNTRY_ALIASES, EXONYMS, NATURE, REGIONS } from './names.js';
 import { CONTINENTS, CONTINENT_BY_KEY, continentCountries } from './longhaul.js';
 import { haversineKm, normalize } from './geo.js';
 import { airportAccess } from './access.js';
@@ -392,7 +392,8 @@ function placeMatches(query) {
 
 const placeRow = (i) => {
   const [, label, lat, lon, a1, pop, fc, , en] = PLACES.rows[i].split('|');
-  return { label, en: en || label, lat: lat / 1e4, lon: lon / 1e4, cc: PLACES.admin1[a1][0], region: PLACES.admin1[a1][1], pop: Number(pop) || 0, fc: PLACES.fc[fc || 0] };
+  const r = PLACES.admin1[a1][1];
+  return { label, en: en || label, lat: lat / 1e4, lon: lon / 1e4, cc: PLACES.admin1[a1][0], region: ADMIN1_CS[r] || r, pop: Number(pop) || 0, fc: PLACES.fc[fc || 0] };
 };
 
 /**
@@ -515,7 +516,19 @@ export async function geocodeExplore(query, { mapy = true, regions = false } = {
       ...base.filter((y) => !strong.includes(y) && !conv.some((x) => dup(x, y)))].slice(0, 10);
   }
   if (rg.value) list = townBeforeRegion(list, q, (x) => /^PPL/.test(x.fc || '') || towns.has(x));
-  return sameOnce(nat.length ? withNature(list, nat, q) : list);
+  // celý název země („Island“): jen místa té země – jinak slovo z anglického názvu přidá Negros Island, Sardinii
+  // nebo Montréal (v GeoNames ostrov)
+  const cc = countryOf(q);
+  const out = sameOnce(nat.length ? withNature(list, nat, q) : list);
+  return cc ? out.filter((x) => x.cc === cc) : out;
+}
+
+/** Kód země, když dotaz celý odpovídá jejímu českému nebo anglickému názvu či aliasu („Island“, „Iceland“), jinak null. */
+function countryOf(query) {
+  const q = normalize(query);
+  if (!q) return null;
+  const c = COUNTRIES.find((x) => normalize(x.cs) === q || (x.en && normalize(x.en) === q));
+  return c ? c.iso2 : COUNTRY_ALIASES[q] || null;
 }
 
 /**
@@ -550,7 +563,17 @@ export function townBeforeRegion(list, query, isTown) {
  */
 function withNature(list, nat, query) {
   const ns = nat.map((x) => x.s);
-  const same = (n, x) => normalize(String(x.label || '').replace(/\s*\(.*\)$/, '')) === normalize(n.label) && haversineKm(n.lat, n.lon, x.lat, x.lon) < 10;
+  const sameName = (n, x) => normalize(String(x.label || '').replace(/\s*\(.*\)$/, '')) === normalize(n.label) && haversineKm(n.lat, n.lon, x.lat, x.lon) < 10;
+  // jezero, park, pohoří nebo ostrov z GeoNames je tentýž cíl jinými slovy („Plitvice Lakes National Park“, „Lago di
+  // Garda“, Šumava jednou s vlajkou AT – střed pohoří GeoNames leží jinde než náš): název nebo alias do 60 km (pohoří
+  // jsou velká), stejný druh do 40 km. Obce (Garda, Hallstatt) zůstanou – jsou to jiné cíle.
+  const KIND = { LK: ['lake'], LKS: ['lake'], PRK: ['park', 'range'], MTS: ['range'] };
+  const twin = (n, x) => {
+    if (!/^(LKS?|PRK|MTS|ISLS?)$/.test(x.fc || '')) return false;
+    const km = haversineKm(n.lat, n.lon, x.lat, x.lon), t = normalize(x.label || '');
+    return (km < 60 && [n.label, ...(n.aliases || [])].some((a) => t.startsWith(normalize(a)))) || (km < 40 && (KIND[x.fc] || []).includes(n.nature));
+  };
+  const same = (n, x) => sameName(n, x) || twin(n, x);
   // oprava překlepu („Hallsttat“ → Hallstatt) nahoře – jen když větší místo (od 1000 obyvatel) nebo oblast názvem
   // nezačíná napsaným textem (jako u měst v geocodePlaces); oprava města z geocodePlaces zůstane
   if (nat.every((x) => x.fuzzy)) {
@@ -577,8 +600,15 @@ async function regionPlace(query) {
   if (!a) return null;
   // „Kréta (Heraklion)“ → Heraklion (anglický název města letiště), „Florencie“ zůstane
   const name = /\(.*\)$/.test(a.cityCs) ? a.city : a.cityCs;
-  const g = (await geocode(name).catch(() => [])).find((x) => normalize(x.label) === normalize(name) && haversineKm(a.lat, a.lon, x.lat, x.lon) < 60);
-  const p = g || { id: `geo:${a.lat.toFixed(4)},${a.lon.toFixed(4)}|${name}`, type: 'place', label: name, flag: flag(a.cc), cc: a.cc, lat: a.lat, lon: a.lon, pop: 0 };
+  // město letiště, ne ostrov stejného jména: „Mallorca“ a „Rhodos“ jsou v seznamu míst napřed ostrov (střed ve
+  // vnitrozemí), Objevuj by pak začínal mimo město. Přesný název, jinak obec, kterou název najde (Rhodos → Rhodes);
+  // nic → anglický název města letiště (Palma de Mallorca → Palma), pak bod u letiště
+  const town = async (n) => {
+    const near = (await geocode(n).catch(() => [])).filter((x) => !/^ISLS?$/.test(x.fc) && haversineKm(a.lat, a.lon, x.lat, x.lon) < 60);
+    return near.find((x) => normalize(x.label) === normalize(n)) || near.find((x) => x.fc.startsWith('PPL'));
+  };
+  const g = (await town(name)) || (a.city !== name ? await town(a.city) : null);
+  const p = g ||{ id: `geo:${a.lat.toFixed(4)},${a.lon.toFixed(4)}|${name}`, type: 'place', label: name, flag: flag(a.cc), cc: a.cc, lat: a.lat, lon: a.lon, pop: 0 };
   return { ...p, region: r.key, sub: regionSub(r.cs, p.sub) };
 }
 

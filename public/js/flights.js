@@ -18,6 +18,7 @@
   const PROV = {}; // id → {name,color,kind,note}
   let health = null;
   let lastResult = null;
+  let searchAt = 0; // kdy se naposledy spustilo hledání – druhé klepnutí na „Najít lety“ nesmí spustit dlaždici pod ním
   let lastPayload = null;
   // Filtry letišť a aerolinek vyřazují (excludeOrigins, excludeCarriers): letiště či aerolinka, která přibude s dalším
   // výsledkem (konečný po průběžném), je vidět – kromě „jen lety odsud“ (onlyOrigin), které platí i pro nová letiště.
@@ -1513,6 +1514,7 @@
     // domov radaru („Odkud obvykle létáš“) jen poprvé – zkušební hledání z Mnichova ho nepřepíše (mění se v radaru)
     S.form = f; if (!S.home || !S.home.from?.length) S.home = { from: f.from, radius: f.radius, adults: Math.min(6, SearchHelp.paxOf({ ...f, adults: +f.adults || 2 }).seats) }; save(); updateHomeChip();
     draftClear(); // hledá se – rozepsaný formulář je teď uložené hledání
+    searchAt = Date.now(); // formulář se teď sbalí a pod prstem bude #flIdeas (SearchHelp.ideaClickOk)
     collapseForm(f);
     // karta zůstane i pro totéž hledání znovu (↻ Zkusit znovu po výpadku zdroje)
     fromCard = opts.card ? { x: opts.card, key: pkey } : fromCard && fromCard.key === pkey ? fromCard : null;
@@ -1532,7 +1534,10 @@
     lastDraw = false; // nevykreslené výsledky z minula už na obrazovku nepatří (Lety ukážou průběh tohoto hledání)
     $('#results').innerHTML = ''; $('#results').classList.remove('aged'); paintGroundStale(true);
     const btn = $('#doSearch'); btn.disabled = true; btn.innerHTML = '<span class="spin"></span> Hledám…';
-    say('Hledám lety…'); // čtečka obrazovky: fokus zůstal na tlačítku, průběh se mění pod ním
+    // vypnuté tlačítko fokus ztratí a prohlížeč ho pustí na <body> – Tab i čtečka by začaly od začátku stránky; fokus
+    // na průběh hledání, kde se teď mění obsah (spuštění z dlaždice nebo z Nedávno nechá fokus, kde je)
+    if (document.activeElement === document.body) { const pg = $('#progress'); pg.tabIndex = -1; pg.focus({ preventScroll: true }); }
+    say('Hledám lety…'); // čtečka obrazovky: průběh hledání se mění pod tlačítkem
     renderProgress({ providers: [], ...(f.trip === 'multi' ? { legs: f.legs.map((l, i) => ({ label: `${(i ? l.from : f.from).map(x => x.label).join(', ')} → ${l.to.map(x => x.label).join(', ')}`, state: 'pending' })) } : {}) }, true);
     if (!opts.noScroll) $('#progress').scrollIntoView({ behavior: 'smooth', block: 'start' });
     const job = (async () => {
@@ -1574,7 +1579,11 @@
       expandForm(); // chyba hledání: formulář zase vidět (hláška radí ho upravit)
       paintDrop();
       const msg = failMsg(e);
-      $('#progress').innerHTML = `<div class="note bad kiwi-note">${ico('M12 9v4M12 17h.01M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z')}<div>${esc(s.shown ? SearchHelp.partialFail(msg) : msg)}</div>${retryBtn('searchRetry', e.until)}</div>`;
+      // výsledky z dřívějška (bez signálu, 429) nezahodit – zůstanou zašedlé pod hláškou s časem, ze kterého jsou
+      const kept = !s.shown && lastResult && !$('#results').children.length;
+      if (kept) { renderResults(); $('#results').classList.add('aged'); }
+      const keptTxt = kept ? `${/[.!?…]$/.test(msg) ? '' : '.'} ${SearchHelp.keptNote(SearchHelp.shownAt(lastResult, lastResultAt, Date.now()), Date.now())}` : '';
+      $('#progress').innerHTML = `<div class="note bad kiwi-note">${ico('M12 9v4M12 17h.01M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z')}<div>${esc((s.shown ? SearchHelp.partialFail(msg) : msg) + keptTxt)}</div>${retryBtn('searchRetry', e.until)}</div>`;
       retryTick($('#searchRetry')); // přetížený server: až po Retry-After (odpočet na tlačítku)
       $('#searchRetry').onclick = () => startSearch();
       say(msg);
@@ -1904,7 +1913,11 @@
     const seen = new Set([watchKey({ form: getForm() })]);
     const items = (S.recent || []).map(e => ({ e, f: SearchHelp.recentForm(e.form, today()) })).filter(x => { const k = x.f && watchKey({ form: x.f }); return k && !seen.has(k) && seen.add(k); }).slice(0, 4);
     host.hidden = !items.length;
-    host.innerHTML = items.length ? `<span class="faint">Nedávno:</span>${items.map((x, i) => `<button type="button" class="recent-chip" data-recent="${i}" title="Hledat znovu: ${esc(watchLabel(x.f))} · ${esc(recentSub(x.f))}">${esc(watchLabel(x.f))} <small>${esc(recentSub(x.f))}</small></button>`).join('')}` : '';
+    // stejný štítek („Praha → Řím týden“) u dvou hledání: doplnit termín / cenový strop, čím se liší
+    items.forEach(x => { x.sub = recentSub(x.f); });
+    const more = SearchHelp.recentNotes(items.map(x => ({ text: watchLabel(x.f) + '|' + x.sub, f: x.f })));
+    items.forEach((x, i) => { x.sub += more[i]; });
+    host.innerHTML = items.length ? `<span class="faint">Nedávno:</span>${items.map((x, i) => `<button type="button" class="recent-chip" data-recent="${i}" title="Hledat znovu: ${esc(watchLabel(x.f))} · ${esc(x.sub)}">${esc(watchLabel(x.f))} <small>${esc(x.sub)}</small></button>`).join('')}` : '';
     $$('[data-recent]', host).forEach(b => b.onclick = () => { setForm(items[+b.dataset.recent].f); startSearch(); });
   }
 
@@ -2773,14 +2786,16 @@
   // Hledání do víc cílů („k moři v květnu“ = Kréta, Kypr, Baleáry…): výpis míchá cíle, a tak každá nabídka nese i název
   // cíle – kódy letišť (PRG → CHQ) nováček nepřečte. U jednoho cíle ho říká nadpis výsledků.
   const destTag = (g, cls) => (g ? `<span class="${cls}">${flag(g.dest.cc)} ${esc(g.dest.label)}</span>` : '');
-  function tripMini(t, g = null) {
+  function tripMini(t, g = null, twin = false) {
     // letiště tam a zpět každé jako celek (nedělitelné mezery) – na úzkém telefonu se zalomí za nocemi nebo před ↩, ne
     // uprostřed letu; celá trasa jako jeden kus se na 360 px vedle ceny nevešla a konec („→ PRG“) uřízly tři tečky
     const r = `${t.out.from}\u00a0→\u00a0${t.out.to}${t.back ? ` ↩\u00a0${t.back.from !== t.out.to ? `${t.back.from}\u00a0→\u00a0` : ''}${t.back.to}` : ''}`;
     const pl = levelFor(t), tag = t.deal && t.deal.level === 'super' && (!pl || pl.level === 'low') ? '🔥 ' : pl && pl.level === 'low' ? '💚 ' : '';
     const stops = [t.out, t.back].some(l => l && l.stops) ? ' · s přestupem' : '';
+    // dvojče (stejné dny, trasa i noci, jiný let): bez časů odletu by řádky vypadaly stejně
+    const tm = twin ? SearchHelp.miniTimes(t) : '', times = tm ? ` · ${tm}` : '';
     return `<button type="button" class="trip-mini" data-tmini="${esc(t.id)}" aria-expanded="false">
-      <span class="tm-when">${destTag(g, 'tm-dest')}<b>${dayLabel(t.out.date)}${t.back ? ` – ${dayLabel(t.back.date)}` : ''}</b><small>${t.back ? nightsTxt(t.nights) : 'jen tam'} · ${esc(r)}${stops}</small></span>
+      <span class="tm-when">${destTag(g, 'tm-dest')}<b>${dayLabel(t.out.date)}${t.back ? ` – ${dayLabel(t.back.date)}` : ''}</b><small>${t.back ? nightsTxt(t.nights) : 'jen tam'} · ${esc(r)}${esc(times)}${stops}</small></span>
       <span class="tm-price">${tag}${czk(t.perPersonCzk)}<small>/os.</small>${tripLine(t, 'tm-trip')}</span><span class="tm-chev" aria-hidden="true">▾</span></button>`;
   }
   function flatList(list) {
@@ -2789,9 +2804,10 @@
     const n = view.flatN, rest = list.length - n, mini = flatCompact();
     const multi = new Set(list.map(t => t.destKey)).size > 1;
     view.fopen = view.fopen || new Set();
+    const twins = mini ? SearchHelp.miniTwins(list.slice(0, n)) : new Set();
     return `<div class="card res-card flat${mini ? ' compact' : ''}">${list.slice(0, n).map((t, i) => {
       const g = byKey.get(t.destKey), dg = multi ? g : null;
-      if (mini && i > 0 && !view.fopen.has(t.id)) return tripMini(t, dg);
+      if (mini && i > 0 && !view.fopen.has(t.id)) return tripMini(t, dg, twins.has(t.id));
       return destTag(dg, 'tr-dest') + tripRow(t, g, reg(t, g));
     }).join('')}</div>
       ${rest > 0 ? `<button type="button" class="more-btn" data-fmore="1">▼ ${Math.min(flatPage(), rest) <= 4 ? 'Další' : 'Dalších'} ${plural(Math.min(flatPage(), rest), 'kombinace', 'kombinace', 'kombinací')} (${rest >= 2 && rest <= 4 ? 'zbývají' : 'zbývá'} ${rest})</button>` : ''}`;
@@ -5200,9 +5216,13 @@
     // Přehled (Rychlé hledání) i Lety (Nápady, kam letět); ⭐ Moje cíle jen v Letech – Přehled je má vlastní sekcí
     // i s „Hledat moje cíle“ (renderFav), v Rychlém hledání by byly podruhé
     [['#quickFlights', qfHtml], ['#flIdeas', favCard + qfHtml]].forEach(([sel, h]) => { const el = $(sel); if (el) { el.innerHTML = h; if (window.Photos) Photos.paint(el); } });
-    $$('[data-qfav]').forEach(qv => { qv.onclick = () => searchFavs(prefLists().fav); kbClick(qv); });
+    // dlaždice v Letech jsou po startu hledání pod prstem (formulář se sbalí) – druhé klepnutí na „Najít lety“ by spustilo
+    // „Kamkoliv levně“ a zahodilo cíl; v Přehledu (#quickFlights) je dlaždice záměrná volba, tam platí dál
+    const ideaOk = el => !el.closest('#flIdeas') || SearchHelp.ideaClickOk(running, searchAt, Date.now());
+    $$('[data-qfav]').forEach(qv => { qv.onclick = () => { if (!ideaOk(qv)) return; searchFavs(prefLists().fav); }; kbClick(qv); });
     $$('[data-qf]').forEach(kbClick); // dlaždice Rychlého hledání i z klávesnice (Tab, Enter)
     $$('[data-qf]').forEach(el => el.onclick = () => {
+      if (!ideaOk(el)) return;
       const q = QF[+el.dataset.qf][3];
       go('flights');
       const base = { ...defaultForm(), ...prefsOf(S.form), from: (S.home?.from || fromInput.items), to: [], dFrom: addDays(today(), 3), dTo: addDays(today(), 60), dateMode: 'flex', minTemp: 0 };

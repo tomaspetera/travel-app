@@ -63,9 +63,12 @@
 /* ============ tisk ============ */
 @media print{
   /* celá stránka: bez navigace, tlačítek a tmavého pozadí */
-  :root,[data-theme]{--text:#000;--muted:#333;--faint:#555;--border:#bbb;--border-2:#888;--surface:transparent;--surface-2:#eee;--card:#fff;--bg-grad:#fff}
+  /* tokeny Letsi (letsi.css se načte později a má selektor :root[data-brand][data-theme]) by tiskové přebily –
+     v tmavém režimu by nadpisy dnů vyšly Vápnem na bílém papíře; proto stejná váha selektoru a !important */
+  :root,[data-theme],:root[data-brand][data-theme]{--text:#000 !important;--muted:#333 !important;--faint:#555 !important;--border:#bbb !important;--border-2:#888 !important;--surface:transparent !important;--surface-2:#eee !important;--card:#fff !important;--bg-grad:#fff !important}
   body{background:#fff !important;color:#000}
-  .sidebar,.topbar,.demo-banner,.mobile-nav,.modal-bg,.toast,.stepbar,.pt-tools .btn,.pt-acts,.pt-add,.pt-del{display:none !important}
+  /* plovoucí okna (Novinky, nová verze) mají position:fixed – vytiskla by se na každou stránku přes obsah */
+  .wn-pop,.pwa-update,.sidebar,.topbar,.demo-banner,.mobile-nav,.modal-bg,.toast,.stepbar,.pt-tools .btn,.pt-acts,.pt-add,.pt-del{display:none !important}
   .app{display:block}
   .card{box-shadow:none !important;-webkit-backdrop-filter:none !important;backdrop-filter:none !important;background:#fff !important;border-color:#bbb !important;break-inside:avoid}
   .pt-card a,[data-theme] .pt-card a{color:#000 !important}

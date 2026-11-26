@@ -13,8 +13,9 @@ test('✕ u místa v programu: ostatní místa zůstanou ve svých dnech – hl�
   assert.match(fn, /toast\(`Vyřazeno\$\{name \? `: \$\{name\}` : ''\} – program jsem upravil`, '', 6000, \{ label: '↩ Vrátit', run: \(\) => \{ st\.exclude\.delete\(id\); if \(was\) st\.must\.add\(id\); replan\(\); \} \}\);/);
   assert.match(js, /async function makePlan\(st, center, dates, extra\) \{\s*const keep = st\.keep;\s*st\.keep = null;/);
   // oba ✕ (Cesta → Program a Objevuj) jdou přes dropUndo
-  assert.match(js, /\$\$\('\[data-drop\]', host\)\.forEach\(b => b\.onclick = \(\) => dropUndo\(st, b\.dataset\.drop, plan, run\)\);/);
-  assert.match(js, /\$\$\('\[data-drop\]', body\)\.forEach\(b => b\.onclick = \(\) => dropUndo\(st, b\.dataset\.drop, ex\.plan, \(\) => replan\(\)\)\);/);
+  // (dropMark: pořadí ✕ pro fokus po překreslení – test/objevuj-poradi.test.js)
+  assert.match(js, /\$\$\('\[data-drop\]', host\)\.forEach\(b => b\.onclick = \(\) => \{ dropMark\(host, b\); dropUndo\(st, b\.dataset\.drop, plan, run\); \}\);/);
+  assert.match(js, /\$\$\('\[data-drop\]', body\)\.forEach\(b => b\.onclick = \(\) => \{ dropMark\(body, b\); dropUndo\(st, b\.dataset\.drop, ex\.plan, \(\) => replan\(\)\); \}\);/);
   assert.doesNotMatch(js, /data-drop[^\n]*st\.exclude\.add\(b\.dataset\.drop\)/, 'žádné ✕ bez Vrátit');
   // vrácení = stejný program: plánovač na serveru je bez náhody
   for (const f of ['../server/lib/itinerary.js', '../server/lib/places.js']) assert.doesNotMatch(readFileSync(new URL(f, import.meta.url), 'utf8'), /Math\.random/, f);

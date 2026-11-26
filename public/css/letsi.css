@@ -60,7 +60,7 @@
 /* ============ PÍSMA ============ */
 :root[data-brand="letsi"] body{font-family:var(--letsi-pismo-text)}
 /* místa, která měla natvrdo Inter (zkratka font: … Inter) → Onest */
-:root[data-brand="letsi"] :is(.nw-h .faint,.nw-copy,.trip-live .live-h,.ph-cr,.vc-list .pill,.map-trips .pill,.map-add-hits .pill,.trip-edit,.sc-h .faint,.sc-row,.home-chip,.pi-input,.opill,.qd,.quick-range button,.dow button,.fchip,.oc-row,.linkbtn,.more-btn,.nb-d,.rm-lbl,.dg-sum,.dg-c,.w-p span,.radar-card .rc-info,.rc-go,#radarSub,.ml-home,.ml-flex,.gnd-chip,.pax-step button,.dm-btn,.pin-x,.op-more,.drop-chip,.drop-price s,.drop-tg,.ap-sum,.scal-btn,.scal-mt,.radar-card .rc-price .cache-mark,.ex-cats button,.pm-label,.toast-act,.ex-ccats-l,.ex-cc-tile,.dp-links,.ex-back,.mk.num,.ex-map .maplibregl-popup-content,.mapy-c,.hk-diff,.wx,.rb-n,.bt-n,.rb-nights button,.rb-acts button,.stepbar .st,.pt-prog,.pt-grp h5){font-family:var(--letsi-pismo-text)}
+:root[data-brand="letsi"] :is(.nw-h .faint,.nw-copy,.trip-live .live-h,.ph-cr,.vc-list .pill,.map-trips .pill,.map-add-hits .pill,.trip-edit,.sc-h .faint,.sc-row,.home-chip,.pi-input,.opill,.qd,.quick-range button,.dow button,.fchip,.oc-row,.linkbtn,.more-btn,.nb-d,.rm-lbl,.dg-sum,.dg-c,.w-p span,.radar-card .rc-info,.rc-go,#radarSub,.ml-home,.ml-flex,.gnd-chip,.pax-step button,.dm-btn,.pin-x,.op-more,.drop-chip,.drop-price s,.drop-tg,.ap-sum,.scal-btn,.scal-mt,.radar-card .rc-price .cache-mark,.ex-cats button,.pm-label,.toast-act,.ex-ccats-l,.ex-cc-tile,.dp-links,.ex-back,.mk.num,.ex-map .maplibregl-popup-content,.mapy-c,.hk-diff,.wx,.rb-n,.bt-n,.rb-nights button,.rb-acts button,.stepbar .st,.pt-prog,.pt-grp h5,.ex-plan-hint){font-family:var(--letsi-pismo-text)}
 /* nadpisy a ceny (dřív Sora) → Unbounded; je široké, proto o kousek užší prostrkání a menší stupeň níž */
 :root[data-brand="letsi"] :is(h1,h2,h3,.brand-name,.stat .val,.nw-h,.dest[data-photo] .cname,.map-chip b,.weather-now .temp,.mh-name,.sc-h,.pp,.lr-p b,.w-p,.cmp-price b,.radar-card .rc-city,.radar-card .rc-price,.ml-n,.mc-cp b,.gb-col b,.fav-p b,.drop-price,.fl-hero h1,.res-top-c .rt-price,.jed-top h3,.jed-hero h2,.st-rate-inline b,.st-rating .rt,.st-price .pp,table.cost tr.tot td,.alt-p,.ov-sum b,.th-total .tt,.th-dest h2,.tl-route b,.pp-guess,.pt-sec h4){font-family:var(--letsi-pismo-titulky);letter-spacing:-.03em}
 /* h3 a nadpisy karet v Unbounded 600 (800 by se vysázelo jako 700 a v kartách těžklo) */
@@ -90,6 +90,13 @@
 /* plochy --grad a --accent (aktivní krok, den v týdnu, pořadí, skóre, kroky uvítání): text v protibarvě, bez barevné záře;
    bílé písmo by v tmavém na Vápně (--accent) zmizelo */
 :root[data-brand="letsi"] :is(.pill.on,.score-pill,.dow button.on,.ml-n,.dp-n,.stepbar .st.on span,.tf-n,.poi-acts a.go,.wc-steps .wc-n){color:var(--letsi-na-grad);box-shadow:none}
+/* skóre na fotce cíle má z atlas.css bílé pozadí – protibarva z pravidla výš (ve světlém Vápno) by na něm zmizela;
+   proto vlastní plocha Pistácie s Nocí v obou režimech */
+:root[data-brand="letsi"] .dest[data-photo] .score-pill{background:#D6DE82;color:#14161F}
+/* cenová hladina: jantarové puntíky (--warn) jsou na bílé kartě málo vidět → barvou textu; na tmavém panelu fotky
+   cíle by barva textu ve světlém (Noc) zmizela → Pistácie */
+:root[data-brand="letsi"] .dots.warm i.f{background:var(--text)}
+:root[data-brand="letsi"] .dest-panel .dots.warm i.f{background:#D6DE82}
 :root[data-brand="letsi"] .stepbar .st.on span{background:var(--grad)}
 :root[data-brand="letsi"] .brand-logo{box-shadow:none}
 :root[data-brand="letsi"] .brand-logo path{fill:var(--letsi-na-grad)}
