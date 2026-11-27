@@ -144,7 +144,22 @@
     return (now = Date.now()) => (now - at >= ms ? ((at = now), true) : false);
   }
 
-  const api = { every, netError, installMode, isApi, slowError, withDeadline, readOrStall, whenOnline, flushOnline, retryAfterS, statusMsg, httpError, waitTxt, OFFLINE_MSG, DOWN_MSG, SLOW_MSG, API_WAIT, THEME, THEME_LETSI, addToMenu() {} };
+  /**
+   * Kroky návodu „Letsi na plochu“ pro iPhone a iPad. Aplikace na ploše má na iOS vlastní úložiště (oddělené od Safari)
+   * a začne prázdná – nesmí se slibovat „uložené cesty“; kdo už v Safari něco má (data), dostane 4. krok s přenosem
+   * (Transfer, pole „Mám odkaz z jiného zařízení“), jinak by si v prázdné aplikaci myslel, že o cesty přišel.
+   */
+  function iosSteps(share, data) {
+    return `<ol class="pwa-steps">
+        <li>Klepni na <b>Sdílet</b> ${share} – v Safari dole uprostřed, na iPadu nahoře vedle adresy.</li>
+        <li>Sjeď níž a vyber <b>Přidat na plochu</b>.</li>
+        <li>Potvrď <b>Přidat</b>. Letsi se pak otevře jako aplikace přes celou obrazovku a cesty, které si v ní uložíš, uvidíš i bez internetu.</li>
+        ${data ? `<li>Cesty ze Safari se do aplikace na ploše nepřenesou samy – má vlastní úložiště. Tady klepni na <b>Přenést</b>, odkaz si zkopíruj (nebo pošli) a v aplikaci na ploše ho vlož do <b>⋯ Další → Přenést do jiného zařízení → Mám odkaz z jiného zařízení</b>.
+          <div><button type="button" class="btn" id="pwaXfer"><span class="ico i-qr" aria-hidden="true"></span> Přenést</button></div></li>` : ''}
+      </ol>`;
+  }
+
+  const api = { every, iosSteps, netError, installMode, isApi, slowError, withDeadline, readOrStall, whenOnline, flushOnline, retryAfterS, statusMsg, httpError, waitTxt, OFFLINE_MSG, DOWN_MSG, SLOW_MSG, API_WAIT, THEME, THEME_LETSI, addToMenu() {} };
   window.Pwa = api;
   if (typeof document === 'undefined' || !document.documentElement) return; // testy v node:vm – jen funkce výše
 
@@ -195,8 +210,9 @@
 
   /* 4) ➕ Přidat ATLAS na plochu – v postranním panelu (počítač, tablet) a v nabídce „Více“ (mobil). Chrome, Edge
         a Android: dialog prohlížeče (beforeinstallprompt); iPhone a iPad: krátký návod. Z plochy se nenabízí.
-        Ikona ➕, ne 📲 – ta patří k 📲 Přenést do jiného zařízení hned vedle v nabídce. */
-  const LABEL = '➕ Přidat Letsi na plochu';
+        Ikona plus (sada Letsi, ne barevné emoji mezi čárovými ikonami nabídky), ne QR – ten patří k Přenést hned vedle. */
+  const LABEL = 'Přidat Letsi na plochu';
+  const ICON = '<span class="ico i-plus" aria-hidden="true"></span> ';
   let promptEvent = null;
   const standaloneMq = window.matchMedia ? window.matchMedia('(display-mode: standalone)') : null;
   const mode = () => installMode({
@@ -207,7 +223,7 @@
   side.type = 'button';
   side.id = 'pwaInstall';
   side.className = 'theme-toggle pwa-install';
-  side.textContent = LABEL;
+  side.innerHTML = ICON + LABEL;
   side.onclick = () => install();
   const toggle = $('#themeToggle');
   if (toggle) toggle.before(side);
@@ -243,13 +259,13 @@
   function iosHint() {
     if (typeof modalOpen !== 'function') return;
     const close = typeof ico === 'function' ? ico('M18 6L6 18M6 6l12 12') : '×';
+    // bez modulu zálohy nevíme, jestli tu něco je – krok s přenosem raději ukázat; bez modulu přenosu není kam poslat
+    const data = Boolean(window.Transfer) && (!window.Backup || !Backup.isEmpty(Backup.countsNow()));
     modalOpen(`<div class="modal-hero"><div class="mh-bg"></div><button class="modal-close" data-close aria-label="Zavřít">${close}</button>
-      <div class="modal-hero-inner"><h2 class="pwa-h">➕ Letsi na plochu</h2><div class="pwa-sub">iPhone a iPad · pár vteřin</div></div></div>
-      <div class="modal-body"><ol class="pwa-steps">
-        <li>Klepni na <b>Sdílet</b> ${SHARE_ICO} – v Safari dole uprostřed, na iPadu nahoře vedle adresy.</li>
-        <li>Sjeď níž a vyber <b>Přidat na plochu</b>.</li>
-        <li>Potvrď <b>Přidat</b>. Letsi se pak otevře jako aplikace přes celou obrazovku a uložené cesty a plány uvidíš i bez internetu.</li>
-      </ol></div>`);
+      <div class="modal-hero-inner"><h2 class="pwa-h">${ICON}Letsi na plochu</h2><div class="pwa-sub">iPhone a iPad · pár vteřin</div></div></div>
+      <div class="modal-body">${iosSteps(SHARE_ICO, data)}</div>`);
+    const x = document.getElementById('pwaXfer');
+    if (x) x.onclick = () => { modalClose(); Transfer.open(); };
   }
 
   /** Položka v nabídce „Více“ na mobilu (app.js ji přidá při otevření nabídky). */
@@ -258,7 +274,7 @@
     const b = document.createElement('button');
     b.type = 'button';
     b.className = 'btn ghost pwa-menu-item';
-    b.innerHTML = `${LABEL} <span class="faint">i offline</span>`;
+    b.innerHTML = `${ICON}${LABEL} <span class="faint">i offline</span>`;
     b.onclick = () => install();
     b.hidden = !mode();
     list.append(b);
@@ -333,7 +349,7 @@
       updBar = document.createElement('div');
       updBar.className = 'pwa-update';
       updBar.setAttribute('role', 'status');
-      updBar.innerHTML = '<span>✨ Je k dispozici nová verze Letsi</span><button type="button" class="btn sm primary">Obnovit</button><button type="button" class="pwa-x" aria-label="Zavřít" title="Později">×</button>';
+      updBar.innerHTML = '<span>Je k dispozici nová verze Letsi</span><button type="button" class="btn sm primary">Obnovit</button><button type="button" class="pwa-x" aria-label="Zavřít" title="Později">×</button>';
       updBar.querySelector('.btn').onclick = () => reloadFresh();
       updBar.querySelector('.pwa-x').onclick = () => { updBar.hidden = true; dismissed = updBar.dataset.build; };
       document.body.append(updBar);

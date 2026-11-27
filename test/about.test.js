@@ -63,7 +63,7 @@ test('okno: zdroje dat, ukládání jen v prohlížeči, řazení, orientační 
   assert.match(html, /Twemoji \(CC BY 4\.0\)/);
   assert.match(html, /Letsi není spojen s žádnou leteckou společností ani prodejcem; ceny a odkazy jsou z veřejných a partnerských zdrojů\./);
   assert.match(html, /localStorage/);
-  assert.match(html, /<b>Žádné cookies ani sledování jednotlivců<\/b> – kromě záznamu návštěvy bez jména a IP adresy, pokud ho sám zapneš v Další \(Pomáhat se zlepšováním\)\. Počítám jen souhrnné denní počty \(kolikrát se otevřela aplikace, kolik proběhlo hledání, kolik cest vzniklo, kde aplikace nic nenašla nebo selhala a které možnosti lidé volí v krátkých otázkách\) – bez osobních údajů a bez vazby na tebe nebo tvoje zařízení\./);
+  assert.match(html, /<b>Žádné cookies ani sledování jednotlivců<\/b> – kromě záznamu návštěvy bez jména a IP adresy, pokud ho sám zapneš \(Pomáhat se zlepšováním – přepínač níž v tomhle okně\)\. Počítám jen souhrnné denní počty \(kolikrát se otevřela aplikace, kolik proběhlo hledání, kolik cest vzniklo, kde aplikace nic nenašla nebo selhala a které možnosti lidé volí v krátkých otázkách\) – bez osobních údajů a bez vazby na tebe nebo tvoje zařízení\./);
   assert.equal(html.match(/[Žž]ádná aerolinka ani partner si za lepší pozici neplatí/g).length, 1, 'věta jednou');
   assert.match(html, /vždy ji ověř u partnera/);
   // RateLimiter (server/lib/ratelimit.js) maže adresu nejpozději po okně; nejdelší okno je hodina (hlášení chyb, odkazy)
@@ -140,12 +140,12 @@ test('okno: 💛 Podpořit Letsi a provozovatel jen s platnými údaji; text se 
   assert.match(html, /<a class="btn" id="abSupport" href="https:\/\/buy\.stripe\.com\/test_7sI4hY0abc" target="_blank" rel="noopener">💛 Podpořit Letsi ↗<\/a>/);
   assert.match(html, /zaplatíš kartou na stránce Stripe/);
   assert.match(html, /<b>Příspěvek<\/b> \(💛 Podpořit Letsi\): platíš na stránce Stripe/, 'v soukromí, kdo platbu zpracovává');
-  assert.match(html, /<h4 class="ab-h">Provozovatel<\/h4><p style="font-size:14px" id="abOp">Jan Novák, IČO 12345678<\/p>/);
+  assert.match(html, /Správce osobních údajů: <b id="abOp">Jan Novák, IČO 12345678<\/b>\./);
   for (const bad of ['https://evil.cz/x', 'javascript:alert(1)', 42, null]) {
     assert.equal(A.okPay(bad), false, String(bad));
     assert.doesNotMatch(A.html({ version: 'v', support: bad }), /abSupport/);
   }
-  assert.match(A.html({ version: 'v', operator: '<img src=x onerror=alert(1)>' }), /id="abOp">&lt;img src=x onerror=alert\(1\)&gt;<\/p>/);
+  assert.match(A.html({ version: 'v', operator: '<img src=x onerror=alert(1)>' }), /id="abOp">&lt;img src=x onerror=alert\(1\)&gt;<\/b>/);
   // v kódu žádný platební odkaz natvrdo – jen z proměnné prostředí
   for (const f of ['public/js/about.js', 'public/js/trip.js', 'public/js/app.js', 'public/index.html']) {
     // (kontrola v about.js je regulární výraz se zpětnými lomítky – skutečná adresa by byla https://buy.stripe.com/xxx)

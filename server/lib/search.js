@@ -217,7 +217,7 @@ async function settle(fn, st, p, ctx) {
     st.state = st.error ? 'partial' : 'done';
   } catch (e) {
     st.state = 'error';
-    st.error = errText(e);
+    st.error = errText(e, p?.id);
   } finally {
     st.ms = Date.now() - t0;
     Object.assign(st, outageOf(st, p, ctx));
@@ -231,12 +231,14 @@ async function settle(fn, st, p, ctx) {
  */
 /**
  * Text chyby zdroje pro aplikaci: bez adresy API (uživateli nic neřekne a v aplikaci vypadá jako porucha ATLASu),
- * jen lidsky, co se stalo, a kód HTTP pro případné hlášení.
+ * jen lidsky, co se stalo, a kód HTTP pro případné hlášení. id = zdroj: agregátor (Aviasales, Kiwi.com) není aerolinka –
+ * „aerolinka dotaz odmítla“ by u něj sváděla k myšlence, že let neexistuje.
  */
-export function errText(e) {
+export function errText(e, id) {
   const s = Number(e?.status) || 0;
-  if (s >= 500) return `výpadek na straně aerolinky (HTTP ${s})`;
-  if (s === 401 || s === 403) return `aerolinka dotaz odmítla (HTTP ${s})`;
+  const agg = id === 'travelpayouts' || id === 'kiwi';
+  if (s >= 500) return agg ? `výpadek zdroje cen (HTTP ${s})` : `výpadek na straně aerolinky (HTTP ${s})`;
+  if (s === 401 || s === 403) return agg ? `zdroj cen dotaz odmítl (HTTP ${s})` : `aerolinka dotaz odmítla (HTTP ${s})`;
   if (s) return `chyba HTTP ${s}`;
   return String(e?.message || e || 'neznámá chyba').replace(/\s*https?:\/\/\S+/g, '').trim() || 'neznámá chyba';
 }
@@ -796,7 +798,7 @@ export async function search(raw, emit = () => {}, opts = {}) {
     })));
     st.failed += failed;
     if (failed && failed === tasks.length) throw firstErr;
-    if (failed) st.error = `${failed}/${tasks.length} dotazů selhalo: ${errText(firstErr)}`;
+    if (failed) st.error = `${failed}/${tasks.length} dotazů selhalo: ${errText(firstErr, st.id)}`;
   }
 
   // Kiwi: země / světadíl / „kamkoliv“ – jeden dotaz na zemi a okno dat (≤ 31 dní), z víc letišť
@@ -1909,7 +1911,8 @@ export function groupOptions(trips) {
  */
 const RADAR_DEST = ['key', 'id', 'label', 'cc', 'lat', 'lon'];
 const RADAR_TRIP = ['perPersonCzk', 'tripCzk', 'flightCzk', 'groundCzk', 'arrCzk', 'destKey', 'distanceKm', 'nights', 'tempHi', 'bookUrl', 'provider'];
-const RADAR_LEG = ['from', 'to', 'date', 'dep', 'arr', 'hasTime', 'arrUnknown', 'stops', 'durationMin', 'estMin', 'layovers', 'provider', 'bookUrl'];
+// live: false = cena z mezipaměti (Aviasales) – podle ní radar značí kartu a detail „orientační“ (SearchHelp.isCached)
+const RADAR_LEG = ['from', 'to', 'date', 'dep', 'arr', 'hasTime', 'arrUnknown', 'stops', 'durationMin', 'estMin', 'layovers', 'provider', 'bookUrl', 'live'];
 const fieldsOf = (o, keys) => {
   const x = {};
   for (const k of keys) if (o[k] !== undefined) x[k] = o[k];

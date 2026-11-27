@@ -19,6 +19,23 @@
     ['trips', '🚆 Výlety mimo město', { daytrip: 1.8 }],
   ];
   const DAY_COLORS = ['#5b8cff', '#f59e0b', '#22c55e', '#ec4899', '#14b8a6', '#a855f7', '#ef4444', '#0ea5e9'];
+  // Vzhled Letsi: dny (a místa trasy v trip.js) z palety Letsi místo duhy ATLASu – tmavé a světlé se střídají, ať jdou
+  // čáry dnů na mapě od sebe; na tmavé mapě by Noc zmizela, tam Vápno. atlas = paleta pro vzhled ATLAS (beze změny).
+  const LETSI_DAYS = ['#14161F', '#D6DE82', '#474F22', '#8E949E', '#585D56', '#C6CF6E'];
+  const LETSI_DARK = new Set(['#14161F', '#474F22', '#585D56']);
+  const NOC = '#14161F', VAPNO = '#F3F4F0';
+  const brandOf = () => (typeof document !== 'undefined' && document.documentElement ? document.documentElement.dataset : {});
+  // ui = puntík dne a kolečko místa v kartě: Noc jako barva textu motivu (Noc ve světlém, Vápno v tmavém režimu), přepne
+  // se s motivem bez překreslení; na mapě podle stylu mapy (data-map) – ten se s režimem aplikace nemusí shodovat
+  const dayCol = (i, atlas = DAY_COLORS, ui = false) => {
+    const d = brandOf();
+    if (d.brand !== 'letsi') return atlas[i % atlas.length];
+    const c = LETSI_DAYS[i % LETSI_DAYS.length];
+    if (c !== NOC) return c;
+    return ui ? 'var(--text)' : d.map === 'dark' ? VAPNO : NOC;
+  };
+  // číslo na barvě dne: Vápno na tmavé (Noc, oliva, šedá), jinak Noc; v kartě pozadí motivu; ATLAS '' = číslo z trip.css
+  const dayInk = c => (brandOf().brand !== 'letsi' ? '' : c === 'var(--text)' ? 'var(--bg)' : LETSI_DARK.has(c) ? VAPNO : NOC);
   // all = místa načtená ze serveru (pro loaded.radius), items = z nich ta v právě zvoleném okruhu
   // far = místa v okolí pro okruh 50/100 km ({ place, items, busy, err }), country = přehled země ({ place, data, busy, err }),
   // lastKm = okruh v km před přepnutím na celou zemi
@@ -144,7 +161,9 @@
   // Enter v hledání: návrhy k právě napsanému textu → vyber; jinak (čeká se, stará odpověď, chyba) hledej hned.
   const enterAction = ({ text, sugFor, count, err }) => (text.length < 2 ? 'none' : sugFor === text && !err ? (count ? 'pick' : 'none') : 'fetch');
   // Logo Mapy.com (podmínka jejich API): u návrhů z Mapy.com („Hledají i Mapy.com“) a nad turistickou mapou.
-  const MAPY_LOGO = 'https://api.mapy.com/img/api/logo.svg';
+  // logo z vlastního serveru (beze změny z api.mapy.com/img/api/logo.svg): podmínky chtějí logo vidět, ne odkud se
+  // načte – a zásady slibují, že Mapy.com IP adresu uživatele nevidí (vše ostatní jde přes server Letsi)
+  const MAPY_LOGO = 'vendor/mapy-logo.svg';
   const mapyBy = what => `<a class="mapy-by" href="https://mapy.com/" target="_blank" rel="noopener">${what} <img src="${MAPY_LOGO}" alt="Mapy.com" height="14"></a>`;
   // Poznámka pod trasou a túrami: zdroje a výpočet času sbalené pod „Jak počítám ▾“ (na telefonu to bylo 8–12 řádků);
   // vidět zůstane, co je potřeba hned (čas bez přestávek, ověř chaty a počasí) a atribuce dat
@@ -234,6 +253,13 @@
   // Záloha z dlaždicového serveru OpenStreetMap není: pravidla OSM ho aplikacím jako základní zdroj nedoporučují.
   // Při výpadku OpenFreeMap turistická mapa Mapy.com (jen kde ji server nabízí), jinak poznámka „Mapa se nenačetla“.
   const OFM = 'https://tiles.openfreemap.org/styles/';
+  // Popisky podkladu česky: dlaždice OpenFreeMap mají name:cs (Norsko, Švédsko), styl ale ukazuje anglický name_en.
+  // Bez českého názvu místní název latinkou; čísla silnic (ref) beze změny. Vrací id vrstev s názvem v popisku
+  // (výraz ['get', 'name…'] i starší zápis „{name…}“).
+  const CS_LABEL = ['coalesce', ['get', 'name:cs'], ['get', 'name:latin'], ['get', 'name']];
+  const nameLayers = layers => (layers || []).filter(l => l.layout && /["{]name/.test(JSON.stringify(l.layout['text-field']) || '')).map(l => l.id);
+  // zamítnutá poloha (kód 1) se dá napravit – poradit jak; vypršení a jiné chyby obecně
+  const geoMsg = e => (e && e.code === 1 ? 'Poloha je zakázaná – povol ji v nastavení prohlížeče, nebo napiš místo ručně' : 'Polohu se nepodařilo zjistit');
   const liveMaps = new Set();
   // Odkazy do Google Map podle názvu místa (ne souřadnic) – Google pak ukáže přímo to místo.
   const gq = (name, ctx) => (ctx && !String(name).includes(ctx) ? (name ? `${name}, ${ctx}` : ctx) : String(name || ''));
@@ -485,6 +511,7 @@
     map.once('remove', () => clearTimeout(watchdog));
     map.on('style.load', () => {
       ms.styleReady = true;
+      for (const id of nameLayers(map.getStyle().layers)) map.setLayoutProperty(id, 'text-field', CS_LABEL);
       clearTimeout(timer);
       if (ms.outdoor) setOutdoor(ms, true); // pod čáry tras (i jako celý záložní podklad)
       addLines(ms);
@@ -524,7 +551,8 @@
       const el = document.createElement('div');
       el.className = `mk ${cls}${pt.num ? ' num' : ''}`;
       el.style.background = pt.color;
-      if (pt.num) el.textContent = pt.num;
+      el.dataset.col = pt.color; // prohlížeč by barvu vrátil jako rgb() – pro přebarvení po přepnutí mapy (recolor)
+      if (pt.num) { el.textContent = pt.num; const ink = dayInk(pt.color); if (ink) el.style.color = ink; }
       if (pt.day != null) el.dataset.day = pt.day; // den programu (najetí na den v seznamu ztlumí ostatní)
       el.title = pt.label;
       // focusAfterOpen: false – jinak bublina vezme fokus a prohlížeč odroluje stránku k mapě (na telefonu o tisíce px)
@@ -535,7 +563,7 @@
       ms.markers.push(mk);
       ms.byId.set(pt.id, mk);
     };
-    add({ id: '__center', lat: center.lat, lon: center.lon, color: '#a855f7', label: center.label || 'Start', q: centerQ(center) }, 'ctr');
+    add({ id: '__center', lat: center.lat, lon: center.lon, color: brandOf().brand === 'letsi' ? '#14161F' : '#a855f7', label: center.label || 'Start', q: centerQ(center) }, 'ctr');
     // body s číslem (v plánu) navrch
     [...pts].sort((a, b) => (a.num ? 1 : 0) - (b.num ? 1 : 0)).forEach(pt => add(pt, pt.big ? 'big' : ''));
     ms.lines = { type: 'FeatureCollection', features: lines.filter(l => l.coords.length > 1).map(l => ({ type: 'Feature', properties: { color: l.color, solid: Boolean(l.solid) }, geometry: { type: 'LineString', coordinates: l.coords } })) };
@@ -592,11 +620,11 @@
     (plan?.days || []).forEach((d, i) => d.items.forEach((p, j) => dayOf.set(p.id, { i, j })));
     const pts = items.map(p => {
       const d = dayOf.get(p.id);
-      return { id: p.id, lat: p.lat, lon: p.lon, color: d ? DAY_COLORS[d.i % DAY_COLORS.length] : color(p.category), num: d ? d.j + 1 : null,
+      return { id: p.id, lat: p.lat, lon: p.lon, color: d ? dayCol(d.i) : color(p.category), num: d ? d.j + 1 : null,
         label: `${icon(p.category)} ${p.name}${d ? ` · den ${d.i + 1}` : ''}`, q: poiQ(p, center), place: p, day: d ? d.i : null };
     });
     const lines = (plan?.days || []).filter(d => d.items.length && d.kind !== 'daytrip')
-      .map(d => ({ color: DAY_COLORS[plan.days.indexOf(d) % DAY_COLORS.length], coords: [[center.lon, center.lat], ...d.items.map(p => [p.lon, p.lat])] }));
+      .map(d => ({ color: dayCol(plan.days.indexOf(d)), coords: [[center.lon, center.lat], ...d.items.map(p => [p.lon, p.lat])] }));
     // výlety mimo město nepřibližují mapu, pokud jich je víc (jinak by město bylo malinké) – ani celodenní výlet
     // z programu, když jsou v programu i dny ve městě (město by se scvrklo do rohu; výlet je na mapě dál vidět po oddálení)
     const outDay = new Set((plan?.days || []).filter(d => d.kind === 'daytrip').flatMap(d => d.items.map(p => p.id)));
@@ -611,7 +639,7 @@
    */
   function routeMap(el, center) {
     const ms = makeMap(el, center);
-    return (pts, coords) => paintMap(ms, center, pts, [{ color: '#5b8cff', coords }], null);
+    return (pts, coords) => paintMap(ms, center, pts, [{ color: brandOf().brand === 'letsi' ? '#8E949E' : '#5b8cff', coords }], null);
   }
 
   // Výlety autem: cíle očíslované po dnech, trasa dne (start → cíle → přespání / návrat).
@@ -620,7 +648,7 @@
     const pts = [];
     const lines = [];
     trip.days.forEach((d, i) => {
-      const col = DAY_COLORS[i % DAY_COLORS.length];
+      const col = dayCol(i);
       d.stops.forEach((s, j) => pts.push({ id: s.id, lat: s.lat, lon: s.lon, color: col, num: j + 1, big: true,
         label: `${tripIcon(s)} ${s.name} · den ${i + 1}${d.overnight && j === d.stops.length - 1 ? ' · přespání' : ''}`, q: stopQ(s, center), place: s }));
       const coords = [[d.from.lon, d.from.lat], ...d.stops.map(s => [s.lon, s.lat])];
@@ -653,8 +681,9 @@
   // route = řádek u trasy na kole / pěšky (se dnem a tipem na lepší den), jinak štítek v nadpisu dne
   const wxSlot = (pt, date, route) => (window.Weather && pt && pt.lat != null && pt.lon != null
     ? (route ? `<div class="wx-day" data-wx="${esc(wxKey(pt, date))}"></div>` : `<span data-wx="${esc(wxKey(pt, date))}"></span>`) : '');
-  // CC BY 4.0 chce autora, odkaz na licenci a zmínku o úpravě (denní souhrny z hodinové předpovědi)
-  const WX_SRC = 'Počasí: <a href="https://www.met.no/en" target="_blank" rel="noopener">MET Norway</a> (<a href="https://creativecommons.org/licenses/by/4.0/deed.cs" target="_blank" rel="noopener">CC BY 4.0</a>, upraveno na denní souhrny)';
+  // CC BY 4.0 chce autora, odkaz na licenci a zmínku o úpravě (denní souhrny z hodinové předpovědi); text je ve
+  // weather.js, ať ho okno země (app.js paintWeather) uvádí stejně
+  const wxSrc = () => (window.Weather && window.Weather.src) || '';
   const WX_IN = ['V neděli', 'V pondělí', 'V úterý', 'Ve středu', 'Ve čtvrtek', 'V pátek', 'V sobotu'];
   const WX_BYL = ['byla', 'bylo', 'bylo', 'byla', 'byl', 'byl', 'byla'];
   const dow = ymd => new Date(ymd + 'T12:00:00').getDay();
@@ -769,7 +798,7 @@
     const link = from ? ` · <a href="${esc(safeUrl(gmDir(from, [poiQ(p, center)], 'transit')))}" target="_blank" rel="noopener">spoje ↗</a>` : '';
     return `<div class="${cls}">${ico} ~${minTxt(Math.round(+r.transitMin))} ${how}${okMin(r.carMin) ? ` · 🚗 ~${minTxt(Math.round(+r.carMin))} autem` : ''} <span class="faint">(odhad)</span>${link}</div>`;
   }
-  const whyHtml = (p, cls = 'poi-inc') => (p.why ? `<div class="${cls}">✨ ${esc(p.why)}</div>` : '');
+  const whyHtml = (p, cls = 'poi-inc') => (p.why ? `<div class="${cls}">${esc(p.why)}</div>` : '');
   // Fotka místa jako vrstva nad ikonou druhu (CSS .poi-img.has-ph::after): než dorazí – nebo když nedorazí vůbec (slabý
   // signál, soubor smazaný na Wikimedii) – je vidět 🏰 ⛪ 🌲, ne prázdný šedý čtverec.
   // Autor a licence fotky z Commons (licence CC BY / CC BY-SA je chtějí): stejné nenápadné ⓘ jako u fotek měst –
@@ -811,7 +840,7 @@
       const { trip, url, mapy } = dayRoute(center, d);
       // delší úsek v horách a přírodě (Krkonoše) se jede autem nebo busem, ve městě MHD/taxi
       const ride = d.rural ? 'autem / busem' : 'MHD/taxi';
-      return `<div class="day-plan" data-day="${i}"><h4><span><span style="color:${DAY_COLORS[i % DAY_COLORS.length]}">●</span> Den ${i + 1} · ${dayLbl(d.date)}${trip ? (d.half ? ' · výlet do okolí' : ' · celodenní výlet') : ''}${wxSlot((trip && d.items[0]) || center, d.date)}</span>
+      return `<div class="day-plan" data-day="${i}"><h4><span><span style="color:${dayCol(i, DAY_COLORS, true)}">●</span> Den ${i + 1} · ${dayLbl(d.date)}${trip ? (d.half ? ' · výlet do okolí' : ' · celodenní výlet') : ''}${wxSlot((trip && d.items[0]) || center, d.date)}</span>
         ${dayLinks(url, mapy)}</h4>
         ${d.area ? `<p class="dp-area">🏘️ Oblast: ${esc(d.area)}</p>` : ''}
         ${d.items.length ? d.items.map((p, j) => `<div class="dp-item" data-poi="${esc(p.id)}"><span class="dp-n">${j + 1}</span><div><b>${icon(p.category)} ${esc(p.name)}</b> <span class="faint">· ${p.at ? `~${esc(p.at)}, ` : ''}${minTxt(p.visitMin)}</span>
@@ -1033,7 +1062,7 @@
     const paint = plan => {
       $('#tpPlan', host).innerHTML = (st.demo ? '<div class="faint" style="font-size:12px;margin-bottom:8px">⚠️ demo data</div>' : '') + planHtml(plan, center)
         + (spare(plan).length ? `<details class="more"><summary>Další místa v okolí (${spare(plan).length})</summary><div class="poi-list" style="margin-top:10px">${spare(plan).slice(0, 15).map(p => poiCard(p, { toggle: true, must: st.must, center })).join('')}</div></details>` : '')
-        + (window.Weather ? `<div class="faint" style="font-size:11.5px;margin-top:8px">${WX_SRC}</div>` : '');
+        + (window.Weather ? `<div class="faint" style="font-size:11.5px;margin-top:8px">${wxSrc()}</div>` : '');
       fillWx($('#tpPlan', host));
       if (onRural) onRural(isRural(plan));
       drawOnMap(st, center, st.items.filter(p => plan.days.some(d => d.items.some(q => q.id === p.id)) || p.category !== 'daytrip'), plan, p => { const el = $(`[data-poi="${CSS.escape(p.id)}"]`, host); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' }); });
@@ -1206,14 +1235,20 @@
       <div class="ex-cc-all" id="exCcAll">${all.map(c => tile(c.iso2)).join('')}</div>
       <div class="empty" id="exCcNone" hidden>Takovou zemi neznám – zkus její český nebo anglický název.</div>`;
   }
+  // Kódy zemí, jejichž název nebo přezdívka (CC_ALIAS: „usa“, „anglie“, „holandsko“) začíná psaným textem – dlaždice
+  // mají v data-ccn jen český a anglický název, „usa“ by jinak nenašlo nic, ač hlavní pole Objevuj USA zná. Navíc
+  // COUNTRY_ALIAS z app.js („skotsko“, „wales“ jako v Svět → Země) – ne v CC_ALIAS, to by hlavní pole poslalo
+  // „Skotsko“ na celé Spojené království místo Skotska
+  const ccAliasHits = f => new Set(f ? [...ccByName(), ...Object.entries(typeof COUNTRY_ALIAS === 'object' ? COUNTRY_ALIAS : {})]
+    .filter(([n]) => n.startsWith(f)).map(([, cc]) => cc) : []);
   function wirePicker(root) {
     const qi = $('#exCcQ', root);
     $$('[data-cc]', root).forEach(b => b.onclick = () => openWholeCountry(b.dataset.cc));
     if (!qi) return;
     qi.oninput = () => {
-      const f = foldName(qi.value);
+      const f = foldName(qi.value), al = ccAliasHits(f);
       let n = 0;
-      $$('#exCcAll [data-cc]', root).forEach(b => { const on = !f || b.dataset.ccn.split(' ').some(w => w.startsWith(f)) || b.dataset.ccn.startsWith(f); b.hidden = !on; if (on) n++; });
+      $$('#exCcAll [data-cc]', root).forEach(b => { const on = !f || b.dataset.ccn.split(' ').some(w => w.startsWith(f)) || b.dataset.ccn.startsWith(f) || al.has(b.dataset.cc); b.hidden = !on; if (on) n++; });
       const pop = $('#exCcPop', root); if (pop) pop.hidden = Boolean(f);
       const none = $('#exCcNone', root); if (none) none.hidden = n > 0;
     };
@@ -1272,7 +1307,7 @@
           <div style="position:relative"><input class="input${ex.place ? ' has-clear' : ''}" id="exQ" placeholder="Lisabon, Francie, „Řím na 3 dny“" autocomplete="off" value="${esc(qLabel())}">${ex.place ? '<button type="button" class="in-clear" id="exClear" title="Začít znovu – zrušit místo i plány" aria-label="Začít znovu">✕</button>' : ''}<div class="pi-dd" id="exDd" tabindex="-1" hidden></div></div></div>
         <button class="btn ghost" id="exGeo" title="Moje poloha" style="align-self:end">${ikona('poloha')} Tady</button>
         <div class="field" style="margin:0"><label for="exRad">Okruh</label><select id="exRad">${RADII.map(r => `<option value="${r}" ${ex.radius === r ? 'selected' : ''}>${r} km</option>`).join('')}<option value="${COUNTRY}" ${ex.radius === COUNTRY ? 'selected' : ''}>🌍 Celá země</option></select></div>
-      </div><div class="ex-recent" id="exRecent" hidden></div>${ex.place || !window.Smart ? '' : `<div class="ex-try"><span class="faint">✨ Zkus:</span>${EX_TRY.map((x, i) => `<button type="button" class="fchip" data-extry="${i}">${esc(x)}</button>`).join('')}</div>`}</div>
+      </div><div class="ex-recent" id="exRecent" hidden></div>${ex.place || !window.Smart ? '' : `<div class="ex-try"><span class="faint">Zkus:</span>${EX_TRY.map((x, i) => `<button type="button" class="fchip" data-extry="${i}">${esc(x)}</button>`).join('')}</div>`}</div>
       <div id="exBody">${ex.place ? '' : ex.radius === COUNTRY ? pickerHtml() : inspHtml(insp)}</div>
       <button type="button" class="ex-back" id="exBack" hidden></button>`;
     wireExploreSearch(root);
@@ -1709,7 +1744,7 @@
       const wc = px && (px.cw ? px.cw.cc : wholeCountryOf(px));
       const catTxt = px && px.cw ? ` · ${(CC_CATS.find(c => c[0] === px.cw.cat) || ['', ''])[1]}` : '';
       dd.innerHTML = wc ? `<div class="pi-opt pi-smart on" data-smart="1"><span class="pi-flag">${flag(wc)}</span><span class="pi-t"><b>${esc(countryCs(wc))} – celá země${esc(catTxt)}</b><small>klepni nebo Enter – města, další cíle, UNESCO a národní parky</small></span><span class="pi-type">země</span></div>`
-        : px ? `<div class="pi-opt pi-smart on" data-smart="1"><span class="pi-flag">✨</span><span class="pi-t"><b>${esc([px.place ? `📍 ${smartNames.get(px.place) || px.place}` : `📍 ${ex.place.label}`, ...px.chips].join(' · '))}</b><small>klepni nebo Enter – najdu místo a naplánuju</small></span><span class="pi-type">plánovat</span></div>`
+        : px ? `<div class="pi-opt pi-smart on" data-smart="1"><span class="pi-flag">${ikona('kompas')}</span><span class="pi-t"><b>${esc([px.place ? `📍 ${smartNames.get(px.place) || px.place}` : `📍 ${ex.place.label}`, ...px.chips].join(' · '))}</b><small>klepni nebo Enter – najdu místo a naplánuju</small></span><span class="pi-type">plánovat</span></div>`
         : sugHtml(sugs, act, err);
       dd.hidden = false;
       // nenalezené místo: otázka pod hledáním, ne v nabídce – ta se při klepnutí jinam zavře a otázka by zmizela pod prstem
@@ -1799,9 +1834,11 @@
     };
     q.onblur = () => setTimeout(() => { dd.hidden = true; }, 150);
     $('#exRad', root).onchange = e => setRadius(e.target.value === COUNTRY ? COUNTRY : +e.target.value);
+    // poloha na ~100 m (3 desetinná místa): na okruh km stačí a přesná GPS nejde do adresy /api/poi ani do atlas_explore_v1
+    const geo3 = x => Math.round(x * 1000) / 1000;
     $('#exGeo', root).onclick = () => {
       if (!navigator.geolocation) return toast('Prohlížeč nepodporuje polohu', 'err');
-      navigator.geolocation.getCurrentPosition(p => { dd.hidden = true; openOther({ lat: p.coords.latitude, lon: p.coords.longitude, label: 'Moje okolí', geo: true }); }, () => toast('Polohu se nepodařilo zjistit', 'err'), { timeout: 10000 });
+      navigator.geolocation.getCurrentPosition(p => { dd.hidden = true; openOther({ lat: geo3(p.coords.latitude), lon: geo3(p.coords.longitude), label: 'Moje okolí', geo: true }); }, e => toast(geoMsg(e), 'err'), { timeout: 10000 });
     };
   }
 
@@ -2141,7 +2178,7 @@
       const lastQ = d.stops.length ? stopQ(d.stops.at(-1), center) : from;
       // Počasí dne: u okruhu v místě přespání (poslední den u poslední zastávky), u výletu v hlavním cíli (nejvyšší skóre).
       const wxAt = trip.mode === 'loop' ? d.overnight || d.stops.at(-1) : d.stops.reduce((b, s) => (b && (b.score || 0) >= (s.score || 0) ? b : s), null);
-      return `<div class="day-plan"><h4><span><span style="color:${DAY_COLORS[i % DAY_COLORS.length]}">●</span> ${title} · ${dayLbl(d.date)}${way}${wxSlot(wxAt, d.date)}</span>
+      return `<div class="day-plan"><h4><span><span style="color:${dayCol(i, DAY_COLORS, true)}">●</span> ${title} · ${dayLbl(d.date)}${way}${wxSlot(wxAt, d.date)}</span>
         ${dayLinks(url, mapy, 'trasa autem')}</h4>
         <div class="dp-walk" style="margin:2px 0 4px">${transit ? 'vyrazit kolem' : 'odjezd'} ~09:00 z: ${esc(d.from.name)}</div>
         ${d.stops.map((s, j) => tripStopHtml(s, j, transit, j === 0 ? from : stopQ(d.stops[j - 1], center), d.date, center)).join('')}
@@ -2514,7 +2551,7 @@
     const h = d.hike && d.hike.goal && okPt(d.hike.goal) ? normHike(d.hike) : null;
     const typ = d.type === 'short' ? (d.arrival ? 'den příjezdu · kratší túra' : d.departure ? 'den odjezdu · kratší túra' : 'kratší túra')
       : d.type === 'rest' ? (d.arrival ? 'den příjezdu' : d.departure ? 'den odjezdu' : 'volno') : `celodenní túra${d.arrival ? ' · den příjezdu' : d.departure ? ' · den odjezdu' : ''}`;
-    const head = `<h4><span><span style="color:${DAY_COLORS[i % DAY_COLORS.length]}">●</span> Den ${i + 1} · ${dayLbl(d.date)} · ${typ}${wxSlot(h ? h.goal : center, d.date)}</span>${h ? dayLinks(h.googleUrl, h.mapyUrl, 'túra') : ''}</h4>`;
+    const head = `<h4><span><span style="color:${dayCol(i, DAY_COLORS, true)}">●</span> Den ${i + 1} · ${dayLbl(d.date)} · ${typ}${wxSlot(h ? h.goal : center, d.date)}</span>${h ? dayLinks(h.googleUrl, h.mapyUrl, 'túra') : ''}</h4>`;
     if (!h) return `<div class="day-plan hk-day" data-day="${i}">${head}<div class="faint" style="font-size:13px;padding:6px 0">${esc(HK_NOTE[d.note] || HK_NOTE.rest)}</div></div>`;
     const g = h.goal;
     const from = h.start ? `z: ${h.start.name}` : '';
@@ -2551,7 +2588,7 @@
       <div class="faint hk-intro">🥾 ${n ? `Túra na každý den${plan.area ? ` · ${esc(plan.area.cs)}` : ''} – každý den jiný cíl, ✕ u cíle naplánuje jiný.` : 'Na túru tu nevyšel ani jeden den.'}</div>
       ${plan.days.map((d, i) => hikeDayHtml(d, i, center, plan)).join('')}
       ${spare.length ? `<details class="more"><summary>Další cíle v okolí (${spare.length})</summary><div class="hk-spare">${spare.map(s => `<div>${GOAL_ICON[s.kind] || '📍'} <b>${esc(s.name)}</b> <span class="faint">· ${esc(GOAL_KIND[s.kind] || '')}${s.d != null && plan.fromBase !== false ? ` · ${kmTxt(s.d)}` : ''}</span> <a class="linkbtn" href="${esc(safeUrl(mapyAt(s)))}" target="_blank" rel="noopener">Mapy.com ↗</a></div>`).join('')}</div></details>` : ''}
-      <div class="faint" style="font-size:11.5px;margin-top:8px">Provoz chat a lanovek ověř; v horách sleduj předpověď a značení. Data: Wikidata, BRouter a © OpenStreetMap. ${WX_SRC}.${footMore('Cíle: Wikidata (nejznámější vrcholy, hřbety, vodopády, jezera, skály, hrady a chaty v okolí), start u cíle: Wikidata, trasa tam a zpět: BRouter (profil pěší turistiky) nad © OpenStreetMap, občerstvení po cestě: © OpenStreetMap (Overpass). Čas chůze podle turistického vzorce DIN 33466 (4 km/h, 300 m stoupání a 500 m klesání za hodinu, kratší z obou časů se přičte polovinou), bez přestávek – na ně počítám ~20 %. Obtížnost: lehká do 3 h chůze a 400 m stoupání, náročná nad 6 h, 1 000 m stoupání nebo 20 km. Bez trasy odhad: vzdušná čára × 1,35 tam a zpět.')}</div>`;
+      <div class="faint" style="font-size:11.5px;margin-top:8px">Provoz chat a lanovek ověř; v horách sleduj předpověď a značení. Data: Wikidata, BRouter a © OpenStreetMap. ${wxSrc()}.${footMore('Cíle: Wikidata (nejznámější vrcholy, hřbety, vodopády, jezera, skály, hrady a chaty v okolí), start u cíle: Wikidata, trasa tam a zpět: BRouter (profil pěší turistiky) nad © OpenStreetMap, občerstvení po cestě: © OpenStreetMap (Overpass). Čas chůze podle turistického vzorce DIN 33466 (4 km/h, 300 m stoupání a 500 m klesání za hodinu, kratší z obou časů se přičte polovinou), bez přestávek – na ně počítám ~20 %. Obtížnost: lehká do 3 h chůze a 400 m stoupání, náročná nad 6 h, 1 000 m stoupání nebo 20 km. Bez trasy odhad: vzdušná čára × 1,35 tam a zpět.')}</div>`;
   }
   // Mapa túr: cíle očíslované po dnech, start u cíle, trasa dne plnou čarou (odhad čárkovaně start → cíl).
   function drawHikes(state, center, plan, onClick) {
@@ -2561,7 +2598,7 @@
     plan.days.forEach((d, i) => {
       const h = d.hike;
       if (!h || !okPt(h.goal)) return;
-      const col = DAY_COLORS[i % DAY_COLORS.length];
+      const col = dayCol(i);
       pts.push({ id: `hk${i}`, lat: h.goal.lat, lon: h.goal.lon, color: col, num: i + 1, big: true, day: i, label: `${GOAL_ICON[h.goal.kind] || '📍'} ${h.goal.name} · den ${i + 1}`, q: gq(h.goal.name, center.country || ''), place: { id: `hk${i}`, day: i } });
       if (h.start && h.start.kind !== 'base' && okPt(h.start)) pts.push({ id: `hks${i}`, lat: h.start.lat, lon: h.start.lon, color: '#0ea5e9', num: TH_ICON[h.start.kind] || '📍', day: i, label: `${TH_ICON[h.start.kind] || '📍'} ${h.start.name} – start túry (den ${i + 1})`, q: h.start.name });
       if (okGeom(h.geometry)) lines.push({ color: col, coords: h.geometry.map(c => [c[0], c[1]]), solid: true, fit: true });
@@ -2766,7 +2803,7 @@
       <div id="exMapSlot"></div>
       ${places}
       </div>
-      <div class="faint" style="font-size:11.5px;margin-top:10px">Zdroj: Wikidata a Wikipedie (CC BY-SA), mapa © OpenFreeMap, OpenMapTiles, OpenStreetMap. ${WX_SRC}. Otevírací doby ověř na webu místa.</div>`;
+      <div class="faint" style="font-size:11.5px;margin-top:10px">Zdroj: Wikidata a Wikipedie (CC BY-SA), mapa © OpenFreeMap, OpenMapTiles, OpenStreetMap. ${wxSrc()}. Otevírací doby ověř na webu místa.</div>`;
     fillWx($('#exPlanOut', body));
     const ms = exploreMap(p);
     $('#exMapSlot', body).replaceWith(ms.el);
@@ -3117,12 +3154,27 @@
     }
   }
 
+  // Den 1 (Noc, na tmavé mapě Vápno – dayCol) po přepnutí mapy přebarvit hned, značky i čáry – ne až při dalším vykreslení.
+  // Střed (ctr) zůstane Nocí s vlastním lemem; čáry se vykreslí z ms.lines při načtení nového stylu (addLines).
+  function recolor(ms, dark) {
+    if (brandOf().brand !== 'letsi') return;
+    const re = c => (c === NOC || c === VAPNO ? (dark ? VAPNO : NOC) : c);
+    for (const mk of ms.markers) {
+      const el = mk.getElement();
+      if (el.classList.contains('ctr') || !el.dataset.col) continue;
+      el.dataset.col = el.style.background = re(el.dataset.col);
+      if (el.classList.contains('num')) el.style.color = dayInk(el.dataset.col);
+    }
+    for (const f of (ms.lines && ms.lines.features) || []) f.properties.color = re(f.properties.color);
+  }
+
   // Přepnutí světlý/tmavý režim: otevřené mapy dostanou odpovídající styl (rastrová záloha zůstane).
   function retheme() {
     const dark = document.documentElement.dataset.map === 'dark'; // světlá/tmavá mapa (app.js), ne režim aplikace
     for (const m of liveMaps) {
       const ms = m.atlasState;
       if (!ms || ms.raster || !document.body.contains(m.getContainer())) continue;
+      recolor(ms, dark);
       ms.styleReady = false;
       m.setStyle(OFM + (dark ? 'dark' : 'liberty'), { diff: false });
     }
@@ -3130,10 +3182,11 @@
 
   window.Places = {
     renderExplore, renderPlanner, retheme, routeMap, dayRoute, gmDir, openAt, preview, previewHtml, openCountryView, makeHikePlan,
+    dayCol, dayInk, // barvy a čísla míst trasy (trip.js)
     // jen pro testy (test/places-ui.test.js)
-    _t: { hikesAt, wxAvgWhy, tripDropUndo, tripPlaces, ownPlaces, savedPlaces, tripDatesFor, inspSub, searchedPlaces, plural, placesTxt, mustTxt, inRadius, needsFetch, outsideIds, planIds, withPlanStops, enterAction, missNext, sugHtml, waitHtml, errLead, errHtml, httpErr, mustBtn, poiCard,
+    _t: { recolor, hikesAt, wxAvgWhy, tripDropUndo, tripPlaces, ownPlaces, savedPlaces, tripDatesFor, inspSub, searchedPlaces, plural, placesTxt, mustTxt, inRadius, needsFetch, outsideIds, planIds, withPlanStops, enterAction, missNext, sugHtml, waitHtml, errLead, errHtml, httpErr, mustBtn, poiCard,
       uiSnapshot, uiRestore, okStart, pushRecent, samePlace, cleanPlace, getJson, firstSentence, descHtml, inclHtml, gq, poiQ, centerQ, gmDir, dayLbl, slug, gpxOf, SLOW_MS, UI_LS,
-      countryCs, stopQ, mapyDir, dayLinks, planHtml, tripHtml, MAPY_WP, emptyHtml, planEmptyHtml, variantTxt, routeHtml, ROUTE_VARIANTS, blankHtml, looksEnglish, surfaceRows, surfaceHtml,
+      countryCs, ccAliasHits, stopQ, mapyDir, dayLinks, planHtml, tripHtml, MAPY_WP, emptyHtml, planEmptyHtml, variantTxt, routeHtml, ROUTE_VARIANTS, blankHtml, looksEnglish, surfaceRows, surfaceHtml,
       afterDark, routeBack, sunSlot, sunHtml, fillSun, toHm, modeBtns, previewPick, previewCard, moreTxt, poiUrl, pvFor, PREVIEW_KM, ex, loadExplore,
       plannerEntry, findTripFor, mergeInto, busyDays, saveHtml, flyTarget, flyDates, idosUrl, idosOn, homeCity, prefsOf, makePlan, dropUndo, planTimes, tripTimes, roadSpan, carSkipFor,
       RADII, CITY_KM, COUNTRY, cityKm, farOn, withFar, driveMin, countryItems, countryCard, countryTarget, C_GROUPS, CC_CATS, countryPick, loadCountryCat, setRadius, paintCountry, loadFar,

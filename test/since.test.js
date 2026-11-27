@@ -138,7 +138,7 @@ const rItem = (id, label, czk, extra = {}) => ({ id, label, to: id.slice(-3), cz
 test('digest: radar jen s novými cíli od minula (obnovený po návratu, bez výpadku)', () => {
   const items = [rItem('metro:LON', 'Londýn', 1290, { newAt: NOW - H }), rItem('metro:BCN', 'Barcelona', 990, { newAt: NOW - H }), rItem('metro:ROM', 'Řím', 800, { was: { czk: 900, at: FROM - H } }), rItem('metro:OSL', 'Oslo', 700, { newAt: FROM - 2 * H })];
   const l = plain(S.digest(base({ radar: { at: NOW - H, items, mode: 'weekend' } })));
-  assert.deepEqual(l, [{ kind: 'radar', sig: 'r:metro:BCN,metro:LON', ico: '📡', b: 'Radar', t: `2 nové levné víkendy – nejlevnější Barcelona za ${kc(990)}`, go: { to: 'radar' } }]);
+  assert.deepEqual(l, [{ kind: 'radar', sig: 'r:metro:BCN,metro:LON', ico: '📡', b: 'Kam letět levně', t: `2 nové levné víkendy – nejlevnější Barcelona za ${kc(990)}`, go: { to: 'radar' } }]);
   assert.equal(plain(S.digest(base({ radar: { at: NOW - H, items: items.slice(0, 1), mode: 'all' } })))[0].t, `nový levný cíl: Londýn za ${kc(1290)}`);
   assert.deepEqual(plain(S.digest(base({ radar: { at: FROM - H, items, mode: 'all' } }))), [], 'radar od minula neobnovený');
   assert.deepEqual(plain(S.digest(base({ radar: { at: NOW - H, items, mode: 'all', partial: true } }))), [], 'výpadek zdroje');

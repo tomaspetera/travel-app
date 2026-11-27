@@ -400,7 +400,7 @@ test('zapojení: count.js před app.js; app_open jednou při startu, sekce v go(
   const app = read('public/js/app.js');
   assert.match(app, /async function boot\(\) \{\n  try \{ await start\(\); \} finally \{[^}]*\n    if \(window\.Count\) Count\.hit\('app_open'\);[^\n]*\n  \}\n\}/);
   assert.equal(app.match(/Count\.hit\('app_open'\)/g).length, 1);
-  assert.match(app, /activeView = v;\n  if \(window\.Count\) Count\.view\(v, opts\.mine\);/);
+  assert.match(app, /activeView = v;\n  if \(window\.Count\) Count\.view\(v, opts\.mine \|\| \(v === 'trip' && tripMine\(S\.trip, S\.trips\)\)\);/);
 });
 
 /* ---------- stránka Statistiky: Kde to drhne a klíč (public/js/statistiky.js přes node:vm) ---------- */

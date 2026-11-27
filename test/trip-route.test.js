@@ -14,6 +14,7 @@ function load() {
   const helpers = src('app.js').match(/^const (esc|safeUrl|pad|fmtYMD|fmtDate|czk) = .*$/gm);
   assert.equal(helpers.length, 6);
   vm.runInContext(`const Ics = window.Ics;\n${helpers.join('\n')}`, ctx, { filename: 'app-helpers.js' });
+  vm.runInContext(src('offershare.js'), ctx, { filename: 'offershare.js' }); // odkazy ze sdílené cesty (safeLink)
   vm.runInContext(src('trip.js'), ctx, { filename: 'trip.js' });
   return { Trip: ctx.window.Trip, Ics: ctx.window.Ics };
 }

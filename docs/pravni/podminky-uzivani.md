@@ -98,7 +98,7 @@ termín, vzdálenost, dny dovolené…), žádná aerolinka ani partner si za le
 - Provozovatel neodpovídá za škodu vzniklou tím, že se údaj převzatý z veřejného či partnerského zdroje (cena, jízdní
   řád, počasí, vstupní podmínky, otevírací doba, trasa) ukáže jako nepřesný nebo neaktuální.
 - Data uložená v aplikaci (cesty, hlídané ceny, kódy rezervací) jsou jen v tvém zařízení. Smazáním dat prohlížeče
-  nebo ztrátou zařízení se ztratí – zálohuj si je (💾 Přenos a záloha).
+  nebo ztrátou zařízení se ztratí – zálohuj si je (⋯ Další → Záloha do souboru).
 - Trasy pěšky, na kole a autem jsou návrhy z otevřených dat; nebezpečí na cestě (počasí, uzavírky, sjízdnost)
   posuď sám.
 - Tím nejsou dotčena práva spotřebitele, která nelze smluvně vyloučit. [ověřit rozsah – viz Otázky]

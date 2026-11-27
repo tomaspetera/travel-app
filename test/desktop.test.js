@@ -173,7 +173,7 @@ test('klávesnice: karty a odkazy z <div>/<span> jdou Tabem vybrat a Enterem ote
   // karta země (Země, Doporučení, Tipy), odkaz v nadpisu sekce, cesta v Mých cestách
   assert.match(appJs, /function bindDest\(sel\) \{[^\n]*kbClick\(el\)/);
   assert.match(appJs, /\$\$\('\.link\[data-go\]'\)\.forEach\(l => \{ l\.onclick = [^\n]*kbClick\(l\)/);
-  assert.match(appJs, /\$\$\('\[data-mt\]', host\)\.forEach\(el => \{ el\.onclick = [^\n]*kbClick\(el\)/);
+  assert.match(appJs, /\$\$\('\[data-mt\]', host\)\.forEach\(el => \{[\s\S]{0,500}?else kbClick\(el\);/, 'karta s vnitřním tlačítkem bez role=button – test/pristupnost-3');
   // Rychlé hledání / Nápady, ⭐ Moje cíle, Obnovit → a Zkontrolovat vše →
   assert.match(flightsJs, /\$\$\('\[data-qf\]'\)\.forEach\(kbClick\)/);
   assert.match(flightsJs, /qv\.onclick = [^\n]*kbClick\(qv\)/);

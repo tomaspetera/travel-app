@@ -37,7 +37,7 @@ const WHITE = [255, 255, 255];
 test('okno (#modal): dialog s aria-modal, jméno z prvního nadpisu, stránka pod ním inertní – čtečka ani Tab se pod okno nedostanou', () => {
   assert.match(html, /<div class="modal" id="modal" role="dialog" aria-modal="true" tabindex="-1"><\/div>/);
   // otevření i zavření (✕, Escape, klepnutí vedle, Zpět telefonu) jednou cestou – i inert hned, ne až v MutationObserveru
-  assert.match(pick('modalOpen'), /\$\('#modal'\)\.innerHTML = html; modalShow\(true\);\n\s*modalName\(\);/);
+  assert.match(pick('modalOpen'), /\$\('#modal'\)\.innerHTML = \(o\.x \? `[^\n]*` : ''\) \+ html; modalShow\(true\);\n\s*modalName\(\);/);
   assert.match(pick('modalClose'), /^function modalClose\(\) \{\n\s*modalShow\(false\);/);
   assert.match(appJs, /if \(hist\.modal\) \{ hist\.modal = false; modalShow\(false\); \}/, 'Zpět telefonu (histPop)');
   assert.doesNotMatch(appJs.replace(pick('modalShow'), ''), /\$\('#modalBg'\)\.classList\.(add|remove|toggle)\('show'/, 'okno jen přes modalShow');
@@ -302,7 +302,7 @@ test('kontrast: bílá zkratka aerolinky a partnera na barvě značky aspoň 4,5
   const prov = readFileSync(new URL('../server/providers/index.js', import.meta.url), 'utf8').match(/export const PROVIDER_INFO = \{([\s\S]*?)\n\};/)[1];
   const cols = [...prov.matchAll(/color: '(#[0-9a-f]{6})'/g)].map((x) => x[1]);
   assert.equal(cols.length, 6, 'aerolinky a demo');
-  // v prohlížeči: kombinace a záložní Ostatní aerolinky (zkratka ve výsledcích), letenka v průvodci, partneři ubytování
+  // v prohlížeči: kombinace a záložní Letenky (Aviasales) (zkratka ve výsledcích), letenka v průvodci, partneři ubytování
   // a půjčoven aut, okno Ubytování
   cols.push(...[...flightsJs.matchAll(/PROV\.\w+ = [^;\n]*color: '(#[0-9a-f]{6})'/g)].map((x) => x[1]));
   cols.push(tripJs.match(/<span class="cbadge" style="background:(#[0-9a-f]{6})">/)[1]);
@@ -401,7 +401,7 @@ test('našeptávače: posouvatelný seznam návrhů není zastávkou Tabu (Chrom
 });
 
 test('okno z okna (⋯ Další → ✨ Co je nového, 💾 Záloha…): zavření a otevření v jednom tasku – nové okno fokus dostane', () => {
-  assert.match(pick('modalOpen'), /if \(!was\) modalKb\.fresh = true;\n\s*\$\('#modal'\)\.innerHTML = html;/);
+  assert.match(pick('modalOpen'), /if \(!was\) modalKb\.fresh = true;\n(?:\s*\/\/[^\n]*\n)*\s*\$\('#modal'\)\.innerHTML = \(o\.x \? `[^\n]*` : ''\) \+ html;/);
   const cb = appJs.match(/new MutationObserver\((\(\) => \{[\s\S]*?\n\})\)\.observe\(\$\('#modalBg'\)/)[1];
   const focused = [];
   const m = { tabIndex: 0, contains: () => false, focus: () => focused.push('modal') };
@@ -421,7 +421,8 @@ test('úvodní Odkud/Kam bez rámečku: obrys při fokusu z klávesnice (ve svě
 
 test('index.html: hlavní obsah v <main>, dekorativní SVG skryté před čtečkou (mapa světa ne – ovládá se)', () => {
   assert.equal((html.match(/<main class=/g) || []).length, 1);
-  assert.match(html, /<main class="content">[\s\S]*<\/main>\n {2}<\/div>\n<\/div>/);
+  // id a tabindex: cíl odkazu Přeskočit na obsah (test/klavesnice.test.js)
+  assert.match(html, /<main class="content" id="main" tabindex="-1">[\s\S]*<\/main>\n {2}<\/div>\n<\/div>/);
   // l-ico a l-jet jsou uvnitř #launch s aria-hidden, ikony polí v <span aria-hidden="true">
   const bare = [...html.matchAll(/(aria-hidden="true">)?(<svg\b[^>]*>)/g)].filter((x) => !x[1]).map((x) => x[2])
     .filter((t) => !/aria-hidden="true"|id="worldmap"|class="l-(ico|jet)"/.test(t));
@@ -477,10 +478,10 @@ test('hledání země: štítky jen od začátku slova – „Itál“ nenajde E
   assert.match(appJs, /\(c\.tags \|\| \[\]\)\.some\(t => tagHit\(t, q\)\)/);
 });
 
-test('ikony v ⋯ Další: ➕ Přidat Letsi na plochu, 📲 Přenést do jiného zařízení – každá jiná', () => {
+test('ikony v ⋯ Další: plus u Přidat Letsi na plochu, 📲 Přenést do jiného zařízení – každá jiná', () => {
   const pwa = read('js/pwa.js'), tr = read('js/transfer.js');
-  assert.match(pwa, /const LABEL = '➕ Přidat Letsi na plochu';/);
-  assert.match(pwa, /<h2 class="pwa-h">➕ Letsi na plochu<\/h2>/);
+  assert.match(pwa, /const LABEL = 'Přidat Letsi na plochu';\s*const ICON = '<span class="ico i-plus" aria-hidden="true"><\/span> ';/);
+  assert.match(pwa, /<h2 class="pwa-h">\$\{ICON\}Letsi na plochu<\/h2>/);
   assert.doesNotMatch(pwa.replace(/\/\*[\s\S]*?\*\//g, ''), /📲/);
   assert.match(tr, /id="moreXfer"><span class="ico i-qr" aria-hidden="true"><\/span> Přenést do jiného zařízení/);
 });

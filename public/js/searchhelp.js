@@ -210,11 +210,12 @@
   }
 
   /**
-   * Výpadek Ryanairu nebo Wizz Air v tomto hledání (hlavní zdroje nejlevnějších letů) → [{ id, name, level }]
-   * (level 'down' | 'blocked' | 'partial'); bez výpadku []. Výsledky pak vypadají úplně, ale nejlevnější lety chybí.
+   * Výpadek Ryanairu, Wizz Air nebo Aviasales v tomto hledání (hlavní zdroje nejlevnějších letů; Aviasales v čistém
+   * režimu jediný) → [{ id, name, level, retryAfter }] (level 'down' | 'blocked' | 'partial'); bez výpadku [].
+   * Výsledky pak vypadají úplně, ale nejlevnější lety chybí; u 'blocked' tlačítko Zkusit znovu po odpočtu retryAfter.
    */
   function lowcostOutage(providers) {
-    const NAME = { ryanair: 'Ryanair', wizzair: 'Wizz Air' };
+    const NAME = { ryanair: 'Ryanair', wizzair: 'Wizz Air', travelpayouts: 'Aviasales' };
     return (providers || []).filter(p => p && NAME[p.id] && ['down', 'blocked', 'partial'].includes(p.outage)).map(p => ({ id: p.id, name: NAME[p.id], level: p.outage, retryAfter: p.retryAfter || 0 }));
   }
 
@@ -2131,8 +2132,9 @@
     ['Vídeň', 'AT', 48.2085, 16.3721], ['Bratislava', 'SK', 48.1482, 17.1067]];
   const ccFlag = cc => String.fromCodePoint(...[...cc].map(c => 127397 + c.charCodeAt(0)));
   const cityPlace = ([label, cc, lat, lon]) => ({ id: `geo:${lat.toFixed(4)},${lon.toFixed(4)}|${label}`, type: 'city', label, flag: ccFlag(cc), cc, lat, lon });
-  /** 📍 Moje poloha jako místo Odkud (v Letech i v uvítání) – poloha na 4 desetinná místa. */
-  const myPlace = (lat, lon) => ({ id: `geo:${(+lat).toFixed(4)},${(+lon).toFixed(4)}|Moje poloha`, label: 'Moje poloha', flag: '📍', type: 'place' });
+  /** 📍 Moje poloha jako místo Odkud (v Letech i v uvítání) – poloha na 2 desetinná místa (~1 km): na hledání letišť
+   *  v okruhu stačí a domov se posílá při každém otevření, přesnější by v logu serveru byla skoro adresa (app.js coarseGeo). */
+  const myPlace = (lat, lon) => ({ id: `geo:${(+lat).toFixed(2)},${(+lon).toFixed(2)}|Moje poloha`, label: 'Moje poloha', flag: '📍', type: 'place' });
   /**
    * Domov radaru z čipu uvítání: název města z HOME_CITIES nebo hotové místo (📍 Moje poloha) → tvar S.home jako
    * z nastavení domova, letiště do 150 km a ceny pro 2 osoby. Neznámé město = null.

@@ -315,7 +315,7 @@ test('ceny 1 h v mezipaměti podle hotelu, termínu, dospělých a pokojů, s č
     const u = new URL(stub.calls[0].url);
     assert.equal(u.origin + u.pathname, 'https://data.xotelo.com/api/rates');
     assert.deepEqual(['hotel_key', 'chk_in', 'chk_out', 'currency', 'adults', 'rooms'].map((k) => u.searchParams.get(k)), ['g274707-d1235795', q.checkin, q.checkout, 'EUR', '2', '1']);
-    assert.match(stub.calls[0].init.headers['User-Agent'], /^ATLAS-travel\//);
+    assert.match(stub.calls[0].init.headers['User-Agent'], /^Letsi\//);
     await hotelRates('g274707-d1235795', { ...q, rooms: 2, adults: 3 });
     await hotelRates('g274707-d1235795', { ...q, checkout: ymdPlus(13) });
     assert.equal(stub.calls.length, 3, 'jiné pokoje / termín = nový dotaz');
@@ -519,7 +519,7 @@ test('celé hledání bez sítě: Wikidata (Praha bez P3134) → tabulka → sez
       const wd = stub.calls.filter((c) => c.url.startsWith('https://query.wikidata.org/'));
       assert.equal(wd.length, 1, 'jen podle ID GeoNames – Praha je v tabulce, okolí se nehledá');
       assert.match(decodeURIComponent(wd[0].url), /wdt:P1566 "3067696"/);
-      assert.match(wd[0].init.headers['User-Agent'], /^ATLAS-travel\//);
+      assert.match(wd[0].init.headers['User-Agent'], /^Letsi\//);
       const rates = stub.calls.filter((c) => c.url.includes('/api/rates?'));
       assert.equal(rates.length, 12);
       assert.ok(rates.every((c) => /adults=2&rooms=1/.test(c.url)));
@@ -944,7 +944,7 @@ test('karta hotelu z TripAdvisoru: hlavní odkaz na web nejlevnější nabídky,
   const g = first.items[ag].bookUrl;
   assert.match(g, /^https:\/\/www\.google\.com\/travel\/search\?q=Hermitage%20Hotel%20Prague%20Prague&hl=cs&curr=CZK&ts=/);
   const a = cardOf(html, 'Hermitage Hotel Prague');
-  assert.ok(a.includes(`<a class="linkbtn" href="${g.replace(/&/g, '&amp;')}" target="_blank" rel="noopener" title="Google Hotels: živé ceny hotelu u všech webů na tvoje data (Agoda nemá přímý odkaz)">porovnat ceny ↗</a>`), a);
+  assert.ok(a.includes(`<a class="linkbtn" href="${g.replace(/&/g, '&amp;')}" target="_blank" rel="noopener" title="Google Hotels: živé ceny hotelu u všech webů na tvoje data (Agoda nemá přímý odkaz)" aria-label="porovnat ceny: Hermitage Hotel Prague">porovnat ceny ↗</a>`), a);
   assert.match(a, /<div class="faint st-nobk">Booking.com na tvoje dny nic nenabízí<\/div>/);
   assert.ok(!a.includes('reklama') && !a.includes('Booking.com ↗'));
   // chipy cen = odkazy na hotel u webu (Trip.com přímo, Agoda a Vio přes Google Hotels)
@@ -953,7 +953,7 @@ test('karta hotelu z TripAdvisoru: hlavní odkaz na web nejlevnější nabídky,
   assert.match(a, /title="Trip\.com: 4 750 Kč celkem, 2 375 Kč\/noc – Hledání hotelu na Trip\.com na tvoje data – potvrď Hledat"/);
   // Booking.com nejlevnější → „Booking.com ↗“ s „reklama“, bez poznámky
   const b = cardOf(html, 'Mosaic House Design Hotel');
-  assert.match(b, /rel="sponsored nofollow noopener" title="Hledání hotelu na Booking\.com na tvoje data">Booking\.com ↗<\/a><span class="ad-tag">reklama<\/span><\/span>/);
+  assert.match(b, /rel="sponsored nofollow noopener" title="Hledání hotelu na Booking\.com na tvoje data" aria-label="Booking\.com: Mosaic House Design Hotel">Booking\.com ↗<\/a><span class="ad-tag">reklama<\/span><\/span>/);
   assert.ok(!b.includes('nic nenabízí') && !b.includes('porovnat ceny'));
   assert.match(b, /<a class="ota best" href="https:\/\/tp\.media\/r\?[^"]+" target="_blank" rel="sponsored nofollow noopener" title="[^"]+">Booking\.com <b>3 500 Kč<\/b><span class="ad-tag">reklama<\/span><\/a>/);
   // Trip.com nejlevnější, Booking.com o kousek dráž → oba odkazy
@@ -1094,7 +1094,7 @@ test('karta hotelu jiného zdroje (LiteAPI, DEMO): odkaz „rezervovat ↗“ (n
   c.window.Trip.render();
   await tick();
   const html = sp(c.__els['#stayBody'].innerHTML);
-  assert.match(cardOf(html, 'Hotel Lite'), /<span class="st-bk"><a class="linkbtn" href="https:\/\/hotel\.example\/1" target="_blank" rel="noopener" title="Rezervace hotelu na tvoje dny">rezervovat ↗<\/a><\/span>/);
+  assert.match(cardOf(html, 'Hotel Lite'), /<span class="st-bk"><a class="linkbtn" href="https:\/\/hotel\.example\/1" target="_blank" rel="noopener" title="Rezervace hotelu na tvoje dny" aria-label="rezervovat: Hotel Lite">rezervovat ↗<\/a><\/span>/);
   for (const s of ['nic nenabízí', 'Ceny z', 'stayFresh', 'místních poplatků', 'st-otas']) assert.ok(!html.includes(s), s);
 });
 

@@ -11,6 +11,7 @@ ctx.window = ctx;
 vm.createContext(ctx);
 vm.runInContext(read('public/js/planshare.js'), ctx, { filename: 'planshare.js' });
 vm.runInContext(read('public/js/searchhelp.js'), ctx, { filename: 'searchhelp.js' });
+vm.runInContext(read('public/js/offershare.js'), ctx, { filename: 'offershare.js' });
 vm.runInContext(read('public/js/pins.js'), ctx, { filename: 'pins.js' });
 vm.runInContext(read('public/js/backup.js'), ctx, { filename: 'backup.js' });
 const B = ctx.Backup;
@@ -439,9 +440,9 @@ test('náhled obnovy: stejný domov radaru „(už máš)“, jiný nebo chyběj
   ctx.esc = (x) => String(x);
   const inc = B.parse(B.pack(state({ home: { from: [BRQ], radius: 200, adults: 2 } })), deps);
   const sum = (cur) => B.summaryHtml(inc, B.diff(cur, inc, { deps }));
-  assert.match(sum(state({ home: { from: [BRQ], radius: 200, adults: 2 } })), /domov radaru Brno \+200 km \(už máš\)/);
+  assert.match(sum(state({ home: { from: [BRQ], radius: 200, adults: 2 } })), /odkud létáš: Brno \+200 km \(už máš\)/);
   assert.doesNotMatch(sum(state()), /už máš/, 'zařízení bez domova – převezme se');
-  assert.doesNotMatch(sum(state({ home: { from: [BRQ], radius: 100, adults: 2 } })), /domov radaru[^·]*už máš/, 'jiný okruh – nabídne převzetí');
+  assert.doesNotMatch(sum(state({ home: { from: [BRQ], radius: 100, adults: 2 } })), /odkud létáš:[^·]*už máš/, 'jiný okruh – nabídne převzetí');
 });
 
 test('sdílený plán v záloze: sid nic nemění, záznam vyměněné verze (sharedSnap) projde, „přepsat“ ho nezahodí', () => {

@@ -320,3 +320,10 @@ test('googleHotelsTs: termín a hosté pro Google Hotels (formát ověřený v C
   assert.equal(googleHotelsTs('2026-01-01', '2026-06-01', 2), null, 'nad 127 nocí jednobajtová délka nestačí');
   assert.equal(googleHotelsTs('2026-11-22', '2026-11-23', 0), null);
 });
+
+test('normalizeStayQuery: příjezd víc než rok a půl dopředu odmítne (9999-12-01 neprojde)', () => {
+  const base = { lat: 50.08, lon: 14.43, city: 'Praha', adults: 2 };
+  assert.throws(() => normalizeStayQuery({ ...base, checkin: '9999-12-01', checkout: '9999-12-03' }), /moc daleko/);
+  assert.throws(() => normalizeStayQuery({ ...base, checkin: ymdPlus(600), checkout: ymdPlus(602) }), /moc daleko/);
+  assert.equal(normalizeStayQuery({ ...base, checkin: ymdPlus(300), checkout: ymdPlus(303) }).nights, 3);
+});

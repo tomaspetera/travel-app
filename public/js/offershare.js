@@ -21,9 +21,39 @@
   // tlačítku podle adresy, ne podle údaje v odkazu (ten by mohl tvrdit „Ryanair“). Název serveru se čte bez new URL()
   // (testy v node:vm): znak jako @ nebo \ hned za ním adresu odmítne, takže https://www.ryanair.com@zly.web neprojde.
   const SHOPS = [['kiwi.com', 'kiwi'], ['ryanair.com', 'ryanair'], ['wizzair.com', 'wizzair'], ['aviasales.com', 'travelpayouts'], ['tp.media', 'travelpayouts']];
+  // Odkazy ve sdílené cestě (#trip=, krátký odkaz /c/, záloha – Trip.sanitizeTrip) smí vést jen tam, kam vedou odkazy
+  // aplikace: prodejci letenek, ubytování a aut (server/providers, server/lib/links.js), mapy, jízdenky, Wikipedie.
+  // Google jen mapy a hotely – google.com/url?q= by přesměroval kamkoli.
+  const LINK_SITES = [...SHOPS.map(([d]) => [d]), ['booking.com'], ['trip.com'], ['hotels.com'], ['expedia.com'],
+    ['airbnb.cz'], ['airbnb.com'], ['hostelworld.com'], ['agoda.com'], ['kayak.com'], ['rentalcars.com'], ['discovercars.com'],
+    ['google.com', /^\/(maps|travel)([/?#]|$)/], ['mapy.com'], ['mapy.cz'], ['waze.com'], ['regiojet.cz'], ['idos.cz'], ['flixbus.cz'],
+    ['wikipedia.org'], ['wikivoyage.org'], ['wikidata.org'], ['openstreetmap.org']];
+  // https adresa → [název serveru, zbytek adresy]; jinak null
+  const parts = (u, max) => {
+    const m = typeof u === 'string' && u.length <= max && /^[^\s<>"'`]+$/.test(u) && u.match(/^https:\/\/([a-z0-9.-]+)(?::\d{1,5})?([/?#].*|)$/i);
+    return m ? [m[1].toLowerCase(), m[2]] : null;
+  };
+  const under = (h, d) => h === d || h.endsWith('.' + d);
+  // Prohlížeč z /maps/../url, /maps/%2e%2e/url i /maps\..\url udělá /url – cesta s tečkami nebo \ omezení obejde.
+  const dots = rest => /\\|%2e|\/\.\.?(?:\/|$)/i.test(rest.split(/[?#]/)[0]);
+  // Partnerský odkaz tp.media přesměruje na adresu v u= (server/lib/links.js affiliate) – i ta musí vést na povolený
+  // web, a jen jednou: s dvěma u= nevíme, kterou tp.media vezme.
+  const TP_KEYS = new Set(['campaign_id', 'marker', 'p', 'trs', 'sub_id', 'u']);
+  function tpTarget(rest) {
+    const q = rest.match(/^\/r\?([^#]*)$/), kv = q ? q[1].split('&').map(x => x.split('=')) : [];
+    const names = kv.map(([k]) => k), u = kv.find(([k]) => k === 'u');
+    if (!u || u.length !== 2 || !names.every(k => TP_KEYS.has(k)) || new Set(names).size !== names.length) return null;
+    try { return decodeURIComponent(u[1]); } catch (e) { return null; }
+  }
+  /** Odkaz z cizích dat → týž odkaz, vede-li přes https na povolený web (LINK_SITES), jinak null. */
+  function safeLink(u, tp = true) {
+    const p = parts(u, 4000);
+    if (!p || !LINK_SITES.some(([d, path]) => under(p[0], d) && (!path || (path.test(p[1]) && !dots(p[1]))))) return null;
+    if (!under(p[0], 'tp.media')) return u;
+    return tp && safeLink(tpTarget(p[1]), false) ? u : null;
+  }
   function shop(u) {
-    const m = typeof u === 'string' && u.length <= 2000 && /^[^\s<>"'`]+$/.test(u) && u.match(/^https:\/\/([a-z0-9.-]+)(?::\d{1,5})?(?:[/?#]|$)/i);
-    const h = m && m[1].toLowerCase(), s = h && SHOPS.find(([d]) => h === d || h.endsWith('.' + d));
+    const p = parts(u, 2000), s = p && safeLink(u) && SHOPS.find(([d]) => under(p[0], d));
     return s ? s[1] : null;
   }
   const BAGS = ['none', 'cabin', 'checked'];
@@ -105,5 +135,5 @@
   /** Cestující nabídky do formuláře / k ceně (SearchHelp.paxOf): { adults, children, infants }. */
   const paxQ = o => ({ adults: Math.max(1, o.pax - (o.ch || 0)), children: o.ch || 0, infants: o.inf || 0 });
 
-  window.OfferShare = { sanitize, fromPin, json, unpack, fromHash, text, paxQ };
+  window.OfferShare = { safeLink, sanitize, fromPin, json, unpack, fromHash, text, paxQ };
 })();

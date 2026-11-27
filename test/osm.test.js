@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { viewbox, mapOsm, rankOsm, osmLodging, MAX_KM, OSM_MAX, PHRASES } from '../server/providers/stays/osm.js';
+import { viewbox, mapOsm, rankOsm, osmLodging, resetNominatim, MAX_KM, OSM_MAX, PHRASES } from '../server/providers/stays/osm.js';
 import { searchStays } from '../server/lib/stays.js';
 import { config } from '../server/config.js';
 import { stubFetch, ymdPlus } from './helpers.js';
@@ -89,7 +89,7 @@ test('OSM: dotaz na Nominatim – vlastní User-Agent, viewbox, bounded, extrata
     assert.equal(u.origin + u.pathname, 'https://nominatim.openstreetmap.org/search');
     assert.deepEqual([u.searchParams.get('q'), u.searchParams.get('bounded'), u.searchParams.get('extratags'), u.searchParams.get('format'), u.searchParams.get('viewbox')], ['hotel', '1', '1', 'jsonv2', viewbox(37.0648, 14.9019)]);
     assert.deepEqual(stub.calls.map((c) => new URL(c.url).searchParams.get('q')), PHRASES);
-    assert.match(stub.calls[0].init.headers['User-Agent'], /^ATLAS-travel\//);
+    assert.match(stub.calls[0].init.headers['User-Agent'], /^Letsi\//);
   } finally {
     config.mock = prev;
     stub.restore();
@@ -185,7 +185,7 @@ test('searchStays: bez Xotela (XOTELO=off) ubytování z OpenStreetMap dál – 
     // jen Nominatim (žádné Xotelo), fráze po sobě s vlastním User-Agentem
     assert.ok(stub.calls.every((c) => c.url.startsWith('https://nominatim.openstreetmap.org/search?')), stub.calls.map((c) => c.url).join(' '));
     assert.deepEqual(stub.calls.map((c) => new URL(c.url).searchParams.get('q')), PHRASES);
-    assert.ok(stub.calls.every((c) => /^ATLAS-travel\//.test(c.init.headers['User-Agent'])));
+    assert.ok(stub.calls.every((c) => /^Letsi\//.test(c.init.headers['User-Agent'])));
     // jiný termín na stejném místě: z mezipaměti, bez dalšího dotazu na Nominatim
     const again = await searchStays({ ...raw, checkout: ymdPlus(34) });
     assert.deepEqual([again.items.length, stub.calls.length], [3, PHRASES.length]);
@@ -204,4 +204,36 @@ test('rankOsm: téměř stejný záznam (název začíná druhým, do 300 m) jen
     h('osm:node/4', 'Real', 39.5501, -8.9801), // krátký název se neslučuje
   ]);
   assert.deepEqual(out.map((x) => x.id), ['osm:way/2', 'osm:node/3', 'osm:node/4']);
+});
+
+const realNow = Date.now;
+test('OSM: výpadek Nominatimu – 2 min se neptá ani u jiných míst ve frontě (jinak by hledání čekala za timeouty)', async () => {
+  const stub = stubFetch(() => ({ status: 503, body: 'down' }));
+  const prev = config.mock;
+  config.mock = false;
+  try {
+    const at = (i) => ({ ...Q, lat: 37.1 + i / 100, lon: 14.9 });
+    const r = await Promise.allSettled([0, 1, 2].map((i) => osmLodging(at(i))));
+    assert.deepEqual(r.map((x) => x.status), ['rejected', 'rejected', 'rejected']);
+    assert.equal(stub.calls.length, 1, 'na Nominatim jen první dotaz');
+    await assert.rejects(osmLodging(at(3)), /Nominatim teď není dostupný/);
+    assert.equal(stub.calls.length, 1);
+    // místa vynechaná pojistkou si výpadek nepamatují 10 min: po 2 min se zeptají znovu (jen to první čeká 10 min)
+    const now = Date.now();
+    Date.now = () => now + 2 * 60e3 + 1;
+    stub.restore();
+    const ok = stubFetch(() => ({ status: 200, body: [] }));
+    try {
+      assert.deepEqual(await osmLodging(at(1)), []);
+      await assert.rejects(osmLodging(at(0)), /Nominatim teď není dostupný/);
+      assert.equal(ok.calls.length, 3, 'jen místo 1 (3 fráze)');
+    } finally {
+      ok.restore();
+    }
+  } finally {
+    Date.now = realNow;
+    config.mock = prev;
+    stub.restore();
+    resetNominatim();
+  }
 });

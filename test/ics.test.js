@@ -142,6 +142,13 @@ test('Ics: let přes časová pásma, plovoucí čas bez zóny, délka místo ch
   const allDay = build([Ics.flightEvent({ from: 'VIE', to: 'BCN', date: '2026-11-10', dep: null })]);
   assert.equal(prop(allDay, 'DTSTART'), '20261110');
   assert.ok(unfold(allDay).includes('DTSTART;VALUE=DATE:'));
+  // Vlastní let bez letiště domova (Letenku už mám bez Odkud, i z kalendáře Mých cest): „let do / z LIS“, bez „Letiště “
+  const tam = build([Ics.flightEvent({ from: '', to: 'LIS', date: '2027-03-12', dep: null, carrier: 'vlastní let' })]);
+  assert.equal(prop(tam, 'SUMMARY'), '✈️ let do LIS · vlastní let');
+  assert.doesNotMatch(unfold(tam), /LOCATION/);
+  const zpet = build([Ics.flightEvent({ from: 'LIS', to: '', date: '2027-03-17', dep: null, carrier: 'vlastní let' })]);
+  assert.equal(prop(zpet, 'SUMMARY'), '✈️ let z LIS · vlastní let');
+  assert.equal(prop(zpet, 'LOCATION'), 'Letiště LIS');
   // Krátká událost s délkou (vyzvednutí auta).
   assert.equal(prop(build([{ title: 'auto', start: '2026-07-01T09:45', tz: 'Europe/Rome', durationMin: 30 }]), 'DTEND'), '20260701T081500Z');
 });

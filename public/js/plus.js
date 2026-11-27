@@ -102,16 +102,16 @@
    */
   function gateFlow(trips, newTrip, today, io) {
     if (!needsGate(trips, newTrip, today)) { io.proceed(false); return null; }
-    const cur = countedTrips(trips, today)[0], name = placeOf(cur);
+    const list = countedTrips(trips, today), cur = list[0], name = placeOf(cur);
     let done = false;
     const go = () => { if (!done) { done = true; io.proceed(true); } };
-    io.show(sheetHtml(cur));
+    io.show(sheetHtml(cur, list.length));
     io.hit('limit_shown');
     return {
       cur,
       choose(c) {
         if (done) return;
-        if (c === 'plus') { io.hit('limit_plus'); go(); io.thanks(); }
+        if (c === 'plus') { io.hit('limit_plus'); go(); io.thanks(list.length); }
         else if (c === 'download') { io.hit('limit_download'); io.download(); io.close(); go(); }
         else if (c === 'replace') {
           io.hit('limit_replace');
@@ -124,13 +124,15 @@
   }
 
   /* ---------- HTML ---------- */
-  function sheetHtml(cur) {
-    const name = h(placeOf(cur)), term = termTxt(cur);
+  // n = kolik započítaných cest už je: kdo jich má víc (uložené před limitem), tomu „jednu“ a „obě“ lhaly
+  const uloz = n => (n <= 4 ? `uložené ${n} cesty` : `uložených ${n} cest`);
+  function sheetHtml(cur, n = 1) {
+    const name = h(placeOf(cur)), term = termTxt(cur), dot = term.endsWith('.') ? '' : '.';
     return `<div class="modal-body plus-sheet">
-      <h3>Místo pro jednu cestu máš obsazené</h3>
-      <p>Zdarma si tu držíš jednu cestu – teď <b>${name}</b> ${h(term)}${term.endsWith('.') ? '' : '.'}</p>
+      <h3>${n > 1 ? 'Zdarma je místo pro jednu cestu' : 'Místo pro jednu cestu máš obsazené'}</h3>
+      <p>${n > 1 ? `Teď tu máš ${uloz(n)}, nejbližší <b>${name}</b> ${h(term)}${dot}` : `Zdarma si tu držíš jednu cestu – teď <b>${name}</b> ${h(term)}${dot}`}</p>
       <div class="plus-acts">
-        <button type="button" class="btn primary" data-pl="plus">Nechat si obě · Plus ${kc(YEAR_CZK)} na rok</button>
+        <button type="button" class="btn primary" data-pl="plus">Nechat si ${n > 1 ? 'všechny' : 'obě'} · Plus ${kc(YEAR_CZK)} na rok</button>
         <button type="button" class="btn" data-pl="download">Stáhnout ${name} do souboru a začít novou</button>
         <button type="button" class="btn ghost" data-pl="replace">Nahradit ${name} novou cestou</button>
       </div>
@@ -143,28 +145,35 @@
     ['Hledání letenek a orientační ceny', 'ano', 'ano'],
     ['Ověření ceny u prodejce', 'ano', 'ano'],
     ['Informace o zemích a Objevuj', 'ano', 'ano'],
-    ['Plánovaná cesta celá (i ⚡ Poskládej celou cestu)', 'jedna', 'neomezeně'],
+    ['Naplánované cesty (i\u00a0z\u00a0⚡\u00a0Poskládej)', 'jedna', 'neomezeně'], // pevné mezery: závorka se zalomí celá, ne „⚡“ zvlášť
     ['Záloha do souboru', 'ano', 'ano'],
     ['Sdílení cesty', 'ano', 'ano'],
     ['Archiv minulých cest', 'ne', 'ano'],
     ['Sešit cesty k tisku a do PDF', 'ne', 'ano'],
   ];
   const cell = v => (v === 'ano' ? '<span aria-hidden="true">✓</span><span class="sr-only">ano</span>' : v === 'ne' ? '<span aria-hidden="true">–</span><span class="sr-only">ne</span>' : h(v));
-  function pageHtml() {
+  /**
+   * Z čeho Letsi žije – provize jen při zapnutých partnerských odkazech (/api/health affiliate, stejně jako about.js
+   * earnings). Dokud stav serveru neznáme, bez provizí: okno nesmí tvrdit něco, co O aplikaci popírá.
+   */
+  const livesTxt = health => `Z čeho Letsi žije: ${health && health.affiliate === true ? 'z provizí partnerů (takové odkazy jsou označené reklama) a ' : ''}z dobrovolných příspěvků, později i z předplatného Plus. Pořadí výsledků si nikdo nekoupí.`;
+  function pageHtml(health) {
     return `<div class="modal-body plus-page">
       <h3>⭐ ${h(NAME)}</h3>
       <p>Co zůstane zdarma a co chystáme navíc.</p>
       <table class="plus-table"><thead><tr><th scope="col">Co</th><th scope="col">Zdarma</th><th scope="col">Plus <small>${SOON}</small></th></tr></thead>
         <tbody>${FREE.map(([what, a, b]) => `<tr><th scope="row">${h(what)}</th><td>${cell(a)}</td><td>${cell(b)}</td></tr>`).join('')}</tbody></table>
       <p class="plus-small">Plus: ${kc(YEAR_CZK)} na rok, nebo ${kc(MONTH_CZK)} na měsíc.</p>
-      <p class="faint plus-small">Z čeho Letsi žije: z provizí partnerů, z předplatného Plus a z dobrovolných příspěvků. Reklamu neprodáváme a pořadí výsledků si nikdo nekoupí.</p>
+      <p class="faint plus-small" id="plusLives">${h(livesTxt(health))}</p>
       <div id="plusAfter"><button type="button" class="btn primary block" id="plusWant">Chci Plus</button></div>
     </div>`;
   }
+  /** Číslo dne od začátku cesty jako v Průběhu cesty (den bez programu se nevynechá); bez data odjezdu pořadí. */
+  const dayNo = (t, d, i) => (isYmd(t.start) && d >= t.start ? Math.round((Date.parse(d) - Date.parse(t.start)) / 864e5) + 1 : i + 1);
   /** Náhled sešitu z dat cesty (titul, termín, první dva dny programu) – žádný obrázek. */
   function sesitHtml(t, line) {
     const days = Object.keys(t.days && typeof t.days === 'object' ? t.days : {}).filter(d => isYmd(d) && Array.isArray(t.days[d]) && t.days[d].length).sort().slice(0, 2);
-    const dayHtml = days.length ? days.map((d, i) => `<div class="ss-day"><b>Den ${i + 1} · ${dm(d)}</b><ul>${t.days[d].slice(0, 4).map(x => `<li>${h(x)}</li>`).join('')}</ul></div>`).join('')
+    const dayHtml = days.length ? days.map((d, i) => `<div class="ss-day"><b>Den ${dayNo(t, d, i)} · ${dm(d)}</b><ul>${t.days[d].slice(0, 4).map(x => `<li>${h(x)}</li>`).join('')}</ul></div>`).join('')
       : '<p class="faint">Program po dnech doplní průvodce cestou.</p>';
     return `<div class="modal-body plus-page">
       <h3>📒 Sešit cesty</h3>
@@ -199,20 +208,23 @@
 
   /** Stránka ⭐ Plus (okno): tabulka Zdarma × Plus a „Chci Plus“. */
   function open() {
-    modalOpen(pageHtml());
+    modalOpen(pageHtml(), { x: true });
     hit('plus_page'); hit('plus_offer_shown');
     q('#plusWant').onclick = () => { hit('plus_offer_click'); after(q('#plusAfter'), 'Plus chystáme na jaro – dáme vědět tady v aplikaci.'); };
+    // provize podle serveru (stejný dotaz /api/health, který app.js stahuje při startu) – jen věta, ať nezmizí odpověď na „Chci Plus“
+    if (window.Flights && Flights.warm) Flights.warm().then(hl => { const p = q('#plusLives'); if (p) p.textContent = livesTxt(hl); }, () => { /* bez serveru zůstane věta bez provizí */ });
   }
   /** Okno Sešitu cesty pro uloženou cestu (záznam z Mých cest nebo stejná pole: name, dest, iso, start, end, days). */
   function sesit(t) {
     if (!t) return;
     const dest = placeOf(t);
-    modalOpen(sesitHtml(t, sesitLine(dest, countryOf(t.iso), genOf(dest))));
+    modalOpen(sesitHtml(t, sesitLine(dest, countryOf(t.iso), genOf(dest))), { x: true });
     q('#sesitWant').onclick = () => { hit('sesit_click'); after(q('#plusAfter'), 'Sešit chystáme na jaro – dáme vědět tady v aplikaci.'); };
   }
   const sesitSeen = new Set();
-  /** Tlačítko 📒 Sešit cesty ve Shrnutí bylo vidět – počítá se jednou za otevření aplikace pro danou cestu. */
+  /** 📒 Sešit cesty byl vidět (tlačítko ve Shrnutí, karta na Přehledu) – počítá se jednou za otevření aplikace pro danou cestu. */
   function sesitShown(id) {
+    id = String(id); // Shrnutí posílá t.created (číslo), karta tripKey (text) – táž cesta se nesmí započítat dvakrát
     if (sesitSeen.has(id)) return;
     sesitSeen.add(id); hit('sesit_shown');
   }
@@ -229,7 +241,8 @@
       show: html => { modalOpen(html); sheet = q('#modal .plus-sheet'); },
       hit,
       // „Nebo 149 Kč na měsíc. Obnovení vypneš…“ pod odpovědí, že Plus ještě není, by sliboval předplatné, které neběží
-      thanks: () => { if (sheet) { sheet.querySelector('.plus-small').hidden = true; after(sheet.querySelector('.plus-acts'), 'Plus chystáme na jaro. Do té doby si nech obě cesty zdarma – zůstanou ti.'); } },
+      // nadpis „máš obsazené“ a počet cest by pod odpovědí „nech si je“ odporovaly – cesta se už uložila (proceed před thanks)
+      thanks: n => { if (sheet) { sheet.querySelector('.plus-small').hidden = true; sheet.querySelector('h3').textContent = 'Cesta se uložila'; sheet.querySelector('h3 + p').hidden = true; after(sheet.querySelector('.plus-acts'), `Plus chystáme na jaro. Do té doby si nech ${n > 1 ? 'všechny' : 'obě'} cesty zdarma – zůstanou ti.`); } },
       download: () => { if (window.Backup && Backup.download) { Backup.download(); toast('Záloha stažena – cesta v ní je'); } },
       close: () => modalClose(),
       confirm: msg => confirm(msg),
@@ -244,6 +257,17 @@
     return true;
   }
 
+  /**
+   * Karta sešitu byla vidět → sesit_shown (jednou za načtení a cestu, stejný klíč jako Shrnutí: tripId). Až když je
+   * opravdu na obrazovce – klepnutí z karty se počítají, a bez zobrazení by zájem o Sešit vyšel přehnaně vysoký.
+   */
+  let cardIO = null;
+  function cardSeen(el, key) {
+    if (cardIO) cardIO.disconnect();
+    if (typeof IntersectionObserver === 'undefined') { sesitShown(key); return; }
+    cardIO = new IntersectionObserver(es => { if (es.some(e => e.isIntersecting)) { cardIO.disconnect(); sesitShown(key); } });
+    cardIO.observe(el);
+  }
   /** Karta na Přehledu (el = #plusCard); first = první návštěva (uvítání) – žádná nabídka. */
   function renderCard(el, first) {
     if (!el) return;
@@ -256,14 +280,24 @@
     el.innerHTML = `<span class="dt-ic" aria-hidden="true">📒</span><div class="dt-b">${h(cardText(pick, genOf(placeOf(pick.trip))))}
       <div class="plus-card-acts"><button type="button" class="btn sm" id="plusCardGo">Ukázat</button><button type="button" class="btn sm ghost" id="plusCardX">Teď ne</button></div></div>`;
     q('#plusCardGo').onclick = () => sesit(pick.trip);
+    cardSeen(el, tripKey(pick.trip));
     q('#plusCardX').onclick = () => { store.set(CARD_KEY, JSON.stringify([...hidden, tripKey(pick.trip)].slice(-30))); el.hidden = true; };
   }
 
   /** Položka v ⋯ Další (app.js openMore). */
   function addToMenu(list) {
-    list.insertAdjacentHTML('beforeend', `<button type="button" class="btn ghost" id="morePlus">⭐ ${h(NAME)} <span class="faint">co je zdarma a co v Plus</span></button>`);
+    list.insertAdjacentHTML('beforeend', `<button type="button" class="btn ghost" id="morePlus"><span class="ico i-oblibene" aria-hidden="true"></span> ${h(NAME)} <span class="faint">co je zdarma a co v Plus</span></button>`);
     list.querySelector('#morePlus').onclick = open;
   }
+  // Počítač a tablet nemají ⋯ Další: odkaz v postranním panelu pod přepínačem motivu jako O aplikaci (about.js) –
+  // jinak by stránka Zdarma × Plus s otázkou na cenu na počítači nešla otevřít. V node testu (vm) DOM není.
+  if (typeof document !== 'undefined') {
+    const toggle = document.querySelector('#themeToggle');
+    if (toggle && !document.querySelector('#sidePlus')) {
+      toggle.insertAdjacentHTML('afterend', `<button type="button" class="theme-toggle side-about" id="sidePlus"><span class="ico i-oblibene" aria-hidden="true"></span> ${h(NAME)}</button>`);
+      document.querySelector('#sidePlus').onclick = open;
+    }
+  }
 
-  window.Plus = { NAME, YEAR_CZK, MONTH_CZK, PRICES, counts, countedTrips, needsGate, askDue, cardPick, cardText, termTxt, sesitLine, gateFlow, tripKey, open, sesit, sesitShown, gateNewTrip, renderCard, addToMenu };
+  window.Plus = { NAME, YEAR_CZK, MONTH_CZK, PRICES, counts, countedTrips, needsGate, askDue, cardPick, cardText, termTxt, sesitLine, sesitHtml, pageHtml, livesTxt, gateFlow, tripKey, open, sesit, sesitShown, gateNewTrip, renderCard, addToMenu };
 })();

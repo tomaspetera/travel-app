@@ -377,7 +377,7 @@ test('✨ lišta Co je nového: jen novinky od minulého otevření (nejvýš 3)
   // z klávesnice: novinka se rozbalí Enterem / mezerníkem (čtečka ví, že jde rozbalit), Esc lištu zavře; ohlásí se
   assert.match(pop, /d\.tabIndex = 0; d\.setAttribute\('role', 'button'\); d\.setAttribute\('aria-expanded', 'false'\);/);
   assert.match(pop, /if \(e\.key === 'Enter' \|\| e\.key === ' '\) \{ e\.preventDefault\(\); tog\(\); \}/);
-  assert.match(pop, /bar\.onkeydown = e => \{ if \(e\.key === 'Escape'\) close\(\); \};/);
+  assert.match(pop, /document\.addEventListener\('keydown', onEsc, true\);/, 'Esc odkudkoli – test/pristupnost-3');
   assert.match(pop, /bar\.setAttribute\('aria-live', 'polite'\);/);
   // lišta nezakryje otevřený našeptávač ani „↓ zpět na …“ v Objevuj; na nízkém telefonu nesahá přes „Najít lety“
   const pwa = readFileSync(new URL('../public/css/pwa.css', import.meta.url), 'utf8');
@@ -450,4 +450,57 @@ test('ShareLink.send: na telefonu nabídka sdílení (zavřená nabídka nic nek
   assert.equal((await pc.L.send('plan', json)).copied, true);
   assert.equal(pc.shared.length, 0);
   assert.match(pc.copied[0], /#plan=/);
+});
+
+test('Lety → Přehled → Lety ze spodní lišty: výpis tam, kde uživatel skončil; po novém hledání nebo odeslání formuláře nahoru', () => {
+  // skutečné go() z app.js s napodobeným DOM: #results s prvním řádkem výpisu, posun stránky, Flights.busy
+  const listeners = {}, frames = [], scrolls = [];
+  const row = (n) => ({ n });
+  const results = { firstElementChild: row(1) };
+  const el = () => ({ textContent: '', classList: { toggle() {} } });
+  const els = { '#results': results, '#pageTitle': el(), '#pageSub': el() };
+  const ctx = {
+    Math, Boolean, Number,
+    $: (s) => els[s], $$: () => [],
+    document: { addEventListener: (t, fn) => { listeners[t] = fn; } },
+    window: { scrollY: 0, scrollTo: (a, b) => scrolls.push(typeof a === 'object' ? a.top : b) },
+    requestAnimationFrame: (f) => frames.push(f),
+    navBar: ['flights', 'trip'], WORLD_VIEWS: ['map', 'countries'], NAV: [['dashboard', 'Přehled', ''], ['flights', 'Lety', ''], ['trip', 'Cesta', '']], NAV_INFO: {},
+    navCount() {}, histDo() {}, renderDash() {}, lazyView() {}, nowAsk: false, lastWorld: '',
+  };
+  ctx.Flights = ctx.window.Flights = { busy: () => false, ageCheck() {} };
+  vm.createContext(ctx);
+  const submit = APP.match(/^document\.addEventListener\('submit', \(\) => \{ flKept = null; \}, true\);$/m);
+  assert.ok(submit, 'app.js: odeslání hledání zahodí posun');
+  vm.runInContext(`var activeView = 'flights';\nlet flKept = null;\n${pick('flMark', 'flKeep', 'flBack')}\n${submit[0]}\n${pick('go')}`, ctx);
+  const at = (y) => { ctx.window.scrollY = y; };
+  const last = () => scrolls[scrolls.length - 1];
+  // výsledky posunuté na 1 800 px → Přehled (nahoru) → Lety: zpět na 1 800
+  at(1800); ctx.go('dashboard'); assert.equal(last(), 0);
+  at(0); ctx.go('flights');
+  assert.equal(last(), 1800, 'výpis tam, kde uživatel skončil');
+  frames.splice(0).forEach((f) => f());
+  assert.equal(last(), 1800, 'výpis týž – zůstane');
+  // nový odchod uloží nový posun
+  at(900); ctx.go('trip'); at(0); ctx.go('flights'); assert.equal(last(), 900);
+  // nové hledání (jiný první řádek výpisu – startSearch ho vyprázdní): nahoru
+  at(1200); ctx.go('dashboard'); results.firstElementChild = row(2); at(0); ctx.go('flights');
+  assert.equal(last(), 0);
+  // hledání ještě běží: nahoru (průběh hledání je nahoře)
+  at(1200); ctx.go('dashboard'); ctx.Flights.busy = () => true; ctx.go('flights'); assert.equal(last(), 0);
+  ctx.Flights.busy = () => false;
+  // odeslané hledání (formulář na Přehledu i na Letech): posun zahozený
+  at(1200); ctx.go('dashboard'); listeners.submit(); ctx.go('flights'); assert.equal(last(), 0);
+  // hledání spuštěné hned po přepnutí (Flights.searchTo: go('flights') a pak startSearch): v dalším snímku nahoru
+  at(1200); ctx.go('dashboard'); ctx.go('flights'); assert.equal(last(), 1200);
+  results.firstElementChild = null; frames.splice(0).forEach((f) => f());
+  assert.equal(last(), 0);
+  // Zpět (historie, noHash) má posun z kroku historie (hashView) – go ho nepřepíše
+  results.firstElementChild = row(3);
+  at(700); ctx.go('dashboard', { noHash: true }); const n = scrolls.length; ctx.go('flights', { noHash: true, keepScroll: true });
+  assert.equal(scrolls.length, n, 'go s keepScroll neposouvá');
+  // stránka nahoře nebo prázdný výpis: nic k uložení
+  const keep = new Function(`${pick('flKeep')}; return flKeep;`)();
+  assert.equal(keep(0, row(1)), null);
+  assert.equal(keep(500, null), null);
 });

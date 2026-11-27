@@ -191,10 +191,13 @@
         // let s přestupem z cache bez věrohodné délky: konec události je jen orientační
         : l.arrUnknown ? 'Přílet neznámý (let s přestupem z cache) – čas příletu ověř v rezervaci.' : '']
       : ['Čas odletu ověř u aerolinky.'];
+    // vlastní let bez letiště domova (Letenku už mám bez Odkud): „let do LIS“ / „let z LIS“ a bez LOCATION – i v kalendáři
+    // z Mých cest (app.js planEvents), ne „✈️  → LIS“ a „Letiště “
+    const route = l.from && l.to ? `${l.from} → ${l.to}` : `let ${l.from ? `z ${l.from}` : `do ${l.to}`}`;
     const ev = {
-      title: `✈️ ${l.from} → ${l.to}${who ? ' · ' + who : ''}`,
+      title: `✈️ ${route}${who ? ' · ' + who : ''}`,
       description: [...lines, note || ''].filter(Boolean).join('\n'),
-      location: `Letiště ${l.from}`,
+      location: l.from ? `Letiště ${l.from}` : '',
       url,
     };
     // Přílet je v zóně cíle: bez obou zón ho nejde porovnat s odletem → raději délka letu (je-li známá).

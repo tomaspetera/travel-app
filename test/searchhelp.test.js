@@ -684,10 +684,10 @@ test('radarDiff: zlevnění a zdražení cíle od minula, nový cíl; značka vy
   assert.deepEqual(plain(H.radarDiff(null, [it('ROM', 1)], key('2026-10-08'), T1)), [it('ROM', 1)]);
 });
 
-test('lowcostOutage: výpadek Ryanairu nebo Wizz Air (Kiwi a ostatní zdroje se sem nepočítají)', () => {
-  assert.deepEqual(plain(H.lowcostOutage([{ id: 'ryanair', outage: null }, { id: 'wizzair' }, { id: 'kiwi', outage: 'down' }])), []);
+test('lowcostOutage: výpadek Ryanairu, Wizz Air nebo Aviasales (Kiwi a ostatní zdroje se sem nepočítají)', () => {
+  assert.deepEqual(plain(H.lowcostOutage([{ id: 'ryanair', outage: null }, { id: 'wizzair' }, { id: 'kiwi', outage: 'down' }, { id: 'liteapi', outage: 'down' }])), []);
   assert.deepEqual(plain(H.lowcostOutage([{ id: 'ryanair', outage: 'down' }, { id: 'wizzair', outage: 'blocked', retryAfter: 600 }, { id: 'travelpayouts', outage: 'down' }])),
-    [{ id: 'ryanair', name: 'Ryanair', level: 'down', retryAfter: 0 }, { id: 'wizzair', name: 'Wizz Air', level: 'blocked', retryAfter: 600 }]);
+    [{ id: 'ryanair', name: 'Ryanair', level: 'down', retryAfter: 0 }, { id: 'wizzair', name: 'Wizz Air', level: 'blocked', retryAfter: 600 }, { id: 'travelpayouts', name: 'Aviasales', level: 'down', retryAfter: 0 }]);
   assert.deepEqual(plain(H.lowcostOutage([{ id: 'wizzair', outage: 'partial', failed: 2 }])), [{ id: 'wizzair', name: 'Wizz Air', level: 'partial', retryAfter: 0 }]);
   assert.deepEqual(plain(H.lowcostOutage(undefined)), []);
 });
@@ -1468,7 +1468,7 @@ test('homeOf: čip „Odkud letíš?“ v uvítání → domov radaru jako z nas
   assert.equal(plain(H.homeOf('Brno')).from[0].id, 'geo:49.1952,16.6080|Brno');
   // 📍 Moje poloha: stejné místo jako tlačítko 📍 v Letech
   const me = H.myPlace(49.19523, 16.60801);
-  assert.deepEqual(plain(me), { id: 'geo:49.1952,16.6080|Moje poloha', label: 'Moje poloha', flag: '📍', type: 'place' });
+  assert.deepEqual(plain(me), { id: 'geo:49.20,16.61|Moje poloha', label: 'Moje poloha', flag: '📍', type: 'place' });
   assert.deepEqual(plain(H.homeOf(me)), { from: [plain(me)], radius: 150, adults: 2 });
   // neznámé město, nic → null (domov se nemění)
   assert.equal(H.homeOf('Plzeň'), null);

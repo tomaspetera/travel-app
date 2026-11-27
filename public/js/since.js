@@ -165,7 +165,7 @@
       const what = n === 1 ? (wk ? 'nový levný víkend' : 'nový levný cíl') : n <= 4 ? (wk ? 'nové levné víkendy' : 'nové levné cíle') : (wk ? 'nových levných víkendů' : 'nových levných cílů');
       const lw = radar.mode === 'holiday' ? ' na prodloužený víkend' : '';
       const top = `${String(r.top.label || r.top.to || '')} za ${czk(r.top.czk)}`;
-      lines.push({ kind: 'radar', sig: 'r:' + r.ids.join(','), ico: '📡', b: 'Radar', t: n === 1 ? `${what}${lw}: ${top}` : `${n} ${what}${lw} – nejlevnější ${top}`, go: { to: 'radar' } });
+      lines.push({ kind: 'radar', sig: 'r:' + r.ids.join(','), ico: '📡', b: 'Kam letět levně', t: n === 1 ? `${what}${lw}: ${top}` : `${n} ${what}${lw} – nejlevnější ${top}`, go: { to: 'radar' } });
     }
     const g = Array.isArray(gone) ? gone.filter(p => obj(p) && typeof p.k === 'string' && isYmd(p.d1)) : [];
     if (g.length) {

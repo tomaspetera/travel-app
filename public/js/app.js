@@ -50,7 +50,26 @@ let TOT = 197; const CONT_TOT = {};
 /* ================= STATE ================= */
 const LS = 'atlas_v1';
 let S = load();
-function load() { try { const d = JSON.parse(localStorage.getItem(LS)); if (d) return migratePrices(Object.assign(defState(), d), d.pv); } catch (e) { } return defState(); }
+function load() { try { const d = JSON.parse(localStorage.getItem(LS)); if (d) return migrateGeo(migratePrices(fixState(Object.assign(defState(), d)), d.pv)); } catch (e) { } return defState(); }
+// Poškozený uložený stav (ručně, starou verzí): seznam, který seznamem není, by shodil Přehled (S.trips.filter…) –
+// opraví se jen to pole, ostatní data zůstanou. Prázdná místa v Mých cestách, hlídání, Nedávno a odložených pryč
+// (x.tripId, w.id, r.form na null shodí start); v domově a formuláři jen místa s id (render výběru míst čte p.flag).
+function fixState(s) {
+  for (const k of ['visited', 'trips', 'watch', 'recent', 'fav', 'mute', 'pins', 'viewed']) if (!Array.isArray(s[k])) s[k] = [];
+  for (const k of ['trips', 'watch', 'recent', 'pins']) s[k] = s[k].filter(x => x && typeof x === 'object' && !Array.isArray(x));
+  for (const k of ['home', 'form']) if (s[k] && Array.isArray(s[k].from)) s[k] = { ...s[k], from: s[k].from.filter(p => p && typeof p.id === 'string') };
+  return s;
+}
+// 📍 Moje poloha jde ven jen na ~1 km (SearchHelp.myPlace, 2 desetinná místa) – na letiště do 150 km to stačí. Dřív
+// uložený domov, formulář, Nedávno a hlídané ceny měly 4 místa (~11 m, skoro adresa domu v logu serveru): při načtení zaokrouhlit.
+// Deklarace funkce, ne const: load() běží výš (let S = load()) a const by tam ještě neexistovalo – výjimku by catch
+// v load() spolkl a vrátil prázdný stav, který první save() uloží přes všechna data uživatele.
+function coarseGeo(p) { const m = p && /^geo:(-?[\d.]+),(-?[\d.]+)\|Moje poloha$/.exec(p.id || ''); return m ? { ...p, id: `geo:${(+m[1]).toFixed(2)},${(+m[2]).toFixed(2)}|Moje poloha` } : p; }
+function migrateGeo(s) {
+  const fix = o => (o && Array.isArray(o.from) ? { ...o, from: o.from.map(coarseGeo) } : o);
+  const forms = a => (Array.isArray(a) ? a.map(r => (r && r.form ? { ...r, form: fix(r.form) } : r)) : a);
+  return { ...s, home: fix(s.home), form: fix(s.form), recent: forms(s.recent), watch: forms(s.watch) };
+}
 // Ceny letů jsou od pv 2 jen za letenku (+ zavazadla), dřív i s dopravou na letiště a do města: uložené karty radaru
 // se načtou znovu a „naposledy prohlížené“ ceny zapomenou – jinak by vedle nových cen vypadaly dráž („zlevnilo“).
 // Hlídané ceny si nový základ vezmou při příští kontrole (Alerts, w.pv), odložené nabídky se přepočítají (Pins).
@@ -63,12 +82,22 @@ function migratePrices(s, pv) {
 function defState() { return { visited: [], trips: [], theme: null, mapStyle: 'light', geo: {}, weather: {}, fx: null, home: null, watch: [], form: null, recent: [], radar: null, radarMode: 'all', radarHoliday: null, backupAt: null, accessOwn: {}, fav: [], mute: [], pins: [], viewed: [], pv: 2 }; }
 // Plné úložiště: uvolnit místo po uložených výsledcích posledního hledání (flights.js) – stav aplikace má přednost.
 // Vrací, jestli se stav uložil (💾 obnova ze zálohy při plném úložišti nic nesloučí).
+// Nejde uložit ani tak (úložiště plné nebo zablokované): jednou za návštěvu to říct – jinak by změny vypadaly
+// uložené a po zavření zmizely; při každém dalším uložení už ne (ukládá se při každé změně).
+let saveWarned = false;
 function save() {
   try {
     const s = JSON.stringify(S);
     try { localStorage.setItem(LS, s); } catch (e) { localStorage.removeItem('atlas_last'); localStorage.setItem(LS, s); }
     return true;
-  } catch (e) { return false; }
+  } catch (e) {
+    if (!saveWarned && typeof toast === 'function') {
+      saveWarned = true;
+      toast('Prohlížeč teď nic neukládá – změny po zavření zmizí. Uvolni místo, nebo si stáhni zálohu (soukromé okno po zavření zapomene všechno).', 'err', 9000,
+        window.Backup ? { label: 'Záloha', run: () => Backup.open() } : null);
+    }
+    return false;
+  }
 }
 let curIso = null;
 const visited = new Set(S.visited);
@@ -84,7 +113,7 @@ function initCountries(list) {
 }
 
 /* ================= NAV / SHELL ================= */
-const NAV = [['dashboard', 'Přehled', 'Radar cen a tvoje cesty', 'M3 12l9-9 9 9M5 10v10h14V10'],
+const NAV = [['dashboard', 'Přehled', 'Levné lety a tvoje cesty', 'M3 12l9-9 9 9M5 10v10h14V10'],
 ['flights', 'Lety', 'Levné letenky ze všech letišť v okolí', 'M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z'],
 ['trip', 'Cesty', 'Moje cesty a průvodce: let, ubytování, auto, program', 'M9 6V4h6v2M3 7h18v13H3zM8 7v13M16 7v13'],
 ['explore', 'Objevuj', 'Co vidět a kam vyrazit kdekoliv na světě', 'M12 2a7 7 0 017 7c0 5-7 13-7 13S5 14 5 9a7 7 0 017-7zM12 11.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z'],
@@ -154,12 +183,12 @@ function openMore() {
   };
   modalOpen(`<div class="modal-body more-sheet"><h3>Další</h3><div class="mn-grid">${rest.map(tile).join('')}</div>
     <div class="more-h">Nastavení</div><div class="more-nav"></div>
-    <p class="faint more-tip">Dole v liště jsou sekce, které otevíráš nejčastěji – podle toho se při dalším spuštění samy seřadí.</p></div>`);
+    <p class="faint more-tip">Dole v liště jsou sekce, které otevíráš nejčastěji – podle toho se při dalším spuštění samy seřadí.</p></div>`, { x: true });
   $$('[data-mv]', $('#modal')).forEach(b => b.onclick = () => { modalClose(); go(b.dataset.mv); });
   const list = $('.more-nav', $('#modal'));
   if (window.Transfer) Transfer.addToMenu(list); // 📲 Přenést do jiného zařízení – odkaz a QR kód (transfer.js)
   if (window.Backup) {
-    list.insertAdjacentHTML('beforeend', `<button type="button" class="btn ghost" id="moreBk">${ikona('stahnout')} Přenos a záloha <span class="faint">soubor, obnova</span></button>`);
+    list.insertAdjacentHTML('beforeend', `<button type="button" class="btn ghost" id="moreBk">${ikona('stahnout')} Záloha do souboru <span class="faint">stáhnout, obnovit</span></button>`);
     $('#moreBk').onclick = () => { modalClose(); Backup.open(); };
   }
   list.insertAdjacentHTML('beforeend', `<button type="button" class="btn ghost" id="moreWn">${ikona('novinky')} Co je nového <span class="faint">novinky</span></button>`);
@@ -179,13 +208,16 @@ function openMore() {
    Přepínač v Další a v O aplikaci (about.js), karta na Přehledu (helpCard). Odvolání musí jít stejně snadno jako
    udělení, proto stejný přepínač na obou místech. */
 const HELP_TXT = 'Záznam obrazovek a hlavních akcí při návštěvě, bez textu, míst a cen. Smaže se do 31 dnů.';
-const helpBtn = id => `<button type="button" class="btn ghost" id="${id}" role="switch" aria-checked="${Count.helping()}">🤝 Pomáhat se zlepšováním <span class="faint">${Count.helping() ? 'zapnuto' : 'vypnuto'}</span></button>`;
+const helpBtn = id => `<button type="button" class="btn ghost" id="${id}" role="switch" aria-checked="${Count.helping()}">${ikona('cestujici')} Pomáhat se zlepšováním <span class="faint">${Count.helping() ? 'zapnuto' : 'vypnuto'}</span></button>`;
 /** Přepínač b (z helpBtn): klepnutí zapne nebo vypne; vypnutí platí hned a smaže záznam téhle návštěvy (count.js). */
 function helpSwitch(b) {
   if (!b) return;
   b.onclick = () => {
     const on = !Count.helping();
     Count.consent(on);
+    // volba padla tady → karta „Pomůžeš mi…?“ na Přehledu pryč, jinak by její „Ne, díky“ souhlas potichu zrušilo
+    const card = $('#whatsNew');
+    if (card && $('[data-help]', card)) { card.hidden = true; card.innerHTML = ''; }
     b.setAttribute('aria-checked', String(on));
     $('.faint', b).textContent = on ? 'zapnuto' : 'vypnuto';
     toast(on ? 'Zapnuto. Díky, že pomáháš!' : 'Vypnuto. Záznam téhle návštěvy jsem smazal.');
@@ -304,9 +336,14 @@ function histPop() {
   // Zpět při otevřeném okně: krok okna už je pryč – jen ho zavřít
   if (hist.modal) { hist.modal = false; modalShow(false); }
   const st = history.state;
+  // odkaz vložený do otevřené stránky (#sync=, #trip=, #plan=… – nový krok bez stavu aplikace) není Zpět: průvodce by
+  // jinak couvl o krok a uložil se (autoSave) – zpětný přenos by změnil cestu, i když se nic neslučuje; odkaz zpracuje hashchange
+  if (!st && /^#[a-z]+=/.test(location.hash)) return;
   // Zpět z kroku průvodce: předchozí krok, kterým uživatel prošel (krok, na kterém cesta už je, se přeskočí); krok
-  // průvodce se vrátí, dokud je kam couvat – nebylo-li kam, Zpět pokračuje o krok dál (výsledky, Přehled)
-  if (hist.step && !(st && st.atlasT)) {
+  // průvodce se vrátí, dokud je kam couvat – nebylo-li kam, Zpět pokračuje o krok dál (výsledky, Přehled). Jen když je
+  // průvodce vidět: odkaz (#sync=…) přepne jinam bez kroku historie a Zpět, které pak zavře jeho náhled, by skrytý
+  // průvodce vrátil o krok a uložil (autoSave) – cesta by se změnila, i když se nic neslučovalo
+  if (hist.step && activeView === 'trip' && !(st && st.atlasT)) {
     hist.step = false;
     let prev, moved = false;
     while (!moved && (prev = hist.trail.pop())) moved = Boolean(window.Trip && Trip.stepTo && Trip.stepTo(prev));
@@ -337,6 +374,19 @@ function hashView() {
   go(v, { noHash: true, keepScroll: y != null });
   if (y != null) window.scrollTo(0, y);
 }
+/*
+ * Lety → Přehled → Lety ze spodní lišty: výpis výsledků tam, kde uživatel skončil – dřív go() vždy vyjel nahoru (posun si
+ * pamatoval jen krok historie pro Zpět, viewStep). Při odchodu z Letů se uloží posun a první řádek výpisu (mark); při
+ * návratu se posun vrátí, jen když je výpis pořád týž – nové hledání ho vyprázdní (startSearch v flights.js), takže
+ * jiný první řádek = nové výsledky – a nic se nehledá. Odeslání formuláře hledání (submit) uložený posun zahodí.
+ */
+let flKept = null;
+const flMark = () => { const r = $('#results'); return (r && r.firstElementChild) || null; };
+const flKeep = (y, mark) => (y > 0 && mark ? { y, mark } : null);
+const flBack = (kept, mark, busy) => (kept && mark && kept.mark === mark && !busy ? kept.y : null);
+document.addEventListener('submit', () => { flKept = null; }, true);
+// Cesta bez rozpracované cesty ukáže Moje cesty, jsou-li nějaké (trip.js render) – ve statistikách jako Moje cesty
+const tripMine = (trip, trips) => !trip && Array.isArray(trips) && trips.some(Boolean);
 function go(v, opts = {}) {
   // Plánovač je 🧳 Moje cesty v záložce Cesta: staré odkazy (#planner, zástupce na ploše) i „Otevřít plán →“ vedou
   // na seznam cest – i když je v průvodci rozpracovaná cesta
@@ -344,8 +394,13 @@ function go(v, opts = {}) {
   // kde uživatel byl – Zpět ho tam vrátí (viewStep); bez nového kroku historie (start, Zpět) se posun nečte: čtení
   // scrollY si vynutí rozvržení celé stránky ještě před vykreslením sekce (při startu na telefonu desítky ms navíc)
   const from = activeView, y0 = opts.noHash ? 0 : Math.round(window.scrollY || 0);
+  if (from === 'flights' && v !== 'flights') flKept = flKeep(Math.round(window.scrollY || 0), flMark());
+  // návrat na Lety (ne Zpět – ten má posun v kroku historie): uložený posun, je-li výpis pořád týž
+  const flY = v === 'flights' && from !== 'flights' && !opts.noHash && !opts.keepScroll ? flBack(flKept, flMark(), Boolean(window.Flights && Flights.busy && Flights.busy())) : null;
+  if (v === 'flights') flKept = null;
+  if (flY != null) opts = { ...opts, keepScroll: true };
   activeView = v;
-  if (window.Count) Count.view(v, opts.mine); // souhrnný počet otevření sekce (count.js) – bez údajů o uživateli
+  if (window.Count) Count.view(v, opts.mine || (v === 'trip' && tripMine(S.trip, S.trips))); // souhrnný počet otevření sekce (count.js) – bez údajů o uživateli
   if (v !== 'dashboard') nowAsk = false;
   $$('.view').forEach(s => s.classList.toggle('active', s.id === 'view-' + v));
   // aktivní sekce i pro čtečku obrazovky (aria-current) – jen barvou by ji nepoznala
@@ -360,6 +415,12 @@ function go(v, opts = {}) {
   const [ttl, sub] = WORLD_VIEWS.includes(v) ? NAV_INFO.world : NAV.find(x => x[0] === v).slice(1); $('#pageTitle').textContent = ttl; $('#pageSub').textContent = sub;
   // i left: 0 – posun na (0, 0) prohlížeč provede bez vynuceného rozvržení stránky (jen top by si ho vyžádal)
   if (!opts.keepScroll) window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
+  if (flY != null) {
+    window.scrollTo(0, flY);
+    // hledání spuštěné hned po přepnutí (Flights.searchTo: go('flights') a pak startSearch) výpis vyprázdní – pak nahoru
+    const m = flMark();
+    requestAnimationFrame(() => { if (activeView === 'flights' && flMark() !== m) window.scrollTo({ top: 0, left: 0, behavior: 'smooth' }); });
+  }
   if (!opts.noHash) histDo(() => viewStep(v, opts.drill, from === 'dashboard' || opts.drill ? y0 : null));
   if (v === 'map') initMap();
   if (v === 'countries') renderCountries();
@@ -929,11 +990,11 @@ function showNow() {
    sady (O aplikaci ji ukazuje, uvítání nováčka se k ní váže). */
 const WN_ID = '2026-11-26c';
 const WHATS_NEW = [
-  ['✨', 'ATLAS je teď Letsi', 'nový vzhled, kukátko, které hledá s tebou, a nové ikony. Všechno ostatní zůstává – tvoje cesty i nastavení taky.'],
-  ['🤝', 'Pomáhat se zlepšováním', 'když chceš, zapni pod <b>Další</b> → <b>Pomáhat se zlepšováním</b>. Aplikace pak posílá, které obrazovky otevíráš a jaké hlavní akce děláš – nikdy co píšeš, kam jedeš, ceny ani nic o tobě. Záznam se smaže do 31 dnů a vypneš to tamtéž. Ve výchozím stavu je to vypnuté.'],
-  ['⭐', 'Letsi Plus', 'podívej se, co zůstane zdarma a co chystáme navíc – a řekni nám, kolik by ti stálo za to. Najdeš ho pod <b>Další</b> → <b>Letsi Plus</b>.'],
+  ['✨', 'ATLAS je teď Letsi', 'nový vzhled, kukátko, které hledá s tebou, nové ikony a adresa letsi.cz. Cesty a nastavení z dřívější adresy se sem samy nepřenesou – zálohu ze souboru obnovíš přes <b>Další</b> → <b>Záloha do souboru</b> (na počítači vlevo dole v <b>O aplikaci a soukromí</b>).'],
+  ['🤝', 'Pomáhat se zlepšováním', 'když chceš, zapni pod <b>Další</b> → <b>Pomáhat se zlepšováním</b> (na počítači vlevo dole v <b>O aplikaci a soukromí</b>). Aplikace pak posílá, které obrazovky otevíráš a jaké hlavní akce děláš – nikdy co píšeš, kam jedeš, ceny ani nic o tobě. Záznam se smaže do 31 dnů a vypneš to tamtéž. Ve výchozím stavu je to vypnuté.'],
+  ['⭐', 'Letsi Plus', 'podívej se, co zůstane zdarma a co chystáme navíc – a řekni nám, kolik by ti stálo za to. Najdeš ho pod <b>Další</b> → <b>Letsi Plus</b> (na počítači vlevo dole).'],
   ['✈️', 'Letenku už máš?', 'na <b>Přehledu</b> doplníš zbytek cesty – trasu, ubytování i program.'],
-  ['🔒', 'Soukromí', 'počítám jen souhrnné denní počty, žádné sledování jednotlivců, pokud sám nezapneš Pomáhat se zlepšováním. Podrobnosti pod <b>Další</b> → <b>O aplikaci a soukromí</b>.'],
+  ['🔒', 'Soukromí', 'počítám jen souhrnné denní počty, žádné sledování jednotlivců, pokud sám nezapneš Pomáhat se zlepšováním. Podrobnosti pod <b>Další</b> (na počítači vlevo dole) → <b>O aplikaci a soukromí</b>.'],
   ['🔄', 'Upravený plán od kamaráda bez kopií', 'když ti kamarád pošle novější verzi plánu, který už máš, nabídnu <b>🔄 Aktualizovat moji cestu</b> – převezmeš termín, let a program, tvoje odškrtnuté „Sbaleno“, kódy rezervací a vlastní aktivity zůstanou. Dřív vznikla druhá kopie.'],
   ['✏️', 'Cestu upravíš i po uložení', 'v <b>Cesty</b> → Moje cesty otevři cestu a klepni na <b>✏️ Upravit název a termín</b> – přejmenuješ ji, posuneš termín (program dnů se posune s ním) nebo změníš počet cestujících. Dřív to šlo jen smazat a založit znovu.'],
   ['✨', 'Hledání větou rozumí víc', 'napiš třeba <b>„Kanáry přes Vánoce a Silvestr“</b>, <b>„Londýn na Den boje za svobodu“</b>, <b>„Řím s dětmi 5 a 8 let“</b> nebo <b>„Vídeň 4.–6. 12. nebo 11.–13. 12.“</b> – termín, délku i počet lidí nastavím za tebe. Funguje v <b>Letech</b> i v <b>Objevuj</b>.'],
@@ -942,22 +1003,22 @@ const WHATS_NEW = [
   ['🧳', 'Plánovač je teď v Mých cestách', 'už není zvlášť v menu – všechny cesty najdeš v záložce <b>Cesty</b> pod <b>🧳 Moje cesty</b>. Program, balení a poznámky cesty z průvodce otevřeš odkazem <b>Program, balení a poznámky ›</b> na její kartě, ostatní cesty klepnutím na kartu.'],
   ['💾', 'Cesta se ukládá sama', 'jakmile v průvodci pokročíš za výběr letu, cesta je sama v <b>Mých cestách</b> – nemusíš nic ukládat. Nová cesta tu rozpracovanou nezahodí, zůstane v seznamu. <b>↺ Začít znovu</b> ji odebere.'],
   ['🧳', 'Moje cesty v záložce Cesty', 'všechny tvoje cesty na jednom místě – rozpracovaná v průvodci i uložené. Klepnutím na kartu v ní pokračuješ, z průvodce se k seznamu vrátíš přes <b>‹ Moje cesty</b>.'],
-  ['♡', 'Hlídání ceny jedním klepnutím', 'u karty radaru na <b>Přehledu</b> i u cíle v <b>Kamkoliv</b> klepni na <b>⋯</b> → <b>♡ Hlídat cenu sem</b>: Letsi najde lety z tvého domova (termíny jako radar) a cenu hlídá – když zlevní, uvidíš to na Přehledu. Bez vyplňování formuláře.'],
+  ['♡', 'Hlídání ceny jedním klepnutím', 'u karty v <b>Kam letět levně</b> na <b>Přehledu</b> i u cíle v <b>Kamkoliv</b> klepni na <b>⋯</b> → <b>♡ Hlídat cenu sem</b>: Letsi najde lety z tvého domova (termíny jako Kam letět levně) a cenu hlídá – když zlevní, uvidíš to na Přehledu. Bez vyplňování formuláře.'],
   ['🔗', 'Krátký odkaz na cestu', '<b>📤 Sdílet cestu</b> → <b>Poslat kamarádům</b> (i <b>🔗 Sdílet plán</b> v plánovači) teď pošle krátký odkaz <b>…/c/…</b> místo dlouhé stěny písmen – ve WhatsAppu a Messengeru s fotkou cíle a termínem. Kamarád po klepnutí uvidí celou cestu a může si ji uložit.'],
   ['🙋', 'Jede někdo se mnou?', 've <b>Shrnutí</b> průvodce Cestou (i u budoucí cesty v plánovači) je pod <b>📤 Sdílet cestu</b> kromě poslání celé cesty kamarádům i karta na sítě: <b>Instagram Story</b> nebo <b>příspěvek na Instagram či Facebook</b> ve tvaru palubní vstupenky – odkud, kam, měsíc a „vedle mě: třeba ty?“. Cena, přesné datum ani ubytování na kartě nejsou. Kdo klepne na odkaz, uvidí termín a jedním klepnutím lety na stejné dny ze svého letiště.'],
   ['🚆', 'Lepší výlety z města', '<b>Výlety</b> v <b>Objevuj</b> a celodenní výlety v programu cesty vybírá Letsi podle toho, co tam je k vidění (UNESCO, známé památky, doporučení průvodce Wikivoyage, klasiky jako Sintra z Lisabonu, Tivoli a Ostia Antica z Říma nebo Wieliczka z Krakova) a jak daleko to je – předměstí a města u letiště už nevycházejí. U každého výletu je čas cesty vlakem, busem nebo lodí i autem (odhad), odkaz <b>spoje ↗</b> a jednou větou, proč tam jet.'],
   ['🔒', 'Program podle zavíracích dnů', '<b>Program ve městě</b> v <b>Objevuj</b> i v průvodci Cestou zná zavírací dny asi 55 nejnavštěvovanějších památek (Louvre v úterý, Uffizi v pondělí, Vatikánská muzea v neděli kromě poslední v měsíci, Pergamonmuseum v rekonstrukci) – podle jejich oficiálních webů. Památku nedá na den, kdy je zavřená, a u zastávky napíše třeba „🕘 zavřeno v úterý · otevřeno 9:00–18:00“.'],
   ['🥾', 'Túra na každý den v horách', 'pobyt v Krkonoších, na Šumavě, v Tatrách nebo v Dolomitech už nedostane program po památkách: krok <b>Program</b> v průvodci Cestou (a v <b>Objevuj</b> → 🥾 Pěšky → <b>Túra na každý den</b>, třeba „Krkonoše na 3 dny“) navrhne na každý den jinou túru z ubytování nebo ze startu u cíle – hlavní vrchol, voda, skály nebo vyhlídka, lehčí den. U každé délka, převýšení, čas chůze (DIN 33466), obtížnost, chaty po cestě, kratší varianta do deště, s dětmi lehčí cíle a v den příjezdu a odjezdu kratší túra. ✕ u cíle naplánuje jiný, trasa jde do Mapy.com nebo jako GPX.'],
-  ['🌍', 'Doporučení podle sezóny a tebe', 'v <b>Doporučení</b> (na telefonu pod <b>Další</b>) i v tipech na Přehledu je u země proč – třeba „🏖️ Kanárské ostrovy: ~25 °C přes den“ nebo „✈️ tam i zpět od 1 890 Kč“ z radaru – a tlačítko <b>✈️ Najít lety</b> s odletem v tom měsíci. Od 20. dne tipuje už na příští měsíc, k moři jen tam, kde je opravdu teplo, blízké země výš; když hledáš hlavně k moři nebo s dětmi, vezme to v úvahu, ⭐ moje cíle dá výš a země s 🙈 městem vynechá. Země, kam MZV ČR nedoporučuje cestovat, mají v seznamu zemí štítek ⚠️.'],
+  ['🌍', 'Doporučení podle sezóny a tebe', 'v <b>Doporučení</b> (na telefonu pod <b>Další</b>) i v tipech na Přehledu je u země proč – třeba „🏖️ Kanárské ostrovy: ~25 °C přes den“ nebo „✈️ tam i zpět od 1 890 Kč“ z <b>Kam letět levně</b> – a tlačítko <b>✈️ Najít lety</b> s odletem v tom měsíci. Od 20. dne tipuje už na příští měsíc, k moři jen tam, kde je opravdu teplo, blízké země výš; když hledáš hlavně k moři nebo s dětmi, vezme to v úvahu, ⭐ moje cíle dá výš a země s 🙈 městem vynechá. Země, kam MZV ČR nedoporučuje cestovat, mají v seznamu zemí štítek ⚠️.'],
   ['🗓️', 'Program s časy a obědem', '<b>Program ve městě</b> v <b>Objevuj</b> i v průvodci Cestou má u každé zastávky přibližný čas (podle chůze a MHD), pauzu na oběd s tipem na tržnici nebo kavárnu kousek od ní, co uvidíš cestou kolem, kam na večer a – když předpověď na ten den hlásí déšť – místa pod střechou. Nejznámější místa (Koloseum, Fontána di Trevi, Belémská věž) v programu nechybí, za den nejvýš 2 muzea, muzeum a zoo spíš dopoledne. Cesta s dětmi má rovnou zájem <b>🧒 S dětmi</b>.'],
   ['🚆', 'Vlak na cestě s časem a počasí', 'v <b>Plánovači</b> zapíšeš k vlaku nebo busu mezi místy trasy (třeba Lisabon → Porto) čas odjezdu z jízdenky, nástupiště, vůz a místo i kód. Karta <b>📍 Dnes na cestě</b> pak odpočítává („vlak do Porta v 10:42 – za 1 h 20 min“) s odkazem na nádraží v mapě a ukáže dnešní předpověď počasí – i bez signálu. Během cesty má plán nahoře dnešní den a kódy rezervací.'],
-  ['👍', 'Doporučené pořadí letů', 'výsledky <b>Kamkoliv</b> i radar <b>Kam letět levně</b> řadí nahoru nabídky, které by sis opravdu vybral – ne jen nejlevnější letenku: počítá s cestou na letiště a do města (cena i čas), nočními odjezdy bez spojů, tím, kolik času zbude na místě, a cenou pod obvyklou; další cíl ze stejné země dá o kus níž. Proč je nabídka nad levnější letenkou, řekne štítek <b>✓</b> (třeba „i s cestou na letiště nejlevnější“). Čistě podle ceny dál řadí <b>Nejlevnější letenka</b> ve <b>Filtrech</b>.'],
+  ['👍', 'Doporučené pořadí letů', 'výsledky <b>Kamkoliv</b> i <b>Kam letět levně</b> řadí nahoru nabídky, které by sis opravdu vybral – ne jen nejlevnější letenku: počítá s cestou na letiště a do města (cena i čas), nočními odjezdy bez spojů, tím, kolik času zbude na místě, a cenou pod obvyklou; další cíl ze stejné země dá o kus níž. Proč je nabídka nad levnější letenkou, řekne štítek <b>✓</b> (třeba „i s cestou na letiště nejlevnější“). Čistě podle ceny dál řadí <b>Nejlevnější letenka</b> ve <b>Filtrech</b>.'],
   ['🔀', 'Auto jen na část cesty', 'v kroku <b>Auto</b> průvodce Cestou vybereš <b>📅 dny auta</b> – třeba v Lisabonu jen 2. a 3. den na výlety: vyzvednutí i vrácení ve městě a z letiště do města dál metrem. Na trase přes víc míst má každý přejezd přepínač <b>🚗 / 🚆</b> s časem a cenou – auto se půjčí jen na úseky autem a Letsi řekne, kde ho vyzvednout a kde vrátit.'],
   ['🚗', 'Auto na místě s radou', 'v kroku <b>Auto</b> průvodce Cestou Letsi řekne, kdy auto nepotřebuješ (bydlíš ve městě s metrem nebo vlakem z letiště, mezi místy trasy je rychlejší vlak), upozorní na zóny ZTL v italských městech, elektronické mýtné v Portugalsku a vrácení auta v jiné zemi a napíše, co je v ceně auta a co se počítá zvlášť.'],
   ['📲', 'Přenos do jiného zařízení QR kódem', 'pod <b>Další</b> (na počítači vlevo dole) je <b>📲 Přenést do jiného zařízení</b>: QR kód, který naskenuješ fotoaparátem druhého telefonu, nebo odkaz, který si pošleš (AirDrop, Quick Share, e-mail, chat). Přenese cesty, hlídané ceny, odložené nabídky, ⭐ / 🙈 města, navštívené země i domov – bez účtu, data jdou jen v odkazu, na server ne. Druhé zařízení ukáže, co přibude, a nabídne <b>Sloučit</b> nebo <b>Nahradit</b>.'],
   ['💡', 'Kdy koupit hlídanou letenku', 'karta hlídání na <b>Přehledu</b> má graf ceny od uložení se zeleně vyznačenou nejnižší cenou, řádky <b>Nejníž</b> (kdy to bylo), <b>Teď</b> a šipku, jak se cena změnila za týden. Pod tím krátký <b>💡 tip</b> s důvodem – koupit, nebo ještě počkat – podle historie cen, dní do odletu a „Je to dobrá cena?“. Je to jen odhad, jistotu nedává nikdo.'],
   ['👨‍👩‍👧', 'Cesta s dětmi', 'v <b>Letech</b> → Cestující, zavazadla a další → <b>Cestující</b> přidáš děti (2–11 let) a miminka (do 2 let). Cena celkem je za všechna sedadla – dítě platí sedadlo, u nízkonákladových aerolinek obvykle jako dospělý; miminko letí na klíně a poplatek aerolinky se doplní při nákupu. Ryanair a Wizz Air dostanou děti rovnou do odkazu na rezervaci, jinde je přidáš na webu. V průvodci Cestou je rozpočet na osobu za všechna sedadla a odkazy na ubytování s celou rodinou.'],
-  ['🕘', 'Od minula', 'když Letsi otevřeš jiný den, nahoře na <b>Přehledu</b> uvidíš, co se od minula změnilo pro tebe: která hlídaná cena zlevnila a o kolik, kdy odlétáš na uloženou cestu (i kdy se otevírá online check-in), nové levné cíle v radaru a propadlé odložené nabídky. Nejvýš 3 řádky, klepnutím na místo, ✕ je skryje, dokud nebude něco nového. Bez upozornění v telefonu.'],
+  ['🕘', 'Od minula', 'když Letsi otevřeš jiný den, nahoře na <b>Přehledu</b> uvidíš, co se od minula změnilo pro tebe: která hlídaná cena zlevnila a o kolik, kdy odlétáš na uloženou cestu (i kdy se otevírá online check-in), nové levné cíle v Kam letět levně a propadlé odložené nabídky. Nejvýš 3 řádky, klepnutím na místo, ✕ je skryje, dokud nebude něco nového. Bez upozornění v telefonu.'],
   ['📝', 'Rozepsané hledání se neztratí', 'když v <b>Letech</b> upravíš formulář (odkud, kam, termín, noci, cestující, zavazadla…) a hledat nestihneš, Letsi si ho zapamatuje – i když telefon aplikaci na pozadí zavře. Po návratu ho najdeš vyplněný (3 dny, minulé termíny vynechá); <b>↺ Začít znovu</b> ho smaže.'],
   ['📌', 'Porovnat i s cestou na letiště', 'odložené nabídky v <b>📌 Porovnat</b> se řadí podle ceny <b>i s cestou</b> – letenka + odhad dopravy na letiště a zpět a z letiště do města. Levnější letenka z Mnichova tak nevyhraje, když cesta na letiště stojí o 500 Kč víc. Co neznám, napíšu – cena letenky zůstává vidět.'],
   ['🔗', 'Sdílená cesta', 'cesta nebo plán z odkazu od kamaráda ukáže, ze kterého dne jsou ceny (u nových odkazů den sdílení), a <b>💾 Uložit si ji</b> ji přidá do tvého plánovače – pak je to tvoje cesta.'],
@@ -967,28 +1028,26 @@ const WHATS_NEW = [
   ['💡', 'Věděl jsi?', 'na Přehledu občas malý tip na funkci, kterou jsi ještě nezkusil (Kamkoliv, hlídání ceny, ⚡ Poskládej cestu…) – nejvýš jeden denně, tlačítkem ji rovnou otevřeš, křížkem tip skryješ natrvalo.'],
   ['🧾', 'Rozpočet cesty', 've <b>Shrnutí</b> průvodce Cestou je cena po položkách (letenky, doprava, ubytování, auto a přejezdy) za osobu i celkem – odhady jsou označené. Do pole <b>Můj rozpočet</b> zadej, kolik chceš utratit, a uvidíš, kolik zbývá, nebo o kolik je cesta dražší.'],
   ['📤', 'Sdílet jednu letenku', 'u nabídky ve výsledcích je <b>📤 Sdílet</b> (vedle 📌 Odložit) – pošle krátký odkaz s trasou, termínem, cenou, aerolinkou a odkazem na koupi. Příjemci se otevře karta nabídky s upozorněním, že se cena mohla změnit, a <b>🔎 Hledat znovu</b> mu předvyplní formulář.'],
-  ['ℹ️', 'O aplikaci a soukromí', 'pod <b>Další</b>: odkud Letsi bere ceny a data, co se ukládá (jen v tomhle prohlížeči, žádné cookies ani sledování, pokud sám nezapneš Pomáhat se zlepšováním), jak se řadí výsledky a verze aplikace.'],
+  ['ℹ️', 'O aplikaci a soukromí', 'pod <b>Další</b> (na počítači vlevo dole): odkud Letsi bere ceny a data, co se ukládá (jen v tomhle prohlížeči, žádné cookies ani sledování, pokud sám nezapneš Pomáhat se zlepšováním), jak se řadí výsledky a verze aplikace.'],
   ['📅', 'Připomínka hlídané ceny v kalendáři', 'na kartě hlídání na Přehledu je <b>📅 Připomínat</b> – stáhne událost do kalendáře na každé pondělí v 9:00 (nejvýš 8 týdnů, jen do odletu) s poslední nejnižší cenou. Odkaz v ní otevře Letsi přímo na tomhle hlídání a cenu zkontroluje znovu.'],
   ['📅', 'Termín letu v kalendáři', 'u každého letu tlačítko <b>📅 V kalendáři</b> – den odletu a návratu s časy, noci mezi nimi, víkendy a svátky; jedním klepnutím lety do kalendáře v mobilu (.ics). A <b>Kalendář</b> mají i výsledky Kamkoliv: v každém dni nejlevnější cíl, klepnutím na den všechny cíle s odletem ten den.'],
-  ['🏡', 'Ubytování s cenou na každém místě trasy', 'když TripAdvisor malé místo nezná (Pachino, Castelmezzano), ukážu hotely s cenou z nejbližšího okolí (Noto, Potenza) – s porovnáním webů a <b>Vybrat</b> s ověřením volna jako u prvního místa, na kartě „v okolí: Noto · 24 km“. Pod nimi penziony a agroturistiky přímo v místě z OpenStreetMap (bez ceny). Plánovač trasy teď radši volí místa, kde hotely s cenou jsou.'],
   ['🌙', 'V noci taxi za pevnou cenu', 'když přistáváš nebo vyrážíš na letiště před 5:00 či po 23:00 v Římě, Paříži, Madridu, Aténách, Florencii, Neapoli, Miláně nebo New Yorku, odhad ceny počítá úřední pevnou cenu taxi za auto (Fiumicino 55 €) místo MHD, která v noci nejezdí.'],
   ['🧭', 'Okruh po oblasti', '„Toskánsko na 4 dny“ v <b>Objevuj</b> naplánuje okruh, který zůstane v Toskánsku (ne Rimini ani Perugia) – stejně Apulie, Istrie, Algarve, Skotsko a Laponsko. Bazilika sv. Petra má v programu hodinu, ne půl, a se zájmem „s dětmi“ přibydou ZOO a parky.'],
-  ['🏝️', 'Hotely i u letišť na ostrovech', 'Tenerife Jih, Lanzarote, Gran Canaria nebo Rhodos – ubytování se hledá ve městě u letiště (dřív nic). <b>Vyber za mě</b> v Cestě ověří volno a vyprodaný hotel přeskočí.'],
+  ['🏝️', 'Hotely i u letišť na ostrovech', 'Tenerife Jih, Lanzarote, Gran Canaria nebo Rhodos – ubytování se hledá ve městě u letiště (dřív nic).'],
   ['⛽', 'Auto v cíli za skutečné ceny', 'palivo za cenu v zemi, kudy jedeš (všechny země EU), a mýtné na dálnicích v Itálii, Francii a Chorvatsku.'],
   ['🗓️', 'Celá sezóna u zemí', 'karty zemí ukazují všechny dobré měsíce („led–bře · čvc–zář“) a <b>Kam letos</b> řadí země mimo sezónu níž.'],
   ['🚕', 'Z letiště do města na 157 letištích', 'přibyly řecké a španělské ostrovy, Chorvatsko, Turecko, Pobaltí a Jordánsko; v Egyptě, Akabě a na Djerbě, kde autobus nejezdí, počítám taxi (cena za auto pro dva). U Stanstedu a dalších vidíš vedle ceny „od“ i běžnou cenu v den cesty (Stansted Express od 9,90 £, běžně 21 £).'],
   ['🚆', 'Vlak nebo bus místo letadla', 'cena konkrétního spoje za běžnou cenu (Praha–Vídeň ~500 Kč, ne akční 249) a čas i s cestou na nádraží. Auto na letiště počítá parkování podle ceníku letiště.'],
   ['🔄', 'Přepočítat po změně', 'když po hledání změníš v <b>Cestující, zavazadla a další</b> cestu na letiště (vlastní cenu, jízdné nebo auto), nad výsledky je <b>↻ Přepočítat</b>. Čipy 📝 a 🛂 u letu otevřou podmínky vstupu i na telefonu.'],
-  ['🏨', 'Ubytování s ověřeným volnem', 'když v Cestě klepneš na <b>Vybrat</b>, Letsi hned zjistí, jestli má hotel na tvoje dny pořád volno a za kolik – vyprodaný se nevybere. Hotely bez ceny na tvoje dny (často obsazené) jsou schované pod tlačítkem.'],
   ['🎫', 'Cesta na letiště za skutečné ceny', 'odhad teď počítá jízdenku na konkrétní spoj v danou hodinu (ne nejlevnější spoj dne), MHD z domova na nádraží a běžný čas jízdy – z Prahy do Pardubic ~240 Kč, do Brna ~350 Kč. V <b>Cestující, zavazadla a další</b> → ✏️ Jezdíš levněji? Uprav cenu uvidíš u každého letiště, z čeho odhad je.'],
   ['🚆', 'Reálnější časy cest', 'vlak mezi městy jede rychlotratí jen tam, kde opravdu vede (Barcelona → Valencie ~3 h 25, ne 2 h 10), jízdenky po Itálii, Španělsku a Francii za běžné ceny, autem na letiště podle skutečné rychlosti a „Vyraž z ubytování“ i s cestou na zastávku. Když brzy ráno vyrážíš na letiště ve svém městě a MHD ještě nejede, počítám v průběhu cesty s taxi 🚕.'],
   ['📝', 'Formulář před příletem', 'Thajsko (TDAC), Filipíny, Malajsie, Singapur, Korea, Indonésie a další chtějí online formulář – uvidíš to u letu, v Před cestou i v Co zařídit s odkazem na oficiální web.'],
-  ['↻', 'Když hledání selže', 'uvidíš hned proč a tlačítko <b>Zkusit znovu</b>; 🙈 Nezajímá mě v radaru jde vrátit.'],
-  ['💰', 'Cena = letenka', 'u nabídek, v radaru i v kalendáři je teď jen cena letenky (se zavazadly, když je vybereš). Doprava na letiště a z letiště do města je pod cenou zvlášť – jen pro představu, kolik zhruba stojí. Řazení „i s cestou na letiště“ je ve Filtrech.'],
+  ['↻', 'Když hledání selže', 'uvidíš hned proč a tlačítko <b>Zkusit znovu</b>; 🙈 Nezajímá mě v <b>Kam letět levně</b> jde vrátit.'],
+  ['💰', 'Cena = letenka', 'u nabídek, v <b>Kam letět levně</b> i v kalendáři je teď jen cena letenky (se zavazadly, když je vybereš). Doprava na letiště a z letiště do města je pod cenou zvlášť – jen pro představu, kolik zhruba stojí. Řazení „i s cestou na letiště“ je ve Filtrech.'],
   ['💱', 'Odkazy v korunách', 'Kiwi.com se otevře česky v Kč; u Ryanairu a Wizz Air uvidíš předem, v jaké měně web ukáže let zpět (účtují v měně země odletu).'],
   ['👀', 'Zaujalo tě', 'cíle, které sis po hledání Kamkoliv rozbalil, nabídne prázdné pole <b>Kam</b> – jedním klepnutím lety jen tam ve stejném termínu.'],
-  ['🧭', 'Lišta podle tebe', 'dole jsou Přehled a 3 sekce, které otevíráš nejčastěji; zbytek, záloha a vzhled jsou pod <b>Další</b>. Karty radaru mají štítek počasí vždy – do 15 dní předpověď, dál dlouhodobý průměr 🌡️.'],
-  ['🗣️', 'Hledání rozumí ještě víc', '„příští pátek“, „pozítří“, „mám 5000“, „do 80 €“, „z Kutné Hory“, „do Nového Zélandu“, „Slunečné pobřeží“ – a kdo hledá hlavně víkendy, tomu radar na Přehledu nabídne <b>Víkendy</b>.'],
+  ['🧭', 'Lišta podle tebe', 'na telefonu jsou dole Přehled a 3 sekce, které otevíráš nejčastěji; zbytek, záloha a vzhled jsou pod <b>Další</b>. Karty v Kam letět levně mají štítek počasí vždy – do 15 dní předpověď, dál dlouhodobý průměr 🌡️.'],
+  ['🗣️', 'Hledání rozumí ještě víc', '„příští pátek“, „pozítří“, „mám 5000“, „do 80 €“, „z Kutné Hory“, „do Nového Zélandu“, „Slunečné pobřeží“ – a kdo hledá hlavně víkendy, tomu <b>Kam letět levně</b> na Přehledu nabídne <b>Víkendy</b>.'],
   ['🔤', 'Překlep nevadí', '„Barcleona“, „Lodnýn“ nebo „Krakv na 2 dny“ – našeptávač nabídne „Překlep? Asi myslíš:“ se správným místem, v Letech i v Objevuj.'],
   ['🔎', 'Stačí napsat a klepnout na Najít lety', 'našeptávač rozumí i „do Barcelony“, „levně do Paříže“, „z Brna“ nebo „Praha Londýn“; napsaný text tlačítko <b>Najít lety</b> použije, i když nic nevybereš z nabídky.'],
   ['🔁', 'Objevuj podle toho, co hledáš', 'v Inspiraci jsou nahoře města, kam jsi nedávno hledal letenky – jedním klepnutím, co tam vidět.'],
@@ -997,26 +1056,24 @@ const WHATS_NEW = [
   ['🗣️', 'Hledání rozumí víc', 'dny slovy („20. listopadu“, „koncem listopadu“), den odletu („v pátek“, „od pátku do neděle“), svátky („o Velikonocích“, „jarní prázdniny“, „na Valentýna“, „vánoční trhy“), šipku i pomlčku („Vídeň → Nice“, „Praha - Londýn“, i jen „Praha Londýn“), „bez kufru“, místní názvy („Roma“, „Wien“, „Lisboa“) a oblasti jako Toskánsko, Apulie, Dalmácie nebo Laponsko – v Letech i v Objevuj.'],
   ['📏', 'Kratší obrazovky', 'shrnutí cesty má <b>Uložit</b> a <b>Sdílet</b> hned pod „Co zarezervovat“, celý průběh a podrobnosti se rozbalí na klepnutí; Objevuj ukáže nejdřív 8 míst.'],
   ['📅', 'Plánovač a cesty přes víc měst', 'lety po řádcích, <b>Hledat lety</b> znovu najde stejnou trasu a <b>Ubytování</b> nabídne každé místo s jeho termínem.'],
-  ['✨', 'Vyber za mě', 'v Cestě přes víc míst vybere v kroku Ubytování jedním klepnutím hotel s nejlepším poměrem ceny a hodnocení v každém místě – změnit ho můžeš kdykoliv.'],
+  ['✨', 'Vyber za mě', 'v Cestě přes víc míst vybere v kroku Ubytování jedním klepnutím, kde budeš v každém místě bydlet – změnit to můžeš kdykoliv.'],
   ['↩', 'Pokračuj, kde jsi skončil', 'na Přehledu je rozpracovaná cesta (u kterého kroku jsi) a poslední hledání – jedním klepnutím zpátky. Cesta přes víc měst letadlem jde do průvodce i bez návratu domů.'],
   ['✨', 'Chytré hledání', 'do pole <b>Kam</b> napiš celou větu – „k moři v květnu do 5000“, „Řím na víkend ve dvou“, „z Vídně do Barcelony 12. 11. – 16. 11.“ – a nahoře uvidíš, jak jí rozumím. Prázdné pole nabídne tipy podle toho, co hledáš. V Objevuj třeba „Lisabon na 3 dny“ nebo „výlety z Brna“.'],
   ['🧳', 'Cesta přes víc měst letadlem', 'vyber v Letech <b>Víc měst</b> (třeba Praha → Řím → Barcelona → Praha) a <b>Naplánovat celou cestu</b>: v Cestě je trasa podle letů, ke každému městu ubytování a program, ve shrnutí všechny letenky.'],
   ['↺', 'Začít znovu', 'v Letech pod tlačítkem hledání, v Objevuj u místa (i ✕ v poli) a v Cestě nahoře vedle vlajky – vyprázdní, co si aplikace pamatuje.'],
-  ['🏨', 'Ubytování najde víc', 'v Cestě se ceny hotelů samy doplňují (TripAdvisor je u nového termínu zjišťuje pomalu) a hotely, ke kterým cena ještě nepřišla, uvidíš s běžnou cenou <b>od ~… Kč/noc</b> a odkazem na ceny na tvoje dny.'],
   ['💸', 'Nejlevnější nahoře', 'po hledání Kamkoliv jsou první 3 cíle velké karty s fotkou; detail země má nahoře fotku hlavního města.'],
   ['📅', 'Plánovač a Objevuj', 'cesty jako karty s fotkou cíle a štítkem „za 12 dní“; Objevuj s fotkou nahoře a hledáním na ní.'],
   ['🗺️', 'Mapa a Cesta v novém', 'mapa přes celý rámeček se štítkem „procestováno“ a seznamem navštívených zemí; v Cestě fotka cíle nahoře, kroky s popisky a let jako jízdenka.'],
   ['✈️', 'Nové Lety', 'fotka cíle nahoře, Odkud a Kam s tlačítkem ⇅ (prohodí je), letiště v okolí v jednom řádku, velké tlačítko hledání a <b>Nápady, kam letět</b> s fotkami.'],
   ['📉', 'Zlevnilo – hned nahoře', 'když hlídaná cena klesne nebo je pod tvou cílovou cenou, uvidíš ji na Přehledu jako velkou kartu s fotkou a tlačítkem <b>Zobrazit lety</b>.'],
   ['🧭', 'Přehlednější telefon', 'dole jen 5 sekcí – Mapa a Země jsou spolu ve <b>Světě</b>; Plánovač, Doporučení, záloha a vzhled v menu ☰ nahoře. V Letech je délka pobytu a teplota pod <b>Upřesnit</b>.'],
-  ['📱', 'Nový vzhled', 'radar jako velké karty s fotkou města (na telefonu posun prstem do strany), plovoucí spodní lišta, okna zespodu – zavřeš je stažením dolů.'],
+  ['📱', 'Nový vzhled', '<b>Kam letět levně</b> jako velké karty s fotkou města (na telefonu posun prstem do strany), plovoucí spodní lišta, okna zespodu – zavřeš je stažením dolů.'],
   ['⚙️', 'Výsledky hned nahoře', 'na mobilu jsou filtry, řazení a „Odkud se vyplatí letět“ pod tlačítkem ⚙️ Filtry; formulář se po hledání sbalí (✎ Upravit).'],
   ['📌', 'Odložené nabídky', '„📌 Odložit“ u nabídky nebo v ⋯ na kartě – pak <b>Porovnat</b> vedle sebe a 📤 poslat k výběru.'],
-  ['🔎', 'Co tam je', 'na kartě výsledku a pod ⓘ v radaru: místa s fotkou, cesta z letiště do města, počasí, vstup.'],
+  ['🔎', 'Co tam je', 'na kartě výsledku a pod ⓘ v <b>Kam letět levně</b>: místa s fotkou, cesta z letiště do města, počasí, vstup.'],
   ['⭐', 'Moje cíle / 🙈 Nezajímá mě', 'v ⋯ na kartě; oblíbené s cenami v pruhu níž na Přehledu.'],
   ['🚆', 'Vlak a bus podle skutečných jízdenek', '„běžně ~X Kč (od ~Y)“; vlastní cenu cesty na letiště zadáš v Letech → Cestující, zavazadla a další → ✏️ Jezdíš levněji? Uprav cenu.'],
   ['🕘', 'Stáří cen', '„ceny z 14:32“ nad výsledky, po hodině upozornění a ↻ Hledat znovu; v průvodci „cena z …“.'],
-  ['🏨', 'Hotely s cenami', 'v průvodci Cesta → Ubytování: odkaz na web, kde je pokoj na tvoje dny volný, a ↻ Aktualizovat ceny.'],
 ];
 // Úplně nový uživatel (nic uloženého): místo seznamu novinek krátké „Vítej“ ve 3 krocích – novinky by ho jen zahltily.
 // Uvítání vydrží celou první návštěvu, dokud ho uživatel neskryje: atlas_wn = WN_ID + WN_NEW. Bez toho by po výběru
@@ -1044,6 +1101,8 @@ const wnAtStart = (seen, hash, id = WN_ID) => (!/^#sync=/.test(String(hash || ''
  * Mizí jen při vykreslení Přehledu (návrat z Letů, Cest), ne pod rukama; při dalším startu rozhoduje wnAtStart.
  */
 const wnDoneNow = (mode, s) => mode === 'welcome' && ((s.watch || []).length > 0 || (s.trips || []).length > 0);
+/** Kam „Začít hledat“ v uvítání dá kurzor: uvítání se ptá na domov (askHome) a Odkud na Přehledu je prázdné → 'from', jinak 'to' (Kam). */
+const wcGoTo = (askHome, fromCount) => (askHome && !fromCount ? 'from' : 'to');
 let wnFirst = false; // v tomhle otevření se ukázalo uvítání: 💡 tipy až příště (renderDashTip) – dvě rady naráz zahltí
 const WN_TOP = 4; // v celém seznamu nejnovější novinky hned, starší pod „Starší novinky“
 // „~350 Kč“, „~3 h 25“ v textu novinek s pevnou mezerou – na úzkém telefonu se jednotka neodtrhne od čísla
@@ -1074,15 +1133,20 @@ function renderWhatsNew() {
   const homeRow = window.Flights && Flights.homeFromChip && Flights.PlaceInput && !S.home?.from?.length
     ? `<div class="wc-home"><b id="wcHomeL">Odkud letíš?</b><div class="wc-chips">${SearchHelp.HOME_CITIES.map(c => `<button type="button" class="fchip" data-wch="${esc(c[0])}">${esc(c[0])}</button>`).join('')}<button type="button" class="fchip" data-wch="geo">📍 Moje poloha</button></div><div class="place-input wc-from" id="wcFrom"></div></div>` : '';
   el.innerHTML = `<h3 class="wc-h">👋 Vítej! Najdu levné letenky a poskládám z nich celou cestu.</h3>
-    <p class="faint wc-how" style="font-size:12.5px;margin:-6px 0 12px">Ceny porovnávám, letenku koupíš u aerolinky nebo prodejce. Zdarma a bez reklam.</p>
+    <p class="faint wc-how" style="font-size:12.5px;margin:-6px 0 12px">Ceny porovnávám, letenku koupíš u aerolinky nebo prodejce. Zdarma, bez placených pozic.</p>
     ${homeRow}
     <ol class="wc-steps">
-      <li><span class="wc-n">1</span><div><b>Napiš, kam chceš</b><small>město, „kamkoliv“, nebo celou větu – třeba „k moři v květnu do 5000“</small></div></li>
-      <li><span class="wc-n">2</span><div><b>Vyber let</b><small>nahoře doporučené podle ceny, cesty a časů, doprava na letiště zvlášť pod cenou</small></div></li>
+      <li><span class="wc-n">1</span><div><b>Napiš, odkud a kam</b><small>město, „kamkoliv“, nebo celou větu – třeba „k moři v květnu do 5000“</small></div></li>
+      <li><span class="wc-n">2</span><div><b>Vyber let</b><small>nahoře jsou nejvýhodnější podle ceny a časů, cestu na letiště ukážu zvlášť</small></div></li>
       <li><span class="wc-n">3</span><div><b>Poskládej cestu</b><small>ubytování, auto, program a shrnutí s odkazy k rezervaci</small></div></li>
     </ol>
     <div class="row wrap" style="gap:8px"><button type="button" class="btn primary" id="wcGo">Začít hledat</button><button type="button" class="btn ghost" id="wnHide">Rozumím</button></div>`;
   $('#wcGo').onclick = () => {
+    // bez domova i bez Odkud by první hledání skončilo „Zadej, odkud letíš“ – uvítání zůstane a kurzor jde do Odkud
+    if (wcGoTo(Boolean($('.wc-home', el)), $$('#heroFrom .pi-chip').length) === 'from') {
+      const fi = $('#wcFrom input', el); if (fi) { fi.scrollIntoView({ block: 'center', behavior: 'smooth' }); fi.focus({ preventScroll: true }); }
+      return;
+    }
     hide();
     const inp = $('#heroTo input'); if (inp) { inp.scrollIntoView({ block: 'center', behavior: 'smooth' }); inp.focus({ preventScroll: true }); }
   };
@@ -1114,15 +1178,17 @@ function helpCard(el) {
   el.classList.remove('welcome');
   el.hidden = false;
   el.innerHTML = `<h3 style="margin:0 0 6px">Pomůžeš mi aplikaci vylepšit?</h3>
-    <p style="font-size:13.5px;margin:0 0 12px">Když to zapneš, budu při každé návštěvě zaznamenávat, které obrazovky otevíráš a jaké hlavní akce děláš (třeba hledání, krok průvodce nebo opakované klepnutí, když něco nereaguje). Nikdy co píšeš, kam jedeš, ceny ani nic o tobě. Záznam nese jen náhodné číslo návštěvy, žádné jméno ani IP adresu, a smaže se nejpozději do 31 dnů. Platí, dokud to nevypneš v Další.</p>
+    <p style="font-size:13.5px;margin:0 0 12px">Když to zapneš, budu při každé návštěvě zaznamenávat, které obrazovky otevíráš a jaké hlavní akce děláš (třeba hledání, krok průvodce nebo opakované klepnutí, když něco nereaguje). Nikdy co píšeš, kam jedeš, ceny ani nic o tobě. Záznam nese jen náhodné číslo návštěvy, žádné jméno ani IP adresu, a smaže se nejpozději do 31 dnů. Platí, dokud to nevypneš v Další nebo v O aplikaci a soukromí.</p>
     <div class="row wrap" style="gap:8px;align-items:center"><button type="button" class="btn" data-help="1">Zapnout</button><button type="button" class="btn" data-help="0">Ne, díky</button><button type="button" class="linkbtn" id="helpMore">Podrobnosti</button></div>`;
   $$('[data-help]', el).forEach(b => b.onclick = () => {
     const on = b.dataset.help === '1';
     Count.consent(on);
     el.hidden = true; el.innerHTML = '';
-    if (on) toast('Zapnuto. Díky! Vypnout to jde kdykoli v Další.');
+    if (on) toast('Zapnuto. Díky! Vypnout to jde kdykoli v Další nebo v O aplikaci a soukromí.');
+    else say('Dobře, nic nezaznamenávám. Změnit to jde v Další nebo v O aplikaci a soukromí.'); // karta tiše zmizí – čtečka by nevěděla, že volba platí
   });
-  $('#helpMore', el).onclick = () => { if (window.About) About.open(); };
+  // rovnou k přepínači – v okně je až dole pod zdroji a daty
+  $('#helpMore', el).onclick = () => { if (!window.About) return; About.open(); const b = $('#abHelp'); if (b) b.scrollIntoView({ block: 'center' }); };
 }
 /* Lišta „Co je nového“ po aktualizaci: novinky od posledního otevření, jednou – atlas_wn_top = „WN_ID\nnázev“
    nejnovější novinky, kterou už uživatel viděl. Při startu se ukážou jen novější (nejvýš WN_POP, zbytek „a 2 další ›“)
@@ -1167,19 +1233,21 @@ function whatsNewPop() {
   bar.innerHTML = `<div class="wn-pop-h"><b>${ikona('novinky')} ${n > 1 ? 'Novinky' : 'Novinka'} od minula</b><button type="button" class="pwa-x" aria-label="Zavřít">×</button></div>
     <ul class="wn-list">${f.show.map(wnLi).join('')}</ul>
     <div class="wn-pop-f"><button type="button" class="linkbtn" data-wn-all>${f.more ? `a ${f.more} ${f.more < 5 ? 'další' : 'dalších'} ›` : 'Všechny novinky ›'}</button><button type="button" class="btn sm primary" data-wn-ok>OK</button></div>`;
-  const close = () => bar.remove();
+  // Esc zavře lištu odkudkoli (fokus bývá na stránce pod ní – v liště je až na konci pořadí Tabu); zachytává se dřív
+  // než Esc pro okno (app.js init), jinak by po zavření okna zavřel i lištu, která za ním byla schovaná
+  const onEsc = e => { if (e.key === 'Escape' && shown()) close(); };
+  const close = () => { bar.remove(); document.removeEventListener('keydown', onEsc, true); };
   $('.pwa-x', bar).onclick = close;
   $('[data-wn-ok]', bar).onclick = close;
   $('[data-wn-all]', bar).onclick = () => { close(); whatsNewOpen(); };
-  // novinka zkrácená na 3 řádky: celá klepnutím i z klávesnice (Tab, Enter / mezerník), čtečka ví, že jde rozbalit;
-  // Esc v liště ji zavře
+  // novinka zkrácená na 3 řádky: celá klepnutím i z klávesnice (Tab, Enter / mezerník), čtečka ví, že jde rozbalit
   $$('.wn-list li>div', bar).forEach(d => {
     d.tabIndex = 0; d.setAttribute('role', 'button'); d.setAttribute('aria-expanded', 'false');
     const tog = () => d.setAttribute('aria-expanded', String(d.parentElement.classList.toggle('open')));
     d.onclick = tog;
     d.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); tog(); } };
   });
-  bar.onkeydown = e => { if (e.key === 'Escape') close(); };
+  document.addEventListener('keydown', onEsc, true);
   document.body.append(bar); // za oknem (#modalBg): otevřené okno ji skryje (pwa.css .modal-bg.show ~ .wn-pop)
   // viděno, až je lišta opravdu vidět – schovaná za lištou nové verze by se po „Obnovit“ ztratila (nová verze už by ji
   // měla za viděnou), za oknem by ji uživatel nespatřil
@@ -1193,7 +1261,7 @@ function whatsNewOpen() {
   modalOpen(`<div class="modal-body"><h3>${ikona('novinky')} Co je nového</h3><p class="faint" style="margin:0 0 4px">Novinky posledních verzí a kde je v aplikaci najdeš.</p>
     <ul class="wn-list">${WHATS_NEW.slice(0, WN_TOP).map(wnLi).join('')}</ul>
     ${more.length ? `<details class="wn-more"><summary>Starší novinky (${more.length})</summary><ul class="wn-list">${more.map(wnLi).join('')}</ul></details>` : ''}
-    <button type="button" class="btn ghost" data-close>Zavřít</button></div>`);
+    <button type="button" class="btn ghost" data-close>Zavřít</button></div>`, { x: true });
   $$('#modal [data-close]').forEach(b => { b.onclick = () => modalClose(); });
 }
 /* ---------- 🕘 Od minula ----------
@@ -1668,12 +1736,16 @@ let cLimit = 0, cKey = '';
 const cPage = () => (typeof matchMedia === 'function' && matchMedia('(max-width:760px)').matches ? 24 : 60);
 // štítek země odpovídá hledání jen od začátku slova: „Itál“ uprostřed „digitál“ (Estonsko) ne, „plá“ v „pláže“ ano
 const tagHit = (tag, q, w = q.replace(/[^a-z0-9]+/g, ' ').trim()) => Boolean(w) && ` ${norm(tag).replace(/[^a-z0-9]+/g, ' ')}`.includes(` ${w}`);
+// země odpovídá hledání: název česky či anglicky, štítek, nebo hovorový název z COUNTRY_ALIAS („usa“, „anglie“,
+// „holandsko“) – v datech jsou „Spojené státy americké“ a „Nizozemsko“, mapa světa (countryHits) je přitom znala
+const cHit = (c, q) => norm(c.cs).includes(q) || norm(c.en).includes(q) || (c.tags || []).some(t => tagHit(t, q))
+  || Object.entries(COUNTRY_ALIAS).some(([k, iso]) => iso === c.iso2 && k.startsWith(q));
 function renderCountries() {
   const q = norm($('#cSearch').value), cont = $('#cCont').value, cost = $('#cCost').value, sort = $('#cSort').value, vis = $('#cVisited .on').dataset.v, ent = $('#cEntry').value;
   const key = [q, cont, cost, sort, vis, ent].join('|');
   if (key !== cKey || !cLimit) { cKey = key; cLimit = cPage(); }
   let list = COUNTRIES.slice();
-  if (q) list = list.filter(c => norm(c.cs).includes(q) || norm(c.en).includes(q) || (c.tags || []).some(t => tagHit(t, q)));
+  if (q) list = list.filter(c => cHit(c, q));
   if (cont) list = list.filter(c => c.cont === cont);
   // skupiny jako popisky v detailu: 1–2 levné, 3 střední, 4–5 dražší/drahé
   if (cost) list = list.filter(c => c.cost && (cost === '1' ? c.cost <= 2 : cost === '2' ? c.cost === 3 : c.cost >= 4));
@@ -1708,7 +1780,9 @@ function modalOpen(html, o = {}) {
   // nové okno hned po zavření jiného (Další → ✨ Novinky, 💾 Záloha…): MutationObserver uvidí obě změny třídy najednou
   // („pořád otevřené“) a fokus by nepřesunul – čtečka by nové okno neohlásila
   if (!was) modalKb.fresh = true;
-  $('#modal').innerHTML = html; modalShow(true);
+  // o.x: křížek ✕ pro okna bez záhlaví s fotkou (O aplikaci, Přenést, Plus, Další) – na počítači jsou uprostřed obrazovky
+  // a bez něj šly zavřít jen Escapem nebo klepnutím vedle; zavře ho společná obsluha [data-close]
+  $('#modal').innerHTML = (o.x ? `<button type="button" class="modal-close mc-plain" data-close aria-label="Zavřít">${ico('M18 6L6 18M6 6l12 12')}</button>` : '') + html; modalShow(true);
   modalName();
   if (!was) { $('#toast').classList.remove('show'); $('#modal').scrollTop = 0; } // nové okno nahoře, ne s posunem z minulého
   // krok historie jen pro nově otevřené okno – okno otevřené z okna (Info o zemi z náhledu…) ho jen nahradí
@@ -1933,8 +2007,17 @@ async function loadWeather(c) {
     const r = await fetch(`api/weather?pts=${(+g.lat).toFixed(2)},${(+g.lon).toFixed(2)}`, { signal: wxSignal() });
     const j = r.ok ? ((await r.json()).places || [])[0] : null; if (!j || !j.now || !Array.isArray(j.days) || !j.days.length) throw new Error('bez počasí');
     S.weather[c.iso2] = { ts: Date.now(), data: j }; save(); if (box()) paintWeather(j);
-  } catch (e) { if (box()) box().innerHTML = '<div class="wico">🌐</div><div class="muted" style="font-size:13px">Počasí se teď nepodařilo načíst.<br>Zkontroluj připojení a dej Aktualizovat.</div>'; }
+  } catch (e) {
+    // Aktualizovat neradit – tlačítko je pod ztmavením okna. Offline se počasí načte samo po připojení (jako mapa, jen
+    // když je okno té země pořád otevřené), jinak nový pokus tlačítkem přímo v okně
+    const b = box(), off = !!(e && e.offline) || navigator.onLine === false; if (!b) return;
+    // tlačítko s okrajem nahoře a dole (cíl pro prst aspoň 24 px); po klepnutí hned „Načítám“ – zdroj může mlčet až 8 s
+    b.innerHTML = `<div class="wico">🌐</div><div class="muted" style="font-size:13px">${wxFailTxt(off)}${off ? '' : '<br><button type="button" class="linkbtn" id="wxRetry" style="padding:6px 0">↻ Zkusit znovu</button>'}</div>`;
+    if (!off) $('#wxRetry').onclick = () => { b.innerHTML = '<div class="wico">⏳</div><div class="muted" style="font-size:12px">Načítám počasí…</div>'; loadWeather(c); };
+    else if (window.Pwa && Pwa.whenOnline) Pwa.whenOnline('wx', () => { if (box()) loadWeather(c); });
+  }
 }
+const wxFailTxt = off => (off ? 'Jsi offline – počasí se načte po připojení k internetu.' : 'Počasí se teď nepodařilo načíst.');
 // Dnešní datum v hlavním městě (zóna z odpovědi), bez zóny podle telefonu – „Dnes“ jen u dnešního dne: pozdě večer
 // předpověď dnešek už nemá a začíná zítřkem.
 const todayIn = tz => { try { if (tz) return new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(new Date()); } catch (e) { } return fmtYMD(new Date()); };
@@ -1945,6 +2028,8 @@ function paintWeather(j) {
   const days = ['Ne', 'Po', 'Út', 'St', 'Čt', 'Pá', 'So'], today = todayIn(j.tz);
   // den v týdnu z data samotného: new Date('2026-10-25') je půlnoc UTC – v telefonu s časem New Yorku ještě sobota
   $('#fcBox').innerHTML = (j.days || []).slice(0, 7).map(w => { const dt = new Date(w.date + 'T12:00:00Z'); const [ic] = wIco(w.code); return `<div class="fc"><div class="d">${w.date === today ? 'Dnes' : days[dt.getUTCDay()]}</div><div class="i">${ic}</div><div class="t">${Math.round(w.hi)}°<small> ${Math.round(w.lo)}°</small></div></div>`; }).join('');
+  // licence CC BY 4.0 chce uvést zdroj i tady, ne jen v Objevuj; pod mřížku dnů (ne do ní) a jen jednou
+  if (typeof Weather !== 'undefined' && Weather.src && !$('#wxSrc')) $('#fcBox').insertAdjacentHTML('afterend', `<div id="wxSrc" class="faint" style="font-size:11px;margin-top:6px">${Weather.src}</div>`);
 }
 async function loadFx(c) {
   if (!c.cur || c.cur === 'CZK') { const el = $('#fxLine'); if (el) el.textContent = c.cur === 'CZK' ? 'domácí měna' : ''; return; }
@@ -1982,9 +2067,10 @@ function paintMap() { if (mapSel) mapSel.classed('visited', function () { return
 async function initMap() {
   refreshStats(); mapAddWire();
   if (mapInited) return; mapInited = true;
-  try { await loadD3(); } catch (e) { return mapFallback('Mapové knihovny se nenačetly.'); }
+  try { await loadD3(); } catch (e) { return mapFailed('Mapové knihovny se nenačetly.'); }
   try {
     const world = await loadWorld();
+    mapRestore();
     const feats = topojson.feature(world, world.objects.countries).features;
     const svg = d3.select('#worldmap'), W = 960, H = 500;
     const proj = d3.geoNaturalEarth1().fitSize([W, H], { type: 'FeatureCollection', features: feats });
@@ -2000,7 +2086,14 @@ async function initMap() {
     $('#zoomOut').onclick = () => svg.transition().call(mapZoom.scaleBy, .6);
     $('#zoomReset').onclick = () => svg.transition().call(mapZoom.transform, d3.zoomIdentity);
     paintMap();
-  } catch (e) { mapFallback('Mapu se teď nepodařilo načíst.'); }
+  } catch (e) { mapFailed('Mapu se teď nepodařilo načíst.'); }
+}
+// mapa se nenačetla (offline, pomalá síť): seznam zemí místo ní a nový pokus po návratu připojení nebo při dalším
+// otevření Mapy – jeden pokus na každou z těch událostí, nic dokola
+function mapFailed(msg) {
+  mapInited = false;
+  if (window.Pwa && Pwa.whenOnline) Pwa.whenOnline('map', () => { if ($('#view-map.active')) initMap(); });
+  mapFallback(msg + ' Zkusím mapu načíst znovu, až budeš online nebo ji otevřeš znovu.');
 }
 /** Země pro „Přidat zemi…“ pod mapou: začátek názvu i dalšího slova („státy“, „Kong“), česky i anglicky – nejdřív
  *  ty, jejichž český název tak začíná; nejvýš 6. */
@@ -2041,8 +2134,18 @@ function mapPopover(e, iso) {
   $('#popDet').onclick = () => { p.classList.remove('show'); openCountry(iso); };
 }
 document.addEventListener('click', e => { const p = $('#mapPop'); if (p.classList.contains('show') && !p.contains(e.target) && !e.target.closest('.map-path')) p.classList.remove('show'); });
+// původní obsah #mapWrap (mapa, chip, tlačítka s obsluhami): seznam ho jen odloží, další pokus o mapu ho vrátí
+let mapKept = null;
+function mapRestore() {
+  if (!mapKept) return;
+  const wrap = $('#mapWrap'); wrap.removeAttribute('style'); wrap.replaceChildren(...mapKept); mapKept = null;
+  applyMapStyle(); refreshStats(); // přepínač a chip se mezitím nepřekreslovaly (nebyly v dokumentu)
+}
 function mapFallback(msg) {
-  const wrap = $('#mapWrap'); wrap.style.minHeight = 'auto';
+  // na telefonu má mapa pevnou výšku (340 px) a skrývá přesah – seznam se v ní musí dát posouvat; podklad karty, ne
+  // „moře“ mapy, na kterém je v tmavém režimu světlý text nečitelný
+  const wrap = $('#mapWrap'); wrap.style.cssText = 'min-height:auto;overflow-y:auto;background:var(--card)';
+  if (!mapKept) mapKept = [...wrap.childNodes];
   wrap.innerHTML = `<div style="padding:18px"><div class="note info" style="margin-bottom:14px">${ico('M12 16v-4M12 8h.01M12 2a10 10 0 100 20 10 10 0 000-20z')}<div>${msg} Země můžeš odškrtávat i tady v seznamu.</div></div><div id="fbList"></div></div>`;
   $('#fbList').innerHTML = CONTS.map(ct => `<div style="margin-bottom:16px"><div style="font-weight:800;margin:6px 0 8px">${ct} <span class="faint" style="font-weight:600">(${CONT_TOT[ct]})</span></div><div class="row wrap" style="gap:6px">${COUNTRIES.filter(c => c.cont === ct).map(c => `<span class="pill ${visited.has(c.iso2) ? 'on' : ''}" data-fbiso="${c.iso2}">${flag(c.iso2)} ${c.cs}</span>`).join('')}</div></div>`).join('');
   $$('[data-fbiso]').forEach(p => p.onclick = () => { const iso = p.dataset.fbiso; setVisited(iso, !visited.has(iso)); p.classList.toggle('on'); });
@@ -2050,6 +2153,9 @@ function mapFallback(msg) {
 
 /* ================= PLANNER ================= */
 function dateRange(a, b) { if (!a) return []; const out = []; let d = new Date(a), end = b ? new Date(b) : new Date(a); let n = 0; while (d <= end && n < 367) { out.push(d.toISOString().slice(0, 10)); d.setUTCDate(d.getUTCDate() + 1); n++; } return out; }
+// hlavní město („Lisabon“, „Řím“) z místních dat – pro cestu založenou bez sítě, kdy našeptávač míst neodpověděl;
+// jen přesná shoda (žádný začátek názvu)
+function capitalCountry(text) { const t = norm(text); return (t && COUNTRIES.find(c => norm(c.capCs) === t || norm(c.cap) === t)) || null; }
 function resolveCountry(text) { const t = norm(text); if (!t) return null; let c = COUNTRIES.find(c => norm(c.cs) === t || norm(c.en) === t); if (!c) c = COUNTRIES.find(c => norm(c.cs).startsWith(t) && t.length > 2); return c || null; }
 // Doprava uložená z průvodce cestou: let (✈️), nebo vlak/bus (text začíná 🚆).
 const planIco = f => /^🚆/u.test(String(f || '')) ? '🚆' : '✈️';
@@ -2078,12 +2184,21 @@ const tripTitle = t => (t.start && t.name && t.name.endsWith(' ' + fmtDate(t.sta
 // (cesta přes víc zemí „Řím → Barcelona“ dál s místy – jedna země by lhala)
 const metaDest = (t, c) => (c && c.cs && !(Array.isArray(t.isos) && t.isos.length > 1) && !/[→,]/.test(String(t.dest || ''))
   && String(tripTitle(t) || '').trim().toLowerCase() === String(t.dest || '').trim().toLowerCase() ? c.cs : t.dest);
+/**
+ * Částka na kartě cesty: ruční cesta jen svůj rozpočet (jediné číslo); cesta z průvodce (totalCzk = cena celkem při
+ * uložení) s jiným „Můj rozpočet“ cenu a rozpočet s popiskem – samotných „30 000 Kč“ člověk četl jako cenu cesty.
+ */
+function tripMoney(t) {
+  const b = +t.budget || 0, tot = +t.totalCzk || 0;
+  if (t.tripId && t.totalCzk != null && b && b !== tot) return `${tot ? czk(tot) + ' · ' : ''}rozpočet ${czk(b)}`;
+  return b ? `${b.toLocaleString('cs')} Kč` : '';
+}
 // attr: atribut s indexem cesty (Moje cesty v záložce Cesta: data-mt); extra: HTML na konec karty (odkaz na detail
 // cesty z průvodce)
 function tripCard(t, i, attr = 'data-ti', extra = '') {
   const c = t.iso ? byIso[t.iso] : null, warm = c && c.cost >= 4, na = t.days ? Object.values(t.days).flat().length : 0;
   const photo = t.place?.label || (t.dest && t.dest !== '—' ? String(t.dest).split(',')[0] : '') || c?.cs || '', when = tripWhen(t);
-  return `<div class="card trip" ${attr}="${i}"><div class="trip-top ${warm ? 'warm' : ''}"${photo ? ` data-photo="${esc(photo)}" style="--h:${ccHue(t.iso || photo)}"` : ''}>${when ? `<span class="tt-when">${when}</span>` : ''}<div class="tt-name">${esc(tripTitle(t))}</div><div class="tt-meta">${c ? flag(t.iso) + ' ' : '📍 '}${esc(metaDest(t, c))}${t.start ? ' · ' + dateSpan(t.start, t.end) : ''}</div></div><div class="trip-body"><div class="bar"><span>👤 ${t.pax || 1} os. · ${na} ${na === 1 ? 'aktivita' : na >= 2 && na <= 4 ? 'aktivity' : 'aktivit'} · ${(t.checklist || []).filter(x => x.done).length}/${(t.checklist || []).length} sbaleno</span>${t.budget ? `<span>${(+t.budget).toLocaleString('cs')} Kč</span>` : ''}</div>${t.flight ? `<div class="faint tb-fl" style="font-size:12px">${esc(planTransport(t.flight))}</div>` : ''}${extra}</div></div>`;
+  return `<div class="card trip" ${attr}="${i}"><div class="trip-top ${warm ? 'warm' : ''}"${photo ? ` data-photo="${esc(photo)}" style="--h:${ccHue(t.iso || photo)}"` : ''}>${when ? `<span class="tt-when">${when}</span>` : ''}<div class="tt-name">${esc(tripTitle(t))}</div><div class="tt-meta">${c ? flag(t.iso) + ' ' : '📍 '}${esc(metaDest(t, c))}${t.start ? ' · ' + dateSpan(t.start, t.end) : ''}</div></div><div class="trip-body"><div class="bar"><span>👤 ${t.pax || 1} os. · ${na} ${na === 1 ? 'aktivita' : na >= 2 && na <= 4 ? 'aktivity' : 'aktivit'} · ${(t.checklist || []).filter(x => x.done).length}/${(t.checklist || []).length} sbaleno</span>${tripMoney(t) ? `<span>${tripMoney(t)}</span>` : ''}</div>${t.flight ? `<div class="faint tb-fl" style="font-size:12px">${esc(planTransport(t.flight))}</div>` : ''}${extra}</div></div>`;
 }
 /**
  * 🧳 Moje cesty v záložce Cesty: uložené cesty (dřív jen v Plánovači, který nováček nerozlišil od Cesty) a rozpracovaná
@@ -2126,7 +2241,13 @@ function myTrips(host, o = {}) {
     if (t.wizard && window.Trip && Trip.openSaved) return Trip.openSaved(t.wizard, t.tripId);
     openTrip(i);
   };
-  $$('[data-mt]', host).forEach(el => { el.onclick = e => { if (!e.target.closest('[data-mdet]')) open(+el.dataset.mt); }; kbClick(el); });
+  $$('[data-mt]', host).forEach(el => {
+    el.onclick = e => { if (!e.target.closest('[data-mdet]')) open(+el.dataset.mt); };
+    // karta s tlačítkem „Program, balení a poznámky“ nesmí být sama tlačítkem (role=button skryje vnitřní tlačítko před
+    // čtečkou) – z klávesnice ji otevře název cesty jako tlačítko, klik bublá na kartu
+    const nm = $('[data-mdet]', el) && $('.tt-name', el);
+    if (nm) nm.innerHTML = `<button type="button" class="tt-open">${nm.innerHTML}</button>`; else kbClick(el);
+  });
   $$('[data-mdet]', host).forEach(b => b.onclick = e => { e.stopPropagation(); openTrip(+b.dataset.mdet); });
   const c0 = $('[data-mcur]', host); if (c0) { c0.onclick = () => o.resume && o.resume(); kbClick(c0); }
   $('#mtNew', host).onclick = () => newTrip();
@@ -2150,7 +2271,7 @@ function newTrip(c, pre = {}) {
 async function saveTrip(iso, flightTxt) {
   // vše z formuláře hned – během dohledávání místa může uživatel okno zavřít nebo otevřít jiné
   const b = $('#ntSave');
-  const f = { name: $('#ntName').value.trim() || 'Moje cesta', dest: $('#ntDest').value.trim(), start: $('#ntStart').value, end: $('#ntEnd').value, pax: $('#ntPax').value, budget: $('#ntBudget').value };
+  const f = { name: $('#ntName').value.trim() || $('#ntDest').value.trim() || 'Moje cesta', dest: $('#ntDest').value.trim(), start: $('#ntStart').value, end: $('#ntEnd').value, pax: $('#ntPax').value, budget: $('#ntBudget').value };
   if (f.start && f.end && f.end < f.start) { toast('Návrat je před odjezdem', 'err'); return; } // termín pak nejde upravit
   // země jen při přesném názvu („Itálie“); začátek názvu („Kos“ → Kosovo) až když místo toho jména neexistuje
   let fiso = iso, place = null; if (!fiso && f.dest) { const t = norm(f.dest), c = COUNTRIES.find(c => norm(c.cs) === t || norm(c.en) === t); if (c) fiso = c.iso2; }
@@ -2171,8 +2292,8 @@ async function saveTrip(iso, flightTxt) {
         const top = (j.items || [])[0];
         if (top && !top.fuzzy && /^cc:[A-Z]{2}$/.test(top.id) && byIso[top.cc]) fiso = top.cc; // ne oprava překlepu
       }
-    } catch (e) { /* bez sítě nebo pomalý server: cesta bez země */ } finally { clearTimeout(tm); }
-    if (!fiso && !place) { const c = resolveCountry(f.dest); if (c) fiso = c.iso2; }
+    } catch (e) { /* bez sítě nebo pomalý server: země jen z místních dat (název, hlavní město) */ } finally { clearTimeout(tm); }
+    if (!fiso && !place) { const c = capitalCountry(f.dest) || resolveCountry(f.dest); if (c) fiso = c.iso2; }
   }
   const trip = { name: f.name, dest: f.dest || '—', iso: fiso || null, ...(place ? { place } : {}), start: f.start, end: f.end, pax: f.pax, budget: f.budget, flight: flightTxt, days: {}, checklist: PACK.map(t => ({ t, done: false })), notes: '' };
   const add = () => {
@@ -2180,7 +2301,8 @@ async function saveTrip(iso, flightTxt) {
     save();
     // okno mezitím zavřené nebo nahrazené jiným (i listem „Místo pro jednu cestu…“ z plus.js): uložit potichu, nic
     // nezavírat ani neotevírat
-    if (b && !(b.isConnected && $('#modalBg').classList.contains('show'))) { toast('Cesta vytvořena'); tripsChanged(); return; }
+    // (otevřený list Plus píše „Cesta se uložila“ sám a toast by zakryl jeho otázku na cenu – toast jen bez okna)
+    if (b && !(b.isConnected && $('#modalBg').classList.contains('show'))) { if (!$('#modalBg').classList.contains('show')) toast('Cesta vytvořena'); tripsChanged(); return; }
     // právě uložená cesta (jiné uložení z dřívějšího okna mohlo mezitím přidat další)
     // z Moje cest (záložka Cesta) zůstat v nich – nová cesta je v seznamu
     modalClose(); if (activeView === 'trip') tripsChanged(); else go('planner'); toast('Cesta vytvořena'); setTimeout(() => { const i = S.trips.indexOf(trip); if (i >= 0) openTrip(i); }, 250);
@@ -2860,6 +2982,9 @@ function wireEvents() {
   // ⟳: počasí a kurz znovu; radar se obnoví s dosavadními kartami (ne šedé dlaždice) a se značkami změn od minula
   // ⟳ obnoví počasí a kurzy (Přehled, detail země); ceny letů ne – na Letech to hláška řekne (dřív „Aktualizuji…“ a nic)
   $('#refreshBtn').onclick = () => { S.weather = {}; S.fx = null; save(); toast(activeView === 'flights' ? 'Počasí a kurzy načtu znovu – ceny letů obnoví nové hledání' : 'Aktualizuji…'); if ($('#modalBg').classList.contains('show') && curIso) openCountry(curIso); if (activeView === 'dashboard') { renderDash(); Flights.renderRadar(true); } };
+  // Přeskočit na obsah: fokus na <main> (další Tab je první prvek aktivní sekce, ostatní jsou skryté) – bez #main
+  // v adrese, jinak by vznikl krok historie, který žádná sekce není (viewStep, hashView)
+  $('.skip').onclick = e => { e.preventDefault(); $('#main').focus(); };
   document.addEventListener('keydown', e => { if (e.key === 'Escape') modalClose(); });
   // „/“ (na počítači, jako na webech zvykem): kurzor do hlavního hledání obrazovky – Přehled a Lety pole Kam, Objevuj
   // místo, Země hledání; sbalený formulář Letů se rozbalí. Ne při psaní v poli a s otevřeným oknem.
@@ -2944,11 +3069,19 @@ function launchDone(now) {
   Promise.all([fonts, takeoff]).then(() => requestAnimationFrame(() => requestAnimationFrame(out)));
 }
 setTimeout(() => launchDone(true), Math.max(2000, 3100 - performance.now()));
+/* „Najít lety“ klepnuté během načítání (index.html ho zastavil): po startu hledat, pokud jsme zůstali na Přehledu
+   (ne pod sdílenou cestou z odkazu); bez obsluhy (flights.js se nenačetl) by se zase jen zastavilo. */
+function earlySearch() {
+  const hs = $('#heroSearch');
+  if (window.atlasEarlySubmit && hs && hs.onsubmit && activeView === 'dashboard') hs.dispatchEvent(new Event('submit', { cancelable: true }));
+  window.atlasEarlySubmit = false;
+}
 async function boot() {
   try { await start(); } finally {
     document.documentElement.classList.add('booted'); // Přehled je vykreslený – ukázat i sekce pod úvodem (atlas.css)
     launchDone();
     if (window.Lazy) Lazy.soon(); // průvodce, Objevuj a Před cestou, až prohlížeč nemá co dělat (lazy.js)
+    earlySearch(); // „Najít lety“ klepnuté během načítání
     setTimeout(whatsNewPop, 1200); // ✨ novinky od minula – až po úvodní animaci
     if (window.Count && document.documentElement.dataset.brand === 'letsi') Count.hit('look_letsi'); // kolik otevření je ve vzhledu Letsi
     if (window.Count) Count.hit('app_open'); // souhrnný počet otevření (count.js) – až po startu, nic nezdrží

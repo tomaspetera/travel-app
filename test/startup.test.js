@@ -11,11 +11,21 @@ const INDEX = read('public/index.html');
 const { shellAssets, RUNTIME_ASSETS } = await import('../server/lib/pwa.js');
 
 test('index.html: data zemí a stav serveru se stahují hned se stránkou (preload) – týž požadavek jako fetch() v aplikaci', () => {
-  const pre = [...INDEX.matchAll(/<link rel="preload"[^>]*>/g)].map((m) => m[0]);
-  assert.deepEqual(pre.map((t) => t.match(/href="([^"]+)"/)[1]), ['data/countries.json', 'api/health']);
-  // as="fetch" + crossorigin (anonymous) = režim cors a přihlašovací údaje same-origin jako fetch(url) bez voleb;
+  // preload vkládá malý skript v <head>, jen bez service workeru (pod ním by ho prohlížeč nepoužil a stahoval znovu)
+  assert.doesNotMatch(INDEX, /<link rel="preload"/);
+  const src = [...INDEX.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]).find((s) => s.includes("l.rel = 'preload'"));
+  assert.ok(src, 'skript s preload v index.html');
+  const run = (controller) => {
+    const links = [];
+    vm.runInNewContext(src, { navigator: { serviceWorker: controller === undefined ? undefined : { controller } }, document: { createElement: () => ({}), head: { appendChild: (l) => links.push(l) } } });
+    return links;
+  };
+  // as=fetch + crossOrigin anonymous = režim cors a přihlašovací údaje same-origin jako fetch(url) bez voleb;
   // jinak by prohlížeč přednačtené nepoužil a stahoval znovu
-  for (const t of pre) assert.match(t, /^<link rel="preload" href="[^"]+" as="fetch" crossorigin>$/, t);
+  const pre = run(null);
+  assert.deepEqual(pre, ['data/countries.json', 'api/health'].map((href) => ({ rel: 'preload', as: 'fetch', crossOrigin: 'anonymous', href })));
+  assert.equal(run(undefined).length, 2, 'prohlížeč bez service workerů: preload');
+  assert.deepEqual(run({}), [], 'stránka pod service workerem: žádný preload');
   // aplikace je čte právě takhle (fetch bez druhého parametru) – při změně adresy nebo voleb upravit i preload
   assert.match(read('public/js/app.js'), /initCountries\(await \(await fetch\('data\/countries\.json'\)\)\.json\(\)\)/);
   const flights = read('public/js/flights.js');

@@ -11,7 +11,7 @@ import { CLASSIC_IDS, CLASSIC_KM, GONEXT_PTS, CLASSIC_PTS, parseGoNext, rankTrip
 // photos.js bere odsud UA – kruh nevadí, obě strany se volají až z funkcí
 import { commonsCredit } from './photos.js';
 
-export const UA = 'ATLAS-travel/2.0 (https://github.com/tomaspetera/travel-app; hobby travel planner)';
+export const UA = 'Letsi/2.0 (+https://letsi.cz; travel planner)';
 const WDQS = 'https://query.wikidata.org/sparql';
 const limitWdqs = limiter(2);
 const limitWiki = limiter(4);

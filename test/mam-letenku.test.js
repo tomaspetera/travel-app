@@ -55,9 +55,9 @@ test('ownFlightTrip: ruční zadání → stejný tvar { t, g, result } jako vyb
   const m = plain(ownFlightTrip({ dest: LIS, out: day(30), back: '', priceCzk: '2499.6' }));
   assert.equal(m.t.manual, true);
   assert.equal(m.t.flightCzk, 2500);
-  // jen tam, bez místa odletu: kód '???' jako u poškozeného letu (sanitizeTrip), nikdo ho nezná
+  // jen tam, bez místa odletu: letiště domova prázdné (výpisy ho vynechají) – '???' jen u poškozených dat (sanitizeTrip)
   assert.equal(m.t.back, null);
-  assert.equal(m.t.out.from, '???');
+  assert.equal(m.t.out.from, '');
   assert.equal(m.result.home, null);
   assert.equal(m.result.query.adults, 1);
   // metropole bez iata: kód z id
@@ -66,6 +66,72 @@ test('ownFlightTrip: ruční zadání → stejný tvar { t, g, result } jako vyb
   assert.equal(ownFlightTrip({ out: day(3) }), null);
   assert.equal(ownFlightTrip({ dest: LIS, out: '' }), null);
   assert.equal(ownFlightTrip({ dest: LIS, out: day(10), back: day(9) }), null);
+});
+
+test('vlastní let bez Odkud: nikde „???“ – shrnutí, kalendář, plánovač, karta pro sítě; po uložení zůstane prázdné', () => {
+  const c = load();
+  const { ownFlightTrip, start, cardData, calendarEvents, legBrief, tripEvent, timeline, sanitizeTrip } = c.window.Trip;
+  const x = plain(ownFlightTrip({ dest: LIS, out: day(30), back: day(35) }));
+  assert.equal(x.t.out.from, '');
+  assert.equal(x.t.back.to, '');
+  start(x);
+  const t = c.S.trip;
+  assert.equal(cardData(t).f, '', 'sharecard.js prázdné „odkud“ vynechá');
+  assert.equal(legBrief(t.flight.out).from, '');
+  const ev = plain(calendarEvents(t));
+  assert.doesNotMatch(JSON.stringify(ev), /\?\?\?/);
+  assert.equal(ev[0].title, '✈️ let do LIS · vlastní let');
+  assert.equal(ev[0].location, '', 'bez „Letiště “ v LOCATION');
+  assert.equal(ev[1].title, '✈️ let z LIS · vlastní let');
+  assert.equal(ev[1].location, 'Letiště LIS');
+  const te = tripEvent(t).description;
+  assert.match(te, /✈️ let do LIS \(/);
+  assert.match(te, /✈️ let z LIS \(/);
+  assert.doesNotMatch(JSON.stringify(timeline(t)), /\?\?\?|> → |→ ·/);
+  assert.match(JSON.stringify(timeline(t)), /do LIS · vlastní let · čas ověř/);
+  assert.doesNotMatch(render(c, 'summary'), /\?\?\?/);
+  // Moje cesty: uložená cesta projde sanitizeTrip – prázdné letiště zůstane, poškozený let dál „???“
+  const s = sanitizeTrip(plain(t));
+  assert.equal(s.flight.out.from, '');
+  assert.equal(s.flight.back.to, '');
+  assert.equal(sanitizeTrip({ ...plain(t), flight: { ...plain(t.flight), own: false } }).flight.out.from, '???');
+  // text letu do plánovače (saveToPlanner): „do LIS …, zpět z LIS …“
+  c.S.trips = [];
+  c.window.Trip.saveToPlanner({ quiet: true });
+  assert.match(c.S.trips[0].flight, /^do LIS .*, zpět z LIS /);
+  assert.doesNotMatch(JSON.stringify(c.S.trips[0]), /\?\?\?/);
+});
+
+test('ubytování u vlastního letu, který už začal: dotaz od dneška; pobyt, který skončil, bez dotazu a bez ↻', async () => {
+  const c = load(FULL);
+  const asked = [];
+  c.fetch = async (url) => { asked.push(String(url)); return { ok: true, json: async () => ({ items: [], links: [], providers: [] }) }; };
+  const { ownFlightTrip, start } = c.window.Trip;
+  start(ownFlightTrip({ dest: LIS, out: day(-3), back: day(3) }));
+  let h = render(c, 'stay');
+  await tick(); await tick();
+  const q = asked.filter((u) => u.startsWith('api/stays?')).map((u) => new URLSearchParams(u.split('?')[1]));
+  assert.equal(q.length, 1);
+  assert.equal(q[0].get('checkin'), day(0), 'server příjezd v minulosti odmítne');
+  assert.equal(q[0].get('checkout'), day(3));
+  assert.match(h, /ubytování od dnes/);
+  // pobyt už skončil: žádný dotaz, žádné ↻ Zkusit znovu ani „zkus za chvíli“
+  asked.length = 0;
+  start(ownFlightTrip({ dest: LIS, out: day(-6), back: day(0) }));
+  render(c, 'stay');
+  await tick(); await tick();
+  assert.deepEqual(asked.filter((u) => u.startsWith('api/stays')), []);
+  h = sp(c.__els['#stayBody'].innerHTML);
+  assert.match(h, /Pobyt už skončil/);
+  assert.doesNotMatch(h, /Zkusit znovu|zkus za chvíli/);
+  // chyba „v minulosti“ ze serveru (třeba starý termín): bez ↻ Zkusit znovu
+  start(ownFlightTrip({ dest: LIS, out: day(10), back: day(13) }));
+  c.fetch = async () => ({ ok: false, status: 400, json: async () => ({ error: 'Datum příjezdu je v minulosti.' }) });
+  render(c, 'stay');
+  for (let k = 0; k < 6; k++) await tick();
+  h = sp(c.__els['#stayBody'].innerHTML);
+  assert.match(h, /v minulosti/);
+  assert.doesNotMatch(h, /Zkusit znovu|zkus za chvíli/);
 });
 
 test('vlastní let v průvodci: rovnou Trasa, žádné ověřování ceny, „orientační“, „hledáno …“ ani odkazy na prodejce', async () => {
@@ -167,7 +233,7 @@ test('počítadla: každá událost na právě jednom místě, jen přes window.
 
 test('Přehled: „Letenku už mám“ vedle „Naplánovat celou dovolenou“ otevře formulář průvodce; novinka a WN_ID', () => {
   const html = readFileSync(new URL('../public/index.html', import.meta.url), 'utf8'), app = src('app.js');
-  assert.match(html, /<div class="hero-plans">\s*<button type="button" class="hero-plan" id="heroPlan">[^\n]*\n\s*<button type="button" class="hero-plan" id="heroOwn"><span class="ico i-let" aria-hidden="true"><\/span> Letenku už mám<span class="hp-more"> – doplň zbytek cesty<\/span> <span aria-hidden="true">→<\/span><\/button>\s*<\/div>/);
+  assert.match(html, /<div class="hero-plans">\s*<button type="button" class="hero-plan" id="heroPlan">[^\n]*\n\s*<button type="button" class="hero-plan" id="heroOwn"><span class="ico i-let" aria-hidden="true"><\/span> Letenku už mám – doplň zbytek cesty <span aria-hidden="true">→<\/span><\/button>\s*<\/div>/);
   assert.match(app, /const ho = \$\('#heroOwn'\); if \(ho\) ho\.onclick = \(\) => \{ go\('trip'\); if \(window\.Lazy\) Lazy\.run\('trip', \(\) => Trip\.haveTicket\(\)\);/);
   // nahoře ⭐ Letsi Plus (stejná vlna), hned pod ním tahle novinka
   assert.match(app, /const WHATS_NEW = \[\s*\['✨', 'ATLAS je teď Letsi',[^\n]*\],\s*\['🤝', 'Pomáhat se zlepšováním',[^\n]*\],\s*\['⭐', 'Letsi Plus',[^\n]*\],\s*\['✈️', 'Letenku už máš\?', 'na <b>Přehledu<\/b> doplníš zbytek cesty – trasu, ubytování i program\.'\],/);

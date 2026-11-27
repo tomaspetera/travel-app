@@ -3,12 +3,14 @@
 .pwa-bar{background:linear-gradient(90deg,rgba(56,189,248,.16),rgba(91,140,255,.16));border-bottom:1px solid rgba(56,189,248,.32);color:var(--text);font-size:13px;padding:9px 26px;text-align:center}
 .pwa-bar[hidden]{display:none}
 
-/* 📲 Přidat ATLAS na plochu: v postranním panelu stejně jako přepínač motivu, v nabídce „Více“ jako ostatní položky */
+/* Přidat Letsi na plochu: v postranním panelu stejně jako přepínač motivu, v nabídce „Více“ jako ostatní položky */
 .side-foot .pwa-install{width:100%;font:inherit;font-size:13px;text-align:left;justify-content:flex-start}
 .side-foot .pwa-install:hover{border-color:var(--border-2)}
 .pwa-install[hidden],.pwa-menu-item[hidden]{display:none}
 .more-nav .pwa-menu-item{justify-content:flex-start;width:100%;margin-bottom:8px}
-.pwa-menu-item .faint{font-weight:400;margin-left:6px;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.pwa-menu-item .faint{font-weight:400;min-width:0;overflow:hidden;text-overflow:ellipsis}
+/* ikona v řádku flex: mezera za ní se ztratí (jako .side-about) */
+.side-foot .pwa-install>.ico{margin-right:.45em}
 
 /* návod pro iPhone a iPad */
 .pwa-h{font-size:23px}
@@ -34,6 +36,9 @@
 .wn-pop .wn-list li.open>div{display:block;-webkit-line-clamp:unset}
 .wn-pop-f{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .wn-pop-f .linkbtn{font-size:13px}
+/* Tab z klávesnice: prvek s fokusem se odroluje nad lištu, ne pod ni (dokud ji uživatel nezavře); :has(.wn-pop) je
+   specifičtější než html{scroll-padding-bottom} v atlas.css */
+html:has(.wn-pop){scroll-padding-bottom:calc(min(50vh,440px) + 40px)}
 /* dvě pravidla: prohlížeč bez :has() by jinak zahodil i první a lišta by zůstala nad oknem */
 .modal-bg.show ~ .wn-pop{display:none}
 body:has(.pwa-update:not([hidden])) .wn-pop{display:none}
@@ -50,6 +55,7 @@ body:has(.pi-dd:not([hidden])) .wn-pop,body:has(.ex-back:not([hidden])) .wn-pop{
   body:has(.trip-next:not([hidden])) .pwa-update{bottom:calc(max(12px,env(safe-area-inset-bottom)) + 148px)}
   .wn-pop{left:12px;right:12px;width:auto;bottom:calc(88px + env(safe-area-inset-bottom));max-height:42vh}
   body:has(.trip-next:not([hidden])) .wn-pop{bottom:calc(max(12px,env(safe-area-inset-bottom)) + 148px)}
+  html:has(.wn-pop){scroll-padding-bottom:calc(42vh + 100px + env(safe-area-inset-bottom))}
 }
 /* nízký telefon (iPhone SE, 667 px): 42 % výšky sahalo od lišty až přes „Najít lety“ – seznam se posouvá uvnitř */
 @media(max-width:860px) and (max-height:700px){.wn-pop{max-height:30vh}}

@@ -17,6 +17,7 @@ function load() {
   vm.runInContext(`const Ics = window.Ics;\n${helpers.join('\n')}`, ctx, { filename: 'app-helpers.js' });
   vm.runInContext(src('ground.js'), ctx, { filename: 'ground.js' });
   vm.runInContext(src('searchhelp.js'), ctx, { filename: 'searchhelp.js' });
+  vm.runInContext(src('offershare.js'), ctx, { filename: 'offershare.js' }); // odkazy ze sdílené cesty (safeLink)
   vm.runInContext(src('trip.js'), ctx, { filename: 'trip.js' });
   return ctx;
 }

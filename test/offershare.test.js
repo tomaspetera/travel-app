@@ -90,8 +90,8 @@ test('cizí odkaz: jen známá pole, bez HTML a skriptových odkazů, čas ceny 
     ['https://evil.example/ryanair', 'ryanair', 'all'], ['http://www.ryanair.com/cz/cs', 'ryanair', 'all'],
     ['https://www.ryanair.com@evil.example/x', 'ryanair', 'all'], ['https://ryanair.com.evil.example/', 'ryanair', 'all'],
     ['https://evilryanair.com/', 'ryanair', 'all'], ['https://www.ryanair.com\\@evil.example/', 'ryanair', 'all'],
-    ['https://www.kiwi.com/cz/booking?token=a', 'ryanair', 'out'], ['https://tp.media/r?p=4114', 'constructor', 'back'], ['https://www.wizzair.com/x', 'wizzair', 'all'],
-  ]), [['https://www.kiwi.com/cz/booking?token=a', 'kiwi', 'out'], ['https://tp.media/r?p=4114', 'travelpayouts', 'back']]);
+    ['https://www.kiwi.com/cz/booking?token=a', 'ryanair', 'out'], ['https://tp.media/r?p=4114&u=https%3A%2F%2Fwww.aviasales.com%2F', 'constructor', 'back'], ['https://www.wizzair.com/x', 'wizzair', 'all'],
+  ]), [['https://www.kiwi.com/cz/booking?token=a', 'kiwi', 'out'], ['https://tp.media/r?p=4114&u=https%3A%2F%2Fwww.aviasales.com%2F', 'travelpayouts', 'back']]);
   assert.deepEqual(buy([['HTTPS://WWW.WIZZAIR.COM:443/cs-cz', '', 'all']]), [['HTTPS://WWW.WIZZAIR.COM:443/cs-cz', 'wizzair', 'all']]);
   for (const bad of [null, [], {}, { v: 2, out: T.out, czk: 1 }, { out: { from: 'PRG', to: 'NAP' }, czk: 100 }, { out: { from: 'PRG', to: 'NAP', date: '2026-02-30' }, czk: 100 }, { out: { from: 'PRG', to: 'NAP', date: '2026-11-13' }, czk: 0 }]) {
     assert.throws(() => O.sanitize(bad, AT));

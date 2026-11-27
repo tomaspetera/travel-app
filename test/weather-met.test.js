@@ -202,3 +202,32 @@ test('/api/weather: chybná místa 400, jen pásma bez MET, nad limitem z adresy
     _resetWeather();
   }
 });
+
+test('výpadek MET (5xx, 429, timeout): 2 min se MET neptá ani u zbylých míst ve frontě – jen starší předpověď nebo nic', async () => {
+  const mock = config.mock;
+  config.mock = false;
+  _resetWeather();
+  let t = realNow();
+  Date.now = () => t;
+  const calls = stubMet(() => ({ status: 503 }));
+  const warn = console.warn;
+  console.warn = () => {};
+  try {
+    const pts = Array.from({ length: 10 }, (_, i) => [10 + i, 20]);
+    assert.deepEqual(await weatherAt(pts), pts.map(() => null));
+    assert.ok(calls.length <= 2, `po chybě se zbylá místa na MET neptají (dotazů ${calls.length})`);
+    const n = calls.length;
+    t += 60e3;
+    await weatherAt(pts);
+    assert.equal(calls.length, n, 'do 2 min žádný další dotaz');
+    t += 2 * 60e3;
+    await weatherAt([pts[0]]);
+    assert.equal(calls.length, n + 1, 'pak zase');
+  } finally {
+    console.warn = warn;
+    Date.now = realNow;
+    globalThis.fetch = realFetch;
+    config.mock = mock;
+    _resetWeather();
+  }
+});

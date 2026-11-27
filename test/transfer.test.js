@@ -18,7 +18,7 @@ const ctx = {
 };
 ctx.window = ctx;
 vm.createContext(ctx);
-for (const f of ['planshare.js', 'searchhelp.js', 'pins.js', 'sharelink.js', 'backup.js', 'qr.js', 'transfer.js']) vm.runInContext(read(`public/js/${f}`), ctx, { filename: f });
+for (const f of ['planshare.js', 'searchhelp.js', 'offershare.js', 'pins.js', 'sharelink.js', 'backup.js', 'qr.js', 'transfer.js']) vm.runInContext(read(`public/js/${f}`), ctx, { filename: f });
 const { Backup: B, Transfer: T, ShareLink, QR, Pins: P } = ctx;
 const plain = (v) => JSON.parse(JSON.stringify(v));
 ctx.Backup.incoming = (inc) => shown.push(inc);
@@ -88,6 +88,90 @@ test('velká data: odkaz ano, QR ne (víc než 2 953 bajtů verze 40-L); přes l
   assert.equal(inc.watch[0].history.length, 40, 'historie ceny hlídání');
   assert.deepEqual(plain(inc), plain(B.parse(json, deps)));
   assert.equal(T.fit(`${ORIGIN}/#sync=z${'A'.repeat(T.MAX_LINK + 1)}`).link, false);
+});
+
+// Typická cesta z průvodce, jak ji uloží saveToPlanner: program s popisy a fotkami z Wikidat a 30 „dalšími místy“,
+// „Před cestou“, „Sbaleno“ na míru (25 položek s id) a kopie toho, co vygeneroval průvodce (gen*).
+const POI = ['Alfama', 'Castelo de São Jorge', 'Belém', 'Klášter sv. Jeronýma', 'Belémská věž', 'Sintra', 'Palácio da Pena', 'LX Factory', 'Praça do Comércio', 'Elevador de Santa Justa', 'Oceanário', 'Muzeum Calouste Gulbenkian', 'Katedrála Sé', 'Bairro Alto', 'Miradouro da Senhora do Monte'];
+const poi = (name, i) => ({ id: `Q${1000 + i}`, name, description: `památka v Lisabonu, Portugalsko – ${name} patří k nejnavštěvovanějším místům města`, lat: 38.7 + i / 97, lon: -9.14 - i / 113, sitelinks: 40 + i, image: `https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/${encodeURIComponent(name)}_${i}.jpg/320px-${encodeURIComponent(name)}_${i}.jpg`, credit: `Foto: Autor ${i}, CC BY-SA 4.0`, wiki: { cs: name, en: `${name} (Lisbon)` }, category: 'sight', score: 60 + i / 3, cc: 'PT', visitMin: 60 + (i % 3) * 30, fromPrevKm: 1.2 + i / 10, fromPrevMin: 12 + i, transit: i % 4 === 0 });
+const CK = ['Zařídit: cestovní pojištění', 'Zařídit: vstupenky do Palácio da Pena', 'Zařídit: Lisboa Card', 'Pas nebo občanka', 'Kartička pojišťovny (EHIC)', 'Platební karta', 'Trocha eur v hotovosti', 'Nabíječka a powerbanka', 'Pohodlné boty (kopce a dlažba)', 'Lehká bunda do větru', 'Deštník', 'Sluneční brýle', 'Opalovací krém', 'Léky a lékárnička', 'Kartáček a pasta', 'Kosmetika do 100 ml', 'Plavky', 'Brýle nebo čočky', 'Sluchátka', 'Láhev na vodu', 'Batoh na výlety', 'Kopie dokladů v telefonu', 'Offline mapa Lisabonu', 'Jízdenka Viva Viagem', 'Svetr na večer'];
+function wizardTrip() {
+  const w = lisbon(), pois = POI.map(poi);
+  w.plan.days = w.plan.days.map((d, i) => ({ ...d, items: pois.slice(i * 2, i * 2 + 2) }));
+  w.plan.spare = [...pois.slice(10), ...POI.map((n, i) => poi(`${n} – okolí`, i + 20))].slice(0, 30);
+  w.pretrip = { acts: ['city'], custom: [], done: [] };
+  w.stay = { ...w.stay, url: 'https://www.booking.com/hotel/pt/lisboa-centro.cs.html?checkin=2026-11-12&checkout=2026-11-17&group_adults=2&no_rooms=1' };
+  const t = saved(w);
+  t.days = Object.fromEntries(w.plan.days.filter((d) => d.items.length).map((d) => [d.date, d.items.map((x) => x.name)]));
+  t.checklist = CK.map((x, i) => ({ t: x, done: false, id: i < 3 ? `todo:t${i}` : `pack:p${i}` }));
+  t.notes = `Ubytování: Hotel Lisboa Centro – 9 000 Kč ${w.stay.url}`;
+  return { ...t, genName: t.name, genNotes: t.notes, genBudget: t.budget, genDays: plain(t.days), genChecklist: t.checklist.map((x) => x.t) };
+}
+
+test('kratší cesta z průvodce se štíhle vejde do QR kódu a po příjmu má průvodce i „Sbaleno“; soubor zálohy zůstane celý', async () => {
+  const t = wizardTrip();
+  const full = B.pack({ trips: [t] }, {}, NOW), slim = B.packSlim({ trips: [t] }, {}, NOW);
+  const urlOf = async (json) => `${ORIGIN}/#${T.KIND}=${await ShareLink.pack(json)}`;
+  assert.equal(T.fit(await urlOf(full)).qr, null, 'celá cesta se do QR nevejde (to byla chyba)');
+  const url = await urlOf(slim), f = T.fit(url, { json: slim });
+  assert.ok(f.bytes <= 2953, `odkaz ${f.bytes} B`);  assert.ok(f.qr, 'QR kód');
+  assert.match(full, /"spare"|"description"/, 'záloha do souboru (pack) beze změny');
+  assert.doesNotMatch(slim, /"spare"|"description"|"image"/);
+  const inc = await T.read(T.payloadOf(decode(fromSvg(QR.svg(f.qr))).text), deps);
+  const r = inc.trips[0];
+  assert.equal(r.wizard.flight.out.to, 'LIS', 'Otevřít v průvodci');
+  assert.deepEqual(plain(r.wizard.plan.days.map((d) => d.items.map((x) => x.name))), plain(t.wizard.plan.days.map((d) => d.items.map((x) => x.name))), 'program dnů celý (bez popisů)');
+  assert.equal(r.checklist.length, CK.length);
+  assert.equal(r.checklist[0].id, 'todo:t0', 'spojení s „Před cestou“');
+  // co vygeneroval průvodce: druhé zařízení ho dopočítá z plánu – pozná pak, co uživatel upravil
+  assert.deepEqual(plain(r.genChecklist), CK);
+  assert.deepEqual(plain(r.genDays), plain(t.days));
+  assert.deepEqual([r.genName, r.genNotes, r.genBudget], [t.name, t.notes, t.budget]);
+  // stejná cesta v zařízení (celá) není „změněná“ jen kvůli vynechaným popisům
+  assert.deepEqual(plain(B.match({ trips: [t] }, inc, { txt: ctx.PlanShare.txt, ...deps }).map((m) => m.st)), ['same']);
+});
+
+test('📲 okno přenosu: štíhle jen tehdy, když se díky tomu vejde QR kód – jinak celá data odkazem (i s popisy programu)', async () => {
+  const els = {}, sent = [];
+  const el = (id) => els[id] || (els[id] = { innerHTML: '', hidden: false, classList: { add() {} }, remove() { delete els[id]; }, querySelector: () => ({ style: {} }), clientWidth: 300 });
+  const keep = { $: ctx.$, modalOpen: ctx.modalOpen, snapshot: B.snapshot, countsNow: B.countsNow, isEmpty: B.isEmpty, send: ShareLink.send, native: ShareLink.native };
+  Object.assign(ctx, { $: el, modalOpen: () => { for (const k of Object.keys(els)) delete els[k]; } });
+  Object.assign(B, { countsNow: () => ({ trips: 1 }), isEmpty: () => false });
+  Object.assign(ShareLink, { native: () => false, send: (k, json) => { sent.push(json); return Promise.resolve({ aborted: true }); } });
+  try {
+    // [zařízení, QR kód?, posílá se štíhle?]: malá data celá do QR; cesta z průvodce (fixture) štíhle do QR;
+    // víc cest z průvodce se do QR nevejde ani štíhle → bez QR, odkazem celá (druhé zařízení má popisy i fotky programu)
+    for (const [dev, qr, thin] of [[light(), true, false], [device({ trips: [wizardTrip()] }), true, true], [device({ trips: [wizardTrip(), saved(lisbon()), saved(italy())] }), false, false]]) {
+      B.snapshot = ({ slim = false } = {}) => (slim ? B.packSlim : B.pack)(dev, {}, NOW);
+      T.open();
+      for (let k = 0; k < 300 && !els['#tfLead']; k++) await new Promise((r) => setTimeout(r, 10)); // odkazy zabalené, okno hotové
+      assert.equal(Boolean(els['#tfBox'] && els['#tfBox'].innerHTML.includes('tf-qr')), qr, 'QR kód (bez něj se okénko vůbec neukáže)');
+      if (!qr) assert.equal(els['#tfBox'], undefined);
+      await els['#tfSend'].onclick();
+      assert.equal(sent.pop(), B.snapshot({ slim: thin }));
+    }
+  } finally {
+    Object.assign(ctx, { $: keep.$, modalOpen: keep.modalOpen });
+    Object.assign(B, { snapshot: keep.snapshot, countsNow: keep.countsNow, isEmpty: keep.isEmpty });
+    Object.assign(ShareLink, { send: keep.send, native: keep.native });
+  }
+});
+
+test('štíhlý přenos: co uživatel v plánovači změnil, jde celé (gen* jen u nezměněných jako 1)', () => {
+  const t = { ...wizardTrip(), name: 'Můj Lisabon' };
+  t.checklist = [...t.checklist, { t: 'Vlastní věc', done: true }];
+  const s = B.slimTrip(t);
+  assert.equal(s.genName, t.genName);
+  assert.equal(s.genChecklist.length, CK.length);
+  assert.equal(s.genDays, 1);
+  assert.equal(s.genNotes, 1);
+  const r = B.parse(B.packSlim({ trips: [t] }), deps).trips[0];
+  assert.equal(r.name, 'Můj Lisabon');
+  assert.equal(r.genName, t.genName);
+  assert.deepEqual(plain(r.genChecklist), CK);
+  assert.equal(r.checklist.length, CK.length + 1);
+  const plannerTrip = B.parse(B.packSlim({ trips: [plannerOnly()] }), deps).trips[0];
+  assert.equal(plannerTrip.genDays, undefined, 'cesta jen z plánovače gen* nedostane');
 });
 
 test('payloadOf: z adresy i z vložené zprávy; bez #sync= nic', () => {
@@ -207,7 +291,7 @@ test('odkaz, který by druhé zařízení po rozbalení odmítlo (víc než Shar
 test('počty a text „Přenese se“: české tvary, prázdné zařízení', () => {
   const c = B.counts({ trips: [1, 2], watch: [1], pins: [1], fav: [1, 2], mute: [1], visited: ['CZ', 'AT', 'DE'], home, own: { VIE: 350 } });
   assert.deepEqual(plain(c), { trips: 2, watch: 1, pins: 1, fav: 2, mute: 1, visited: 3, home: true, own: 1 });
-  assert.equal(B.countsTxt(c), '2 cesty · 1 hlídaná cena · 📌 1 odložená nabídka · ⭐ 2 moje cíle · 🙈 1 skryté město · 3 země na mapě · domov radaru · 🏠 vlastní cena na 1 letiště');
+  assert.equal(B.countsTxt(c), '2 cesty · 1 hlídaná cena · 📌 1 odložená nabídka · ⭐ 2 moje cíle · 🙈 1 skryté město · 3 země na mapě · domov (odkud létáš) · 🏠 vlastní cena na 1 letiště');
   assert.equal(B.countsTxt(B.counts({ trips: Array(5), watch: Array(12), pins: Array(5), fav: Array(5), mute: Array(5), visited: Array(5) })), '5 cest · 12 hlídaných cen · 📌 5 odložených nabídek · ⭐ 5 mých cílů · 🙈 5 skrytých měst · 5 zemí na mapě');
   const none = B.counts({ trips: [], watch: [], home: null });
   assert.ok(B.isEmpty(none));
@@ -254,7 +338,7 @@ test('prázdné zařízení: 📲 Přenést nabídne i obnovu ze souboru zálohy
   }
   // na telefonu je 💾 vždy v ⋯ Další (Moje cesty se bez uložené cesty neukážou), na počítači 📲 vlevo dole
   const bk = read('public/js/backup.js');
-  assert.match(bk, /otevři Letsi → ⋯ Další → 💾 Přenos a záloha → 📂 Obnovit ze zálohy \(na počítači vlevo dole 📲 Přenést do jiného zařízení/);
+  assert.match(bk, /otevři Letsi → ⋯ Další → 💾 Záloha do souboru → 📂 Obnovit ze zálohy \(na počítači vlevo dole 📲 Přenést do jiného zařízení/);
   assert.doesNotMatch(bk, /'Cesty nebo ⋯ Další'/);
 });
 

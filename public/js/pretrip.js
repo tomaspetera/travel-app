@@ -200,8 +200,11 @@
     const hit = { data: null, done: false };
     climates.set(k, hit);
     const url = k.startsWith('iata:') ? `api/climate?iata=${encodeURIComponent(p.iata)}` : `api/climate?lat=${(+p.lat).toFixed(3)}&lon=${(+p.lon).toFixed(3)}`;
-    fetch(url).then(r => (r.ok ? r.json() : null)).catch(() => null).then(j => {
+    // 404 = místo bez údajů, 400 = neznámé letiště (napořád stejné); výpadek sítě nebo serveru (err) není „bez podnebí“ –
+    // seznam pro plánovač z něj nevznikne (z 400 by nevznikl nikdy a nová cesta by měla napořád jen obecný seznam)
+    fetch(url).then(r => { if (r.status >= 500 || r.status === 429) throw new Error(`HTTP ${r.status}`); return r.ok ? r.json() : null; }).then(j => {
       hit.data = j && okSeries(j.hi) && okSeries(j.lo) && okSeries(j.p) ? { hi: j.hi, lo: j.lo, p: j.p } : null;
+    }, () => { hit.err = true; }).then(() => {
       hit.done = true;
       scheduleRefresh();
     });
@@ -267,13 +270,14 @@
       return Array.isArray(ll) && Math.hypot(+d0.lat - ll[0], (+d0.lon - ll[1]) * Math.cos(ll[0] * Math.PI / 180)) * 111 <= 25;
     });
     const months = monthsOf(start, end);
-    let climate = null, pending = false;
+    let climate = null, pending = false, climateErr = false;
     if (o.climate !== undefined) climate = summarize(o.climate, months);
     else {
       const places = placesOf(t, multi, ov);
       places.forEach(fetchClimate);
       const got = places.map(p => ({ p, hit: climates.get(placeKey(p)) }));
       pending = typeof fetch === 'function' && got.some(x => !x.hit || !x.hit.done);
+      climateErr = got.some(x => x.hit && x.hit.err); // podnebí se nenačetlo (síť, server) – jinak než místo bez údajů
       climate = summarize(got.filter(x => x.hit && x.hit.data).map(x => ({ name: x.p.name, ...x.hit.data })), months);
     }
     // děti 2–11 let a miminka do 2 let (cestující z hledání letů – Trip.sanitizeTrip je drží v mezích)
@@ -281,7 +285,7 @@
     const ctx = {
       isos, via, start, end, nights: start && end ? nightsBetween(start, end) : t.nightsOneWay || 3, car, kids: kidN(t.children), babies: kidN(t.infants),
       mode: ov ? 'ground' : 'flight', bags: ov ? null : ['none', 'cabin', 'checked'].includes(t.bags) ? t.bags : 'none',
-      cats, tags, climate, pending, custom: customOf(t), capital: Boolean(cap),
+      cats, tags, climate, pending, climateErr, custom: customOf(t), capital: Boolean(cap),
       // ubytování: aspoň noc a ne „neřeším“ (u trasy přes víc míst aspoň jedno místo s ubytováním)
       stay: (start && end ? nightsBetween(start, end) : t.nightsOneWay || 3) >= 1 && (multi ? t.route.bases.some(b => !(b && b.stay && b.stay.mode === 'skip')) : !(t.stay && t.stay.mode === 'skip')),
     };
@@ -707,7 +711,13 @@
    */
   function plannerChecklist(t, o = {}) {
     if (!DATA || !t) return null;
-    const ctx = contextOf(t, o), done = doneOf(tripKey(t));
+    const ctx = contextOf(t, o);
+    // podnebí se ještě načítá (nebo se nenačetlo): seznam by místo věcí podle počasí měl „načítám…“ a uložená cesta by
+    // o ně přišla i s odškrtnutím (saveToPlanner při null nechá uložený seznam, nová dostane obecný – doplní se později)
+    return ctx.pending || ctx.climateErr ? null : checklistOf(t, ctx);
+  }
+  function checklistOf(t, ctx) {
+    const done = doneOf(tripKey(t));
     const items = [
       ...todos(ctx).filter(x => x.level !== 'info').map(x => ({ id: `todo:${x.id}`, t: `Zařídit: ${x.short}` })),
       ...pack(ctx).flatMap(g => g.items.map(x => ({ id: `pack:${x.id}`, t: x.note ? `${x.text} (${x.note})` : x.text }))),
@@ -837,7 +847,7 @@
     if (!ctx.isos.length) return '';
     // cesta uložená v plánovači: odškrtnuté v jeho „Sbaleno“ i tady (a naopak)
     const trips = plannerTrips();
-    if (savedOf(trips, key).length && linkSaved(trips, key, plannerChecklist(t, o)) && typeof save === 'function') save();
+    if (savedOf(trips, key).length && linkSaved(trips, key, checklistOf(t, ctx)) && typeof save === 'function') save();
     const done = doneOf(key), list = todos(ctx), groups = pack(ctx);
     const todoHtml = list.map(x => {
       const [lbl, cls] = LEVEL[x.level] || LEVEL.info;
@@ -950,14 +960,16 @@
     const sum = root.querySelector('details.pt-packd > summary'), pk = boxes.filter(b => /^pack:/.test(b.dataset.ptk || ''));
     if (sum) sum.textContent = packTxt(pk.length, pk.filter(b => b.checked).length);
   }
-  /** Tisk jen karty „Před cestou“ (tisková CSS skryje zbytek stránky podle třídy na body). */
+  /** Rozbalí sbalené details v root (seznam věcí, Podrobnosti, „Na osobu po položkách“) – na papíře se rozkliknout nedají.
+      Vrátí funkci, která po tisku sbalí zase jen ty, které rozbalila. */
+  function unfold(root) {
+    const shut = root ? [...root.querySelectorAll('details:not([open])')] : [];
+    shut.forEach(d => { d.open = true; });
+    return () => shut.forEach(d => { d.open = false; });
+  }
+  /** Tisk jen karty „Před cestou“ (tisková CSS skryje zbytek stránky podle třídy na body; rozbalení řeší beforeprint). */
   function printList() {
     document.body.classList.add('pt-print');
-    // seznam věcí i podrobnosti se tisknou celé, i když jsou na obrazovce sbalené
-    const shut = [...document.querySelectorAll('#preTrip details:not([open])')];
-    shut.forEach(d => { d.open = true; });
-    const off = () => { document.body.classList.remove('pt-print'); shut.forEach(d => { d.open = false; }); window.removeEventListener('afterprint', off); };
-    window.addEventListener('afterprint', off);
     window.print();
   }
   if (typeof document !== 'undefined' && document.addEventListener) {
@@ -985,6 +997,11 @@
     document.addEventListener('toggle', e => {
       if (e.target && e.target.matches && e.target.matches('#preTrip details.pt-packd')) packOpen = e.target.open;
     }, true);
+    // beforeprint i u Ctrl+P / „Uložit jako PDF“ z prohlížeče, nejen u tlačítka Vytisknout – jinak by se vytisklo „23 položek ▾“;
+    // druhé beforeprint před afterprint (prohlížeč ho umí poslat znovu) nesmí přepsat seznam k sbalení
+    let refold = null;
+    window.addEventListener('beforeprint', () => { if (!refold) refold = unfold(document.querySelector('#view-trip')); });
+    window.addEventListener('afterprint', () => { if (refold) refold(); refold = null; document.body.classList.remove('pt-print'); });
     document.addEventListener('submit', e => {
       const f = e.target && e.target.closest ? e.target.closest('#preTrip [data-pt-add]') : null;
       if (!f) return;
@@ -996,6 +1013,6 @@
   window.PreTrip = {
     set, load, ready, contextOf, defaultActs, summarize, monthsOf, insuranceNote, drivingOf, plugOf, idpPlan, todos, pack, bagTips, layers, reminders,
     plannerChecklist, savedKey, fromPlanner, toPlanner, linkSaved, html, tripKey, doneOf, setDone, copyDone, customOf, addCustom, delCustom, shareState, sanitize, adopt, ACTS,
-    exportDone, mergeDone,
+    exportDone, mergeDone, unfold,
   };
 })();

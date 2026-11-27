@@ -39,6 +39,7 @@ import { groundQuery, groundInfo, GroundError } from './lib/ground.js';
 import { fuelInfo, fuelText, refreshFuel } from './lib/fuel.js';
 import { serveIndex, serveServiceWorker, contentVersion } from './lib/pwa.js';
 import { headTags, robotsTxt, sitemapXml, sendGenerated, serveManifest, serveNotFound, movedTo } from './lib/seo.js';
+import { serveLegal } from './lib/pravni.js';
 import { BRAND } from './brand.js';
 import { mapyOn, mapyReady, mapyStatus, parseTile, mapyTile } from './lib/mapy.js';
 import { cleanReport, recordClientError, clientErrorCount, MAX_BODY as CLIENT_ERR_MAX } from './lib/clienterr.js';
@@ -181,6 +182,9 @@ function readBody(req, limit = 64 * 1024) {
 
 /** Souřadnice z adresy: chybějící nebo prázdná → NaN (Number(null) i Number('') je 0 – bod 0,0 v Guinejském zálivu). */
 export const coordOf = (v) => (v == null || String(v).trim() === '' ? NaN : Number(v));
+/** Poloha pro místa v okolí na 3 desetinná místa (~100 m): na okruh km stačí a přesná GPS (Objevuj → Tady) nepůjde dál
+ *  Wikidatům a Wikipedii ani do mezipaměti – pojistka i pro starší klienty, nový zaokrouhlí sám (places.js exGeo). */
+const poiCoord = (v) => Math.round(coordOf(v) * 1000) / 1000;
 
 /** Datum YYYY-MM-DD, které opravdu existuje: 2027-02-30 isYmd pustí a Date ho tiše posune na 2. 3. */
 export const realYmd = (s) => isYmd(s) && addDays(s, 0) === s;
@@ -978,8 +982,8 @@ async function route(req, res) {
     return sendJson(req, res, 200, { base: 'CZK', rates, source: r.source, date: r.date }, { 'Cache-Control': 'public, max-age=3600' });
   }
   if (p === '/api/poi') {
-    const lat = coordOf(url.searchParams.get('lat'));
-    const lon = coordOf(url.searchParams.get('lon'));
+    const lat = poiCoord(url.searchParams.get('lat'));
+    const lon = poiCoord(url.searchParams.get('lon'));
     if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return sendJson(req, res, 400, { error: 'Chybí poloha (lat/lon).' });
     const radiusKm = Math.min(25, Math.max(1, Number(url.searchParams.get('radius')) || 10));
     const dayTrips = url.searchParams.get('dayTrips') !== '0';
@@ -990,8 +994,8 @@ async function route(req, res) {
   if (p === '/api/poi/trips') {
     // Objevuj s okruhem 50/100 km: nejzajímavější místa v okolí do ~120 km – stejné cíle (a mezipaměť) jako plánovač
     // výletů, takže „🎒 Výlet sem“ pak nečeká na další dotaz.
-    const lat = coordOf(url.searchParams.get('lat'));
-    const lon = coordOf(url.searchParams.get('lon'));
+    const lat = poiCoord(url.searchParams.get('lat'));
+    const lon = poiCoord(url.searchParams.get('lon'));
     if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return sendJson(req, res, 400, { error: 'Chybí poloha (lat/lon).' });
     if (exploreLimited(req, tripsCached({ lat, lon }))) return sendJson(req, res, 429, TOO_MANY_EXPLORE);
     try {
@@ -1256,6 +1260,8 @@ async function route(req, res) {
   // Vyhledávače a náhledy odkazů (server/lib/seo.js): adresa webu z PUBLIC_URL, název a popis z server/brand.js
   if (p === '/robots.txt') return sendGenerated(req, res, 200, robotsTxt(config.publicUrl), { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'public, max-age=3600' });
   if (p === '/sitemap.xml') return sendGenerated(req, res, 200, sitemapXml(config.publicUrl), { 'Content-Type': 'application/xml; charset=utf-8', 'Cache-Control': 'public, max-age=3600' });
+  // Zásady ochrany osobních údajů a podmínky užívání z docs/pravni/*.md, provozovatel a e-mail z prostředí (pravni.js)
+  if ((p === '/soukromi' || p === '/podminky') && serveLegal(req, res, p, path.join(config.root, 'docs', 'pravni'), { operator: config.operator, email: config.feedbackEmail })) return;
   if (p === '/manifest.webmanifest' && serveManifest(req, res, path.join(PUBLIC, 'manifest.webmanifest'))) return;
   // Krátký odkaz na sdílenou cestu: náhled odkazu (cíl, termín, fotka) a přesměrování do aplikace na /#s=<id>
   if (/^\/c\/[A-Za-z0-9]{8}$/.test(p) && shareStore) {
@@ -1319,6 +1325,26 @@ async function route(req, res) {
   serveNotFound(req, res);
 }
 
+/**
+ * Odpověď na chybu, kterou nezachytil endpoint → { status, error, warn }. warn = jeden řádek do logu (chyba cizí
+ * služby); bez něj se chyba 5xx (chyba v kódu) vypíše do logu celá.
+ */
+export function errorReply(e) {
+  // Chyba cizí služby (HttpError z request(), nedostupná síť – Upstash, zdroj dat – nebo timeout) není chyba uživatele
+  // ani v kódu: 503 a česky, bez adresy API; celý výpis by při výpadku služby jen zahltil log.
+  if (e instanceof HttpError || (e instanceof TypeError && e.message === 'fetch failed')) {
+    return {
+      status: 503,
+      error: e.status === 429 ? 'Zdroj dat je teď přetížený – zkus to prosím za minutu.' : 'Zdroj dat teď neodpovídá – zkus to prosím za chvíli.',
+      warn: `upstream ${e.status || e.cause?.code || 'síť'}: ${String(e.message).slice(0, 200)}`,
+    };
+  }
+  if (/^Timeout \d+ ms/.test(e?.message || '')) return { status: 503, error: 'Zdroj dat odpovídá příliš pomalu – zkus to prosím za chvíli.', warn: `upstream ${String(e.message).slice(0, 200)}` };
+  const status = e?.status >= 400 && e.status < 600 ? e.status : 500;
+  // chyba uživatele (400 – UserError, StayQueryError) má český text pro aplikaci; jiná (chyba v kódu) jen do logu
+  return { status, error: status < 500 ? e.message : 'Chyba serveru – zkus to prosím za chvíli znovu.', warn: null };
+}
+
 export function createServer() {
   // Pomalý klient (hlavičky / tělo po kapkách) nesmí držet spojení minuty: hlavičky do 20 s, celý požadavek do 30 s.
   // Platí jen pro příjem požadavku – dlouhé streamované hledání (odpověď) se tím nezkracuje. Node limity kontroluje
@@ -1326,20 +1352,10 @@ export function createServer() {
   return http.createServer({ headersTimeout: 20e3, requestTimeout: 30e3, connectionsCheckingInterval: 5e3 }, (req, res) => {
     for (const [k, v] of Object.entries(SECURITY_HEADERS)) res.setHeader(k, v); // server/lib/security.js
     route(req, res).catch((e) => {
-      // Chyba cizí služby (HttpError z request()) není chyba uživatele: 503 a česky, bez adresy API.
-      if (e instanceof HttpError) {
-        console.warn(`upstream ${e.status}: ${String(e.message).slice(0, 200)}`);
-        const busy = e.status === 429;
-        if (!res.headersSent) {
-          return sendJson(req, res, 503, { error: busy ? 'Zdroj dat je teď přetížený – zkus to prosím za minutu.' : 'Zdroj dat teď neodpovídá – zkus to prosím za chvíli.' });
-        }
-        return res.end();
-      }
-      if (/^Timeout \d+ ms/.test(e.message || '') && !res.headersSent) return sendJson(req, res, 503, { error: 'Zdroj dat odpovídá příliš pomalu – zkus to prosím za chvíli.' });
-      const status = e.status >= 400 && e.status < 600 ? e.status : 500;
-      if (status >= 500) console.error(e);
-      // chyba uživatele (400 – UserError, StayQueryError) má český text pro aplikaci; jiná (chyba v kódu) jen do logu
-      if (!res.headersSent) sendJson(req, res, status, { error: status < 500 ? e.message : 'Chyba serveru – zkus to prosím za chvíli znovu.' });
+      const r = errorReply(e);
+      if (r.warn) console.warn(r.warn);
+      else if (r.status >= 500) console.error(e);
+      if (!res.headersSent) sendJson(req, res, r.status, { error: r.error });
       else res.end();
     });
   });

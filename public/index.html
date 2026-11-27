@@ -92,6 +92,16 @@ if (!Object.hasOwn) Object.hasOwn = function (o, k) { return Object.prototype.ha
 if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configurable: true, writable: true, value: function (i) { i = Math.trunc(i) || 0; if (i < 0) i += this.length; return this[i]; } });
 </script>
 <script>
+/* „Najít lety“ klepnuté dřív, než se načtou skripty: formulář na Přehledu nemá action, prohlížeč by ho odeslal na /?
+   a celé načítání by začalo znovu. Dokud obsluhu nepřevezme flights.js (onsubmit), odeslání zastavit a zapamatovat –
+   app.js boot ho po startu zopakuje. */
+document.addEventListener('submit', function (e) {
+  if (e.target.id !== 'heroSearch' || e.target.onsubmit) return;
+  e.preventDefault();
+  window.atlasEarlySubmit = true;
+}, true);
+</script>
+<script>
 /* Motiv, mapa a barva lišty hned při startu (ne až po načtení skriptů) – bez probliknutí; dál je hlídá app.js a pwa.js.
    Motiv zvolený přepínačem, jinak (nový uživatel – uložený motiv nemá) podle systému; stejně jako app.js themeOf. */
 (function () {
@@ -158,11 +168,17 @@ if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configur
 </style>
 <link rel="stylesheet" href="css/pwa.css">
 <script src="js/pwa.js" defer></script>
-<!-- Data zemí a stav serveru čeká start aplikace (app.js start, Flights.init), než ukáže pole Odkud/Kam: stahují se
-     hned se stránkou, ne až po načtení všech skriptů (na mobilu o jedno kolo k serveru dřív). as="fetch" + crossorigin
-     = stejný požadavek jako fetch() v aplikaci, prohlížeč ho tak použije a nestahuje znovu. -->
-<link rel="preload" href="data/countries.json" as="fetch" crossorigin>
-<link rel="preload" href="api/health" as="fetch" crossorigin>
+<script>
+/* Data zemí a stav serveru čeká start aplikace (app.js start, Flights.init), než ukáže pole Odkud/Kam: stahují se
+   hned se stránkou, ne až po načtení všech skriptů (na mobilu o jedno kolo k serveru dřív). as=fetch + crossOrigin
+   anonymous = stejný požadavek jako fetch() v aplikaci, prohlížeč ho tak použije a nestahuje znovu. Jen bez service
+   workeru: pod ním prohlížeč přednačtené nepoužije (jiný „svět“ požadavku), stahuje znovu a varuje v konzoli. */
+if (!(navigator.serviceWorker && navigator.serviceWorker.controller)) ['data/countries.json', 'api/health'].forEach(function (h) {
+  var l = document.createElement('link');
+  l.rel = 'preload'; l.as = 'fetch'; l.crossOrigin = 'anonymous'; l.href = h;
+  document.head.appendChild(l);
+});
+</script>
 <!-- písma z vlastního serveru (@font-face v css/atlas.css, soubory vendor/fonts), žádný dotaz na Google Fonts -->
 <link rel="stylesheet" href="css/atlas.css">
 <link rel="stylesheet" href="css/flights.css">
@@ -179,6 +195,8 @@ if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configur
 <script src="js/flags.js"></script>
 </head>
 <body>
+<!-- klávesnice: první prvek stránky, vidět jen při fokusu – přeskočí postranní panel a lištu (app.js) -->
+<a class="skip" href="#main">Přeskočit na obsah</a>
 <div id="launch" aria-hidden="true"><svg class="l-ico" viewBox="0 0 512 512"><defs><linearGradient id="launchG" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#22d3ee"/><stop offset=".45" stop-color="#5b8cff"/><stop offset="1" stop-color="#a855f7"/></linearGradient></defs><rect class="l-sq" width="512" height="512" rx="87.04" fill="url(#launchG)"/><g class="l-pp"><g class="l-paper"><path d="M372 165.4 218.4 272.9 126.2 226.8z" fill="#fff"/><path d="M372 165.4 264.4 365.1 218.4 272.9z" fill="#fff" fill-opacity=".8"/></g><path class="l-air" transform="translate(250 262) rotate(-38.5) scale(2.2) translate(-50 -50)" fill="#fff" d="M97 50C97 47 94 45.5 90 45.5H60L40 9H33L45 45.5H22L14 31H9L12 47L11 50L12 53L9 69H14L22 54.5H45L33 91H40L60 54.5H90C94 54.5 97 53 97 50Z"/></g></svg><svg class="l-jet" viewBox="0 0 100 100"><path fill="#fff" transform="rotate(-7 50 50)" d="M97 50C97 47 94 45.5 90 45.5H60L40 9H33L45 45.5H22L14 31H9L12 47L11 50L12 53L9 69H14L22 54.5H45L33 91H40L60 54.5H90C94 54.5 97 53 97 50Z"/></svg><b>Letsi</b></div>
 <div class="app">
   <!-- ===== SIDEBAR ===== -->
@@ -222,7 +240,7 @@ if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configur
     </header>
 
     <!-- hlavní obsah jako <main>: čtečka na něj skočí (orientační bod) přes lištu nahoře -->
-    <main class="content">
+    <main class="content" id="main" tabindex="-1">
       <!-- DASHBOARD -->
       <section class="view active" id="view-dashboard">
         <!-- 📍 Dnes na cestě: od 2 dnů před odjezdem do konce uložené cesty (app.js renderNow) -->
@@ -247,7 +265,7 @@ if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configur
                  ✈️ letenka koupená jinde → průvodce bez hledání letu (trip.js haveTicket) -->
             <div class="hero-plans">
             <button type="button" class="hero-plan" id="heroPlan"><span class="ico i-program" aria-hidden="true"></span> Naplánovat celou dovolenou <span aria-hidden="true">→</span></button>
-            <button type="button" class="hero-plan" id="heroOwn"><span class="ico i-let" aria-hidden="true"></span> Letenku už mám<span class="hp-more"> – doplň zbytek cesty</span> <span aria-hidden="true">→</span></button>
+            <button type="button" class="hero-plan" id="heroOwn"><span class="ico i-let" aria-hidden="true"></span> Letenku už mám – doplň zbytek cesty <span aria-hidden="true">→</span></button>
             </div>
           </div>
         </div>
@@ -469,7 +487,7 @@ if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configur
             <li><b>Přidej přestupní letiště – Vídeň, Mnichov, Berlín, Frankfurt.</b> Bývá odtud víc přímých dálkových letů a často i nižší ceny. U dálkových cílů je Letsi přidává automaticky, jinak je zadej do „Odkud“ vedle svého města. Kolik zhruba stojí cesta na letiště, uvidíš u každé nabídky.</li>
             <li><b>Zkus jednosměrné letenky každým směrem.</b> Hledej „Jen tam“ zvlášť tam a zvlášť zpět – dvě jednosměrné letenky bývají někdy levnější než zpáteční. Tam do New Yorku a zpět z Bostonu nebo cestu přes víc měst slož v <b>🗺️ Víc měst</b> (tlačítko ↩ Návrat z jiného města) – každý let hledám zvlášť a hlídám, aby na sebe navazovaly.</li>
             <li><b>Dálkové lety rezervuj obvykle 2–5 měsíců předem</b> a hledání si ulož tlačítkem ♡ Hlídat cenu – Letsi cenu kontroluje, dokud máš stránku otevřenou, a na Přehledu ukáže, když klesne.</li>
-            <li><b>Ověř cenu i jinde.</b> Ceny v Letsi jsou orientační a některé aerolinky v nich chybí. U výsledků proklikni „Ověřit: Google Flights · Skyscanner“ – uvidíš i lety, které Letsi nenajde.</li>
+            <li><b>Ověř cenu i jinde.</b> Ceny v Letsi jsou orientační a některé aerolinky v nich chybí. U výsledku klepni na „Ověřit cenu v Google Letech“ (nebo Skyscanner) – uvidíš i lety, které Letsi nenajde.</li>
             <li id="sgEntry"><b>Hlídej vstupní podmínky.</b> Do USA je nutná ESTA a do Kanady eTA (obě i když tam jen přestupuješ), do Británie ETA – vyřizuj je jen na oficiálních webech. Letsi je ukáže u výsledků (🛂) a podrobně v detailu země.</li>
             <li><b>Odlet uprostřed týdne</b> (út–čt) bývá často levnější než v pátek nebo v neděli – není to ale pravidlo, záleží na trase a sezóně.</li>
           </ol>
@@ -494,7 +512,7 @@ if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configur
         <div class="seg world-tabs" role="group" aria-label="Svět"><button type="button" data-w="map"><span class="ico i-mapa" aria-hidden="true"></span> Mapa</button><button type="button" data-w="countries"><span class="ico i-jazyk" aria-hidden="true"></span> Země</button></div>
         <div class="map-layout">
           <div class="map-wrap" id="mapWrap">
-            <svg id="worldmap" viewBox="0 0 960 500" preserveAspectRatio="xMidYMid slice"></svg>
+            <svg id="worldmap" viewBox="0 0 960 500" preserveAspectRatio="xMidYMid meet"></svg>
             <div class="map-chip" id="mapChip" aria-live="polite"></div>
             <div class="map-zoom"><button id="zoomIn" aria-label="Přiblížit">+</button><button id="zoomOut" aria-label="Oddálit">−</button><button id="zoomReset" title="Celá mapa" aria-label="Celá mapa" style="font-size:13px">⤢</button><button id="mapStyle" title="Tmavá mapa" aria-label="Tmavá mapa"></button></div>
           </div>
@@ -516,7 +534,7 @@ if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configur
               <div class="vc-list" id="visitedList"></div>
             </div>
             <div class="legend">
-              <span class="row" style="gap:7px"><i class="badge-dot" style="background:var(--accent)"></i> navštíveno</span>
+              <span class="row" style="gap:7px"><i class="badge-dot vis-dot"></i> navštíveno</span>
               <span class="row" style="gap:7px"><i class="badge-dot land-dot"></i> zbývá objevit</span>
               <span class="faint">klepni na zemi v mapě</span>
             </div>

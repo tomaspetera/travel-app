@@ -20,7 +20,8 @@ import { xoteloBlocked, xoteloRetryAfter, xoteloBlockReason } from './stays/xote
 export const PROVIDER_INFO = {
   ryanair: { name: 'Ryanair', color: '#073590', kind: 'live', note: 'živé ceny z ryanair.com' },
   wizzair: { name: 'Wizz Air', color: '#c6007e', kind: 'live', note: 'živé ceny z wizzair.com' },
-  travelpayouts: { name: 'Ostatní aerolinky', color: '#c25100', kind: 'cached', note: 'Aviasales – ceny z vyhledávání za posledních ~48 h, nutno ověřit' },
+  // „Ostatní“ jen vedle Ryanairu a Wizz Airu; v čistém režimu (jen Aviasales) by nebylo vedle čeho – jméno dává smysl obojí
+  travelpayouts: { name: 'Letenky (Aviasales)', color: '#c25100', kind: 'cached', note: 'Aviasales – ceny z vyhledávání za posledních ~48 h, nutno ověřit' },
   kiwi: { name: 'Kiwi.com (všechny aerolinky)', color: '#008471', kind: 'live', note: 'živé ceny stovek aerolinek vč. kombinací s přestupem – pro konkrétní cíl' },
   'demo-air': { name: 'Demo Air', color: '#64748b', kind: 'demo', note: 'VYMYŠLENÁ ukázková data' },
   'demo-jet': { name: 'Demo Jet', color: '#6b7584', kind: 'demo', note: 'VYMYŠLENÁ ukázková data' },
@@ -69,6 +70,7 @@ export function providerStatus() {
     },
     {
       id: 'travelpayouts', ...PROVIDER_INFO.travelpayouts, enabled: Boolean(config.travelpayoutsToken),
+      blocked: travelpayouts.isBlocked(), retryAfter: travelpayouts.retryAfter(),
       hint: config.travelpayoutsToken ? null : 'Zdarma token na travelpayouts.com → TRAVELPAYOUTS_TOKEN v .env přidá stovky dalších aerolinek',
     },
   ];

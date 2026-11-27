@@ -334,6 +334,9 @@ test('🧳 znovu uložená cesta bez dat „Před cestou“ (ještě se načíta
   render(c, vie({ step: 'summary' }));
   c.window.Trip.saveToPlanner({ stay: true });
   assert.equal(c.S.trips[0].budget, '20000');
+  // cena celkem zvlášť – karta v Mých cestách ukáže cenu i „rozpočet“ (app.js tripMoney, test/pristupnost-3)
+  assert.equal(c.S.trips[0].totalCzk, c.window.Trip.costs(c.S.trip).total);
+  assert.ok(c.S.trips[0].totalCzk > 0 && c.S.trips[0].totalCzk !== 20000);
   c.S.trips[0].checklist[1].done = true;
   // jiné zařízení / pomalá síť: data „Před cestou“ ještě nejsou → null; obecný PACK by seznam přepsal i s odškrtnutím
   pt.plannerChecklist = () => null;
@@ -348,14 +351,15 @@ test('🧳 znovu uložená cesta bez dat „Před cestou“ (ještě se načíta
   assert.deepEqual(plain(c.S.trips[0].checklist.map((x) => x.t)), ['Pas']);
 });
 
-test('🧳 Shrnutí: „Uloženo v Mých cestách“ uloží hned (na přání) a zůstane; sdílená „💾 Uložit do Mých cest“', () => {
+test('🧳 Shrnutí: „💾 Uložit do Mých cest“ uloží hned (na přání), pak „Uloženo v Mých cestách“; sdílená „💾 Uložit do Mých cest“', () => {
   const c = load();
   const h = render(c, vie({ step: 'summary' }));
-  assert.match(h, /<button class="btn primary" id="sumSave"><span class="ico i-hotovo" aria-hidden="true"><\/span> Uloženo v Mých cestách<\/button>/);
+  // ještě neuložená (nebo jen sama uložená – ↺ Začít znovu ji smaže): tlačítko netvrdí, že je uložená
+  assert.match(h, /<button class="btn primary" id="sumSave">💾 Uložit do Mých cest<\/button>/);
   c.__els['#sumSave'].onclick();
   assert.deepEqual([c.S.trips.length, c.S.trips[0].auto, c.__go.length], [1, undefined, 0]);
   assert.deepEqual(plain(c.__toasts), ['Cesta uložena do Mých cest']);
-  c.__toasts.length = 0;
+  assert.match(render(c, c.S.trip), /id="sumSave"><span class="ico i-hotovo" aria-hidden="true"><\/span> Uloženo v Mých cestách<\/button>/);
   c.__els['#sumSave'].onclick();
   assert.deepEqual(plain([c.S.trips.length, c.__toasts]), [1, ['Cesta je uložená v Mých cestách']]);
   assert.match(render(c, vie({ step: 'summary', shared: { on: '2026-10-01' } })), /id="sumSave">💾 Uložit do Mých cest<\/button>/);

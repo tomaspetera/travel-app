@@ -126,11 +126,22 @@ function mockRows(lat, lon) {
   ];
 }
 
+// Po chybě Nominatimu (timeout, 5xx, 429) se 2 min neptat u žádného místa: fronta je jedna pro celý server (1 dotaz
+// za 1,1 s) a hledání ubytování jiných míst by jinak čekala za dalšími timeouty; pravidla Nominatimu chtějí ustoupit.
+const DOWN_MS = 2 * 60e3;
+let downUntil = 0;
+/** Vynulování pojistky (testy). */
+export const resetNominatim = () => { downUntil = 0; };
+
 async function nominatim(q, box) {
   const qs = new URLSearchParams({ format: 'jsonv2', limit: '40', extratags: '1', bounded: '1', viewbox: box, q });
   return queue(async () => {
+    if (Date.now() < downUntil) throw Object.assign(new Error('Nominatim po chybě chvíli vynechán'), { skipped: true });
     try {
       return await request(`${API}?${qs}`, { headers: { 'User-Agent': UA, Accept: 'application/json' }, timeoutMs: TIMEOUT, retries: 0 });
+    } catch (e) {
+      downUntil = Date.now() + DOWN_MS;
+      throw e;
     } finally {
       await sleep(GAP_MS); // další dotaz (i z jiného hledání) nejdřív za 1,1 s
     }
@@ -159,7 +170,8 @@ export async function osmLodging(q, { fetchRows = null } = {}) {
     });
   } catch (e) {
     const msg = `ubytování z OpenStreetMap se nepodařilo načíst – ${/^Timeout/.test(e?.message) ? 'Nominatim neodpověděl včas' : 'Nominatim teď není dostupný'}`;
-    cache.set(`${key}:fail`, msg, FAIL_TTL);
+    // vynechané pojistkou (2 min) si nepamatovat 10 min – jinak by místo bylo bez ubytování i dlouho po zotavení
+    if (!e?.skipped) cache.set(`${key}:fail`, msg, FAIL_TTL);
     throw new Error(msg);
   }
   return rankOsm((Array.isArray(rows) ? rows : []).map((r) => mapOsm(r, q, center)));

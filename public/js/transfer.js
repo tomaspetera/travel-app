@@ -9,7 +9,10 @@
    nezůstanou v historii ani v záložce. Druhé zařízení ukáže, co přibude, a nechá vybrat Sloučit nebo Nahradit
    (s potvrzením a Vrátit) – nikdy nic nepřepíše potichu.
    QR kód: bajtový režim, oprava M, a když se nevejde, L; verze 1–40 podle délky – tedy odkaz nejvýš 2 331 bajtů s M,
-   2 953 s L. Větší data jen odkazem (sdílení, schránka; nejvýš MAX_LINK znaků jako ShareLink) nebo souborem zálohy. */
+   2 953 s L. Když se tam celá data nevejdou, zkusí se štíhle (Backup.packSlim: program bez popisů a „dalších míst“,
+   nezměněné gen* jen jako 1 – druhé zařízení je doplní samo); typická cesta z průvodce se nevejde ani tak a jde celá
+   odkazem. Větší data jen odkazem (sdílení, schránka; nejvýš
+   MAX_LINK znaků jako ShareLink) nebo souborem zálohy – QR kód se pak vůbec nenabízí. */
 (function () {
   const KIND = 'sync';
   const MAX_LINK = 200000; // ShareLink.unpack víc nepřijme
@@ -109,6 +112,13 @@
     $('#tfIn').onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); go(); } };
   }
 
+  // postranní panel místo lišty dole (atlas.css: lišta a ⋯ Další do 860 px) – tady není fotoaparát, kterým skenovat
+  const desk = () => Boolean(window.matchMedia && window.matchMedia('(min-width:861px)').matches);
+  /** Úvod prázdného okna: na telefonu QR kód z druhého zařízení, na počítači odkaz poslaný sem (QR tu nemá čím skenovat). */
+  const emptyLead = d => 'V tomhle zařízení zatím nic uloženého není. Data sem přeneseš z druhého: otevři tam Letsi → <b>⋯ Další</b> (na počítači vlevo dole) → <b>📲 Přenést do jiného zařízení</b> a ' +
+    (d ? 'pošli si odkaz sem (e-mailem nebo do chatu sám sobě) – otevři ho tady, nebo ho vlož do pole níž.' : 'QR kód naskenuj fotoaparátem tohohle telefonu – nebo si odtamtud pošli odkaz.') +
+    ' Máš soubor zálohy? Obnovíš ho tady.';
+
   let token = 0;
   function open() {
     // odškrtnutí „Před cestou“ (PreTrip.exportDone) a cesty z průvodce: moduly se stahují až po startu (lazy.js)
@@ -117,16 +127,18 @@
     if (Backup.isEmpty(c)) {
       modalOpen(`<div class="modal-body tf-modal">
         <h3>📲 Přenést do jiného zařízení</h3>
-        <p class="muted tf-lead">V tomhle zařízení zatím nic uloženého není. Data sem přeneseš z druhého: otevři tam Letsi → <b>⋯ Další</b> (na počítači vlevo dole) → <b>📲 Přenést do jiného zařízení</b> a QR kód naskenuj fotoaparátem tohohle telefonu – nebo si odtamtud pošli odkaz. Máš soubor zálohy? Obnovíš ho tady.</p>
+        <p class="muted tf-lead">${emptyLead(desk())}</p>
         <div class="bk-actions"><button type="button" class="btn" id="tfFile">📂 Obnovit ze souboru zálohy</button></div>
-        ${PASTE}</div>`);
+        ${PASTE}</div>`, { x: true });
       $('details.tf-paste').open = true;
       // na počítači je 💾 Přenos a záloha jen v Mých cestách, které prázdné zařízení neukáže – obnova ze souboru tudy
       $('#tfFile').onclick = () => Backup.open();
       wirePaste();
       return;
     }
-    const json = Backup.snapshot(), my = ++token, send = native() ? '📤 Poslat odkaz' : '🔗 Kopírovat odkaz';
+    // celá data, nebo štíhlá (Backup.packSlim) – ta jen tehdy, když se díky nim vejdou do QR kódu (nebo vůbec do odkazu);
+    // typická cesta z průvodce se do QR nevejde ani štíhle a odkazem pak jde celá, i s popisy a fotkami programu
+    const full = Backup.snapshot(), slim = Backup.snapshot({ slim: true }), my = ++token, send = native() ? '📤 Poslat odkaz' : '🔗 Kopírovat odkaz';
     modalOpen(`<div class="modal-body tf-modal">
       <h3>📲 Přenést do jiného zařízení</h3>
       <p class="muted tf-lead" id="tfLead">Naskenuj QR kód fotoaparátem druhého telefonu – Letsi se tam otevře, ukáže, co přibude, a nabídne <b>Sloučit</b> nebo <b>Nahradit</b>. Bez účtu, data jdou jen v odkazu (na server ne).</p>
@@ -134,29 +146,31 @@
       <p class="tf-sum"><b>Přenese se:</b> ${h(Backup.countsTxt(c))}</p>
       <div class="bk-actions"><button type="button" class="btn primary" id="tfSend">${send}</button><button type="button" class="btn" id="tfFile">💾 Soubor zálohy</button></div>
       <p class="faint tf-note">Odkaz nese tvoje cesty i kódy rezervací – posílej ho jen sobě. Je to stav z této chvíle: co pak změníš, přeneseš novým odkazem.</p>
-      ${PASTE}</div>`);
+      ${PASTE}</div>`, { x: true });
     // připravený odkaz (komprese je asynchronní) – klepnutí na Kopírovat pak zapíše do schránky hned (Safari)
-    const e = ShareLink.prepare(KIND, json);
+    let json = full;
+    const e = ShareLink.prepare(KIND, full), es = ShareLink.prepare(KIND, slim);
     $('#tfSend').onclick = () => ShareLink.send(KIND, json, { title: 'Letsi – moje data', text: '📲 Moje data z Letsi – otevři na druhém zařízení:' })
       .then(r => (r.shared || r.aborted ? null : r.copied ? toast('Odkaz zkopírován – otevři ho na druhém zařízení (e-mail nebo chat sám sobě)') : prompt('Zkopíruj odkaz a otevři ho na druhém zařízení:', r.url)));
     $('#tfFile').onclick = () => Backup.open();
     wirePaste();
-    Promise.resolve(e.url || e.done).then(url => {
+    Promise.all([e.url || e.done, es.url || es.done]).then(([url, sUrl]) => {
       const box = $('#tfBox');
       if (my !== token || !box) return; // okno mezitím zavřené nebo otevřené znovu
-      const f = fit(url, { json }), lead = $('#tfLead');
+      const ff = fit(url, { json: full }), fs = fit(sUrl, { json: slim }), thin = (!ff.qr && fs.qr) || (!ff.link && fs.link);
+      const f = thin ? fs : ff, lead = $('#tfLead');
+      if (thin) json = slim;
       // bez QR kódu: úvod o odkazu (ne „naskenuj“)
-      if ((!f.link || !f.qr) && lead) lead.innerHTML = `${f.link ? 'Pošli si odkaz do druhého zařízení a otevři ho tam' : 'Přenes data souborem zálohy'} – Letsi ukáže, co přibude, a nabídne <b>Sloučit</b> nebo <b>Nahradit</b>. Bez účtu, nic se neukládá na server.`;
+      if ((!f.link || !f.qr) && lead) lead.innerHTML = `${f.link ? 'Pošli si odkaz do druhého zařízení – AirDropem, Quick Share, e-mailem nebo do chatu sám sobě – a otevři ho tam' : 'Přenes data souborem zálohy'} – Letsi ukáže, co přibude, a nabídne <b>Sloučit</b> nebo <b>Nahradit</b>. Bez účtu, nic se neukládá na server.`;
       if (!f.link) {
         box.innerHTML = '<div class="note warn">⚠️ <div>Dat je i na odkaz moc – přenes je <b>souborem zálohy</b>.</div></div>';
         $('#tfSend').hidden = true;
         $('#tfFile').classList.add('primary');
         return;
       }
-      if (!f.qr) {
-        box.innerHTML = `<div class="note info">📏 <div>Dat je na QR kód moc. Pošli si odkaz – AirDropem, Quick Share, e-mailem nebo do chatu sám sobě – nebo soubor zálohy.</div></div>`;
-        return;
-      }
+      // QR kód se nevejde ani se štíhlými cestami (Backup.packSlim): QR se vůbec nenabízí (dřív tu stála jen hláška
+      // „Dat je na QR kód moc“ místo kódu) – úvod vede rovnou na odkaz, vedle je soubor zálohy
+      if (!f.qr) { box.remove(); return; }
       box.innerHTML = `<button type="button" class="tf-qr" id="tfQr" aria-label="QR kód s odkazem na přenos – klepnutím zvětšíš">${QR.svg(f.qr, { label: 'QR kód s odkazem na přenos dat' })}</button>
         <div class="faint tf-tip">Klepnutím ho zvětšíš přes celou obrazovku${f.qr.version > 25 ? ' – kód je hustý, fotoaparát drž blízko a rovně' : ''}</div>`;
       const btn = $('#tfQr'), svg = btn.querySelector('svg');
@@ -167,7 +181,7 @@
 
   /** Položka v ⋯ Další (app.js openMore). */
   function addToMenu(list) {
-    list.insertAdjacentHTML('beforeend', '<button type="button" class="btn ghost" id="moreXfer"><span class="ico i-qr" aria-hidden="true"></span> Přenést do jiného zařízení <span class="faint">odkaz, QR kód</span></button>');
+    list.insertAdjacentHTML('beforeend', '<button type="button" class="btn ghost" id="moreXfer"><span class="ico i-qr" aria-hidden="true"></span> Přenést do jiného zařízení <span class="faint">odkaz nebo soubor</span></button>');
     list.querySelector('#moreXfer').onclick = () => open();
   }
   // Počítač a tablet nemají ⋯ Další: odkaz v postranním panelu pod přepínačem motivu (vzhled .side-about jako
@@ -180,5 +194,5 @@
     }
   }
 
-  window.Transfer = { KIND, MAX_LINK, payloadOf, fit, sizePx, read, receive, fromHash, open, addToMenu, zoom };
+  window.Transfer = { KIND, MAX_LINK, payloadOf, fit, sizePx, read, receive, fromHash, open, addToMenu, zoom, emptyLead };
 })();

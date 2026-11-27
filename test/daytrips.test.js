@@ -166,7 +166,7 @@ test('findTrips: doporučení „Go next“ z článku o městě na Wikivoyage �
     const trips = await findTrips({ lat: 49.5, lon: 15.5 });
     const wvCall = stub.calls.find((c) => c.url.startsWith('https://en.wikivoyage.org/w/index.php'));
     assert.deepEqual([new URL(wvCall.url).searchParams.get('title'), new URL(wvCall.url).searchParams.get('action')], ['Testov', 'raw']);
-    assert.match(wvCall.init.headers['User-Agent'], /^ATLAS-travel\//);
+    assert.match(wvCall.init.headers['User-Agent'], /^Letsi\//);
     const gnQuery = stub.calls.map((c) => c.url).find((u) => u.includes('query.wikidata.org') && decodeURIComponent(u).includes('VALUES ?gn'));
     assert.ok(decodeURIComponent(gnQuery).includes('"Vyletov"@en') && !decodeURIComponent(gnQuery).includes('"Testov"@en'), 'bez města samého');
     const vy = trips.find((t) => t.id === 'Q2');
