@@ -106,6 +106,22 @@ test('Count.ask: ✕ otázku zavře bez odeslání; nejvýš jedna otázka za na
   assert.equal(ctx.Count, C);
 });
 
+test('Count.ask a karta otázky na Přehledu (otazky.js) se dělí o jedno místo za stránku: askedNow(), holdAsk()', () => {
+  const a = loadCount(0);
+  assert.equal(a.C.askedNow(), false);
+  a.C.ask(a.p, Q);
+  assert.equal(a.C.askedNow(), true, 'po otázce ve výsledcích Přehled počká');
+  const b = loadCount(0);
+  b.C.holdAsk(); // karta na Přehledu se ukázala
+  assert.equal(b.C.ask(b.p, { ...Q, rate: 1 }), null, 'pak už se Count.ask na téhle stránce nezeptá');
+  assert.equal(b.C.askedNow(), true);
+  assert.deepEqual(b.log.storage, [], 'nic se neukládá');
+  const src = read('public/js/otazky.js');
+  assert.match(src, /busy: busy \|\| typing \|\| searching \|\| asked,/);
+  assert.match(src, /const asked = Boolean\(!held && window\.Count && Count\.askedNow && Count\.askedNow\(\)\);/);
+  assert.match(src, /if \(window\.Count && Count\.holdAsk\) \{ Count\.holdAsk\(\); held = true; \}/);
+});
+
 test('Count.ask: výběr podle rate (Math.random < rate), rate 0 se nikdy nezeptá; neukázaná otázka místo nezabere', () => {
   const { C, p, ctx } = loadCount(0.25);
   assert.equal(C.ask(p, Q), null, '0.25 není < 0.25');

@@ -102,6 +102,7 @@
   }
 
   let picked = null; // otázka vybraná při posledním vykreslení Přehledu (karta se ukáže až po /api/health)
+  let held = false; // karta už zabrala místo pro otázku na téhle stránce (Count.holdAsk)
   /** Karta s otázkou na Přehledu (el = #askCard); busy = jiná prosba na Přehledu (uvítání, souhlas s měřením). */
   function render(el, busy) {
     if (!el) return;
@@ -109,8 +110,10 @@
     let st = visit(store.get(), day);
     const typing = document.activeElement && document.activeElement.matches && document.activeElement.matches('input, textarea, select, [contenteditable]');
     const searching = Boolean(window.Flights && Flights.busy && Flights.busy());
+    // na téhle stránce už padla jiná krátká otázka (Count.ask ve výsledcích nebo ve Shrnutí) – dnes už ne
+    const asked = Boolean(!held && window.Count && Count.askedNow && Count.askedNow());
     const trip = (S.trip && S.trip.step === 'summary' && !S.trip.shared) || (S.trips || []).some(t => t && t.tripId && !t.auto && !t.shared);
-    const id = pick(st, { busy: busy || typing || searching, search: (S.recent || []).length > 0, trip }, day);
+    const id = pick(st, { busy: busy || typing || searching || asked, search: (S.recent || []).length > 0, trip }, day);
     store.set(st);
     el.hidden = true; el.innerHTML = '';
     const tok = render.tok = (render.tok || 0) + 1;
@@ -121,6 +124,7 @@
       if (tok !== render.tok || !el.isConnected) return; // mezitím se Přehled překreslil
       st = shown(store.get() || st, id, day);
       store.set(st);
+      if (window.Count && Count.holdAsk) { Count.holdAsk(); held = true; }
       const q = QS.find(x => x.id === id);
       el.innerHTML = cardHtml(id, to);
       el.hidden = false;
