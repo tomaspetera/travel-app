@@ -50,7 +50,7 @@ test('texty: Novinky, souhlas a O aplikaci ukazují cestu, která je i na počí
   const bad = wn.filter(([, , t]) => /<b>Další<\/b>/.test(t) && !/na (počítači|telefonu)/.test(t)).map(([, n]) => n).join(', ');
   assert.equal(bad, '', 'novinka s „Další“ musí říct, kde to je na počítači');
   const card = pick('helpCard');
-  assert.match(card, /Platí, dokud to nevypneš v Další nebo v O aplikaci a soukromí\./);
+  assert.match(card, /platí, dokud to nevypneš v Další nebo v O aplikaci a soukromí\./);
   assert.match(card, /toast\('Zapnuto\. Díky! Vypnout to jde kdykoli v Další nebo v O aplikaci a soukromí\.'\)/);
   assert.doesNotMatch(card, /v Další\.['<]/);
   assert.doesNotMatch(read('public/js/about.js'), /zapneš v Další/, 'přepínač je v okně O aplikaci, Další na počítači není');

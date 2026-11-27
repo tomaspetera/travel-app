@@ -158,9 +158,10 @@ test('letsi.css krok 2: žádná modrá ani fialová, ceny barvou textu, stupnic
   assert.match(src, /\] \.pc-bar::before\{[^}]*background:#D6DE82/);
   // Sdílet cestu: tlačítko jako hlavní (dřív přechod modrá–fialová)
   assert.match(src, /\] \.jed-go2\{background:var\(--letsi-tlacitko\)/);
-  // spodní lišta: aktivní položka bez plochy, tučně barvou textu; ostatní text-3
-  assert.match(src, /\.mobile-nav \.mi\.active\{background:none;color:var\(--text\)/);
-  assert.match(src, /\] \.mobile-nav \.mi\{color:var\(--faint\)\}/);
+  // spodní lišta v Noci: aktivní položka bez plochy (kapsle Pistácie je pod ikonou), popisek Vápnem; ostatní šedé Vápno
+  // (7,9 : 1 na Noci – navigace.test.js)
+  assert.match(src, /\.mobile-nav \.mi\.active\{background:none;color:#F3F4F0/);
+  assert.match(src, /\] \.mobile-nav \.mi\{[^}]*color:var\(--nav-ico\)\}/);
   // tmavý režim: třetí text na čipu o stupeň světlejší (#8E949E na #2A2E3A je 4,44 : 1)
   assert.match(src, /\[data-theme="dark"\] :is\(\.chip,[^)]*\)\{--faint:#A6ACB6\}/);
 });

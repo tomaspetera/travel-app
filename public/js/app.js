@@ -126,8 +126,9 @@ function ico(d) { return `<svg viewBox="0 0 24 24" fill="none" stroke="currentCo
  *  Vždy aria-hidden: přístupný název nese text tlačítka (manuál: ikona stojí s textem). */
 const ikona = n => `<span class="ico i-${n}" aria-hidden="true"></span>`;
 function buildNav() {
-  // U přehledu odznak „zlevnilo“ z hlídaných cen (plní flights.js).
-  $('#nav').innerHTML = NAV.map(n => `<div class="nav-item" data-view="${n[0]}">${ico(n[3])}<span>${n[1]}</span>${n[0] === 'map' ? '<span class="nav-badge" id="navBadge">0</span>' : n[0] === 'dashboard' ? '<span class="nav-badge drop" id="navDrops" title="Hlídané ceny, které od minule zlevnily" hidden></span>' : ''}</div>`).join('');
+  // U přehledu odznak „zlevnilo“ z hlídaných cen (plní flights.js). Nadpisy skupin (NAV_GROUP) ukazuje jen panel Letsi na
+  // počítači (desktop.css) – sedm sekcí pod sebou bez členění se hůř hledá.
+  $('#nav').innerHTML = NAV.map(n => (NAV_GROUP[n[0]] ? `<div class="nav-h" aria-hidden="true">${NAV_GROUP[n[0]]}</div>` : '') + `<div class="nav-item" data-view="${n[0]}">${ico(n[3])}<span>${n[1]}</span>${n[0] === 'map' ? '<span class="nav-badge" id="navBadge">0</span>' : n[0] === 'dashboard' ? '<span class="nav-badge drop" id="navDrops" title="Hlídané ceny, které od minule zlevnily" hidden></span>' : ''}</div>`).join('');
   // Na mobilu dole pět pevných míst: Přehled, Lety, Cesty, Objevuj a ⋯ Další (ostatní sekce a nastavení). Lišta je
   // jediná pevná orientace (i v návodech), proto se podle používání nepřeskládá (dřív ji řadil počet otevření a
   // Objevuj z ní mizel).
@@ -148,6 +149,8 @@ function buildNav() {
   $('#moreNav').onclick = openMore;
   $('#menuBtn').onclick = openMore;
 }
+// nadpisy skupin v postranním panelu (před kterou sekcí); pro čtečku jen vzhled – sekce mají vlastní jména
+const NAV_GROUP = { dashboard: 'Cestování', map: 'Svět' };
 // sekce mimo Přehled, jejichž otevření se počítá (S.navUse – tipy na Přehledu); world = Mapa a Země
 const NAV_PICK = ['flights', 'trip', 'explore', 'world', 'recommend'];
 // sekce ve spodní liště (pevně) a sekce v ⋯ Další: [název, popis, ikona Letsi]
@@ -165,8 +168,20 @@ function navCount(v) {
   if (Object.values(u).reduce((a, b) => a + b, 0) > 200) for (const x of Object.keys(u)) u[x] = Math.floor(u[x] / 2);
   S.navUse = u; save();
 }
-/** Popis domova v Další: „Praha (PRG) · +200 km“, bez domova výzva. */
-const homeLine = h => (h && h.from && h.from.length ? `${h.from.map(x => x.label).join(', ')} · +${h.radius ?? 200} km` : 'Odkud obvykle létáš – nastavit');
+/** Kód letiště z místa domova („ap:PRG“ nebo „Praha (PRG)“), jinak '' (země, město bez kódu). */
+const homeCode = x => ((/^[a-z]+:([A-Z]{3})$/.exec((x && x.id) || '') || /\(([A-Z]{3})\)/.exec((x && x.label) || '') || [])[1] || '');
+/**
+ * Řádek Domovské letiště nahoře v Další: kód prvního letiště velkým písmem značky („PRG“), pod názvem místo a okruh,
+ * vpravo Změnit. Místo bez kódu (země) má ikonu domova, bez domova výzva Nastavit.
+ */
+function homeRow(h) {
+  const f = (h && h.from) || [];
+  if (!f.length) return `<button type="button" class="btn ghost" id="moreHome">${ikona('domov')} Nastavit domovské letiště <span class="faint">odkud obvykle létáš</span></button>`;
+  const code = homeCode(f[0]), r = h.radius ?? 200;
+  const name = esc(f.map(x => String(x.label || '').replace(/\s*\([A-Z]{3}\)$/, '')).join(', '));
+  return `<button type="button" class="btn ghost more-home${code ? ' has-code' : ''}" id="moreHome">${code ? `<b class="mh-code" aria-hidden="true">${code}</b>` : ikona('domov')} Domovské letiště `
+    + `<span class="faint">${name} · ${r ? `okruh ${r} km` : 'jen toto letiště'}</span><span class="mh-go" aria-hidden="true">Změnit</span></button>`;
+}
 /**
  * ⋯ Další jako Nastavení v telefonu: nahoře domovské letiště, pak skupiny Sekce · Moje data · Vzhled · O Letsi.
  * Řádek = ikona, název, krátký popis a šipka (nebo přepínač). Položky modulů (přenos, Plus, O aplikaci, plocha) si
@@ -176,7 +191,7 @@ function openMore() {
   const row = (attr, i, t, sub) => `<button type="button" class="btn ghost" ${attr}>${ikona(i)} ${t} <span class="faint">${esc(sub)}</span></button>`;
   const grp = (h, id, html = '') => `<div class="more-h" id="${id}H">${h}</div><div class="mg" id="${id}" role="group" aria-labelledby="${id}H">${html}</div>`;
   modalOpen(`<div class="modal-body more-sheet"><h3>Další</h3>
-    <div class="mg">${row('id="moreHome"', 'domov', 'Domovské letiště', homeLine(S.home))}</div>
+    <div class="mg">${homeRow(S.home)}</div>
     ${grp('Sekce', 'mgSec', ['world', 'recommend'].map(k => row(`data-mv="${k === 'world' ? lastWorld : k}"`, NAV_INFO[k][2], NAV_INFO[k][0], NAV_INFO[k][1])).join(''))}
     ${grp('Moje data', 'mgData')}${grp('Vzhled', 'mgLook')}${grp('O Letsi', 'mgAbout')}</div>`, { x: true });
   const m = $('#modal'), data = $('#mgData', m), look = $('#mgLook', m), about = $('#mgAbout', m);
@@ -3017,15 +3032,26 @@ function renderTips() { $('#flightTips').innerHTML = TIPS.map(t => `<div class="
 /* Úvodní obrazovka aplikace na ploše (index.html #launch): zmizí, až je přehled vykreslený a písma načtená (na písma
    nejvýš 0,8 s) – start bez poskakování obsahu. Pojistka: 3,1 s od otevření stránky začne mizet (bez čekání na písma),
    za 3,5 s je pryč; přišla-li stránka pozdě (pomalá síť, uspaný server), drží se aspoň 2 s, než se přehled vykreslí. */
+/**
+ * Kolik ms ještě nechat úvodní obrazovku: vlaštovka ATLASu musí vzlétnout (~0,95 s od prvního vykreslení), oči Letsi
+ * dohrát hlavní pohyb (mrknutí, rozhlédnutí, vysunutý nápis ~1,25 s) – jinak by je rychlý start utnul. Oči jen
+ * v aplikaci na ploše (jinde úvodní obrazovka není vidět), s omezeným pohybem (statické logo) se nečeká nikdy.
+ */
+function launchWait({ brand, calm, app, at, now }) {
+  if (calm || (brand === 'letsi' && !app)) return 0;
+  return Math.max(0, at + (brand === 'letsi' ? 1250 : 950) - now);
+}
 function launchDone(now) {
   const el = $('#launch'); if (!el || el.dataset.out) return;
   el.dataset.out = '1';
   const out = () => { el.classList.add('out'); setTimeout(() => el.remove(), 700); };
   if (now === true) return out();
-  // vlaštovka ATLASu musí nejdřív vzlétnout (~0,9 s od prvního vykreslení; bez animací se nečeká). Oči Letsi na nic
-  // nečekají: hotový přehled má přednost, animace se rozplyne, kde zrovna je.
-  const calm = (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) || document.documentElement.dataset.brand === 'letsi';
-  const takeoff = new Promise(r => setTimeout(r, calm ? 0 : Math.max(0, (window.atlasLaunchAt || 0) + 950 - performance.now())));
+  const mq = q => Boolean(window.matchMedia && matchMedia(q).matches);
+  const takeoff = new Promise(r => setTimeout(r, launchWait({
+    brand: document.documentElement.dataset.brand, calm: mq('(prefers-reduced-motion: reduce)'),
+    app: mq('(display-mode: standalone), (display-mode: fullscreen), (display-mode: minimal-ui)') || navigator.standalone === true,
+    at: window.atlasLaunchAt || 0, now: performance.now(),
+  })));
   const fonts = document.fonts && document.fonts.ready ? Promise.race([document.fonts.ready, new Promise(r => setTimeout(r, 800))]) : Promise.resolve();
   Promise.all([fonts, takeoff]).then(() => requestAnimationFrame(() => requestAnimationFrame(out)));
 }

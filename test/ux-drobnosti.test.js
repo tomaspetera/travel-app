@@ -9,7 +9,7 @@ const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const appJs = read('public/js/app.js');
 
 test('spodní lišta: pevně Přehled · Lety · Cesty · Objevuj · Další, i když uživatel nejvíc otevírá Svět a Doporučení', () => {
-  const src = appJs.slice(appJs.indexOf('const NAV = ['), appJs.indexOf('/** ⋯ Další:'));
+  const src = appJs.slice(appJs.indexOf('const NAV = ['), appJs.indexOf('/** Kód letiště z místa domova'));
   const els = {};
   const ctx = {
     S: { navUse: { world: 99, recommend: 99, flights: 0, trip: 0, explore: 0 } }, // přeskládaná lišta z dřívějška

@@ -172,7 +172,8 @@ document.addEventListener('submit', function (e) {
    i poloha zorniček v klidu = logo). Oči uprostřed jednou mrknou, rozhlédnou se doleva a nahoru doprava („kam
    poletíme?“), znak dosedne na své místo v logu a vedle se vysune nápis, nakonec se rozsvítí slunce nad i. Pohyb
    ~1,2 s, jen transform a opacity. Výchozí stav pravidel = hotové logo: bez animace (omezený pohyb) zůstane statické.
-   Nic nezdrží: app.js launchDone ve vzhledu Letsi na animaci nečeká, je-li přehled hotový dřív, obrazovka se rozplyne. */
+   app.js launchDone (launchWait) nechá hlavní pohyb dohrát (~1,25 s od začátku), pak obrazovka zmizí, jakmile je přehled
+   hotový; pojistka launch-off 6 s platí dál. */
 #launch .l-logo{display:none}
 [data-brand=letsi] #launch .l-logo{display:block;position:absolute;left:50%;top:45%;width:288px;height:64px;margin:-32px 0 0 -144px;overflow:visible;fill:currentColor}
 [data-brand=letsi] #launch .l-okno{fill:var(--bg)}
@@ -188,9 +189,10 @@ document.addEventListener('submit', function (e) {
 @keyframes lo-oo{0%{opacity:0;transform:translate(1417.4px,0) scale(1.42)}
   10%{opacity:1;transform:translate(1417.4px,0) scale(1.5)}
   63%{transform:translate(1417.4px,0) scale(1.5);animation-timing-function:cubic-bezier(.2,.8,.2,1)}}
-/* mrknutí jako kukátko: 60 ms dolů, 30 ms zavřeno, 70 ms nahoru; clona přesahuje okénko na rám stejné barvy (bez švu) */
+/* mrknutí jako kukátko: ~55 ms dolů, 18 ms skoro zavřeno, 70 ms nahoru; víčka jen do 90 % okénka – úplně zavřené oči
+   by na okamžik udělaly ze znaku plný tmavý tvar a vypadalo by to jako chyba načítání */
 @keyframes lo-lid{14%{transform:scaleY(0);animation-timing-function:cubic-bezier(.5,0,1,1)}
-  19%{transform:scaleY(1)}21.5%{transform:scaleY(1);animation-timing-function:cubic-bezier(0,0,.3,1)}27.5%{transform:scaleY(0)}}
+  18.5%{transform:scaleY(.9)}20%{transform:scaleY(.9);animation-timing-function:cubic-bezier(0,0,.3,1)}26%{transform:scaleY(0)}}
 /* pohled: na tebe → doleva → nahoru doprava (klid); okénka (hlava) jdou s ním */
 @keyframes lo-zor{0%,29%{transform:translate(0,-8px)}43%,52%{transform:translate(-7px,-8px)}66%{transform:translate(7.01px,-13.48px)}}
 @keyframes lo-hl{0%,29%{transform:translate(0,0)}43%,52%{transform:translate(-6px,0)}66%{transform:translate(4.73px,-1.29px)}}
