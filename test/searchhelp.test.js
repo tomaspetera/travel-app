@@ -356,11 +356,11 @@ test('timeChips + activeFilters: čipy s počtem skrytých nabídek, popisky pod
   const f = tf({ out: ['night', 'morning'], back: ['evening'], arrBy: 22, stops: 0, maxDur: 390, maxLay: 120 });
   const chips = H.activeFilters(null, { excludeOrigins: new Set(), excludeCarriers: new Set(), time: f }, {}, { hidden: { tOut: 3, maxLay: 1 }, ret: true });
   assert.deepEqual(plain(chips.map((c) => [c.key, c.label, c.hidden])), [
-    ['tOut', '🛫 odlet tam ráno, v noci', 3], ['tBack', '🛬 odlet zpět večer', 0], ['arrBy', 'přílet do 22:00', 0], ['stops', 'bez přestupu', 0],
-    ['maxDur', '⏱ cesta max. 6\u00a0h 30\u00a0min', 0], ['maxLay', '⌛ přestup max. 2\u00a0h', 1]]);
+    ['tOut', 'odlet tam ráno, v noci', 3], ['tBack', 'odlet zpět večer', 0], ['arrBy', 'přílet do 22:00', 0], ['stops', 'bez přestupu', 0],
+    ['maxDur', 'cesta max. 6\u00a0h 30\u00a0min', 0], ['maxLay', 'přestup max. 2\u00a0h', 1]]);
   assert.ok(chips.every((c) => c.time && !c.rerun));
   const one = H.timeChips(tf({ out: ['afternoon'], back: ['morning'], arrBy: 24, stops: 1 }), { ret: false });
-  assert.deepEqual(plain(one.map((c) => c.label)), ['🛫 odlet odpoledne', 'přílet před půlnocí', 'max. 1 přestup'], 'jen tam: bez filtru zpět');
+  assert.deepEqual(plain(one.map((c) => c.label)), ['odlet odpoledne', 'přílet před půlnocí', 'max. 1 přestup'], 'jen tam: bez filtru zpět');
   assert.deepEqual(plain(H.timeChips(tf({}))), []);
 });
 
@@ -370,7 +370,7 @@ test('smartActions: filtry času a přestupů, které skryly nabídky, napřed �
   assert.deepEqual(plain(acts.slice(0, 3).map((a) => [a.key, a.label, a.clear])), [
     ['clearTime', 'Zrušit filtry času a přestupů (skryly 11)', 'time'],
     ['clear:stops', 'Zrušit „bez přestupu“ (skryto 9)', 'stops'],
-    ['clear:tOut', 'Zrušit „🛫 odlet tam ráno“ (skryto 5)', 'tOut']]);
+    ['clear:tOut', 'Zrušit „odlet tam ráno“ (skryto 5)', 'tOut']]);
   assert.ok(acts.slice(0, 3).every((a) => !a.patch));
   assert.equal(acts[3].key, 'flex1', 'pak obvyklé úpravy hledání');
   const single = H.smartActions(FORM, RES, { today: '2026-10-05', country, flag, time: { chips: H.timeChips(tf({ maxLay: 60, arrBy: 20 }), { hidden: { maxLay: 2 } }), any: 2 } });
@@ -443,7 +443,7 @@ test('reach jako filtr „Jen dostupné z domova“: skryje jen noc veřejnou do
   assert.deepEqual(plain(H.timeFails({ out: TL('PRG', 'BCN', '2026-11-12T10:00:00', null), back: late }, f)), ['reach']);
   assert.deepEqual(plain(H.timeFails({ back: late }, f)), ['reach']);
   assert.deepEqual(plain(H.timeFails({ back: { ...late, to: 'PRG' } }, f)), []);
-  assert.deepEqual(plain(H.timeChips(f).map((c) => [c.key, c.label])), [['reach', '🏠 jen dostupné z domova']]);
+  assert.deepEqual(plain(H.timeChips(f).map((c) => [c.key, c.label])), [['reach', 'jen dostupné z domova']]);
 });
 
 test('fillLegs: filtr návratu neschová lety tam, které mu nevadí – složí se s návratem, který filtry prošel', () => {

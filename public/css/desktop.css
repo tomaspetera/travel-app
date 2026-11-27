@@ -195,10 +195,12 @@
   :root[data-brand="letsi"] .side-test .test-fb{color:#F3F4F0}
   /* text tlačítek zůstává pro čtečku (font-size 0), u motivu je ve <span> */
   :root[data-brand="letsi"] #themeToggle>span{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+  /* pořadí jako v DOM (každý skript vkládá hned za motiv – plus.js po transfer.js, Co je nového app.js až nakonec):
+     jiné pořadí by Tab vedlo sem a tam, obrys i popisek by přeskakovaly */
   :root[data-brand="letsi"] #themeToggle{order:1}
   :root[data-brand="letsi"] #sideWn{order:2}
-  :root[data-brand="letsi"] #sideXfer{order:3}
-  :root[data-brand="letsi"] #sidePlus{order:4}
+  :root[data-brand="letsi"] #sidePlus{order:3}
+  :root[data-brand="letsi"] #sideXfer{order:4}
   :root[data-brand="letsi"] #sideAbout{order:5}
   :root[data-brand="letsi"] .side-tools>[data-tip]:hover::after,:root[data-brand="letsi"] .side-tools>[data-tip]:focus-visible::after{content:attr(data-tip);
     position:absolute;left:0;right:0;top:calc(100% + 6px);padding:4px 10px;border-radius:9px;background:#F3F4F0;color:#14161F;

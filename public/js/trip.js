@@ -832,20 +832,26 @@ let calOut = false; // jedna obsluha klepnutí mimo nabídku „Do kalendáře �
     // Rozpracovaná cesta (vybraná trasa, ubytování, auto, program nebo odškrtnuté rezervace) se nezahodí – uložená zůstane
     // v Mých cestách, neuložená jen po zeptání („↩ Vybrat jiný let“ i nový výběr z výsledků by ji jinak potichu přepsaly).
     const mine = S.trip;
+    // „Změnit let“ u uložené cesty (app.js editTrip → window.reflight = její tripId): let se vymění u ní – dřív vznikla
+    // druhá cesta se stejným názvem bez programu. Značka platí jen pro tento výběr (app.js go ji smaže i při odchodu z Letů).
+    const old = window.reflight && Array.isArray(S.trips) ? S.trips.find(x => x && x.tripId && x.tripId === window.reflight) : null, ow = old && old.wizard;
+    window.reflight = null;
+    // let jinam (v Letech hledal jiný cíl) = nová cesta jako dřív – program a název starého cíle by k letu nepatřily
+    const re = ow && ow.flight && ow.flight.out && (ow.flight.out.to === t.out.to || (ow.dest && ow.dest.label === dest.label)) ? savedEdit(old) : null;
     // stejný let tam i zpět znovu (z výsledků, z uložených výsledků) pro stejně lidí a zavazadla → pokračovat v rozpracované
     // cestě; za stejnou cenu z novějšího hledání platí cena k jeho času
-    if (mine && mine.flight && JSON.stringify([mine.flight.out, midLegs(mine), mine.flight.back || null]) === JSON.stringify([t.out, Array.isArray(t.mid) ? t.mid : [], t.back || null])
+    if (!re && mine && mine.flight && JSON.stringify([mine.flight.out, midLegs(mine), mine.flight.back || null]) === JSON.stringify([t.out, Array.isArray(t.mid) ? t.mid : [], t.back || null])
       && +mine.adults === +result.query.adults && sameKids(mine, result.query) && (mine.bags || 'none') === (result.query.bags || 'none')) {
       if (at > 0 && at - mem > (mine.flight.pricedAt || 0) && at <= Date.now() && mine.flight.flightCzk === t.flightCzk) { mine.flight.pricedAt = at - mem; persist(); }
       go('trip', { drill: true }); return;
     }
-    if (!leaveTrip(mine, done => `Máš rozpracovanou cestu: ${mine.dest?.label || mine.flight.out.to} (${done.join(', ')}). Nahradit ji novou cestou s tímto letem?`)) return;
+    if (!(re && re.open) && !leaveTrip(mine, done => `Máš rozpracovanou cestu: ${mine.dest?.label || mine.flight.out.to} (${done.join(', ')}). Nahradit ji novou cestou s tímto letem?`)) return;
     // Let z průběžných výsledků (pomalejší zdroje ještě hledaly): statistika cen i úroveň ceny letu jsou jen z části
     // zdrojů – neuložit, doplní je konečný výsledek téhož hledání (finalStats, statsWait = jeho dotaz). Statistika
     // průběžného výsledku čeká stranou (statsPreview) pro případ, že hledání konečný výsledek nepřinese (statsGiveUp).
     const part = Boolean(result.partial), created = Date.now();
     const fly = Array.isArray(t.mid) && t.mid.length ? flyBases(t, stops, 3) : null;
-    S.trip = {
+    const trip = {
       v: 1,
       created,
       adults: result.query.adults,
@@ -884,6 +890,12 @@ let calOut = false; // jedna obsluha klepnutí mimo nabídku „Do kalendáře �
       step,
     };
     staysData = null; carsData = null;
+    if (re) {
+      const n = reflightTrip(re.t, trip);
+      saveRetimed(re.e, n, true, outLeg(n).date, backLeg(n) ? backLeg(n).date : stayDates(n).checkout);
+      go('trip', { drill: true }); return;
+    }
+    S.trip = trip;
     persist();
     if (window.Count) Count.hit('trip_started'); // souhrnný počet (count.js) – nová cesta s letem, i vlastním
     go('trip', { drill: true }); // Zpět telefonu vrátí k výsledkům, ze kterých let je (app.js viewHist)
@@ -4504,6 +4516,13 @@ let calOut = false; // jedna obsluha klepnutí mimo nabídku „Do kalendáře �
     }
     return { ...p, days, span: { start: w.start, end: w.end, arrivalTime: w.arrivalTime || null, departureTime: w.departureTime || null } };
   }
+  /** Hotely vybrané z nabídek (platily pro původní dny a lidi) pryč, ručně zadané zůstanou (mění t). → kolik jich bylo. */
+  function dropPicked(t) {
+    let n = 0;
+    if (t.stay && t.stay.mode === 'pick') { t.stay = null; unbook(t, 'stay'); n++; }
+    for (const b of (t.route && Array.isArray(t.route.bases) ? t.route.bases : [])) if (b.stay && b.stay.mode === 'pick') { b.stay = null; n++; }
+    return n;
+  }
   /**
    * Cesta s vlastním letem na nový odjezd / návrat / počet cestujících (mění t): vše se posune o rozdíl odjezdu, návrat
    * se nastaví (prázdný = jen tam; u letu jen tam je návrat konec pobytu). Hotel vybraný z nabídek a auto platily pro původní dny a lidi – pryč (jako po změně
@@ -4519,9 +4538,7 @@ let calOut = false; // jedna obsluha klepnutí mimo nabídku „Do kalendáře �
     else if ((end || '') !== (f.back ? f.back.date : '')) f.back = end ? { ...f.back, date: end } : null;
     t.adults = Math.min(9, Math.max(1, Math.round(+adults) || +t.adults || 1));
     if (sig() === was) return '';
-    let hotel = 0;
-    if (t.stay && t.stay.mode === 'pick') { t.stay = null; unbook(t, 'stay'); hotel++; }
-    for (const b of (t.route && Array.isArray(t.route.bases) ? t.route.bases : [])) if (b.stay && b.stay.mode === 'pick') { b.stay = null; hotel++; }
+    const hotel = dropPicked(t);
     // program platil pro původní termín: posunutý platí dál, kratší / delší se jen srovná do nových dnů (nic nezmizí)
     if (plan && t.plan && !tripPlan(t)) t.plan = fitPlan(t.plan, progSpan(t));
     const r = retime(t, times), car = r === 'car' || r === 'both';
@@ -4535,15 +4552,27 @@ let calOut = false; // jedna obsluha klepnutí mimo nabídku „Do kalendáře �
    * (shiftDays). Otevřená v průvodci = upraví se i tam. → hláška, co zadat znovu, nebo null (nejde).
    */
   function retimeSaved(e, { start, end, adults }) {
-    if (!e || !e.wizard || !e.wizard.flight || !e.wizard.flight.own || !e.wizard.flight.out) return null;
-    const open = S.trip && S.trip.created === e.tripId;
-    // jiná cesta v průvodci se změnami před uložením: napřed do seznamu (saveToPlanner níž by její ukládání zrušil)
+    if (!e || !e.wizard || !e.wizard.flight || !e.wizard.flight.own) return null;
+    const x = savedEdit(e);
+    if (!x) return null;
+    const msg = retimeOwn(x.t, start, end, adults);
+    saveRetimed(e, x.t, x.open, start, end);
+    return msg;
+  }
+  /** Uložená cesta e k úpravě: kopie cesty z průvodce (open – je v něm otevřená), jinak z Mých cest. → { e, t, open } / null. */
+  function savedEdit(e) {
+    if (!e || !e.wizard || !e.wizard.flight || !e.wizard.flight.out) return null;
+    const open = Boolean(S.trip && S.trip.created === e.tripId);
+    // jiná cesta v průvodci se změnami před uložením: napřed do seznamu (saveToPlanner v saveRetimed by její ukládání zrušil)
     if (!open && autoT) autoSave();
     let t = null;
     try { t = open ? JSON.parse(JSON.stringify(S.trip)) : sanitizeTrip(JSON.parse(JSON.stringify(e.wizard))); } catch (err) { t = null; }
     if (!t) return null;
     if (!open) { t.booked = bookedOf(e.wizard); t.step = 'summary'; t.created = e.tripId; }
-    const msg = retimeOwn(t, start, end, adults);
+    return { e, t, open };
+  }
+  /** Upravená cesta t na nový termín start–end zpět do záznamu e v Mých cestách; open = zůstane otevřená v průvodci. */
+  function saveRetimed(e, t, open, start, end) {
     // aktivity a to, co vygeneroval průvodce, stejně – saveToPlanner pak pozná, co je vlastní
     e.days = shiftDays(e.days, e.start, start, end); e.genDays = shiftDays(e.genDays, e.start, start, end);
     const keep = S.trip;
@@ -4552,7 +4581,25 @@ let calOut = false; // jedna obsluha klepnutí mimo nabídku „Do kalendáře �
     // aktivity za novým návratem (trasa přes víc míst s kratším termínem) by itinerář neukázal – k poslednímu dni
     const x = entryOf(t);
     if (x) { x.days = shiftDays(x.days, x.start, x.start, x.end); x.genDays = shiftDays(x.genDays, x.start, x.start, x.end); save(); }
-    return msg;
+  }
+  // Co určuje vybraný let: cestující, zavazadla, doprava na letiště a do města, statistika cen (start – nová cesta)
+  const FLIGHT_KEYS = ['adults', 'children', 'infants', 'bags', 'flight', 'priceStats', 'statsWait', 'statsPreview', 'statsPart', 'home', 'groundRef', 'overland', 'ccs', 'ground', 'arrival', 'groundMode', 'carFuel'];
+  /**
+   * „Změnit let“ (app.js editTrip): cesta old s letem z nového výběru (fresh = cesta, jakou by start() založil). Id,
+   * program, trasa, odškrtnuté rezervace a ručně zadané ubytování zůstanou a posunou se na nový termín jako u změny
+   * termínu (retimeOwn); hotel vybraný z nabídek platil pro původní dny a lidi – pryč, auto s jinými časy taky (retime).
+   */
+  function reflightTrip(old, fresh) {
+    const times = tripTimes(old), plan = tripPlan(old);
+    const t = shiftYmd(old, daysBetween(outLeg(old).date, fresh.flight.out.date));
+    for (const k of FLIGHT_KEYS) if (k in fresh) t[k] = fresh[k]; else delete t[k];
+    // trasa přes víc měst podle letů: místa a noci z nových letů
+    if (fresh.route || (t.route && t.route.fixed === 'flights')) t.route = fresh.route || null;
+    t.step = fresh.step;
+    dropPicked(t);
+    if (plan && t.plan && !tripPlan(t)) t.plan = fitPlan(t.plan, progSpan(t));
+    retime(t, times);
+    return t;
   }
 
   /** JSON cesty do sdíleného odkazu (#trip=…, zkomprimovaný – sharelink.js): bez odškrtnutých rezervací a času založení. */

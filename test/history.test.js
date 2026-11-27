@@ -55,6 +55,8 @@ function app() {
       activeView = v;
       if (!opts.noHash) histDo(() => viewStep(v, opts.drill, from === 'dashboard' || opts.drill ? y0 : null));
     }`, ctx);
+  // hashView jde přes tabGo (Cesty se 2+ cestami = Moje cesty) – bez cest jako go
+  vm.runInContext(`var S = { trip: null, trips: [] };\n${pick('tripCount', 'tabGo')}`, ctx);
   vm.runInContext(pick('hist', 'histFlush', 'histBack', 'histDo', 'histDepth', 'viewHist', 'viewStep', 'trailNext', 'histTrip', 'tripEntry', 'histPop', 'isView', 'hashView', 'modalKb', 'kbSel', 'modalShow', 'modalName', 'modalOpen', 'modalClose'), ctx, { filename: 'app-hist.js' });
   // go() v app.js volá viewStep přes histDo – ověřit, že řádek ve stubu je opravdu ten z app.js
   assert.ok(APP.includes("if (!opts.noHash) histDo(() => viewStep(v, opts.drill, from === 'dashboard' || opts.drill ? y0 : null));"), 'go(): zápis do historie');
@@ -358,7 +360,7 @@ test('✨ lišta Co je nového: jen novinky od minulého otevření (nejvýš 3)
   // lišta nezakryje otevřený našeptávač ani „↓ zpět na …“ v Objevuj; na nízkém telefonu nesahá přes „Najít lety“
   const pwa = readFileSync(new URL('../public/css/pwa.css', import.meta.url), 'utf8');
   assert.match(pwa, /^body:has\(\.pi-dd:not\(\[hidden\]\)\) \.wn-pop,body:has\(\.ex-back:not\(\[hidden\]\)\) \.wn-pop\{display:none\}$/m);
-  assert.match(pwa, /@media\(max-width:860px\) and \(max-height:700px\)\{\.wn-pop\{max-height:30vh\}\}/);
+  assert.match(pwa, /@media\(max-width:860px\) and \(max-height:800px\)\{\.wn-pop\{max-height:30vh\}\}/);
   // karta na Přehledu už jen uvítání
   assert.match(app, /el\.hidden = mode !== 'welcome' \|\| done;/);
 });

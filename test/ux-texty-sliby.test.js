@@ -42,7 +42,7 @@ test('hlídání ceny: cílová cena „Upozornit pod“ jen s povolenými upozo
   const A = ctx.window.Alerts;
   assert.equal(A.targetLbl('granted'), 'Upozornit pod');
   for (const st of ['phone', 'default', 'denied', 'unsupported', undefined]) assert.equal(A.targetLbl(st), 'Zvýraznit pod', String(st));
-  assert.match(fl, /<label class="w-target">🎯 \$\{Alerts\.targetLbl\(notifOk\(\)\)\} <input/);
+  assert.match(fl, /<label class="w-target">\$\{Alerts\.targetLbl\(notifOk\(\)\)\} <input/);
   assert.doesNotMatch(fl, /Upozornit pod/);
 });
 

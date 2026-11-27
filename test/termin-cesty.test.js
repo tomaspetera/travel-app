@@ -169,6 +169,6 @@ test('✏️ Upravit: vlastní let mění termín („Upravit název a termín�
   const ed = fnOf('editTrip');
   assert.match(ed, /const own = ownWiz\(t\), fixed = Boolean\(t\.wizard\) && !own;/);
   assert.match(ed, /id="etFlight"[^>]*>\$\{ikona\('let'\)\} Změnit let<\/button>/);
-  assert.match(ed, /\$\('#etFlight'\); if \(ef\) ef\.onclick = \(\) => \{ modalClose\(\); tripFlights\(t\); \};/);
+  assert.match(ed, /\$\('#etFlight'\); if \(ef\) ef\.onclick = \(\) => \{ modalClose\(\); window\.reflight = t\.tripId; tripFlights\(t\); \};/);
   assert.match(ed, /Trip\.retimeSaved\(t, \{ start, end, adults: pax \}\)/);
 });

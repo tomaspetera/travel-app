@@ -16,7 +16,7 @@ const visible = (src) => src
   .replace(/(^|[\s;{}(),])\/\/.*$/gm, '$1')
   .replace(/ATLAS_MOCK/g, '')
   // jediná výjimka: novinka o přejmenování musí starý název říct, jinak by lidé nevěděli, že jde o tutéž aplikaci
-  .replace("['✨', 'ATLAS je teď Letsi',", '');
+  .replace("['novinky', 'ATLAS je teď Letsi',", '');
 
 test('viditelné texty: místo ATLAS jen Letsi (bez komentářů a technických názvů)', () => {
   const files = readdirSync(new URL('../public/js/', import.meta.url)).filter((f) => f.endsWith('.js') && !SKIP.has(f)).map((f) => `js/${f}`);
