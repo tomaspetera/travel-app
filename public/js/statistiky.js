@@ -26,6 +26,7 @@
     { shown: 'limit_shown', label: 'Hláška o limitu', clicks: [['limit_plus', 'chci Plus'], ['limit_download', 'stáhnout'], ['limit_replace', 'nahradit']] },
     { shown: 'plus_offer_shown', label: 'Nabídka Plus', clicks: [['plus_offer_click', 'klepnutí']] },
     { shown: 'sesit_shown', label: 'Sešit', clicks: [['sesit_click', 'klepnutí']] },
+    { shown: 'sesit_country_shown', label: 'Sešit z průvodce zemí', clicks: [['sesit_country_click', 'klepnutí']] },
   ];
   const VIEWS = [['view_dashboard', 'Přehled'], ['view_flights', 'Lety'], ['view_trip', 'Průvodce cestou'], ['view_trips', 'Moje cesty'], ['view_explore', 'Objevuj'], ['view_world', 'Svět (mapa a země)']];
   const TABLE = [['app_open', 'Otevř.'], ['search_done', 'Hled.'], ['verify_click', 'Ověř.'], ['buy_click', 'Prokl.'], ['trip_started', 'Prův.'], ['trip_saved', 'Ulož.']];
