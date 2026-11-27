@@ -159,9 +159,16 @@
   const cell = v => (v === 'ano' ? '<span aria-hidden="true">✓</span><span class="sr-only">ano</span>' : v === 'ne' ? '<span aria-hidden="true">–</span><span class="sr-only">ne</span>' : h(v));
   /**
    * Z čeho Letsi žije – provize jen při zapnutých partnerských odkazech (/api/health affiliate, stejně jako about.js
-   * earnings). Dokud stav serveru neznáme, bez provizí: okno nesmí tvrdit něco, co O aplikaci popírá.
+   * earnings), příspěvky jen s tlačítkem 💛 Podpořit Letsi v O aplikaci (support.url, About.okPay) – bez možnosti
+   * přispět by „žije z příspěvků“ byl slib naprázdno. Dokud stav serveru neznáme, jen neutrální věta.
    */
-  const livesTxt = health => `Z čeho Letsi žije: ${health && health.affiliate === true ? 'z provizí partnerů (takové odkazy jsou označené reklama) a ' : ''}z dobrovolných příspěvků, později i z předplatného Plus. Pořadí výsledků si nikdo nekoupí.`;
+  function livesTxt(health) {
+    const aff = Boolean(health && health.affiliate === true);
+    const pay = Boolean(health && health.support && window.About && About.okPay(health.support.url));
+    if (!aff && !pay) return 'Letsi je zatím zdarma a pořadí výsledků si nikdo nekoupí.';
+    const from = [aff && 'z provizí partnerů (takové odkazy jsou označené reklama)', pay && 'z dobrovolných příspěvků (💛 Podpořit Letsi v O aplikaci)'].filter(Boolean).join(' a ');
+    return `Z čeho Letsi žije: ${from}, později i z předplatného Plus. Pořadí výsledků si nikdo nekoupí.`;
+  }
   function pageHtml(health) {
     return `<div class="modal-body plus-page">
       <h3>⭐ ${h(NAME)}</h3>

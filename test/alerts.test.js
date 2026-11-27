@@ -921,7 +921,7 @@ test('karta hlídání: 💡 bez hodnocení vůči témuž hledání, proběhlé
   assert.match(fl, /<b class="\$\{old \? '' : since < 0 \? 'good' : since > 0 \? 'bad' : ''\}">\$\{Alerts\.fmtPct\(since\)\}<\/b>/);
   assert.match(fl, /\$\{old \? 'Naposledy' : 'Teď'\}/);
   assert.match(fl, /\$\('#watchCheckAll'\)\.hidden = !live\.length;/);
-  assert.match(fl, /live \? 'Hlídám, dokud máš aplikaci otevřenou' : 'Termíny proběhly – smaž je, nebo zapni 📅 posouvání'/);
+  assert.match(fl, /live \? 'Hlídám – zkontroluju, když Letsi otevřeš' : 'Termíny proběhly – smaž je, nebo zapni 📅 posouvání'/);
   assert.match(fl, /\$\{drop \? 'Všechna zlevnění' : 'Hlídané ceny'\} \(\$\{total\}\)/);
   assert.match(fl, /'poslední kontrola nic nenašla – zkusím znovu'/);
 });
