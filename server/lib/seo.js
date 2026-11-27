@@ -100,11 +100,30 @@ export function manifestFor(json, brand = BRAND) {
 }
 
 /**
+ * Zásady, podmínky a 404 v motivu zvoleném v aplikaci (atlas_v1.theme jako index.html), jinak podle systému – kdo má
+ * v aplikaci tmavý režim, nedostane oslnivě světlou stránku. Skript v <head> za metaznačkami theme-color (přepíše jejich
+ * barvu), CSP ho pouští podle otisku.
+ */
+export const THEME_SCRIPT = `<script>
+try {
+  var t = JSON.parse(localStorage.getItem('atlas_v1')).theme;
+  if (t === 'dark' || t === 'light') {
+    document.documentElement.setAttribute('data-theme', t);
+    document.querySelectorAll('meta[name="theme-color"]').forEach(function (m) { m.content = t === 'dark' ? '#14161F' : '#F3F4F0'; });
+  }
+} catch (e) { }
+</script>`;
+/** Tmavé tokeny pro zvolený tmavý motiv i pro tmavý systém bez volby (zvolený světlý vyhraje nad systémem). Logo: --lg-l
+    a --lg-d = display světlé a tmavé varianty (<picture> s media by se řídil jen systémem). */
+export const themeCss = (dark) => `:root[data-theme=dark]{${dark}}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){${dark}}}`;
+
+/**
  * Stránka 404 pro neznámé adresy mimo API: česky, světlá i tmavá podle systému, s odkazem do aplikace. Část adresy
  * za # (sdílená cesta, plán, nabídka – prohlížeč ji serveru nepošle) si odkaz vezme s sebou, kdyby někdo poslal odkaz
  * s cestou navíc. Vzhled Letsi 2.1 jako public/css/letsi.css: Vápno a Noc, Pistácie jen pod textem Noc, žádné
  * přechody. Styly vložené; logo a písmo Onest z vlastního serveru absolutní cestou – ukáže se stejně v každé hloubce
- * adresy. Logo přes <img> rovnou ze značky (public/vendor/letsi/, beze změny), tmavá varianta podle systému.
+ * adresy. Logo přes <img> rovnou ze značky (public/vendor/letsi/, beze změny), tmavá varianta podle motivu (THEME_SCRIPT).
  */
 export function notFoundHtml(brand = BRAND) {
   const name = esc(brand.name);
@@ -117,16 +136,18 @@ export function notFoundHtml(brand = BRAND) {
 <title>Stránka nenalezena · ${name}</title>
 <meta name="theme-color" content="#F3F4F0" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#14161F" media="(prefers-color-scheme: dark)">
+${THEME_SCRIPT}
 <style>
 @font-face{font-family:'Onest';font-style:normal;font-weight:400;font-display:swap;src:url(/vendor/fonts/letsi/onest-400.woff2) format('woff2')}
 @font-face{font-family:'Onest';font-style:normal;font-weight:700 900;font-display:swap;src:url(/vendor/fonts/letsi/onest-700.woff2) format('woff2')}
-:root{color-scheme:light;--bg:#F3F4F0;--card:#FFFFFF;--text:#14161F;--muted:#585D56;--border:#DFE2DA}
-@media (prefers-color-scheme:dark){:root{color-scheme:dark;--bg:#14161F;--card:#1D2029;--text:#F3F4F0;--muted:#A6ACB6;--border:#2A2E3A}}
+:root{color-scheme:light;--bg:#F3F4F0;--card:#FFFFFF;--text:#14161F;--muted:#585D56;--border:#DFE2DA;--lg-l:block;--lg-d:none}
+${themeCss('color-scheme:dark;--bg:#14161F;--card:#1D2029;--text:#F3F4F0;--muted:#A6ACB6;--border:#2A2E3A;--lg-l:none;--lg-d:block')}
 *{box-sizing:border-box;margin:0}
 body{min-height:100vh;min-height:100dvh;display:grid;place-items:center;padding:24px 16px;background:var(--bg);color:var(--text);font:16px/1.5 Onest,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
 main{width:100%;max-width:420px;padding:32px 24px;border:1px solid var(--border);border-radius:20px;background:var(--card);text-align:center}
 .logo{display:block;margin:0 auto 24px}
-.logo img{display:block;width:162px;height:36px;margin:0 auto}
+.logo img{display:var(--lg-l);width:162px;height:36px;margin:0 auto}
+.logo img+img{display:var(--lg-d)}
 /* kód jednobarevně barvou textu – přechod v textu identita nepovoluje */
 .code{font:800 56px/1 Onest,system-ui,sans-serif;color:var(--text)}
 h1{margin:12px 0 8px;font-size:22px;line-height:1.3}
@@ -138,7 +159,7 @@ a:focus-visible{outline:3px solid var(--text);outline-offset:3px}
 </head>
 <body>
 <main>
-<picture class="logo"><source srcset="/vendor/letsi/letsi-logo-negativ.svg" media="(prefers-color-scheme: dark)"><img src="/vendor/letsi/letsi-logo-hlavni.svg" alt="${name}" width="162" height="36"></picture>
+<div class="logo"><img src="/vendor/letsi/letsi-logo-hlavni.svg" alt="${name}" width="162" height="36"><img src="/vendor/letsi/letsi-logo-negativ.svg" alt="${name}" width="162" height="36"></div>
 <div class="code" aria-hidden="true">404</div>
 <h1>Tahle stránka neexistuje</h1>
 <p>Odkaz je asi neúplný nebo zastaralý. Lety, cesty i plánovač najdeš v aplikaci.</p>

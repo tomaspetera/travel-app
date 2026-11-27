@@ -6,7 +6,8 @@
 import { readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { BRAND } from '../brand.js';
-import { sendGenerated } from './seo.js';
+import { sendGenerated, THEME_SCRIPT, themeCss } from './seo.js';
+import { inlineScriptHashes } from './security.js';
 
 /** Adresa stránky → zdroj v docs/pravni/ (krátké české adresy; seo.js je dává do sitemap.xml). */
 export const LEGAL = {
@@ -120,16 +121,18 @@ export function legalPage(md, ctx = {}, other = null, brand = BRAND) {
 <title>${esc(title)}</title>
 <meta name="theme-color" content="#F3F4F0" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#14161F" media="(prefers-color-scheme: dark)">
+${THEME_SCRIPT}
 <style>
 @font-face{font-family:'Onest';font-style:normal;font-weight:400;font-display:swap;src:url(/vendor/fonts/letsi/onest-400.woff2) format('woff2')}
 @font-face{font-family:'Onest';font-style:normal;font-weight:700 900;font-display:swap;src:url(/vendor/fonts/letsi/onest-700.woff2) format('woff2')}
-:root{color-scheme:light;--bg:#F3F4F0;--card:#FFFFFF;--text:#14161F;--muted:#585D56;--border:#DFE2DA;--code:#ECEEE8}
-@media (prefers-color-scheme:dark){:root{color-scheme:dark;--bg:#14161F;--card:#1D2029;--text:#F3F4F0;--muted:#A6ACB6;--border:#2A2E3A;--code:#262A35}}
+:root{color-scheme:light;--bg:#F3F4F0;--card:#FFFFFF;--text:#14161F;--muted:#585D56;--border:#DFE2DA;--code:#ECEEE8;--lg-l:block;--lg-d:none}
+${themeCss('color-scheme:dark;--bg:#14161F;--card:#1D2029;--text:#F3F4F0;--muted:#A6ACB6;--border:#2A2E3A;--code:#262A35;--lg-l:none;--lg-d:block')}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--text);font:16px/1.6 Onest,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;overflow-wrap:break-word}
 header,main,footer{max-width:760px;margin:0 auto;padding:0 16px}
 header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-top:16px;padding-bottom:8px}
-header img{display:block;width:117px;height:26px}
+header img{display:var(--lg-l);width:117px;height:26px}
+header img+img{display:var(--lg-d)}
 main{padding-top:8px;padding-bottom:24px}
 h1{font-size:26px;line-height:1.25;margin:16px 0 20px}
 h2{font-size:20px;line-height:1.3;margin:32px 0 10px}
@@ -155,7 +158,7 @@ footer{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:center;padding-top:
 </head>
 <body>
 <header>
-<a href="/" aria-label="${name}"><picture><source srcset="/vendor/letsi/letsi-logo-negativ.svg" media="(prefers-color-scheme: dark)"><img src="/vendor/letsi/letsi-logo-hlavni.svg" alt="${name}" width="117" height="26"></picture></a>
+<a href="/" aria-label="${name}"><img src="/vendor/letsi/letsi-logo-hlavni.svg" alt="${name}" width="117" height="26"><img src="/vendor/letsi/letsi-logo-negativ.svg" alt="${name}" width="117" height="26"></a>
 <a class="back" href="/">Zpět do aplikace</a>
 </header>
 <main>
@@ -170,8 +173,8 @@ ${other ? `<a href="${esc(other.href)}">${esc(other.label)}</a>` : ''}
 `;
 }
 
-/** CSP: nic cizího a žádné skripty – jen vložené styly, logo a písmo z vlastního serveru (jako stránka 404). */
-export const LEGAL_CSP = "default-src 'none'; style-src 'unsafe-inline'; img-src 'self'; font-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
+/** CSP: nic cizího – jen skript s motivem podle otisku, vložené styly, logo a písmo z vlastního serveru (jako stránka 404). */
+export const LEGAL_CSP = `default-src 'none'; script-src ${inlineScriptHashes(THEME_SCRIPT).join(' ')}; style-src 'unsafe-inline'; img-src 'self'; font-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'`;
 
 const OTHER = { '/soukromi': { href: '/podminky', label: 'Podmínky užívání' }, '/podminky': { href: '/soukromi', label: 'Zásady ochrany osobních údajů' } };
 const memo = new Map();

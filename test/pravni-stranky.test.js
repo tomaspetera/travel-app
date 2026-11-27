@@ -10,7 +10,7 @@ process.env.ATLAS_MOCK = '1';
 const { createServer } = await import('../server/index.js');
 const { config } = await import('../server/config.js');
 const { publicMarkdown, inline, mdToHtml, legalPage, LEGAL } = await import('../server/lib/pravni.js');
-const { SECURITY_HEADERS } = await import('../server/lib/security.js');
+const { SECURITY_HEADERS, inlineScriptHashes } = await import('../server/lib/security.js');
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const DOCS = Object.values(LEGAL).map((f) => [f, read(`docs/pravni/${f}`)]);
@@ -72,7 +72,7 @@ test('převod markdownu: escapování, odkazy jen http(s)/mailto/relativní, tu�
   assert.equal(publicMarkdown('# T (návrh pro advokáta)\n> poznámka\n## A\ntext\n---\n## Otázky pro advokáta\n1. ?\n### pod\nx\n## B\ny'), '# T\n## A\ntext\n## B\ny');
 });
 
-test('GET /soukromi a /podminky: 200, česká stránka, CSP bez cizích zdrojů a skriptů, ETag a 304, HEAD; údaje z config', async () => {
+test('GET /soukromi a /podminky: 200, česká stránka, CSP bez cizích zdrojů (jen skript s motivem), ETag a 304, HEAD; údaje z config', async () => {
   const prev = [config.operator, config.feedbackEmail];
   try {
     config.operator = ''; config.feedbackEmail = '';
@@ -85,14 +85,17 @@ test('GET /soukromi a /podminky: 200, česká stránka, CSP bez cizích zdrojů 
       assert.equal(r.headers.get('x-atlas-build'), 'pravni', `${p}: X-Atlas-Build`);
       const csp = r.headers.get('content-security-policy');
       assert.match(csp, /default-src 'none'/);
-      assert.doesNotMatch(csp, /https?:|script-src|\*/, `${p}: nic cizího, žádné skripty`);
+      assert.doesNotMatch(csp, /https?:|\*/, `${p}: nic cizího`);
       for (const [k, v] of Object.entries(SECURITY_HEADERS)) if (k.toLowerCase() !== 'content-security-policy') assert.equal(r.headers.get(k), v, `${p}: ${k}`);
       const html = await r.text();
       assert.match(html, new RegExp(`<title>${h1}</title>`));
       assert.match(html, /<html lang="cs">/);
       assert.match(html, /<a class="back" href="\/">Zpět do aplikace<\/a>/);
       assert.match(html, /url\(\/vendor\/fonts\/letsi\/onest-400\.woff2\)/);
-      assert.doesNotMatch(html, /<script|fonts\.googleapis|src="https?:/, `${p}: bez skriptů a cizích zdrojů`);
+      assert.doesNotMatch(html, /<script src|fonts\.googleapis|src="https?:/, `${p}: bez cizích zdrojů`);
+      // jediný vložený skript (motiv z aplikace) a CSP pouští právě ten
+      assert.equal((html.match(/<script>/g) || []).length, 1, `${p}: jen skript s motivem`);
+      assert.match(csp, new RegExp(`script-src ${inlineScriptHashes(html)[0].replace(/[+/]/g, '\\$&')};`), `${p}: otisk skriptu v CSP`);
       assert.match(html, /prefers-color-scheme:dark/);
       assert.match(html, /e-mail provozovatele doplníme/);
       const etag = r.headers.get('etag');
