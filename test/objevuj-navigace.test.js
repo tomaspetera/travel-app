@@ -180,6 +180,36 @@ test('U37: „‹ Moje cesty“ nad průvodcem (histTop) – kroky průvodce pry
   b.tap('trip');
   b.ctx.histTop(); b.tick();
   assert.equal(b.H.i, 1);
+  // krok průvodce pod odbočkou do jiné sekce (panel na počítači: Cesty → Objevuj → Cesty se seznamem) se nevrací –
+  // jinak by návrat z Cest odešel zpátky do Objevuj
+  const c = app();
+  c.tap('trip');
+  c.els['#tripStep'] = {};
+  c.ctx.histTrip('flight', 'stay'); c.tick();
+  c.els['#tripStep'] = null;
+  c.tap('explore', { drill: true });
+  c.tap('trip', { drill: true });
+  c.ctx.histTop(); c.tick();
+  assert.equal(c.view(), 'trip');
+  assert.equal(c.ctx.location.hash, '#trip');
+  assert.equal(c.H.i, 4);
+  // 🔎 Prozkoumat v Objevuj (krok sekce Objevuj), odkazy do Letů a Cest, krok průvodce, ‹ Moje cesty: jen krok průvodce
+  const e = app();
+  e.tap('explore');
+  e.ctx.histSub(() => true); e.tick();
+  e.tap('flights', { drill: true });
+  e.tap('trip', { drill: true });
+  e.els['#tripStep'] = {};
+  e.ctx.histTrip('flight', 'stay'); e.tick();
+  e.ctx.histTop(); e.tick();
+  assert.equal(e.view(), 'trip');
+  assert.equal(e.H.i, 4, 'na kroku Cest pod průvodcem');
+  // Pokračovat › ze seznamu bez kroku průvodce: ‹ Moje cesty vrátí jen krok seznamu
+  const f = app();
+  f.tap('trip');
+  f.ctx.histSub(() => true); f.tick();
+  f.ctx.histTop(); f.tick();
+  assert.equal(f.H.i, 1);
   // showMine a Trip.mine kroky uklidí
   assert.match(TRIP, /mineFor = t\.created; render\(\); if \(typeof histTop === 'function'\) histTop\(\);/);
   assert.match(TRIP, /safeRender\(\);\n\s*if \(typeof histTop === 'function'\) histTop\(\);/);

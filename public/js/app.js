@@ -254,7 +254,7 @@ let lastWorld = 'map';
    Okno zavřené jinak (✕, klepnutí vedle, stažení dolů, Escape) svůj krok vrátí přes history.back() – ten je
    asynchronní: zápisy do historie, které přijdou mezitím (go() hned po modalClose(), další okno), počkají na jeho
    popstate, jinak by návrat skončil na staré adrese a hashchange přepnul pohled zpátky. */
-const hist = { modal: false, mq: null, step: false, trail: [], sub: null, backs: 0, queue: [], t: 0 };
+const hist = { modal: false, mq: null, step: false, trail: [], sub: null, subAt: 0, backs: 0, queue: [], t: 0 };
 // Posun stránky po Zpět řídí aplikace (sekce tam, kde uživatel byl – viewStep, okno a náhled stránkou nehýbou):
 // automatická obnova prohlížeče by skočila na posun z dřívějška i ve chvíli, kdy se mezitím přepnula sekce (okno
 // zavřené a hned jiná sekce) a nová sekce by začala uprostřed. Nové kroky ruční obnovu přebírají od aktuálního.
@@ -337,7 +337,7 @@ function histSub(back) {
     let st = history.state;
     // sekce bez kroku (aplikace otevřená rovnou v ní): Přehled pod ní jako u sekce z lišty
     if (!histDepth(st)) { history.replaceState(st, '', '#dashboard'); history.pushState(st = { atlasV: 1 }, '', '#' + activeView); }
-    history.pushState({ atlasV: histDepth(st) + 1, atlasS: 1 }, '', '#' + activeView);
+    history.pushState({ atlasV: hist.subAt = histDepth(st) + 1, atlasS: 1 }, '', '#' + activeView);
   });
 }
 /**
@@ -346,9 +346,14 @@ function histSub(back) {
  * a na Přehled vedlo až to druhé.
  */
 function histTop() {
-  const n = (hist.step ? 1 : 0) + (hist.sub ? 1 : 0);
-  hist.step = false; hist.trail = []; hist.sub = null;
-  if (n && !hist.modal) histBack(n);
+  histDo(() => {
+    // vrátit jen kroky navrchu historie (krok průvodce a pod ním krok seznamu – hloubka z histSub): po odbočce z Cest
+    // jinam (panel na počítači, odkaz) a zpátky leží pod jinou sekcí a návrat by z Cest odešel tam
+    const st = history.state, d = histDepth(st);
+    const top = hist.step && st && st.atlasT ? 1 : 0, n = top + (hist.sub && hist.subAt === d - top && (top || (st && st.atlasS)) ? 1 : 0);
+    hist.step = false; hist.trail = []; hist.sub = null;
+    if (n && !hist.modal) histBack(n);
+  });
 }
 function histPop() {
   if (hist.backs) { // návrat, který si aplikace sama vyžádala
