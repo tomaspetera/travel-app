@@ -26,6 +26,7 @@
 .hero-search2{margin-top:22px;display:grid;grid-template-columns:1fr 1fr auto;gap:10px;max-width:860px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.22);padding:8px;border-radius:16px;-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
 .hs-field{display:flex;flex-direction:column;padding:4px 8px;min-width:0}
 .hs-lab{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;font-weight:800;color:rgba(255,255,255,.7)}
+.hs-key{display:none} /* zkratka „/“ jen na počítači (desktop-flights.css) – na telefonu není klávesnice */
 .hs-home{margin:6px 0 4px}
 .hero-search2 .btn{align-self:stretch;padding:0 22px}
 

@@ -52,7 +52,7 @@ test('U2: bez domova čipy měst a 📍 Moje poloha pod Odkud nahoře; s domovem
 });
 
 test('U2: čipy jsou v poli Odkud nahoře, napojené na změnu domova; uvítání se na Odkud neptá', () => {
-  const field = HTML.slice(HTML.indexOf('<span class="hs-lab">Odkud</span>'), HTML.indexOf('<span class="hs-lab">Kam</span>'));
+  const field = HTML.slice(HTML.indexOf('<span class="hs-lab">Odkud</span>'), HTML.indexOf('<span class="hs-lab">Kam'));
   assert.match(field, /id="heroFrom"[\s\S]*<div class="wc-chips hs-home" id="heroHomeAsk" role="group" aria-label="[^"]+" hidden><\/div><\/div>/);
   assert.match(fn(FL, 'updateHomeChip'), /\n {4}paintHomeAsk\(\);\n/);
   assert.match(read('css/atlas.css'), /\.wc-chips\[hidden\]\{display:none\}/);
