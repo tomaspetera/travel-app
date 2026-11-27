@@ -2346,6 +2346,7 @@
     // „Kamkoliv“ a země: výchozí Přehled (řádek na město, klepnutím plná karta), Karty = každý cíl celou kartou
     if (isRoute && view.mode === 'cards') view.mode = 'list';
     // 📅 Kalendář u jednoho cíle ze serveru, u Kamkoliv a země z načtených nabídek (destCalHtml)
+    // značka před slovem (☰, ≡, ✈︎) je jen na počítači (vs-ic); Mapa a Kalendář ji nemají – celé slovo musí zůstat vidět i na telefonu
     const modes = [...(exactRoute ? [['legs', '✈︎ Lety']] : []), ['list', exactRoute ? '☰ Kombinace' : isRoute ? '☰ Seznam' : '≡ Přehled'], ...(!isRoute ? [['cards', '☰ Karty']] : []), ['map', 'Mapa'], ['cal', 'Kalendář']];
     // telefon: filtry, řazení a „Odkud se vyplatí letět“ za jedním tlačítkem – výsledky hned pod hlavičkou (na počítači
     // vidět vždy); otevřené zůstane i po překreslení, otevřený panel času a přestupů ho drží otevřené. Poznámka o pořadí
@@ -2359,7 +2360,7 @@
       ${best ? ` · nejlevněji <b class="good">${czk(best.perPersonCzk)}</b>/os.${bestFrom}` : ''}<span id="pinHead">${pinNow.n ? ` · <button type="button" class="linkbtn pin-open" id="pinOpen">${ikona('odlozeno')} Odložené (${pinNow.n})</button>` : ''}</span></div></div>
       <div class="res-tools">
         <button type="button" class="btn sm ghost res-more-btn" id="resMoreBtn" aria-expanded="${moreOpen}" aria-controls="resMore" title="Filtry, řazení a srovnání letišť">${ikona('filtr')} Filtry${nMore ? ` <b class="tf-n">${nMore}</b>` : ''} <span aria-hidden="true">${moreOpen ? '▴' : '▾'}</span></button>
-        <div class="seg" id="viewSeg">${modes.map(v => { const [ic, ...w] = v[1].split(' '); return `<button type="button" data-v="${v[0]}" class="${view.mode === v[0] ? 'on' : ''}"><span class="vs-ic">${ic} </span>${w.join(' ')}</button>`; }).join('')}</div>
+        <div class="seg" id="viewSeg">${modes.map(v => { const w = v[1].split(' '), ic = w.length > 1 ? w.shift() : ''; return `<button type="button" data-v="${v[0]}" class="${view.mode === v[0] ? 'on' : ''}">${ic ? `<span class="vs-ic">${ic} </span>` : ''}${w.join(' ')}</button>`; }).join('')}</div>
       </div></div>
       ${kidsHtml()}${view.mode === 'map' || view.mode === 'cal' ? '' : nudgeHtml() + groundBanner(res)}
       ${filterChips(chips)}

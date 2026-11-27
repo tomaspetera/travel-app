@@ -142,3 +142,13 @@ test('arrLead(): emoji druhu dopravy ze SearchHelp na štítku nabídky → ikon
   // štítek nabídky bere text přes arrLead (okno cíle si emoji ze SearchHelp dál bere jako ikonu řádku – dpArr)
   assert.match(FL, /const arrChipHtml = c => `[^`]*\$\{arrLead\(c\.text\)\}<\/span>`/);
 });
+
+test('přepínač výsledků: Mapa a Kalendář bez značky zůstanou na telefonu vidět (vs-ic se na úzkém telefonu skrývá)', () => {
+  const m = FL.match(/id="viewSeg">\$\{modes\.map\((v => \{[^\n]*?\})\)\.join\(''\)\}<\/div>/);
+  assert.ok(m, 'viewSeg');
+  const btn = new Function('view', `return ${m[1]};`)({ mode: 'map' });
+  // co uvidí telefon: tlačítko bez skrytého <span class="vs-ic">
+  const phone = (v) => btn(v).replace(/<span class="vs-ic">[^<]*<\/span>/, '').replace(/<[^>]+>/g, '');
+  assert.deepEqual([['map', 'Mapa'], ['cal', 'Kalendář'], ['list', '☰ Seznam']].map(phone), ['Mapa', 'Kalendář', 'Seznam']);
+  assert.match(btn(['list', '☰ Seznam']), /<span class="vs-ic">☰ <\/span>Seznam<\/button>$/);
+});
