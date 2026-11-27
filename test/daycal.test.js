@@ -60,7 +60,7 @@ test('dayCal: jen tam bez dnů návratu; stejná cena → první (pořadí výpi
 test('výsledky: 📅 Kalendář i u Kamkoliv a země (z načtených nabídek), ne u cesty přes víc měst', () => {
   const js = src('js/flights.js');
   // přepínač pohledů nabízí kalendář vždy (cesta přes víc měst má vlastní výpis a do přepínače nedojde)
-  assert.match(js, /\['map', '🗺️ Mapa'\], \['cal', '📅 Kalendář'\]\];/);
+  assert.match(js, /\['map', 'Mapa'\], \['cal', 'Kalendář'\]\];/);
   assert.match(js, /if \(view\.mode === 'cal' && res\.mode === 'multi'\) view\.mode = 'list';/);
   // Kamkoliv: kalendář cílů z dayCal a pod ním cíle vybraného dne (bez tří velkých karet) s ✕ zrušit den
   assert.match(js, /function destCalHtml\(res, vis\)/);

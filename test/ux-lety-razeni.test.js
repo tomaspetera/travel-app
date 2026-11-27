@@ -90,7 +90,7 @@ test('U7: meta řádek „z Prahy a okolí (5 letišť)“ místo kódů; nesklo
 
 test('U7: čip letiště ve Filtrech s názvem města a jednotkou („PED · Pardubice · cesta ~240 Kč“), štítek ve kartě i řádku', () => {
   assert.match(fl, /\$\{o\.iata\}\$\{SearchHelp\.apName\(o\.iata, apNow\) !== o\.iata \? ` · \$\{esc\(SearchHelp\.apName\(o\.iata, apNow\)\)\}` : ''\}/);
-  assert.match(fl, /`\$\{o\.ground\.own \? '🏠 ' : ''\}cesta ~\$\{czk\(o\.ground\.czk\)\}`/);
+  assert.match(fl, /`\$\{o\.ground\.own \? ikona\('domov'\) \+ ' ' : ''\}cesta ~\$\{czk\(o\.ground\.czk\)\}`/);
   assert.match(fl, /function badges\(t, g, idx\) \{\n    const out = \[apTagsHtml\(t\)\];/, 'karta: štítek první');
   assert.match(fl, /<span class="tm-ap">\$\{tg\}<\/span>/, 'krátký řádek na telefonu');
   const css = read('public/css/flights.css');

@@ -22,6 +22,8 @@ function cut(from, to) {
 const src = cut('  // Uživatel čte „orientační“', '  /* ---------- živé ověření cen z mezipaměti');
 const F = new Function('health', 'esc', 'SearchHelp', `${src}; return { liveOn, liveFoot, srcOkHtml, cacheMark, priceSrc, radarOrient, cacheTag, CACHE_NOTE };`);
 const mod = (health = null) => F(health, esc, SearchHelp);
+// ikona Letsi (stejná kopie jako ve flights.js) – štítek super ceny ji má místo 🔥
+const ikona = n => `<span class="ico i-${n}" aria-hidden="true"></span>`;
 const hp = on => ({ providers: ['ryanair', 'wizzair', 'kiwi', 'travelpayouts'].map(id => ({ id, enabled: on.includes(id) })) });
 const CLEAN = hp(['travelpayouts']), ALL = hp(['ryanair', 'wizzair', 'kiwi', 'travelpayouts']);
 
@@ -110,13 +112,13 @@ test('patička a návod Zdroje cen podle toho, co /api/health hlásí jako zapnu
   assert.match(fl, /\$\{tpOn \? `<div class="note good" style="margin-bottom:12px">✓ <div>\$\{srcOkHtml\(\)\}<\/div><\/div>` : `/);
 });
 
-test('orientační cena: místo „🔥 Super cena“ „nejlevnější v tomto hledání“, rada začíná výhradou', () => {
+test('orientační cena: místo „Super cena“ „nejlevnější v tomto hledání“, rada začíná výhradou', () => {
   const st = fl.match(/ {2}const superTxt = [^\n]+\n {2}const tagOf = [^\n]+\n/);
   assert.ok(st, 'superTxt a tagOf');
-  const tagOf = new Function('SearchHelp', 'PL_BADGE', `${st[0]}; return tagOf;`)(SearchHelp, { low: ['good', '💚 Dobrá cena'], normal: ['', 'Běžná cena'] });
+  const tagOf = new Function('SearchHelp', 'PL_BADGE', 'ikona', `${st[0]}; return tagOf;`)(SearchHelp, { low: ['good', 'Dobrá cena'], normal: ['', 'Běžná cena'] }, ikona);
   assert.deepEqual(tagOf(cached, { level: 'low' }), ['hot', 'nejlevnější v tomto hledání']);
-  assert.deepEqual(tagOf(live, { level: 'low' }), ['hot', '🔥 Super cena'], 'živá cena beze změny');
-  assert.deepEqual(tagOf({ ...cached, deal: { level: 'good' } }, { level: 'low' }), ['good', '💚 Dobrá cena']);
+  assert.deepEqual(tagOf(live, { level: 'low' }), ['hot', `${ikona('super-cena')} Super cena`], 'živá cena: Super cena s ikonou Letsi');
+  assert.deepEqual(tagOf({ ...cached, deal: { level: 'good' } }, { level: 'low' }), ['good', 'Dobrá cena']);
   assert.match(fl, /if \(!pl\) return t\.deal && t\.deal\.level === 'super' \? `<span class="b hot">\$\{superTxt\(t\)\}<\/span>` : '';/);
   const ad = fl.match(/ {2}const advFor = [^\n]+\n/);
   assert.ok(ad, 'advFor');
@@ -129,13 +131,13 @@ test('orientační cena: místo „🔥 Super cena“ „nejlevnější v tomto 
 });
 
 // zdrojové funkce úseku čistého režimu, které výš nejsou (radarHot, srcBoxHtml)
-const mod2 = (health = null) => new Function('health', 'esc', 'SearchHelp', `${src}; return { radarHot, srcBoxHtml };`)(health, esc, SearchHelp);
+const mod2 = (health = null) => new Function('health', 'esc', 'SearchHelp', 'ikona', `${src}; return { radarHot, srcBoxHtml };`)(health, esc, SearchHelp, ikona);
 
-test('radar: nejvýhodnější orientační cena není „🔥 super cena“ (jako superTxt ve výpisu), živá beze změny', () => {
+test('radar: nejvýhodnější orientační cena není „super cena“ (jako superTxt ve výpisu), živá beze změny', () => {
   const { radarHot } = mod2();
   assert.equal(radarHot({ oc: 1, prov: 'travelpayouts' })[0], 'nejlevnější v hledání');
   assert.match(radarHot({ prov: 'travelpayouts' })[1], /^Orientační cena/, 'starší karta bez oc podle zdroje');
-  assert.deepEqual(radarHot({ prov: 'ryanair' }), ['🔥 super cena', 'Jedna z nejvýhodnějších cen vůči běžné ceně na tu vzdálenost']);
+  assert.deepEqual(radarHot({ prov: 'ryanair' }), [`${ikona('super-cena')} super cena`, 'Jedna z nejvýhodnějších cen vůči běžné ceně na tu vzdálenost']);
   // karta radaru bere štítek z radarHot, ne pevný text
   assert.match(fl, /if \(hot\) return `<span class="b hot" title="\$\{esc\(radarHot\(x\)\[1\]\)\}">\$\{radarHot\(x\)\[0\]\}<\/span>`;/);
   assert.doesNotMatch(fl, />🔥 super cena<\/span>/);

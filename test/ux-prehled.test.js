@@ -14,22 +14,22 @@ const fn = (src, name) => src.match(new RegExp(`^ {2}function ${name}\\([^\\n]*\
 // zástupný DOM pro paintHomeAsk: kontejner čipů a tlačítka z innerHTML
 function homeAsk(home) {
   const el = { hidden: true, firstChild: null, btns: [] };
-  Object.defineProperty(el, 'innerHTML', { set(h) { el.btns = [...h.matchAll(/data-hh="([^"]+)">([^<]+)</g)].map(([, v, t]) => ({ dataset: { hh: v }, text: t, disabled: false })); el.firstChild = el.btns[0] || null; } });
+  Object.defineProperty(el, 'innerHTML', { set(h) { el.btns = [...h.matchAll(/data-hh="([^"]+)">(.*?)<\/button>/g)].map(([, v, t]) => ({ dataset: { hh: v }, text: t, disabled: false })); el.firstChild = el.btns[0] || null; } });
   const calls = [];
   const c = vm.createContext({
     S: { home }, SearchHelp: { HOME_CITIES: [['Praha'], ['Brno'], ['Ostrava'], ['Vídeň'], ['Bratislava']] },
-    esc: (s) => String(s), $: (s) => (s === '#heroHomeAsk' ? el : null), $$: (s, r) => (r === el ? el.btns : []),
+    esc: (s) => String(s), ikona: (n) => `<span class="ico i-${n}" aria-hidden="true"></span>`, $: (s) => (s === '#heroHomeAsk' ? el : null), $$: (s, r) => (r === el ? el.btns : []),
     homeFromChip: (chip, done) => { calls.push(chip); c.lastDone = done; },
   });
   vm.runInContext(`${fn(FL, 'paintHomeAsk')}; this.paint = paintHomeAsk;`, c);
   return { el, calls, c };
 }
 
-test('U2: bez domova čipy měst a 📍 Moje poloha pod Odkud nahoře; s domovem schované', () => {
+test('U2: bez domova čipy měst a Moje poloha (ikona Letsi) pod Odkud nahoře; s domovem schované', () => {
   const t = homeAsk(null);
   t.c.paint();
   assert.equal(t.el.hidden, false);
-  assert.deepEqual(t.el.btns.map((b) => b.text), ['Praha', 'Brno', 'Ostrava', 'Vídeň', 'Bratislava', '📍 Moje poloha']);
+  assert.deepEqual(t.el.btns.map((b) => b.text), ['Praha', 'Brno', 'Ostrava', 'Vídeň', 'Bratislava', '<span class="ico i-poloha" aria-hidden="true"></span> Moje poloha']);
   // klepnutí = domov jako dřív z uvítání (homeFromChip); během zjišťování čipy vypnuté, bez polohy zase zapnuté
   t.el.btns[0].onclick();
   assert.deepEqual(t.calls, ['Praha']);
