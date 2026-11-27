@@ -306,7 +306,7 @@ test('velikost QR kódu: celé pixely displeje na modul, nejvýš daný prostor'
   assert.equal(T.sizePx(200, 185, 1), 200, 'pod 2 px na modul – aspoň celý prostor');
 });
 
-test('zapojení: skripty po sharelink.js a backup.js, ⋯ Další, postranní panel, odkaz při startu i ve vložené adrese, novinka', () => {
+test('zapojení: skripty po sharelink.js a backup.js, ⋯ Další, postranní panel, odkaz při startu i ve vložené adrese', () => {
   const html = read('public/index.html'), app = read('public/js/app.js'), tf = read('public/js/transfer.js');
   const at = (f) => html.indexOf(`<script src="js/${f}"></script>`);
   assert.ok(at('sharelink.js') > 0 && at('backup.js') > at('sharelink.js') && at('transfer.js') > at('backup.js'));
@@ -316,7 +316,6 @@ test('zapojení: skripty po sharelink.js a backup.js, ⋯ Další, postranní pa
   assert.match(app, /if \(window\.Transfer && Transfer\.fromHash\(\)\) return go\('dashboard', \{ noHash: true \}\);/, 'hashchange');
   assert.match(tf, /insertAdjacentHTML\('afterend', '<button type="button" class="theme-toggle side-about" id="sideXfer">/, 'počítač: postranní panel');
   assert.doesNotMatch(tf, /\son[a-z]+="/, 'žádné obsluhy v atributech (CSP)');
-  assert.match(app, /\['📲', 'Přenos do jiného zařízení', '[^']*odkaz, který si pošleš/);
   assert.doesNotMatch(tf, /Naskenuj QR|Připravuji QR/);
 });
 

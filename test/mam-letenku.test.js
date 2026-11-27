@@ -235,8 +235,8 @@ test('Přehled: „Letenku už mám“ vedle „Naplánovat celou dovolenou“ o
   const html = readFileSync(new URL('../public/index.html', import.meta.url), 'utf8'), app = src('app.js');
   assert.match(html, /<div class="hero-plans">\s*<button type="button" class="hero-plan" id="heroPlan">[^\n]*\n\s*<button type="button" class="hero-plan" id="heroOwn"><span class="ico i-let" aria-hidden="true"><\/span> Letenku už mám – doplň zbytek cesty <span aria-hidden="true">→<\/span><\/button>\s*<\/div>/);
   assert.match(app, /const ho = \$\('#heroOwn'\); if \(ho\) ho\.onclick = \(\) => \{ go\('trip'\); if \(window\.Lazy\) Lazy\.run\('trip', \(\) => Trip\.haveTicket\(\)\);/);
-  // nahoře ⭐ Letsi Plus (stejná vlna), hned pod ním tahle novinka
-  assert.match(app, /const WHATS_NEW = \[\s*\['💬', 'Řekni mi, co ti vadí',[^\n]*\],\s*\['✨', 'ATLAS je teď Letsi',[^\n]*\],\s*\['🤝', 'Pomáhat se zlepšováním',[^\n]*\],\s*\['⭐', 'Letsi Plus',[^\n]*\],\s*\['✈️', 'Letenku už máš\?', 'na <b>Přehledu<\/b> doplníš zbytek cesty – trasu, ubytování i program\.'\],/);
+  // novinka hned pod ⭐ Letsi Plus (stejná vlna); pořadí celého seznamu hlídá test/novinky-jen-nove.test.js
+  assert.match(app, /\['⭐', 'Letsi Plus',[^\n]*\],\s*\['✈️', 'Letenku už máš\?', 'na <b>Přehledu<\/b> doplníš zbytek cesty – trasu, ubytování i program\.', '2026-11-26a'\],/);
   // formulář: cíl, tam, zpět (nepovinné), cestující, cena (nepovinné), odkud (nepovinné); počítadlo při otevření
   const ht = src('trip.js').match(/function haveTicket\(\) \{[\s\S]*?\n {2}\}/)[0];
   for (const id of ['ownTo', 'ownOut', 'ownBack', 'ownPax', 'ownPrice', 'ownFrom']) assert.match(ht, new RegExp(`id="${id}"`));
