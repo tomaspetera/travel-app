@@ -126,6 +126,8 @@ function app() {
       activeView = v;
       if (!opts.noHash) histDo(() => viewStep(v, opts.drill, from === 'dashboard' || opts.drill ? y0 : null));
     }`, ctx);
+  // hashView jde přes tabGo (Cesty se 2+ cestami = Moje cesty) – bez cest jako go
+  vm.runInContext(`var S = { trip: null, trips: [] };\n${pick('tripCount', 'tabGo')}`, ctx);
   vm.runInContext(pick('hist', 'histFlush', 'histBack', 'histDo', 'histDepth', 'viewHist', 'viewStep', 'trailNext', 'histTrip', 'tripEntry', 'histSub', 'histTop', 'histPop', 'isView', 'hashView', 'modalKb', 'kbSel', 'modalShow', 'modalName', 'modalOpen', 'modalClose'), ctx, { filename: 'app-hist.js' });
   const tick = () => {
     for (let k = 0; k < 20 && H.pending.length; k++) {

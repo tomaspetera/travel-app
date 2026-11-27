@@ -406,7 +406,7 @@ function hashView() {
   if (v === activeView || !isView(v)) return;
   // Zpět na sekci: tam, kde uživatel byl (posun uložený v kroku – viewStep), jinak nahoru
   const y = history.state && Number.isFinite(history.state.y) ? history.state.y : null;
-  go(v, { noHash: true, keepScroll: y != null });
+  tabGo(v, { noHash: true, keepScroll: y != null }); // Cesty se dvěma a více cestami = Moje cesty jako z lišty
   if (y != null) window.scrollTo(0, y);
 }
 /*
@@ -435,6 +435,7 @@ function go(v, opts = {}) {
   // scrollY si vynutí rozvržení celé stránky ještě před vykreslením sekce (při startu na telefonu desítky ms navíc)
   const from = activeView, y0 = opts.noHash ? 0 : Math.round(window.scrollY || 0);
   if (from === 'flights' && v !== 'flights') flKept = flKeep(Math.round(window.scrollY || 0), flMark());
+  if (from === 'flights' && v !== 'flights') window.reflight = null; // „Změnit let“ (editTrip): z Letů odešel bez výběru
   // návrat na Lety (ne Zpět – ten má posun v kroku historie): uložený posun, je-li výpis pořád týž
   const flY = v === 'flights' && from !== 'flights' && !opts.noHash && !opts.keepScroll ? flBack(flKept, flMark(), Boolean(window.Flights && Flights.busy && Flights.busy())) : null;
   if (v === 'flights') flKept = null;
@@ -2374,7 +2375,8 @@ function editTrip(i) {
   const st = $('#etStart'); let prev = st && st.value;
   if (st) st.onchange = e => { const v = e.target.value, en = $('#etEnd'); en.value = shiftEnd(prev, en.value, v); en.min = v; if (okYmd(v)) prev = v; };
   $('#etBack').onclick = () => openTrip(i);
-  const ef = $('#etFlight'); if (ef) ef.onclick = () => { modalClose(); tripFlights(t); };
+  // let vybraný v Letech vymění let u této cesty (trip.js start) – ne nová cesta; jen v paměti, obnovení stránky ji zapomene
+  const ef = $('#etFlight'); if (ef) ef.onclick = () => { modalClose(); window.reflight = t.tripId; tripFlights(t); };
   $('#etSave').onclick = () => {
     const x = S.trips[i]; if (x !== t) return modalClose(); // mezitím smazaná nebo jiná cesta (jiný panel, záloha)
     const name = $('#etName').value.trim();
@@ -3109,6 +3111,7 @@ async function start() {
   if (!shared && !plan && (await openOfferFromHash() || await openJedFromHash() || openWatchFromHash())) return;
   const v = shared ? 'trip' : plan ? 'planner' : location.hash.slice(1);
   if (v === 'now') return showNow(); // zkratka aplikace „Na cestě“
-  go(isView(v) ? v : 'dashboard', { noHash: true });
+  // obnovená stránka na #trip: jako záložka Cesty (2+ cesty = Moje cesty); sdílená cesta z odkazu rovnou v průvodci
+  (shared ? go : tabGo)(isView(v) ? v : 'dashboard', { noHash: true });
 }
 document.addEventListener('DOMContentLoaded', boot);
