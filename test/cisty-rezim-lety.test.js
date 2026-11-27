@@ -137,7 +137,7 @@ test('radar: nejvýhodnější orientační cena není „🔥 super cena“ (ja
   assert.match(radarHot({ prov: 'travelpayouts' })[1], /^Orientační cena/, 'starší karta bez oc podle zdroje');
   assert.deepEqual(radarHot({ prov: 'ryanair' }), ['🔥 super cena', 'Jedna z nejvýhodnějších cen vůči běžné ceně na tu vzdálenost']);
   // karta radaru bere štítek z radarHot, ne pevný text
-  assert.match(fl, /\$\{hot\.has\(i\) \? `<span class="b hot" title="\$\{esc\(radarHot\(x\)\[1\]\)\}">\$\{radarHot\(x\)\[0\]\}<\/span>` : ''\}/);
+  assert.match(fl, /if \(hot\) return `<span class="b hot" title="\$\{esc\(radarHot\(x\)\[1\]\)\}">\$\{radarHot\(x\)\[0\]\}<\/span>`;/);
   assert.doesNotMatch(fl, />🔥 super cena<\/span>/);
 });
 
