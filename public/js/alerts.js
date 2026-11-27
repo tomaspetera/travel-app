@@ -596,6 +596,11 @@
     if (!N || !secure || typeof N.requestPermission !== 'function') return 'unsupported';
     return ['granted', 'denied'].includes(N.permission) ? N.permission : 'default';
   }
+  /**
+   * Popisek cílové ceny u hlídání podle stavu upozornění (notifState, na telefonu 'phone'): oznámení v prohlížeči
+   * přijde jen při povolených upozorněních – jinak se splněná cena jen zvýrazní na kartě („✓ splněno“) a v Od minula.
+   */
+  const targetLbl = st => (st === 'granted' ? 'Upozornit pod' : 'Zvýraznit pod');
 
   /**
    * Fronta kontrol: v jednu chvíli běží nejvýš jedna kontrola (ruční i automatická),
@@ -658,5 +663,5 @@
     return { cycle, exclusive, get cycling() { return cycling; }, get lastCycle() { return lastCycle; }, get more() { return more; } };
   }
 
-  window.Alerts = { CFG, PV, rollOk, rolls, rollForm, rollSpec, rollSame, savedAt, rollTxt, isStale, isPast, bestDep, bestGone, dueWatches, shouldNotify, pushHistory, lowest, pctChange, fmtPct, agoTxt, epoch, applyCheck, rebaseWhy, incomplete, searchKey, upsertWatch, isDropped, droppedCount, news, mergeWatches, sparkPath, TIP, dayTxt, watchStats, depDays, buyTip, notifState, scheduler, nextMonday9, remindCount, remindEvent, watchFromHash };
+  window.Alerts = { CFG, PV, rollOk, rolls, rollForm, rollSpec, rollSame, savedAt, rollTxt, isStale, isPast, bestDep, bestGone, dueWatches, shouldNotify, pushHistory, lowest, pctChange, fmtPct, agoTxt, epoch, applyCheck, rebaseWhy, incomplete, searchKey, upsertWatch, isDropped, droppedCount, news, mergeWatches, sparkPath, TIP, dayTxt, watchStats, depDays, buyTip, notifState, targetLbl, scheduler, nextMonday9, remindCount, remindEvent, watchFromHash };
 })();

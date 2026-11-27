@@ -266,7 +266,7 @@ test('rada: koupit / hlídat / zkusit jiné dny podle úrovně a dní do odletu,
   assert.equal(P.advice('low', 90).kind, 'buy');
   assert.match(P.advice('low', 90).text, /může, ale nemusí/);
   assert.equal(P.advice('normal', 50).kind, 'watch');
-  assert.match(P.advice('high', 70).text, /^Cena je vyšší než obvykle\. Do odletu zbývá 10 týdnů.*♡.*Zaručené to není/);
+  assert.match(P.advice('high', 70).text, /^Cena je vyšší než obvykle\. Do odletu zbývá 10 týdnů.*Hlídat cenu.*Zaručené to není/);
   assert.equal(P.advice('normal', 49).kind, 'compare');
   assert.equal(P.advice('high', 21).kind, 'compare');
   assert.equal(P.advice('normal', 20).kind, 'late');

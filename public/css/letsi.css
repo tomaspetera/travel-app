@@ -114,6 +114,8 @@
 :root[data-brand="letsi"] .nav-item.active::before{background:var(--text)}
 /* výběr (dřív průsvitná modrá): pěna, obrys barvou textu */
 :root[data-brand="letsi"] :is(.qd.on,.fchip.af,.fchip.tf-toggle.on,.fchip[data-int].on,.fchip[data-tint].on,.tf-parts button.on,.nb-d.on,.lrow.sel,.mc-combo.sel,.gc-row.sel:has(input:checked),.ex-cats button.on,.rc-opt.on,.scal-btn[aria-expanded="true"]){background:var(--surface-2);border-color:var(--text)}
+/* zapnuté hlídání ve sbaleném formuláři (dřív růžové – mimo paletu): pěna a obrys barvou textu jako výběr výš */
+:root[data-brand="letsi"] .search-sum #ssWatch.on{color:var(--text);background:var(--surface-2);border-color:var(--text)}
 :root[data-brand="letsi"] :is(.pi-chip,.w-tip.wait,.b.pin-b){background:var(--surface-2);border-color:var(--border);color:var(--text)}
 :root[data-brand="letsi"] .pi-smart,:root[data-brand="letsi"] .pi-smart.on,:root[data-brand="letsi"] .pi-smart:hover{background:var(--surface-2);border-color:var(--border)}
 :root[data-brand="letsi"] .rm-home{fill:var(--text)}

@@ -111,6 +111,21 @@
     return `<div class="src-t">Zdroje cen</div>` + ps.map(p => `<div class="src on" title="${esc(p.note || '')}${p.hint ? ' – ' + esc(p.hint) : ''}"><i style="background:${p.color}"></i>${esc(p.name)}<span>${st(p)}</span></div>`).join('');
   }
 
+  /** Lety jen z mezipaměti (Aviasales) – žádný živý ani ukázkový zdroj letů zapnutý. Bez /api/health ne (jako dřív). */
+  function cacheOnly(h = health) {
+    const ps = h && Array.isArray(h.providers) ? h.providers.filter(p => p.enabled && p.kind !== 'stays') : [];
+    return ps.length > 0 && ps.every(p => p.kind === 'cached');
+  }
+  /**
+   * Řádek po hledání „✓ Prohledáno 5 letišť za 5,7 s“. Jen z mezipaměti se u aerolinek nic neprohledává (ceny našli jiní
+   * cestující) – „Ceny z posledních 48 h · 5 letišť“. „za 0,0 s“ = totéž hledání nedávno na serveru – ne v sekundách.
+   */
+  function doneHead(n, multi, ms, h = health) {
+    const what = multi ? plural(n, 'let', 'lety', 'letů') : plural(n, 'letiště', 'letiště', 'letišť');
+    if (cacheOnly(h)) return `Ceny z posledních 48 h · ${what}`;
+    return `Prohledáno ${what}${ms >= 50 ? ` za ${(ms / 1000).toFixed(1).replace('.', ',')} s` : ' – hned'}`;
+  }
+
   /* ---------- živé ověření cen z mezipaměti (Aviasales) přes /api/verify (Kiwi.com) ---------- */
   // Po hledání „kamkoliv“ se v pozadí ověří nejvýš 3 ceny z mezipaměti mezi prvními 10 cíli – po jedné (Kiwi má
   // pojistku proti výpadkům pro všechny: 3 chyby za sebou ho na minutu vypnou), při chybě nebo limitu stop;
@@ -1886,7 +1901,7 @@
     const sum = $('#searchSum'); if (!sum || !f || !f.from?.length) return;
     const lw = f.len === 'holiday' && f.trip === 'return' && f.dateMode !== 'exact' && SearchHelp.holidayOf(f, today()); // „🎉 Vánoce 24.–27. 12.“ stačí
     const when = f.trip !== 'multi' && f.dateMode !== 'exact' && !lw ? `${fmtDate(f.dFrom)}–${fmtDate(f.dTo)} · ` : '';
-    sum.innerHTML = `<div class="ss-txt"><b>${esc(watchLabel(f))}</b><span class="faint">${esc(when + recentSub(f, !when))} · ${esc(SearchHelp.paxShort(f))}</span></div><button type="button" class="btn sm ghost" id="ssWatch" aria-label="Hlídat cenu">♡</button><button type="button" class="btn sm" id="ssEdit">✎ Upravit</button>`;
+    sum.innerHTML = `<div class="ss-txt"><b>${esc(watchLabel(f))}</b><span class="faint">${esc(when + recentSub(f, !when))} · ${esc(SearchHelp.paxShort(f))}</span></div><button type="button" class="btn sm ghost" id="ssWatch" aria-label="Hlídat cenu">${ikona('hlidam')} Hlídat</button><button type="button" class="btn sm" id="ssEdit">✎ Upravit</button>`;
     sum.hidden = false;
     $('#searchForm').classList.add('collapsed');
     $('#ssEdit').onclick = () => { expandForm(); $('#searchForm').scrollIntoView({ behavior: 'smooth', block: 'start' }); };
@@ -1955,10 +1970,8 @@
     }).join('');
     const disabled = (health?.providers || []).filter(p => !p.enabled && p.hint && p.kind !== 'stays').map(p => `<div class="prow off"><span class="pdot" style="background:${p.color}"></span><b>${esc(p.name)}</b><span class="pst">vypnuto</span><div class="pnote">${esc(p.hint)}</div></div>`).join('');
     const multi = res ? res.mode === 'multi' : Boolean(ev.legs);
-    // „za 0,0 s“ = totéž hledání nedávno na serveru (i cizí – výsledek z mezipaměti serveru) – to se neříká v sekundách;
     // „z nedávného hledání“ by v novém prohlížeči mátlo (čas hledání ukazuje „hledáno 14:32“)
-    const sec = ms => (ms >= 50 ? ` za ${(ms / 1000).toFixed(1).replace('.', ',')} s` : ' – hned');
-    const head = res ? (multi ? `Prohledáno ${plural(res.legs.length, 'let', 'lety', 'letů')}${sec(res.stats.ms)}` : `Prohledáno ${plural(res.origins.length, 'letiště', 'letiště', 'letišť')}${sec(res.stats.ms)}`)
+    const head = res ? doneHead(multi ? res.legs.length : res.origins.length, multi, res.stats.ms)
       : multi ? '<span class="spin"></span> Hledám lety pro celou cestu (nejvýš dva lety najednou)…'
       : `<span class="spin"></span> Prohledávám letiště${originPreview.length ? ` (${originPreview.filter(a => !a.off).sort((x, y) => (x.rank ?? 99) - (y.rank ?? 99)).slice(0, health?.maxOrigins || 8).sort((x, y) => x.distKm - y.distKm).map(a => a.iata).join(', ')})` : ''}…`;
     // cesta přes víc měst: stav hledání každého letu
@@ -4418,7 +4431,7 @@
     // jen výzva k hlídání – „🧒 přidej děti“ má stejnou třídu a zůstane
     nudge = null; document.getElementById('nudgeWatch')?.closest('.watch-nudge')?.remove();
     updateWatchBadges(); updateWatchBtn();
-    toast(r.dup ? `Tohle hledání už hlídáš na Přehledu${b ? ` – cena teď ${czk(b.czk)}/os.` : ''}` : roll ? `Hlídám na Přehledu, dokud máš aplikaci otevřenou – termín se posouvá s časem (${Alerts.rollTxt(wf, today(), { now: false })})` : 'Hledání uloženo – cenu hlídám na Přehledu, dokud máš aplikaci otevřenou');
+    toast(r.dup ? `Tohle hledání už hlídáš na Přehledu${b ? ` – cena teď ${czk(b.czk)}/os.` : ''}` : roll ? `Hlídám. Cenu zkontroluju, když Letsi otevřeš – termín se posouvá s časem (${Alerts.rollTxt(wf, today(), { now: false })})` : 'Hlídám. Cenu zkontroluju, když Letsi otevřeš, a zlevnění uvidíš na Přehledu.');
   }
   /** Tlačítko ♡ pod formulářem: hlídané hledání → „♥ Hlídáš“ (klik ukáže hlídané ceny na Přehledu). */
   function updateWatchBtn() {
@@ -4434,7 +4447,7 @@
     b.classList.toggle('on', on);
     b.onclick = on ? () => { go('dashboard'); setTimeout(() => $('#watchHead')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 300); } : () => addWatch();
     const w = $('#ssWatch'); // ♡ ve sbaleném formuláři (telefon)
-    if (w) { w.textContent = on ? '♥' : '♡'; w.title = b.textContent; w.setAttribute('aria-label', b.textContent.slice(2)); w.classList.toggle('on', on); w.onclick = b.onclick; }
+    if (w) { w.innerHTML = `${ikona('hlidam')} ${on ? 'Hlídáš' : 'Hlídat'}`; w.title = b.textContent; w.setAttribute('aria-label', b.textContent.slice(2)); w.classList.toggle('on', on); w.onclick = b.onclick; }
   }
 
   // Stav karet během kontroly: id → 'wait' (ve frontě) | 'run' (právě se kontroluje).
@@ -4508,7 +4521,7 @@
       unsupported: '<span class="w-ntf">Tento prohlížeč upozornění neumí – zlevnění uvidíš tady a u položky Přehled.</span>',
       phone: '', // telefon: ani tlačítko, ani dotaz na povolení
     }[notifOk()];
-    return `<div class="watch-bar"><span title="Každé hledání kontroluji automaticky zhruba jednou za 6 h – ale jen dokud máš aplikaci otevřenou v prohlížeči a panel není schovaný na pozadí. Zavřená stránka nehlídá nic.">🔄 Kontroluji samo zhruba každých 6 h, dokud máš aplikaci otevřenou.</span>${n}</div>`;
+    return `<div class="watch-bar"><span title="Kontrola běží jen v otevřené aplikaci: chvíli po otevření Letsi a pak každých 30 min zkontroluji hledání, která jsem nekontroloval přes 6 h. Na pozadí ani se zavřenou aplikací nekontroluji nic.">🔄 Ceny kontroluji samo, když Letsi otevřeš – každé hledání nejvýš jednou za 6 h.</span>${n}</div>`;
   }
   function watchCard(w, now = Date.now()) {
     const h = Alerts.epoch(w.history), own = h.length && h[0].own; // od nového základu (změna 🏠 vlastní ceny na letiště, 🙈, ceny jen za letenku – w.rebWhy)
@@ -4541,7 +4554,7 @@
         ${sv || ln ? `<div class="w-main${sv ? '' : ' nochart'}">${sv}<div class="w-stats">${ln}</div></div>` : ''}
         <div class="w-desc">${gone ? `<s>${esc(w.best.desc || '')}</s> ⌛ termín už proběhl – novou nabídku najde příští kontrola` : esc(w.best?.desc || ((w.history || []).length ? 'poslední kontrola nic nenašla – zkusím znovu' : 'zatím bez výsledku'))}</div>${past || gone ? '' : tipHtml(w, ps)}
         ${past ? `<div class="note warn w-past">⌛ <div>Termín proběhl – tohle hledání už hlídat nejde. ${canRoll ? `<button type="button" class="linkbtn" data-wr="${id}">📅 Posouvat termín s časem</button> – hlídání pojede dál s novým termínem, historie i cílová cena zůstanou. Nebo ho smaž.` : 'Smaž ho, nebo ho otevři a vyber nové datum.'}</div></div>`
-        : `<label class="w-target">🎯 Upozornit pod <input class="input" type="number" inputmode="numeric" min="0" data-wt="${id}" value="${+w.target > 0 ? +w.target : ''}" aria-label="Cílová cena v Kč na osobu"> Kč <span class="good w-hit" ${cur && cur <= w.target && !gone ? '' : 'hidden'}>✓ splněno</span></label>
+        : `<label class="w-target">🎯 ${Alerts.targetLbl(notifOk())} <input class="input" type="number" inputmode="numeric" min="0" data-wt="${id}" value="${+w.target > 0 ? +w.target : ''}" aria-label="Cílová cena v Kč na osobu"> Kč <span class="good w-hit" ${cur && cur <= w.target && !gone ? '' : 'hidden'}>✓ splněno</span></label>
         <div class="w-cal"><button type="button" class="linkbtn" data-wcal="${id}" title="Stáhne událost do kalendáře: každé pondělí v 9:00 (nejvýš 8 týdnů, jen do odletu) s odkazem zpět na tohle hlídání">📅 Připomínat</button><span class="faint">v pondělí v kalendáři</span></div>`}
         <div class="w-foot"><div class="w-st faint">${when}</div>
         <div class="row w-act">${past ? `<button class="btn sm" data-wd="${id}">${ikona('smazat')} Smazat</button><button class="btn sm ghost" data-wo="${id}">Otevřít</button>`
@@ -4783,7 +4796,7 @@
     const list = S.watch || [], n = Alerts.droppedCount(list, today());
     // všechna proběhlá: hlídat nejde nic – ne „Hlídám“
     const live = list.some(w => !Alerts.isPast(w.form, today()));
-    return n ? `<b class="good">📉 Zlevnilo od minule: ${n}</b>` : !list.length ? 'Ulož hledání tlačítkem ♡' : live ? 'Hlídám, dokud máš aplikaci otevřenou' : 'Termíny proběhly – smaž je, nebo zapni 📅 posouvání';
+    return n ? `<b class="good">📉 Zlevnilo od minule: ${n}</b>` : !list.length ? 'Ulož hledání tlačítkem Hlídat cenu' : live ? 'Hlídám – zkontroluju, když Letsi otevřeš' : 'Termíny proběhly – smaž je, nebo zapni 📅 posouvání';
   }
   /** „Od minula: 📉 Brno → Řím −380 Kč · 🎯 Londýn pod tvou cenou · 📡 Kam letět levně: 3 cíle levněji“ hned pod hledáním. */
   function renderNews() {
@@ -5628,7 +5641,7 @@
     const x = Pins.toggle(pinList(), rec);
     if (x.full) return toast(`Odložit jde nejvýš ${Pins.MAX} nabídek – nějakou odeber v 📌 Porovnat`, 'err');
     if (!pinSet(x.list)) return;
-    toast(x.on ? `📌 Odloženo: ${rec.dest.label} ${czk(Pins.price(rec))} – porovnáš v „📌 Odložené (${x.list.length})“` : `Odebráno z odložených: ${rec.dest.label}`, '', x.on ? 4000 : 2600);
+    toast(x.on ? `📌 Odloženo: ${rec.dest.label} ${czk(Pins.price(rec))} – najdeš i na Přehledu v Odložených nabídkách` : `Odebráno z odložených: ${rec.dest.label}`, '', x.on ? 4000 : 2600, x.on ? { label: 'Zobrazit', run: () => openPins() } : null);
   }
   /** 📌 nabídka t z řádku výsledku res – s časem cen výpisu (i obnoveného a průběžného). */
   function pinToggleRow(t, g, res) {
