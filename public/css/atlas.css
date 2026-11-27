@@ -896,8 +896,6 @@ html:has(#modalBg.show) body{overflow:hidden} /* na body, ne na html: přejde na
 .wn-list{list-style:none;margin:10px 0 12px;padding:0;display:grid;gap:8px;font-size:13.5px;line-height:1.45}
 .wn-list li{display:flex;gap:10px;align-items:flex-start}
 .wn-ic{flex:none;width:22px;text-align:center}
-.wn-more{margin:-4px 0 12px}
-.wn-more>summary{font-size:13px;color:var(--muted)}
 /* 💡 Věděl jsi? (Přehled): jeden tip s tlačítkem a křížkem */
 .dash-tip{display:flex;gap:10px;align-items:flex-start;margin:14px 0;padding:12px 10px 12px 14px;font-size:13.5px;line-height:1.45}
 .dash-tip[hidden]{display:none}

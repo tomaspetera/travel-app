@@ -33,7 +33,7 @@ test('uvítání a Letsi Plus: bez „bez reklam.“ a bez příjmu z předplatn
 
 test('Co je nového: přejmenování neslibuje přenesené cesty, starší novinky nechválí ceny hotelů ani ověřování volna', () => {
   assert.doesNotMatch(whatsNew, /tvoje cesty i nastavení taky/);
-  assert.match(whatsNew, /\['✨', 'ATLAS je teď Letsi', '[^']*Cesty a nastavení z dřívější adresy se sem samy nepřenesou[^']*Záloha do souboru<\/b>[^']*\.'\]/);
+  assert.match(whatsNew, /\['✨', 'ATLAS je teď Letsi', '[^']*Cesty a nastavení z dřívější adresy se sem samy nepřenesou[^']*Záloha do souboru<\/b>[^']*\.', '[^']+'\]/);
   assert.doesNotMatch(whatsNew, /TripAdvisor|ověř\S* volno|ověřením volna|ověřeným volnem|Hotely s cenami|Aktualizovat ceny/);
 });
 
