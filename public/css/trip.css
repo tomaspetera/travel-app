@@ -567,6 +567,22 @@ table.cost tr.entry-tot td{font-weight:800;border-bottom:none}
 .th-dest h2{font:800 28px/1.15 Sora,Inter,sans-serif;letter-spacing:-.02em;color:#fff;text-shadow:0 2px 14px rgba(0,0,0,.35)}
 .th-sub{margin-top:4px;font-size:13.5px;font-weight:600;color:rgba(255,255,255,.88);text-shadow:0 1px 8px rgba(0,0,0,.45)}
 .th-route{margin-top:4px;color:#fff}
+/* Kroky mezi Letem a Shrnutím (th-mini, trip.js miniHead): hlavička jen jako pruh – vlajka, „Lisabon / 13.3.–20.3. · 2 os.“,
+   cena (jen známá, „Cenu doplníš“ se schová) a ↺. Velká brala na telefonu 43–53 % obrazovky. Počítač má vlastní (desktop-trip.css). */
+@media(max-width:1023px){
+  #tripRoot .trip-head.th-mini{flex-direction:row;align-items:center;gap:10px;min-height:0;padding:10px 10px 10px 12px;border-radius:20px;margin-bottom:10px}
+  #tripRoot .th-mini::before{background:rgba(4,8,20,.5)}
+  #tripRoot .th-mini .th-flag{position:static;flex:none;width:38px;height:38px;font-size:21px}
+  #tripRoot .th-mini .th-dest{order:1;flex:1 1 auto;min-width:0;margin:0}
+  #tripRoot .th-mini .th-dest h2{font-size:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #tripRoot .th-mini .th-sub{margin-top:1px;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #tripRoot .th-mini :is(.th-cc,.th-nn,.th-route){display:none}
+  #tripRoot .th-mini .th-total{order:2;position:static;flex:none;align-self:center;margin:0;padding:0;background:none;border:none}
+  #tripRoot .th-mini .th-total .faint{display:none}
+  #tripRoot .th-mini .th-total .tt{font-size:17px}
+  #tripRoot .th-mini .th-reset{order:3;position:static;flex:none;width:36px;padding:0}
+  #tripRoot .th-mini .th-rl{display:none}
+}
 /* kroky: ikona v kruhu, pod ní název, čára mezi kroky (hotové zeleně) */
 .stepbar{display:flex;align-items:flex-start;gap:0;margin:0 0 16px;padding:12px 10px 10px;border-radius:22px;background:var(--surface);border:1px solid var(--border);overflow-x:auto;scrollbar-width:none}
 .stepbar::-webkit-scrollbar{display:none}
@@ -711,9 +727,23 @@ table.cost tr.entry-tot td{font-weight:800;border-bottom:none}
 }
 @media (max-width:560px){
   .sum-acts{display:grid !important;grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:stretch} /* tlačítka v řádku stejně vysoká (.row centruje) */
-  .sum-acts>#sumSave{grid-column:1/-1}
-  .sum-acts>.btn{justify-content:center;text-align:center;font-size:13px;padding-left:8px;padding-right:8px;min-width:0;white-space:normal}
+  .sum-acts>#sumShare,.sum-acts>:last-child:nth-child(even){grid-column:1/-1} /* Sdílet (hlavní) a Hotovo samo na řádku přes celou šířku */
+  .sum-acts>.btn,.sum-cal>summary{justify-content:center;text-align:center;font-size:13px;padding-left:8px;padding-right:8px;min-width:0;white-space:normal}
 }
+/* „Do kalendáře ▾“: Google nebo soubor .ics v nabídce pod tlačítkem (dřív dvě tlačítka, která dělala totéž) */
+.sum-cal{position:relative;min-width:0}
+.sum-cal>summary{display:flex;list-style:none;height:100%;cursor:pointer}
+.sum-cal>summary::-webkit-details-marker{display:none}
+.sum-cal-m{position:absolute;z-index:5;top:calc(100% + 6px);left:0;width:max-content;min-width:100%;display:flex;flex-direction:column;gap:4px;padding:6px;
+  border-radius:16px;background:var(--surface-solid);border:1px solid var(--border);box-shadow:0 12px 28px -14px rgba(0,0,0,.45)}
+.sum-cal-m .btn{justify-content:flex-start;white-space:nowrap}
+.sum-new{margin:6px 0 18px;text-align:center}
+.sum-new .linkbtn{font-size:13.5px}
+/* den v okně cesty bez aktivit (app.js openTrip): jen řádek s „+ přidat“, pole až po klepnutí */
+.day-block.bare{padding:10px 14px}
+.day-block.bare h4{margin-bottom:0}
+.day-block .day-add{margin-left:auto;font-size:13px}
+.day-block .day-new[hidden]{display:none}
 /* Objevuj: na telefonu jen prvních 8 míst, další po „Zobrazit další místa“ */
 .poi-morebtn{display:none}
 @media (max-width:1080px){
@@ -755,7 +785,8 @@ table.cost tr.entry-tot td{font-weight:800;border-bottom:none}
 .rt-sug .linkbtn{font-size:12.5px}
 
 /* 🧳 Moje cesty v záložce Cesta (app.js myTrips): uložené cesty a rozpracovaná z průvodce, pod nimi nová cesta */
-.mt-back{margin:0 0 8px}
+.mt-back{margin:0 0 8px;display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.mt-saved{display:inline-flex;align-items:center;gap:4px;font-size:12.5px;font-weight:700;color:var(--muted)} /* cesta se ukládá sama – žádné tlačítko Uložit */
 .mt-back .linkbtn{font-weight:700;font-size:13.5px;position:relative}
 .mt-back .linkbtn::after{content:"";position:absolute;inset:-10px -8px} /* ‹ Moje cesty: plocha pro prst ~36 px na výšku bez změny vzhledu */
 .trip-mine .trip-grid{margin-bottom:16px}

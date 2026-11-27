@@ -129,17 +129,15 @@ function loadTrip() {
 }
 const sumSave = (c) => { c.window.Trip.render(); return (/id="sumSave">(.*?)<\/button>/.exec(c.__els['#tripStep'].innerHTML) || [])[1]; };
 
-test('pruvodce-5: „Uloženo v Mých cestách“ jen u cesty uložené na přání – sama uložená (auto) nebo neuložená „💾 Uložit do Mých cest“', () => {
+test('pruvodce-5 / U16: Shrnutí „Hotovo – zpět na Moje cesty“ (cesta se ukládá sama), sdílená „💾 Uložit do Mých cest“', () => {
   const c = loadTrip();
   c.S.trip = { ...lisbon(), stay: { mode: 'pick', id: 'h1', name: 'Hotel', totalCzk: 4000 } };
-  assert.equal(sumSave(c), '💾 Uložit do Mých cest', 'zatím v Mých cestách není');
+  assert.equal(sumSave(c), 'Hotovo – zpět na Moje cesty');
   c.window.Trip.saveToPlanner({ quiet: true }); // samo uložení průvodce
   assert.equal(c.S.trips[0].auto, true);
-  assert.equal(sumSave(c), '💾 Uložit do Mých cest', '↺ Začít znovu by ji z Mých cest smazalo');
-  delete c.S.trips[0].auto; // uložená na přání (💾)
-  assert.match(sumSave(c), /Uloženo v Mých cestách$/);
+  assert.equal(sumSave(c), 'Hotovo – zpět na Moje cesty');
   c.S.trip.shared = { on: '2026-10-01' };
-  assert.equal(sumSave(c), '💾 Uložit do Mých cest', 'sdílená');
+  assert.equal(sumSave(c), '💾 Uložit do Mých cest', 'sdílená (cizí) v Mých cestách není');
 });
 
 test('pruvodce-5: ↺ Začít znovu nejmenuje „auto“, když člověk zvolil „bez auta“', () => {

@@ -112,8 +112,11 @@
   #tripRoot[data-step=summary] .sum-grid{grid-template-columns:minmax(0,1fr);gap:0}
   #tripRoot[data-step=summary] #tripStep .step-card{margin-bottom:var(--gap)}
   #tripRoot[data-step=summary] .sum-acts{display:grid !important;grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:stretch;margin:0 !important}
-  #tripRoot[data-step=summary] .sum-acts>.btn{justify-content:center;text-align:center;min-width:0;white-space:normal}
-  #tripRoot[data-step=summary] .sum-acts>#sumSave{grid-column:1/-1;min-height:48px}
+  #tripRoot[data-step=summary] .sum-acts>.btn,#tripRoot[data-step=summary] .sum-cal>summary{justify-content:center;text-align:center;min-width:0;white-space:normal}
+  #tripRoot[data-step=summary] .sum-acts>#sumShare{grid-column:1/-1;min-height:48px}
+  #tripRoot[data-step=summary] .sum-acts>:last-child:nth-child(even){grid-column:1/-1}
+  /* tlačítka jsou přilepená dole v posouvaném sloupci – nabídka kalendáře se otevře nahoru, dolů by ji sloupec ořízl */
+  #tripRoot[data-step=summary] .sum-cal-m{top:auto;bottom:calc(100% + 6px)}
   /* tlačítka (💾 Uložit do plánovače…) vždy vidět dole v posouvaném pravém sloupci – nad nimi se posouvá cena a rezervace */
   #tripRoot[data-step=summary] #tripStep>.sum-side>.sum-acts{position:sticky;bottom:0;z-index:2;padding:14px 0 10px;
     background:linear-gradient(180deg,transparent,var(--bg) 14px)}

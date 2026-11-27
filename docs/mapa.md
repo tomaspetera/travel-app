@@ -412,6 +412,7 @@ Skripty (vše `node scripts/…`; README ## Data a licence má příkazy pro akt
 - Prázdné a pomalé stavy čistého režimu (prázdné hledání a radar, probouzení serveru): `test/ux-prazdne-stavy.test.js`
 - Karta nabídky a nákup (nákup pod cenou, věta o dvou letenkách, partnerský odkaz, řádek původu ceny s ⓘ): `test/ux-lety-nakup.test.js`
 - „Mám letenku“, „Koupeno?“ a zapojení počítadel (každá událost na jednom místě): `test/mam-letenku.test.js`
+- Průvodce a Shrnutí (hlavička jako pruh od Trasy po Program, „Uloženo ✓“, Hotovo místo Uložit, jedno „Do kalendáře ▾“, prázdné dny v okně cesty jedním řádkem): `test/ux-pruvodce-shrnuti.test.js`
 - Vzhled, přístupnost, telefon a počítač: `test/a11y.test.js`, `test/css-ph.test.js`, `test/dark-visual.test.js`, `test/vzhled-letsi.test.js` (výchozí vzhled Letsi a nouzová cesta ?vzhled=atlas, manifest, offline sada, pravidla letsi.css), `test/ikony-letsi.test.js` (ikony rozhraní Letsi místo emoji: `ikona()`, `.ico` v atlas.css, soubory z balíku, aria-hidden), `test/kukatko.test.js` (kukátko: stavy z DOM, jedno slunce, omezený pohyb, usínání ve tmě), `test/desktop.test.js`, `test/desktop-trip.test.js`, `test/modal-scroll.test.js`, `test/phone-text.test.js`, `test/phone-visual.test.js`, `test/theme.test.js`, `test/history.test.js`, `test/newcomer.test.js`
 - Větší písmo v systému (rámeček ceny v hlavičce cesty, posun do strany) a plocha pro prst u drobných odkazů: `test/pristupnost-vzhled.test.js`
 - Data, skripty a tahle mapa: `test/data.test.js`, `test/climate.test.js`, `test/places-build.test.js`, `test/mapa.test.js`
