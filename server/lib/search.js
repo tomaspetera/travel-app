@@ -1284,7 +1284,8 @@ export async function search(raw, emit = () => {}, opts = {}) {
       origins: [...origins.airports, ...usedHubs].map((a) => ({ ...airportPublic(a.iata), distKm: a.distKm, ground: a.ground, ...(a.hub ? { hub: true } : {}), best: byOrigin[a.iata] || null })),
       // Přestupní letiště, ze kterých se (dálkové lety) hledalo navíc – i když z nich nic nevyšlo (UI je pak znovu nenabízí).
       hubs: hubs.map((h) => h.iata),
-      destination: { kind: dest.kind, label: dest.label || 'Kamkoliv', airports: routeMode ? destAirports : null, countries: dest.countries || null, ...(sole.length ? { sole } : {}) },
+      // cities = české názvy měst letišť cíle („Barcelona-Girona“) – výpis u nabídky řekne, že letí jinam než do zadaného města
+      destination: { kind: dest.kind, label: dest.label || 'Kamkoliv', airports: routeMode ? destAirports : null, ...(routeMode ? { cities: Object.fromEntries(destAirports.map((a) => [a, getAirport(a)?.cityCs || a])) } : {}), countries: dest.countries || null, ...(sole.length ? { sole } : {}) },
       destinationLabels,
       // Konkrétní cíl v dosahu: srovnání letadla s vlakem/busem (odhad) – i když se žádný let nenašel.
       ground,
