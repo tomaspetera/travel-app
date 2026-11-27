@@ -250,7 +250,9 @@ test('ikony Letsi: ikony lišt a tlačítek z index.html mají náhradu, velikos
   assert.equal(icon(':is([data-view="trip"],[data-mv="trip"] .mt-ico)>svg'), 'ikony/moje-cesty.svg');
   assert.equal(icon(':is([data-view="explore"],[data-mv="explore"] .mt-ico)>svg'), 'ikony/kompas.svg');
   assert.equal(icon(':is(#moreNav,#menuBtn)>svg'), 'ikony/menu.svg');
-  assert.equal(icon('#refreshBtn>svg'), 'ikony/znovu.svg');
+  // ↻ Aktualizovat: vlastní plný kruh se šipkou (znovu.svg z balíku se v liště četl jako „C“), barvou textu
+  assert.match(SRC, /#refreshBtn>svg\{--letsi-ikona:url\("data:image\/svg\+xml,[^"]*M20 12a8 8 0 1 1-2\.34-5\.66/);
+  assert.match(SRC, /:is\(#refreshBtn,#menuBtn\)\{color:var\(--text\)\}/);
   for (const h of ['.theme-toggle>svg', '.sf-from .sf-ico>svg', '.sf-to .sf-ico>svg', '.sf-swap>svg', '.search-wide>svg']) assert.ok(icon(h), h);
   // tlačítka, jejichž <svg> maska přebírá, jsou v index.html opravdu tlačítka se <svg> uvnitř
   for (const id of ['refreshBtn', 'menuBtn', 'swapBtn']) assert.match(INDEX, new RegExp(`id="${id}"[^>]*>\\s*<svg`), id);
