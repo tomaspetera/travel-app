@@ -50,7 +50,7 @@ test('počítadla: server je přijme, statistiky je ukážou jako falešné dve�
   const app = read('public/js/app.js');
   // nenápadný odkaz s ikonou Letsi (ne emoji) jen s načteným plus.js
   assert.match(app, /\$\{window\.Plus \? `<p class="cm-sesit"><button type="button" class="linkbtn" id="cmSesit">\$\{ikona\('stahnout'\)\} Uložit do Sešitu · Plus<\/button><\/p>` : ''\}/);
-  assert.match(app, /if \(cs\) \{ Plus\.countryShown\(iso, cs\); cs\.onclick = \(\) => Plus\.fromCountry\(\); \}/);
+  assert.match(app, /if \(cs\) \{ Plus\.countryShown\(iso, cs\); cs\.onclick = \(\) => Plus\.fromCountry\(iso\); \}/);
 });
 
 test('zobrazení odkazu v okně země se počítá, až když je odkaz na obrazovce (na telefonu je daleko pod okrajem)', () => {
