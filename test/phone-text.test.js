@@ -96,7 +96,7 @@ test('hlídání ceny: posouvání termínu srozumitelně – u ♡ „Hlídat s
 test('krok Ubytování: „Ubytování neřeším →“ i nahoře (jako „Auto nepotřebuji →“) – dole je až pod hotely', () => {
   const js = read('js/trip.js');
   assert.match(js, /\$\{t\.stay \? '' : '<div class="car-quick"><span class="muted">Ubytování máš zařízené, nebo spíš u známých\?<\/span><button type="button" class="btn sm" id="staySkipTop">Ubytování neřeším →<\/button><\/div>'\}\s*<div id="stayBody">/);
-  assert.match(js, /const sq = \$\('#staySkipTop'\); if \(sq\) sq\.onclick = \$\('#staySkip'\)\.onclick;/);
+  assert.match(js, /const sq = \$\('#staySkipTop'\); if \(sq\) sq\.onclick = skip;/);
 });
 
 test('spodní lišta: popisek pod každou ikonou (dřív jen u aktivní sekce – kufr, špendlík a mřížku nováček nepoznal)', () => {

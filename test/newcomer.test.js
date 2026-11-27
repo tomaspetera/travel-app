@@ -39,7 +39,7 @@ test('Ubytování u jednoho cíle: „Vyberu později – jen odkazy →“ – 
   const js = read('js/trip.js');
   const step = js.slice(js.indexOf('async function stayStep()'), js.indexOf('function stayLoadFail('));
   // (zpáteční let týž den bez „jen odkazy“ – není co rezervovat)
-  assert.match(step, /\$\{nights < 1 \? '' : '<button class="btn ghost" id="stayLinks">Vyberu později – jen odkazy →<\/button>'\}<button class="btn ghost" id="staySkip">Ubytování neřeším →<\/button>/);
+  assert.match(step, /\$\{nights < 1 \? '' : '<button class="btn ghost" id="stayLinks">Vyberu později – jen odkazy →<\/button>'\}\$\{t\.stay \? '<button class="btn ghost" id="staySkip">Ubytování neřeším →<\/button>/);
   assert.match(step, /const sl = \$\('#stayLinks'\); if \(sl\) sl\.onclick = \(\) => \{ pickSeq\+\+; stayPick\('links'\); t\.stay = \{ mode: 'links', name: '', totalCzk: 0 \}; unbook\(t, 'stay'\); persist\(\); setStep\('car'\); \};/);
   assert.match(step, /t\.stay\.mode === 'links' \? 'vyberu později \(jen odkazy\)'/);
   // shrnutí: řádek bez ceny (ne „0 Kč“), v seznamu k rezervaci termín a „vyber přes odkaz“
@@ -58,7 +58,7 @@ test('⚡ Poskládej cestu: říká, že hotel vybírá blízko centra (vybírá
 
 test('Shrnutí: rozpis po položkách sbalený – pod „Cenou cesty“ se stejným součtem vypadal jako druhá tabulka', () => {
   const js = read('js/trip.js');
-  assert.match(js, /<div class="bud"><details class="bud-more"><summary>Na osobu po položkách<\/summary><table class="cost bud-t">/);
+  assert.match(js, /<div class="bud">\$\{noCost\(c\) \? '' : `<details class="bud-more"><summary>Na osobu po položkách<\/summary><table class="cost bud-t">/);
   assert.match(js, /<td>\$\{czk\(c\.total\)\}<\/td><\/tr><\/table><\/details>/);
 });
 
