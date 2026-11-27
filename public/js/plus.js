@@ -236,21 +236,34 @@
   const genOf = s => (typeof doGen === 'function' ? doGen(s) : null);
   const countryOf = iso => (typeof byIso !== 'undefined' && iso && byIso[iso] ? byIso[iso].cs : '');
 
+  /**
+   * Fokus na novou otázku nebo poděkování (x) místo tlačítka, které zmizelo – jinak spadne na <body> a Tab ani čtečka
+   * je nenajdou. Okno se posune, ať je see (anketa pod poděkováním, jinak x) celé vidět a volby nejsou pod okrajem.
+   * Jen když se fokus ztratil: okno „· Plus“ (soon) má otázku hned od otevření a fokus tam řídí app.js jako u oken.
+   */
+  function focusIn(x, see) {
+    const a = document.activeElement;
+    if (!x || (a && a !== document.body)) return;
+    x.tabIndex = -1;
+    x.focus({ preventScroll: true });
+    (see || x).scrollIntoView({ block: 'nearest' });
+  }
   /** Do el (v otevřeném okně) zprávu a pod ni otázku na cenu, je-li čas se zeptat; time = po ní i anketa o čase (askPlan). */
   function after(el, msg, time) {
     if (!el) return;
     const today = ymd(), plan = askPlan(store.get(ASK_KEY), store.get(TIME_KEY), today, time);
-    el.innerHTML = `<p class="note info plus-msg">${h(msg)}</p>`;
+    el.innerHTML = `<p class="note info plus-msg" role="status">${h(msg)}</p>`;
+    const first = () => el.querySelector('#plusPrice, #plusTime') || el.querySelector('.plus-msg');
     const timeAsk = () => {
       el.insertAdjacentHTML('beforeend', timeHtml());
       store.set(TIME_KEY, today);
       el.querySelectorAll('[data-time]').forEach(b => { b.onclick = () => {
         hit(b.dataset.time);
         const box = el.querySelector('#plusTime');
-        if (box) box.innerHTML = '<p class="plus-thanks">Díky, podle toho vybereme, co postavit první.</p>';
+        if (box) { box.innerHTML = '<p class="plus-thanks">Díky, podle toho vybereme, co postavit první.</p>'; focusIn(box.firstChild); }
       }; });
     };
-    if (plan[0] !== 'price') { if (plan.length) timeAsk(); return; }
+    if (plan[0] !== 'price') { if (plan.length) timeAsk(); focusIn(first()); return; }
     el.insertAdjacentHTML('beforeend', priceHtml());
     store.set(ASK_KEY, today); // jen den – podle něj se za 30 dní zeptá znovu
     el.querySelectorAll('[data-price]').forEach(b => { b.onclick = () => {
@@ -258,7 +271,10 @@
       const box = el.querySelector('#plusPrice');
       if (box) box.innerHTML = `<p class="plus-thanks">Díky, pomůže nám to nastavit cenu férově. ${priceNote(b.dataset.price)}</p>`;
       if (plan[1] && !el.querySelector('#plusTime')) timeAsk(); // anketa až po ceně – dvě otázky naráz by byly moc
+      // fokus na poděkování (nese plánovanou cenu), anketa pod ním je další Tab
+      if (box) focusIn(box.firstChild, el.querySelector('#plusTime'));
     }; });
+    focusIn(first());
   }
 
   /** Stránka ⭐ Plus (okno): tabulka Zdarma × Plus a „Chci Plus“. */
@@ -297,8 +313,26 @@
     const io = new IntersectionObserver(es => { if (es.some(e => e.isIntersecting)) { io.disconnect(); seen(); } });
     io.observe(el);
   }
-  /** Klepnutí na ten odkaz: zájem se započítá a otevře se stránka Zdarma × Plus (cena až po otázce – priceNote). */
-  function fromCountry() { hit('sesit_country_click'); open(); }
+  /**
+   * Klepnutí na ten odkaz: zájem se započítá a otevře se stránka Zdarma × Plus (cena až po otázce – priceNote). Okno
+   * Plus nahradí okno země iso – po zavření (✕, klepnutí vedle, Escape, Zpět telefonu) se do něj vrátit na stejné místo,
+   * uživatel jen nakoukl. Hlídá se jako u listu gateNewTrip: okno nahrazené jiným oknem = návrat už nemá smysl.
+   */
+  function fromCountry(iso) {
+    hit('sesit_country_click');
+    const y = q('#modal').scrollTop;
+    open();
+    const page = q('#modal .plus-page'), bg = q('#modalBg');
+    if (!iso || !page || typeof MutationObserver === 'undefined' || typeof openCountry !== 'function') return;
+    const obs = new MutationObserver(() => {
+      if (!page.isConnected) { obs.disconnect(); return; }
+      if (bg.classList.contains('show')) return;
+      obs.disconnect();
+      openCountry(iso);
+      q('#modal').scrollTop = y;
+    });
+    obs.observe(bg, { attributes: true, attributeFilter: ['class'], childList: true, subtree: true });
+  }
 
   const soonSeen = new Set();
   /**

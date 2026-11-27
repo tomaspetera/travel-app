@@ -1909,7 +1909,7 @@ function openCountry(iso) {
   if (ct) ct.onclick = () => { const t = S.trips[mine.i]; modalClose(); if (!t) return; if (t.wizard) withMod('trip', () => Trip.openSaved(t.wizard, t.tripId)); else openTrip(mine.i); };
   // ⭐ Plus jako falešné dveře (plus.js): průvodce zemí do Sešitu offline – zatím jen měří zájem a ukáže Zdarma × Plus
   const cs = $('#cmSesit');
-  if (cs) { Plus.countryShown(iso, cs); cs.onclick = () => Plus.fromCountry(); }
+  if (cs) { Plus.countryShown(iso, cs); cs.onclick = () => Plus.fromCountry(iso); }
   Photos.paint($('#modal')); // fotka hlavního města v hlavičce
   loadWeather(c);
   loadFx(c);
@@ -2955,8 +2955,15 @@ function wireEvents() {
   $('#cFiltBtn').onclick = () => { const tb = $('#cFiltBtn').closest('.toolbar'), on = !tb.classList.contains('f-open'); tb.classList.toggle('f-open', on); $('#cFiltBtn').setAttribute('aria-expanded', String(on)); };
   ['#rMonth', '#rVibe', '#rBudget', '#rSafe'].forEach(s => $(s).onchange = renderRecs);
   // ⟳: počasí a kurz znovu; radar se obnoví s dosavadními kartami (ne šedé dlaždice) a se značkami změn od minula
-  // ⟳ obnoví počasí a kurzy (Přehled, detail země); ceny letů ne – na Letech to hláška řekne (dřív „Aktualizuji…“ a nic)
-  $('#refreshBtn').onclick = () => { S.weather = {}; S.fx = null; save(); toast(activeView === 'flights' ? 'Počasí a kurzy načtu znovu – ceny letů obnoví nové hledání' : 'Aktualizuji…'); if ($('#modalBg').classList.contains('show') && curIso) openCountry(curIso); if (activeView === 'dashboard') { renderDash(); Flights.renderRadar(true); } };
+  // ⟳ obnoví počasí a kurzy; hned se překreslí jen Přehled, Země, Doporučení a detail země – jinde hláška řekne, že se
+  // načtou při dalším otevření (dřív „Aktualizuji…“ a nic), na Letech, že ceny obnoví jen nové hledání
+  const refreshMsg = v => (v === 'flights' ? 'Počasí a kurzy načtu znovu – ceny letů obnoví nové hledání'
+    : ['dashboard', 'countries', 'recommend'].includes(v) ? 'Aktualizuji…' : 'Počasí a kurzy načtu znovu při dalším otevření');
+  $('#refreshBtn').onclick = () => {
+    S.weather = {}; S.fx = null; save(); toast(refreshMsg(activeView));
+    if ($('#modalBg').classList.contains('show') && curIso) openCountry(curIso);
+    if (activeView === 'dashboard') { renderDash(); Flights.renderRadar(true); } else if (activeView === 'countries') renderCountries(); else if (activeView === 'recommend') renderRecs();
+  };
   // Přeskočit na obsah: fokus na <main> (další Tab je první prvek aktivní sekce, ostatní jsou skryté) – bez #main
   // v adrese, jinak by vznikl krok historie, který žádná sekce není (viewStep, hashView)
   $('.skip').onclick = e => { e.preventDefault(); $('#main').focus(); };

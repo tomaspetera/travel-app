@@ -2797,8 +2797,8 @@
     const places = ex.mode === 'city' ? `<div class="ex-places">${placesIn}</div>`
       : `<details class="more ex-places" id="exPlaces"${ex.listOpen ? ' open' : ''}><summary>Místa v okolí (${ex.items.length})</summary>${placesIn}</details>`;
     body.innerHTML = `${ex.demo ? '<div class="note warn" style="margin-bottom:12px">⚠️ <div><b>DEMO data</b> – místa jsou vymyšlená.</div></div>' : ''}
-      <div class="section-head ex-head" style="margin-top:6px"><h2>${p.cc ? flag(p.cc) + ' ' : ''}${esc(p.label)} · ${placesTxt(cityN)} do ${cityKm(ex.radius)} km${far ? (tripN ? ` <span class="ex-head-more">+ ${placesTxt(tripN)} v okolí do ${ex.radius} km</span>` : '')
-          : tripN ? ` <span class="ex-head-more">+ ${plural(tripN, 'výlet', 'výlety', 'výletů')}</span>` : ''}</h2>${
+      <div class="section-head ex-head" style="margin-top:6px"><h2>${p.cc ? flag(p.cc) + ' ' : ''}${esc(p.label)} · ${placesTxt(cityN)} do ${cityKm(ex.radius)} km${far ? (tripN ? ` <span class="ex-head-more">+&nbsp;${placesTxt(tripN)} v okolí do ${ex.radius} km</span>` : '')
+          : tripN ? ` <span class="ex-head-more">+&nbsp;${plural(tripN, 'výlet', 'výlety', 'výletů')}</span>` : ''}</h2>${
         `<span class="ex-head-act">${window.Flights && flyTarget(p) ? '<button type="button" class="btn sm ghost" id="exFly">' + ikona('let') + ' Najít lety sem</button>' : idos ? `<a class="btn sm ghost" id="exIdos" href="${esc(safeUrl(idos))}" target="_blank" rel="noopener" title="Vlak a autobus sem – jízdní řády IDOS">${ikona('vlak')} Spojení ↗</a>` : ''}<button type="button" class="btn sm ghost" id="exReset" title="Zrušit místo, plán i výběr míst">↺ Začít znovu</button></span>`}</div>
       <div class="ex-layout ex-main">
       <div class="card step-card ex-plan${ex.planOpen || out || bz || wait ? '' : ' shut'}" id="exPlanCard"><h3 class="ex-plan-h"><button type="button" class="ex-plan-tg" id="exPlanTg">${ikona('kalendar')} Naplánovat <span class="faint ex-plan-hint">– program, výlety, kolo, pěšky</span><span class="ex-plan-chev" aria-hidden="true">▾</span></button></h3>
