@@ -2004,8 +2004,16 @@ async function loadWeather(c) {
     const r = await fetch(`api/weather?pts=${(+g.lat).toFixed(2)},${(+g.lon).toFixed(2)}`, { signal: wxSignal() });
     const j = r.ok ? ((await r.json()).places || [])[0] : null; if (!j || !j.now || !Array.isArray(j.days) || !j.days.length) throw new Error('bez počasí');
     S.weather[c.iso2] = { ts: Date.now(), data: j }; save(); if (box()) paintWeather(j);
-  } catch (e) { if (box()) box().innerHTML = '<div class="wico">🌐</div><div class="muted" style="font-size:13px">Počasí se teď nepodařilo načíst.<br>Zkontroluj připojení a dej Aktualizovat.</div>'; }
+  } catch (e) {
+    // Aktualizovat neradit – tlačítko je pod ztmavením okna. Offline se počasí načte samo po připojení (jako mapa, jen
+    // když je okno té země pořád otevřené), jinak nový pokus tlačítkem přímo v okně
+    const b = box(), off = !!(e && e.offline) || navigator.onLine === false; if (!b) return;
+    b.innerHTML = `<div class="wico">🌐</div><div class="muted" style="font-size:13px">${wxFailTxt(off)}${off ? '' : '<br><button type="button" class="linkbtn" id="wxRetry">↻ Zkusit znovu</button>'}</div>`;
+    if (!off) $('#wxRetry').onclick = () => loadWeather(c);
+    else if (window.Pwa && Pwa.whenOnline) Pwa.whenOnline('wx', () => { if (box()) loadWeather(c); });
+  }
 }
+const wxFailTxt = off => (off ? 'Jsi offline – počasí se načte po připojení k internetu.' : 'Počasí se teď nepodařilo načíst.');
 // Dnešní datum v hlavním městě (zóna z odpovědi), bez zóny podle telefonu – „Dnes“ jen u dnešního dne: pozdě večer
 // předpověď dnešek už nemá a začíná zítřkem.
 const todayIn = tz => { try { if (tz) return new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(new Date()); } catch (e) { } return fmtYMD(new Date()); };
