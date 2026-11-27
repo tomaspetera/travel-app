@@ -98,7 +98,7 @@ test('živá cena: odkazy v řádku „Ověřit:“ jako dřív', () => {
 test('karta nabídky: řádek ověření pod cenou, u orientační ceny zbytek bez „Ověřit:“; u živé dnešní podoba', () => {
   assert.match(fl, /<div class="tr-more">\$\{SearchHelp\.isCached\(t\) \? more\.slice\(3\) : `<span class="faint">Ověřit:<\/span> \$\{verifyLinks\(t\)\}\$\{more\}`\}<\/div>\n\s+<\/div>\$\{verifyRow\(t, lastResult\.query\.adults\)\}<\/div>`;/);
   // „more“ začíná oddělovačem „ · “ (slice(3) ho u orientační ceny uřízne) a končí 📌 a 📤
-  assert.match(fl, /const more = `\$\{SearchHelp\.isCached\(t\) && liveOn\(\) \? ` · <button[^\n]+ · <button type="button" class="linkbtn pin-l" data-pin="\$\{idx\}">[^\n]+📤 Sdílet<\/button>`;/);
+  assert.match(fl, /const more = `\$\{SearchHelp\.isCached\(t\) && liveOn\(\) \? ` · <button[^\n]+ · <button type="button" class="linkbtn pin-l" data-pin="\$\{idx\}">[^\n]+\$\{ikona\('sdilet'\)\} Sdílet<\/button>`;/);
   // odkazy aspoň 44 px (od ux2 oba textové – nákup je nad nimi); na telefonu hned pod cenou (cena i ověření před lety)
   assert.match(css, /\.tv-alt\{[^}]*min-height:44px;/);
   const phone = css.match(/@media\(max-width:560px\)\{\n  \.trip-row\{grid-template-columns:1fr\}[\s\S]*?\n\}/);

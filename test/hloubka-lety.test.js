@@ -146,7 +146,7 @@ test('ostatní háčky na místě: hledání, věta, výsledky, nákup', () => {
   assert.match(wr, /if \(!open\) view\.timeOpen = false; else deep\('res_filters'\);/);
   assert.match(wr, /if \(b\.dataset\.v !== view\.mode\) \{ if \(b\.dataset\.v === 'map'\)/);
   // hodnoty data-v ve #viewSeg: map a cal opravdu existují
-  assert.match(FL, /\['map', '🗺️ Mapa'\], \['cal', '📅 Kalendář'\]\]/);
+  assert.match(FL, /\['map', 'Mapa'\], \['cal', 'Kalendář'\]\]/);
   // všechno skryly filtry: 1× za výsledek (překreslení stejného výsledku se nepočítá znovu)
   assert.match(FL, /Count\.deep\('res_all_hidden', String\(lastResultAt\)\)/);
 });

@@ -78,7 +78,7 @@ test('leaveDays: víkendy a svátky volno, odlet od 16:00 po práci, noční př
   // Vánoce čt–ne a Velikonoce pá–po: bez dovolené
   const xmas = H.leaveDays(out('2026-12-24T10:00'), back('2026-12-27T18:00'));
   assert.equal(xmas.n, 0);
-  assert.equal(H.leaveTxt(xmas).text, '🎉 bez dovolené');
+  assert.equal(H.leaveTxt(xmas).text, 'bez dovolené');
   assert.equal(H.leaveDays(out('2027-03-26T08:00'), back('2027-03-29T21:00')).n, 0, 'Velký pátek a Velikonoční pondělí');
   // let bez času odletu: den odletu se počítá celý
   const unk = H.leaveDays(out('2026-11-13'), back('2026-11-15T20:00'));
@@ -94,11 +94,11 @@ test('leaveDays: víkendy a svátky volno, odlet od 16:00 po práci, noční př
   assert.equal(H.leaveDays(out('2026-11-13T07:00'), back('2027-01-20T07:00')), null, 'přes 60 dní');
   // štítek
   const t = H.leaveTxt(nov);
-  assert.equal(t.text, '🏖️ 2 dny dovolené');
+  assert.equal(t.text, '2 dny dovolené');
   assert.match(t.title, /^Dny dovolené: pá 13\. 11\., po 16\. 11\. · pomáhá svátek út 17\. 11\. \(Den boje za svobodu\)/);
   assert.match(H.leaveTxt(oct).title, /odlet v pracovní den od 16:00 počítám jako po práci/);
-  assert.equal(H.leaveTxt({ n: 1, days: ['2026-11-16'], holidays: [] }).text, '🏖️ 1 den dovolené');
-  assert.equal(H.leaveTxt({ n: 5, days: [], holidays: [] }).text, '🏖️ 5 dní dovolené');
+  assert.equal(H.leaveTxt({ n: 1, days: ['2026-11-16'], holidays: [] }).text, '1 den dovolené');
+  assert.equal(H.leaveTxt({ n: 5, days: [], holidays: [] }).text, '5 dní dovolené');
 });
 
 test('leaveWindows: nejvíc volna kolem svátků za nejvýš N dní dovolené (i středeční svátek)', () => {

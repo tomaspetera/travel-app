@@ -1009,11 +1009,13 @@ html:has(#modalBg.show) body{overflow:hidden} /* na body, ne na html: přejde na
 .i-napoveda{--ico:url(../vendor/letsi/ikony/napoveda.svg)}
 .i-novinky{--ico:url(../vendor/letsi/ikony/novinky.svg)}
 .i-odbavene{--ico:url(../vendor/letsi/ikony/odbavene.svg)}
+.i-odlet{--ico:url(../vendor/letsi/ikony/odlet.svg)}
 .i-odlozeno{--ico:url(../vendor/letsi/ikony/odlozeno.svg)}
 .i-oblibene{--ico:url(../vendor/letsi/ikony/oblibene.svg)}
 .i-oblibene-plne{--ico:url(../vendor/letsi/ikony/oblibene-plne.svg)}
 .i-plus{--ico:url(../vendor/letsi/ikony/plus.svg)}
 .i-poloha{--ico:url(../vendor/letsi/ikony/poloha.svg)}
+.i-prilet{--ico:url(../vendor/letsi/ikony/prilet.svg)}
 .i-program{--ico:url(../vendor/letsi/ikony/program.svg)}
 .i-sdilet{--ico:url(../vendor/letsi/ikony/sdilet.svg)}
 .i-skryt{--ico:url(../vendor/letsi/ikony/skryt.svg)}
