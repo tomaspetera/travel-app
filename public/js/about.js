@@ -79,10 +79,10 @@
 
   /** Předmět e-mailu: verze a obrazovka, ze které uživatel píše (ať je jasné, o čem je řeč). */
   const subject = (version, screen) => `Letsi – zpětná vazba (verze ${version || '?'}${screen ? `, obrazovka: ${screen}` : ''})`;
-  /** mailto: odkaz, nebo null bez platné adresy. */
-  function mailto(email, version, screen) {
+  /** mailto: odkaz, nebo null bez platné adresy; body = předvyplněný text (otázka a odpověď z otazky.js). */
+  function mailto(email, version, screen, body) {
     if (!okEmail(email)) return null;
-    return `mailto:${email}?subject=${encodeURIComponent(subject(version, screen))}`;
+    return `mailto:${email}?subject=${encodeURIComponent(subject(version, screen))}${body ? `&body=${encodeURIComponent(body)}` : ''}`;
   }
 
   /** Správce údajů, kontakt, stížnost u ÚOOÚ a odkazy na plné zásady a podmínky (server/lib/pravni.js vykreslí
@@ -116,7 +116,7 @@
       <p style="font-size:14px;margin-top:10px">Letsi není spojen s žádnou leteckou společností ani prodejcem; ceny a odkazy jsou z veřejných a partnerských zdrojů.</p>
       <h4 class="ab-h">Co se ukládá a kam</h4>
       <ul class="ab-list">
-        <li><b>Jen v tomhle prohlížeči na tomhle zařízení</b> (localStorage): cesty, hlídané ceny, odložené nabídky, domov, navštívené země, oblíbená a skrytá místa, poslední i rozepsané hledání a nastavení. Na jiné zařízení je přeneseš odkazem (📲 Přenést do jiného zařízení) nebo zálohou.</li>
+        <li><b>Jen v tomhle prohlížeči na tomhle zařízení</b> (localStorage): cesty, hlídané ceny, odložené nabídky, domov, navštívené země, oblíbená a skrytá místa, poslední i rozepsané hledání, nastavení a které krátké otázky testovací verze už padly (odpovědi ne). Na jiné zařízení je přeneseš odkazem (📲 Přenést do jiného zařízení) nebo zálohou.</li>
         <li><b>Na serveru nic o tobě</b>: žádný účet ani profil. <b>Žádné cookies ani sledování jednotlivců</b> – kromě záznamu návštěvy bez jména a IP adresy, pokud ho sám zapneš (Pomáhat se zlepšováním – přepínač níž v tomhle okně). Počítám jen souhrnné denní počty (kolikrát se otevřela aplikace, kolik proběhlo hledání, kolik cest vzniklo, kde aplikace nic nenašla nebo selhala a které možnosti lidé volí v krátkých otázkách) – bez osobních údajů a bez vazby na tebe nebo tvoje zařízení. Jinak jen cesty, které sám sdílíš krátkým odkazem (níže).</li>
         <li><b>Co se na server posílá</b> – jen to, co je potřeba k odpovědi: u hledání letů odkud, kam, termín, počet cestujících, zavazadla a cesta na letiště (i 🏠 vlastní ceny); u ubytování místo, termín a počet hostů; v Objevuj místo a volby plánu; polohu, jen když sám použiješ 📍 Moje poloha nebo Moje okolí. Server odpovědi chvíli drží v mezipaměti (bez vazby na tebe) a IP adresu si kvůli limitům požadavků pamatuje nejdéle hodinu od posledního požadavku (u hledání 10 minut), pak ji sám smaže.</li>
         <li><b>Přímo z prohlížeče</b> se načítají mapy (OpenFreeMap) a fotky (Unsplash, Pexels, Wikimedia) – tyhle služby vidí tvou IP adresu jako u každého webu. Počasí, kurzy a hledání míst jdou přes server Letsi, tvou adresu tedy nevidí.</li>

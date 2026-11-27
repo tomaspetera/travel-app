@@ -195,6 +195,7 @@ function openMore() {
     ${grp('Sekce', 'mgSec', ['world', 'recommend'].map(k => row(`data-mv="${k === 'world' ? lastWorld : k}"`, NAV_INFO[k][2], NAV_INFO[k][0], NAV_INFO[k][1])).join(''))}
     ${grp('Moje data', 'mgData')}${grp('Vzhled', 'mgLook')}${grp('O Letsi', 'mgAbout')}</div>`, { x: true });
   const m = $('#modal'), data = $('#mgData', m), look = $('#mgLook', m), about = $('#mgAbout', m);
+  if (window.Otazky) Otazky.addToMenu(m); // Testovací verze · Napiš, co ti vadí (otazky.js)
   $$('[data-mv]', m).forEach(b => b.onclick = () => { modalClose(); go(b.dataset.mv); });
   // domov mění nastavení radaru na Přehledu – stejná cesta jako čip domova nahoře (flights.js updateHomeChip)
   $('#moreHome', m).onclick = () => { modalClose(); $('#homeChip').click(); };
@@ -1010,8 +1011,9 @@ function showNow() {
    Novinky posledních verzí a kde je v aplikaci najít (nejnovější nahoře). Po aktualizaci je ukáže lišta dole – jen ty
    od posledního otevření (whatsNewPop); celý seznam je v menu ☰ / v postranním panelu → Co je nového. WN_ID = verze
    sady (O aplikaci ji ukazuje, uvítání nováčka se k ní váže). */
-const WN_ID = '2026-11-26c';
+const WN_ID = '2026-11-27a';
 const WHATS_NEW = [
+  ['💬', 'Řekni mi, co ti vadí', 'Letsi je zatím testovací verze. Pod <b>Další</b> (na počítači vlevo dole) najdeš <b>Napiš, co ti vadí</b> a na <b>Přehledu</b> se občas zeptám na jednu krátkou otázku – nejvýš jednou denně a jde ji zavřít <b>Teď ne</b>.'],
   ['✨', 'ATLAS je teď Letsi', 'nový vzhled, kukátko, které hledá s tebou, nové ikony a adresa letsi.cz. Cesty a nastavení z dřívější adresy se sem samy nepřenesou – zálohu ze souboru obnovíš přes <b>Další</b> → <b>Záloha do souboru</b> (na počítači vlevo dole v <b>O aplikaci a soukromí</b>).'],
   ['🤝', 'Pomáhat se zlepšováním', 'když chceš, zapni pod <b>Další</b> → <b>Pomáhat se zlepšováním</b> (na počítači vlevo dole v <b>O aplikaci a soukromí</b>). Aplikace pak posílá, které obrazovky otevíráš a jaké hlavní akce děláš – nikdy co píšeš, kam jedeš, ceny ani nic o tobě. Záznam se smaže do 31 dnů a vypneš to tamtéž. Ve výchozím stavu je to vypnuté.'],
   ['⭐', 'Letsi Plus', 'podívej se, co zůstane zdarma a co chystáme navíc – a řekni nám, kolik by ti stálo za to. Najdeš ho pod <b>Další</b> → <b>Letsi Plus</b> (na počítači vlevo dole).'],
@@ -1387,6 +1389,8 @@ function renderDashTip() {
   if (wnFirst) { el.hidden = true; el.innerHTML = ''; return; } // první návštěva: stačí uvítání (renderWhatsNew)
   // karta souhlasu s měřením (helpCard v #whatsNew) je vidět: dvě prosby naráz ne – tip až po volbě
   const wn = $('#whatsNew'); if (wn && !wn.hidden) { el.hidden = true; el.innerHTML = ''; return; }
+  // dnes je na Přehledu krátká otázka (otazky.js) – tip počká, ať nejsou dvě karty naráz
+  if (typeof Otazky !== 'undefined' && Otazky.pending()) { el.hidden = true; el.innerHTML = ''; return; }
   let mem = null, explore = false;
   try { mem = JSON.parse(localStorage.getItem('atlas_tip')); explore = localStorage.getItem('atlas_explore_v1') != null; } catch (e) { /* soukromé okno, poškozený zápis */ }
   if (tipMem) mem = tipMem;
@@ -1414,6 +1418,8 @@ function renderDash() {
   renderSince();
   renderDashStats();
   renderWhatsNew();
+  // krátká otázka testerům (otazky.js): ne při uvítání ani vedle karty souhlasu s měřením – dvě prosby naráz ne
+  if (window.Otazky) Otazky.render($('#askCard'), wnFirst || !$('#whatsNew').hidden);
   renderDashTip();
   if (window.Plus) Plus.renderCard($('#plusCard'), wnFirst); // 📒 sešit 14 dní před odletem (plus.js)
   const hp = $('#heroPlan'); if (hp) hp.onclick = () => go('trip');

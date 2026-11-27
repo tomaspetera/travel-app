@@ -229,6 +229,19 @@ a{color:inherit}
 .more-home .mh-go{position:absolute;right:16px;top:50%;transform:translateY(-50%);font-size:14px;font-weight:600;text-decoration:underline;text-underline-offset:2px}
 /* poznámka pod skupinou (souhlas s měřením) jako popisek pod sekcí nastavení */
 .more-foot{font-size:12.5px;line-height:1.4;margin:-15px 14px 22px}
+/* Testovací verze (otazky.js): nenápadná značka a odkaz na e-mail pod nadpisem Další (na počítači v panelu) */
+.test-line{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;margin:-6px 0 16px;font-size:13px;color:var(--muted)}
+.test-tag{padding:2px 8px;border:1px solid var(--border-2);border-radius:999px;font-size:11.5px;font-weight:600;letter-spacing:.02em}
+.test-fb{color:var(--text);text-decoration:underline;text-underline-offset:2px;padding:4px 0}
+.test-fb[hidden]{display:none}
+/* krátká otázka testerům na Přehledu (otazky.js render): volby jako čipy, větší na prst */
+.ask-b{display:flex;flex-direction:column;align-items:flex-start;gap:8px;min-width:0;flex:1}
+.ask-k{font-size:11.5px;font-weight:600;letter-spacing:.02em;color:var(--muted)}
+.ask-q{font-size:15px}
+.ask-o{gap:6px}
+.ask-o .fchip{padding:8px 12px;font-size:13px;color:var(--text);min-height:38px}
+.ask-no{font-size:13px;padding:6px 0}
+.ask-st:empty{display:none}
 .btn.primary{background:#fff;border-color:transparent;color:#0b1226;box-shadow:0 10px 26px -12px rgba(0,0,0,.6)}
 .btn.primary:hover{box-shadow:0 14px 30px -12px rgba(0,0,0,.7)}
 [data-theme="light"] .btn.primary{background:#0f1830;color:#fff}

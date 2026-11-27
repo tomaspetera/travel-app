@@ -29,6 +29,10 @@ export const EVENTS = [
   'mq_restart_date', 'mq_restart_price', 'mq_restart_lost', 'mq_restart_try',
   'mq_trip_good', 'mq_trip_missing', 'mq_trip_lost',
   'mq_ex_city', 'mq_ex_nature', 'mq_ex_region', 'mq_ex_other',
+  // krátké otázky testerům na Přehledu (public/js/otazky.js) – jen klepnutá volba
+  'mq_found_yes', 'mq_found_almost', 'mq_found_no', 'mq_found_price', 'mq_found_other',
+  'mq_miss_stay', 'mq_miss_prog', 'mq_miss_ground', 'mq_miss_none', 'mq_miss_other',
+  'mq_back_cheap', 'mq_back_plan', 'mq_back_idea', 'mq_back_try', 'mq_back_other',
   // opakované klepnutí (3× do 1 s na totéž místo – něco nereaguje) podle sekce; jen se souhlasem „Pomáhat se
   // zlepšováním“ (public/js/count.js), jako i záznam návštěvy (server/lib/traces.js)
   'rage_dashboard', 'rage_flights', 'rage_trip', 'rage_explore', 'rage_world',
