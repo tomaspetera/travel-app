@@ -481,7 +481,7 @@ test('hledání země: štítky jen od začátku slova – „Itál“ nenajde E
 test('ikony v ⋯ Další: plus u Přidat Letsi na plochu, 📲 Přenést do jiného zařízení – každá jiná', () => {
   const pwa = read('js/pwa.js'), tr = read('js/transfer.js');
   assert.match(pwa, /const LABEL = 'Přidat Letsi na plochu';\s*const ICON = '<span class="ico i-plus" aria-hidden="true"><\/span> ';/);
-  assert.match(pwa, /<h2 class="pwa-h">➕ Letsi na plochu<\/h2>/);
+  assert.match(pwa, /<h2 class="pwa-h">\$\{ICON\}Letsi na plochu<\/h2>/);
   assert.doesNotMatch(pwa.replace(/\/\*[\s\S]*?\*\//g, ''), /📲/);
   assert.match(tr, /id="moreXfer"><span class="ico i-qr" aria-hidden="true"><\/span> Přenést do jiného zařízení/);
 });

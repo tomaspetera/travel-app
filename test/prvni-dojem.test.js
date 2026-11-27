@@ -60,6 +60,6 @@ test('nad kartami Kam letět levně tykání a číslovky ve správném tvaru (2
   const plural = new Function(`${fl.match(/^ {2}const plural = .*$/m)[0]}; return plural;`)();
   assert.equal(plural(2, 'osobu', 'osoby', 'osob'), '2 osoby');
   assert.equal(plural(5, 'osobu', 'osoby', 'osob'), '5 osob');
-  assert.match(fl, /Za osobu\$\{q\.payload\?\.adults > 1 \? ` \(ceny pro \$\{plural\(q\.payload\.adults, 'osobu', 'osoby', 'osob'\)\}\)` : ''\}:/);
+  assert.match(fl, /\$\{q\.payload\?\.adults > 1 \? `Cena za osobu při \$\{q\.payload\.adults\} cestujících` : 'Cena za osobu'\}:/);
   for (const f of ['app.js', 'flights.js', 'trip.js', 'places.js']) assert.doesNotMatch(read(f), /cestujete/, f);
 });

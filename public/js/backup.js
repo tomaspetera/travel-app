@@ -611,7 +611,7 @@
     modalOpen(`<div class="modal-body bk-modal">
       <h3 style="margin-bottom:8px">📲 Přenos z jiného zařízení</h3>
       <div id="bkBody"></div>
-      <p class="faint" style="font-size:12px;margin-top:12px">Data byla jen v odkazu – server je neviděl. Odkaz od někoho jiného nesluč: jeho cesty a hlídání by se přidaly k tvým.</p></div>`);
+      <p class="faint" style="font-size:12px;margin-top:12px">Data byla jen v odkazu – server je neviděl. Odkaz od někoho jiného nesluč: jeho cesty a hlídání by se přidaly k tvým.</p></div>`, { x: true });
     preview(inc, { link: true });
   }
 
@@ -734,10 +734,10 @@
     const canShare = typeof navigator.share === 'function' && typeof File === 'function', link = Boolean(window.Transfer);
     modalOpen(`<div class="modal-body bk-modal">
       <h3 style="margin-bottom:8px">💾 Záloha do souboru</h3>
-      <p class="muted" style="font-size:14px;margin-bottom:12px">🧳 Moje cesty, hlídané ceny, 📌 odložené nabídky, domov (odkud létáš), navštívené země, ⭐ moje cíle a 🙈 skrytá města, odškrtnuté položky „Před cestou“ a 🏠 vlastní ceny na letiště jsou jen v tomhle prohlížeči. Přenes je do telefonu nebo počítače ${link ? 'odkazem s QR kódem, nebo souborem' : 'souborem'} – nic se neukládá na server.</p>
+      <p class="muted" style="font-size:14px;margin-bottom:12px">🧳 Moje cesty, hlídané ceny, 📌 odložené nabídky, domov (odkud létáš), navštívené země, ⭐ moje cíle a 🙈 skrytá města, odškrtnuté položky „Před cestou“ a 🏠 vlastní ceny na letiště jsou jen v tomhle prohlížeči. Přenes je do telefonu nebo počítače ${link ? 'odkazem, nebo souborem' : 'souborem'} – nic se neukládá na server.</p>
       <div id="bkBody">
         <div class="bk-actions">
-          ${link ? '<button type="button" class="btn primary" id="bkLink">📲 Přenést odkazem / QR kódem</button>' : ''}
+          ${link ? '<button type="button" class="btn primary" id="bkLink">📲 Přenést odkazem</button>' : ''}
           ${canShare ? `<button type="button" class="btn${link ? '' : ' primary'}" id="bkShare">📤 Poslat soubor zálohy</button>` : ''}
           <button type="button" class="btn${canShare || link ? '' : ' primary'}" id="bkDown">⬇️ Stáhnout zálohu</button>
           <button type="button" class="btn ghost" id="bkPick">📂 Obnovit ze zálohy…</button>
@@ -745,7 +745,7 @@
         </div>
         <div class="faint" style="font-size:12.5px;margin-top:12px"><span id="bkStatus">${statusTxt()}</span><span id="bkStore"></span></div>
         <div class="faint" style="font-size:12px;margin-top:8px">Soubor: na druhém zařízení otevři Letsi → ⋯ Další → 💾 Záloha do souboru → 📂 Obnovit ze zálohy (na počítači vlevo dole 📲 Přenést do jiného zařízení → soubor zálohy). Obnova nic nesmaže: přidá, co chybí. Nepřenáší se rozpracovaná cesta v průvodci (v Mých cestách je uložená), uložené výsledky hledání i Kam letět levně, nedávná hledání, paměť cen, Objevuj a motiv.</div>
-      </div></div>`);
+      </div></div>`, { x: true });
     if (link) $('#bkLink').onclick = () => Transfer.open();
     if (canShare) $('#bkShare').onclick = () => share();
     $('#bkDown').onclick = () => { download(); toast('Záloha stažena'); };

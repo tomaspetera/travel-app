@@ -205,7 +205,7 @@ function openMore() {
    Přepínač v Další a v O aplikaci (about.js), karta na Přehledu (helpCard). Odvolání musí jít stejně snadno jako
    udělení, proto stejný přepínač na obou místech. */
 const HELP_TXT = 'Záznam obrazovek a hlavních akcí při návštěvě, bez textu, míst a cen. Smaže se do 31 dnů.';
-const helpBtn = id => `<button type="button" class="btn ghost" id="${id}" role="switch" aria-checked="${Count.helping()}">🤝 Pomáhat se zlepšováním <span class="faint">${Count.helping() ? 'zapnuto' : 'vypnuto'}</span></button>`;
+const helpBtn = id => `<button type="button" class="btn ghost" id="${id}" role="switch" aria-checked="${Count.helping()}">${ikona('cestujici')} Pomáhat se zlepšováním <span class="faint">${Count.helping() ? 'zapnuto' : 'vypnuto'}</span></button>`;
 /** Přepínač b (z helpBtn): klepnutí zapne nebo vypne; vypnutí platí hned a smaže záznam téhle návštěvy (count.js). */
 function helpSwitch(b) {
   if (!b) return;
@@ -1258,7 +1258,7 @@ function whatsNewOpen() {
   modalOpen(`<div class="modal-body"><h3>${ikona('novinky')} Co je nového</h3><p class="faint" style="margin:0 0 4px">Novinky posledních verzí a kde je v aplikaci najdeš.</p>
     <ul class="wn-list">${WHATS_NEW.slice(0, WN_TOP).map(wnLi).join('')}</ul>
     ${more.length ? `<details class="wn-more"><summary>Starší novinky (${more.length})</summary><ul class="wn-list">${more.map(wnLi).join('')}</ul></details>` : ''}
-    <button type="button" class="btn ghost" data-close>Zavřít</button></div>`);
+    <button type="button" class="btn ghost" data-close>Zavřít</button></div>`, { x: true });
   $$('#modal [data-close]').forEach(b => { b.onclick = () => modalClose(); });
 }
 /* ---------- 🕘 Od minula ----------
@@ -2259,7 +2259,7 @@ function newTrip(c, pre = {}) {
 async function saveTrip(iso, flightTxt) {
   // vše z formuláře hned – během dohledávání místa může uživatel okno zavřít nebo otevřít jiné
   const b = $('#ntSave');
-  const f = { name: $('#ntName').value.trim() || 'Moje cesta', dest: $('#ntDest').value.trim(), start: $('#ntStart').value, end: $('#ntEnd').value, pax: $('#ntPax').value, budget: $('#ntBudget').value };
+  const f = { name: $('#ntName').value.trim() || $('#ntDest').value.trim() || 'Moje cesta', dest: $('#ntDest').value.trim(), start: $('#ntStart').value, end: $('#ntEnd').value, pax: $('#ntPax').value, budget: $('#ntBudget').value };
   if (f.start && f.end && f.end < f.start) { toast('Návrat je před odjezdem', 'err'); return; } // termín pak nejde upravit
   // země jen při přesném názvu („Itálie“); začátek názvu („Kos“ → Kosovo) až když místo toho jména neexistuje
   let fiso = iso, place = null; if (!fiso && f.dest) { const t = norm(f.dest), c = COUNTRIES.find(c => norm(c.cs) === t || norm(c.en) === t); if (c) fiso = c.iso2; }

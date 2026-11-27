@@ -181,7 +181,7 @@
 
   /** Položka v ⋯ Další (app.js openMore). */
   function addToMenu(list) {
-    list.insertAdjacentHTML('beforeend', '<button type="button" class="btn ghost" id="moreXfer"><span class="ico i-qr" aria-hidden="true"></span> Přenést do jiného zařízení <span class="faint">odkaz, QR kód</span></button>');
+    list.insertAdjacentHTML('beforeend', '<button type="button" class="btn ghost" id="moreXfer"><span class="ico i-qr" aria-hidden="true"></span> Přenést do jiného zařízení <span class="faint">odkaz nebo soubor</span></button>');
     list.querySelector('#moreXfer').onclick = () => open();
   }
   // Počítač a tablet nemají ⋯ Další: odkaz v postranním panelu pod přepínačem motivu (vzhled .side-about jako

@@ -152,14 +152,19 @@
     ['Sešit cesty k tisku a do PDF', 'ne', 'ano'],
   ];
   const cell = v => (v === 'ano' ? '<span aria-hidden="true">✓</span><span class="sr-only">ano</span>' : v === 'ne' ? '<span aria-hidden="true">–</span><span class="sr-only">ne</span>' : h(v));
-  function pageHtml() {
+  /**
+   * Z čeho Letsi žije – provize jen při zapnutých partnerských odkazech (/api/health affiliate, stejně jako about.js
+   * earnings). Dokud stav serveru neznáme, bez provizí: okno nesmí tvrdit něco, co O aplikaci popírá.
+   */
+  const livesTxt = health => `Z čeho Letsi žije: ${health && health.affiliate === true ? 'z provizí partnerů (takové odkazy jsou označené reklama) a ' : ''}z dobrovolných příspěvků, později i z předplatného Plus. Pořadí výsledků si nikdo nekoupí.`;
+  function pageHtml(health) {
     return `<div class="modal-body plus-page">
       <h3>⭐ ${h(NAME)}</h3>
       <p>Co zůstane zdarma a co chystáme navíc.</p>
       <table class="plus-table"><thead><tr><th scope="col">Co</th><th scope="col">Zdarma</th><th scope="col">Plus <small>${SOON}</small></th></tr></thead>
         <tbody>${FREE.map(([what, a, b]) => `<tr><th scope="row">${h(what)}</th><td>${cell(a)}</td><td>${cell(b)}</td></tr>`).join('')}</tbody></table>
       <p class="plus-small">Plus: ${kc(YEAR_CZK)} na rok, nebo ${kc(MONTH_CZK)} na měsíc.</p>
-      <p class="faint plus-small">Z čeho Letsi žije: z provizí partnerů (takové odkazy jsou označené reklama) a z dobrovolných příspěvků, později i z předplatného Plus. Pořadí výsledků si nikdo nekoupí.</p>
+      <p class="faint plus-small" id="plusLives">${h(livesTxt(health))}</p>
       <div id="plusAfter"><button type="button" class="btn primary block" id="plusWant">Chci Plus</button></div>
     </div>`;
   }
@@ -206,6 +211,8 @@
     modalOpen(pageHtml(), { x: true });
     hit('plus_page'); hit('plus_offer_shown');
     q('#plusWant').onclick = () => { hit('plus_offer_click'); after(q('#plusAfter'), 'Plus chystáme na jaro – dáme vědět tady v aplikaci.'); };
+    // provize podle serveru (stejný dotaz /api/health, který app.js stahuje při startu) – jen věta, ať nezmizí odpověď na „Chci Plus“
+    if (window.Flights && Flights.warm) Flights.warm().then(hl => { const p = q('#plusLives'); if (p) p.textContent = livesTxt(hl); }, () => { /* bez serveru zůstane věta bez provizí */ });
   }
   /** Okno Sešitu cesty pro uloženou cestu (záznam z Mých cest nebo stejná pole: name, dest, iso, start, end, days). */
   function sesit(t) {
@@ -292,5 +299,5 @@
     }
   }
 
-  window.Plus = { NAME, YEAR_CZK, MONTH_CZK, PRICES, counts, countedTrips, needsGate, askDue, cardPick, cardText, termTxt, sesitLine, sesitHtml, gateFlow, tripKey, open, sesit, sesitShown, gateNewTrip, renderCard, addToMenu };
+  window.Plus = { NAME, YEAR_CZK, MONTH_CZK, PRICES, counts, countedTrips, needsGate, askDue, cardPick, cardText, termTxt, sesitLine, sesitHtml, pageHtml, livesTxt, gateFlow, tripKey, open, sesit, sesitShown, gateNewTrip, renderCard, addToMenu };
 })();

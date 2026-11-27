@@ -262,7 +262,7 @@
     // bez modulu zálohy nevíme, jestli tu něco je – krok s přenosem raději ukázat; bez modulu přenosu není kam poslat
     const data = Boolean(window.Transfer) && (!window.Backup || !Backup.isEmpty(Backup.countsNow()));
     modalOpen(`<div class="modal-hero"><div class="mh-bg"></div><button class="modal-close" data-close aria-label="Zavřít">${close}</button>
-      <div class="modal-hero-inner"><h2 class="pwa-h">➕ Letsi na plochu</h2><div class="pwa-sub">iPhone a iPad · pár vteřin</div></div></div>
+      <div class="modal-hero-inner"><h2 class="pwa-h">${ICON}Letsi na plochu</h2><div class="pwa-sub">iPhone a iPad · pár vteřin</div></div></div>
       <div class="modal-body">${iosSteps(SHARE_ICO, data)}</div>`);
     const x = document.getElementById('pwaXfer');
     if (x) x.onclick = () => { modalClose(); Transfer.open(); };
