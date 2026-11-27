@@ -182,11 +182,8 @@
 :root[data-brand="letsi"] .mobile-nav .mi span{font-weight:500;letter-spacing:0}
 :root[data-brand="letsi"] .mobile-nav .mi.active span{font-weight:700}
 
-/* ============ ÚVODNÍ OBRAZOVKA (aplikace na ploše): Vápno / Noc, dlaždice Pistácie s Nocí ============ */
+/* ============ ÚVODNÍ OBRAZOVKA (aplikace na ploše): Vápno / Noc, logo barvou textu (kreslí ho index.html .l-logo) ============ */
 :root[data-brand="letsi"] #launch{background:var(--bg);color:var(--text)}
-:root[data-brand="letsi"] #launch .l-sq{fill:#D6DE82}
-:root[data-brand="letsi"] #launch .l-paper path{fill:#14161F}
-:root[data-brand="letsi"] #launch .l-air,:root[data-brand="letsi"] #launch .l-jet path{fill:var(--text)}
 
 /* ============ DROBNOSTI ============ */
 /* informační poznámky a štítky (dřív světle modré): pěna s textem */
@@ -307,11 +304,9 @@
 :root[data-brand="letsi"] .brand-logo{display:none}
 :root[data-brand="letsi"] .brand-name{width:140px;height:30px;margin-bottom:6px;font-size:0;background:currentColor;-webkit-mask:url(../vendor/letsi/letsi-logo-mala-mono.svg) left center/contain no-repeat;mask:url(../vendor/letsi/letsi-logo-mala-mono.svg) left center/contain no-repeat}
 
-/* úvodní obrazovka: místo dlaždice s vlaštovkou, letadel a názvu plné logo (od 48 px výšky; tady 64 px), statické
-   (logo nikdy nemrká). Na obrazovce nic jiného není, takže slunce nad i smí svítit: na Vápně hlavní, na Noci negativ. */
+/* úvodní obrazovka: místo dlaždice s vlaštovkou, letadel a názvu plné logo 64 px s očima (index.html .l-logo, animace
+   tamtéž). Na obrazovce nic jiného není, takže slunce nad i smí svítit. */
 :root[data-brand="letsi"] #launch :is(.l-ico,.l-jet,b){display:none}
-:root[data-brand="letsi"] #launch::before{content:"";position:absolute;left:50%;top:45%;width:288px;height:64px;margin:-32px 0 0 -144px;background:url(../vendor/letsi/letsi-logo-hlavni.svg) center/contain no-repeat}
-:root[data-brand="letsi"][data-theme="dark"] #launch::before{background-image:url(../vendor/letsi/letsi-logo-negativ.svg)}
 
 /* ============ CHYBY A VAROVÁNÍ (manuál Letsi 2.1: hláška o chybě) =====
    Chyba = text Noc (v tmavém Vápno) na kartě s lemem 2 px Sušené rajče. Růžová plocha s karmínovým textem z ATLASu
