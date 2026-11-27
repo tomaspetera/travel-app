@@ -2327,8 +2327,11 @@
     if (!t.iso && e.iso) t.iso = e.iso;
     return added;
   }
-  /** Dny, do kterých přibyl řádek, který tam předtím nebyl (was = kopie t.days před mergeInto), seřazené. */
-  const newDays = (was, now) => Object.keys(now || {}).filter(d => Array.isArray(now[d]) && now[d].some(x => !(Array.isArray(was && was[d]) ? was[d] : []).includes(x))).sort();
+  /** Řádky programu, které proti kopii před mergeInto (was) přibyly – za každý jeho den. Počítá se z rozdílu, ne z čísla
+      mergeInto: to nezapočte místo, které uživatel v itineráři smazal a uložení ho vrátilo (hláška by tvrdila „už máš“). */
+  const newLines = (was, now) => Object.keys(now || {}).flatMap(d => (Array.isArray(now[d]) ? now[d].filter(x => !(Array.isArray(was && was[d]) ? was[d] : []).includes(x)).map(() => d) : []));
+  /** Dny, do kterých přibyl řádek, který tam předtím nebyl, seřazené. */
+  const newDays = (was, now) => [...new Set(newLines(was, now))].sort();
   /** Hláška po „Přidat k cestě“ podle toho, co mergeInto opravdu přidal (čistá funkce – test/ux-texty-pravda.test.js):
       dřív „Přidáno k cestě“, i když všechna místa v programu už byla a nic nepřibylo – vypadalo to, že se ztratila. */
   const addMsg = (name, added, days = []) => (added > 0
@@ -3128,7 +3131,8 @@
       let t = S.trips[i];
       const busy = t ? busyDays(t, entry) : [];
       const was = t ? JSON.parse(JSON.stringify(t.days || {})) : null;
-      const added = t ? mergeInto(t, entry) : 0, days = t ? newDays(was, t.days) : [];
+      if (t) mergeInto(t, entry);
+      const added = t ? newLines(was, t.days).length : 0, days = t ? newDays(was, t.days) : [];
       if (!t) S.trips.push(t = { ...entry, explore: { [entry.src]: entry.days }, exploreNotes: { [entry.src]: entry.notes }, genName: entry.name, pax: '2', budget: '', checklist: packFor(entry.src).map(x => ({ t: x, done: false })) });
       save();
       $$('#exSave, #exSaveNew', body).forEach(b => { b.disabled = true; });
@@ -3193,7 +3197,7 @@
     renderExplore, renderPlanner, retheme, routeMap, dayRoute, gmDir, openAt, preview, previewHtml, openCountryView, makeHikePlan,
     dayCol, dayInk, // barvy a čísla míst trasy (trip.js)
     // jen pro testy (test/places-ui.test.js)
-    _t: { newDays, addMsg, recolor, hikesAt, wxAvgWhy, tripDropUndo, tripPlaces, ownPlaces, savedPlaces, tripDatesFor, inspSub, searchedPlaces, plural, placesTxt, mustTxt, inRadius, needsFetch, outsideIds, planIds, withPlanStops, enterAction, missNext, sugHtml, waitHtml, errLead, errHtml, httpErr, mustBtn, poiCard,
+    _t: { newLines, newDays, addMsg, recolor, hikesAt, wxAvgWhy, tripDropUndo, tripPlaces, ownPlaces, savedPlaces, tripDatesFor, inspSub, searchedPlaces, plural, placesTxt, mustTxt, inRadius, needsFetch, outsideIds, planIds, withPlanStops, enterAction, missNext, sugHtml, waitHtml, errLead, errHtml, httpErr, mustBtn, poiCard,
       uiSnapshot, uiRestore, okStart, pushRecent, samePlace, cleanPlace, getJson, firstSentence, descHtml, inclHtml, gq, poiQ, centerQ, gmDir, dayLbl, slug, gpxOf, SLOW_MS, UI_LS,
       countryCs, ccAliasHits, stopQ, mapyDir, dayLinks, planHtml, tripHtml, MAPY_WP, emptyHtml, planEmptyHtml, variantTxt, routeHtml, ROUTE_VARIANTS, blankHtml, looksEnglish, surfaceRows, surfaceHtml,
       afterDark, routeBack, sunSlot, sunHtml, fillSun, toHm, modeBtns, previewPick, previewCard, moreTxt, poiUrl, pvFor, PREVIEW_KM, ex, loadExplore,

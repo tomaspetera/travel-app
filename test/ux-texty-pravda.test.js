@@ -73,10 +73,17 @@ test('Přidat k cestě: hláška podle toho, co přibylo a kam', () => {
   // víc než 3 dny: rozsah od–do, ať hláška nepřeteče
   assert.equal(P.addMsg('X', 6, ['2027-03-13', '2027-03-14', '2027-03-15', '2027-03-16']), 'K cestě X přidáno: 6 míst (so 13. 3. – út 16. 3.)');
   assert.deepEqual([...P.newDays(null, { a: ['x'] })], ['a']);
+  // místo smazané v itineráři (delAct) se dalším uložením vrátí: mergeInto ho nezapočte, hláška nesmí tvrdit „už máš“
+  t.days['2027-03-14'] = t.days['2027-03-14'].filter((x) => x !== 'Oceanárium');
+  const was3 = JSON.parse(JSON.stringify(t.days));
+  assert.equal(P.mergeInto(t, e), 0);
+  assert.equal(P.newLines(was3, t.days).length, 1);
+  assert.deepEqual([...P.newDays(was3, t.days)], ['2027-03-14']);
 });
 
 test('Přidat k cestě: hláška z addMsg, upozornění na obsazené dny zůstává, Otevřít jde na první dotčený den', () => {
   const src = read('public/js/places.js');
+  assert.match(src, /const added = t \? newLines\(was, t\.days\)\.length : 0/, 'počet z rozdílu programu, ne z mergeInto');
   assert.match(src, /actToast\(i >= 0 \? `\$\{addMsg\(t\.name, added, days\)\}\$\{warn\}` : 'Uloženo do Mých cest'/);
   assert.match(src, /day-block\[data-day="\$\{days\[0\]\}"\]`\)\?\.scrollIntoView/);
   assert.doesNotMatch(src, /`Přidáno k cestě \$\{t\.name\}/);
