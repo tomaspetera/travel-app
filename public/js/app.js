@@ -3022,8 +3022,9 @@ function launchDone(now) {
   el.dataset.out = '1';
   const out = () => { el.classList.add('out'); setTimeout(() => el.remove(), 700); };
   if (now === true) return out();
-  // vlaštovka musí nejdřív vzlétnout (~0,9 s od prvního vykreslení; bez animací se nečeká)
-  const calm = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // vlaštovka ATLASu musí nejdřív vzlétnout (~0,9 s od prvního vykreslení; bez animací se nečeká). Oči Letsi na nic
+  // nečekají: hotový přehled má přednost, animace se rozplyne, kde zrovna je.
+  const calm = (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) || document.documentElement.dataset.brand === 'letsi';
   const takeoff = new Promise(r => setTimeout(r, calm ? 0 : Math.max(0, (window.atlasLaunchAt || 0) + 950 - performance.now())));
   const fonts = document.fonts && document.fonts.ready ? Promise.race([document.fonts.ready, new Promise(r => setTimeout(r, 800))]) : Promise.resolve();
   Promise.all([fonts, takeoff]).then(() => requestAnimationFrame(() => requestAnimationFrame(out)));
