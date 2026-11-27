@@ -1378,7 +1378,7 @@ přes ⋯ Další → Přenos a záloha tam nejde spolehlivě udělat. Testeři 
 | Název, titulek, popis pro vyhledávače a náhled, popis aplikace na ploše, slogan a tři body na obrázku, popis obrázku | `server/brand.js` (jedno místo – stránka, náhled, manifest, JSON-LD, 404) |
 | Adresa webu (kanonická, náhled, `sitemap.xml`, `robots.txt`) | proměnná `PUBLIC_URL` na Renderu; výchozí `url` v `server/brand.js` |
 | Náhledový obrázek `public/og-image.png` | `npm run build:og` – šablona je v `scripts/build-og-image.mjs` (logo a znak `scripts/letsi-znak.svg`, písma z `public/vendor/fonts/letsi`), texty bere z `brand.js`. Potřebuje Playwright s Chromiem (`npm i -g playwright && npx playwright install chromium`), projekt závislost nemá. `npm test` pozná, když se obrázek po změně `brand.js` nebo šablony znovu nevygeneroval |
-| Ikony na plochu a úvodní obrazovky iOS | hotová PNG z balíku identity (`ikona/`) do `public/icons/`, pak `npm run build:icons` (`scripts/build-icons.mjs` dopočítá zbylé velikosti a úvodní obrazovky); favicon `public/vendor/letsi/` |
+| Ikony na plochu a úvodní obrazovky iOS | `icon-1024.png` z balíku identity (`ikona/`) do `scripts/balik/`, `apple-touch-icon-180.png` do `public/icons/apple-touch-icon.png`, pak `npm run build:icons` (`scripts/build-icons.mjs` z ní vyrobí ikony z manifestu a úvodní obrazovky); favicon `public/vendor/letsi/` |
 | Barvy | `public/css/letsi.css` (vzhled Letsi), `theme_color` a `background_color` v `public/manifest.webmanifest`, `theme-color` v `public/index.html` |
 | Název v textech aplikace | `public/index.html` a `public/js/*.js`; `test/nazev-letsi.test.js` hlídá, že ve viditelných textech „ATLAS“ není |
 
@@ -1641,16 +1641,16 @@ nic se neukládá na server a nepotřebuje to účet.
   může zeptat „Aktualizovat?“. Obsah aplikace se přeinstalováním neřeší – ten je vždy nejnovější.
 - Kontrola v prohlížeči: DevTools → Application → Manifest, Service workers a Cache storage (`atlas-<verze>`).
 
-**Ikony** (`public/icons/`) mají stejnou značku jako favicon – papírové letadlo na přechodu barev ATLAS: 192 a 512 px,
-maskovatelná 512 px pro Android, 180 px pro iOS a 96 px pro zkratky v manifestu. Maskovatelná má přechod přes celou
-plochu a jen zaoblené rohy (0,17 strany) v barvě pozadí aplikace (`#080c1a`): na ploše a v přehledu aplikací ji Android
-ořízne do kruhu či zaobleného čtverce (Xiaomi ukáže skoro celou plochu, rohy ale zaoblí víc – vidět je jen přechod), na
-úvodní obrazovce ji Chrome ukáže celou – tmavé rohy splynou s pozadím a zbude zaoblená ikona, ne ostrý čtverec. Proto je
-i `name` v manifestu jen „ATLAS“ (Chrome ho píše dole na úvodní obrazovku); úvodní obrazovka v aplikaci (`#launch`
-v `index.html`) má stejnou ikonu i nápis na stejném místě, takže na sebe navazují. Vytváří je `npm run build:icons`
-(`scripts/build-icons.mjs` bez závislostí: tvary vykreslí po pixelech s vyhlazením a PNG zakóduje přes `node:zlib`);
-test hlídá, že uložené PNG odpovídají skriptu – po změně vzhledu ho stačí spustit znovu. Stejnou vlaštovku (velikost
-a kotva jako ikona) má i logo v bočním panelu aplikace – dřív tam byla zeměkoule.
+**Ikony** (`public/icons/`) jsou kukátko Letsi (znak Noc na Pistácii `#D6DE82`): 1024, 512 a 192 px („any“),
+maskovatelná 512 px pro Android, 96 px pro zkratky v manifestu a 180 px pro iOS. Všechny z manifestu jsou **plný
+čtverec** Pistácie bez průhledných rohů se znakem na 60 % šířky: launchery (MIUI ap.) ikonu s průhlednými rohy zvětší,
+oříznou a zaoblí po svém a znak pak naráží na okraje; plný čtverec jen zaoblí a znak se vejde i do kruhu (bezpečná
+zóna 80 %). Chrome na Androidu ukáže tuhle ikonu ~128 dp na středu své úvodní obrazovky (pozadí `background_color`,
+dole `name`); úvodní obrazovka v aplikaci (`#launch` v `index.html`) začíná přesně tímhle stavem – dlaždice 128 px na
+středu okna se znakem ve stejné velikosti a poloze – a teprve pak se dlaždice rozplyne a oči se rozehrají, takže na sebe
+obě obrazovky navazují. Vytváří je `npm run build:icons` (`scripts/build-icons.mjs` bez závislostí: znak vezme z ikony
+balíku identity `scripts/balik/icon-1024.png`, každou velikost přepočítá průměrem plochy a PNG zakóduje přes
+`node:zlib`); test hlídá, že uložené PNG odpovídají skriptu – po nové ikoně z balíku ho stačí spustit znovu.
 
 **Úvodní obrazovka na iPhonu a iPadu**: iOS ukáže od klepnutí na ikonu do prvního vykreslení stránky obrázek
 `apple-touch-startup-image` – bez něj bílou plochu, která u tmavé aplikace problikne. Letsi má pro každý displej

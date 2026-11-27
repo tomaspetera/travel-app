@@ -14,7 +14,7 @@ process.env.ATLAS_MOCK = '1';
 const { createServer } = await import('../server/index.js');
 const { serviceWorker, serveIndex, shellAssets, manifestIcons, RUNTIME_ASSETS, versionAssets, contentVersion } = await import('../server/lib/pwa.js');
 const { inlineScriptHashes } = await import('../server/lib/security.js');
-const { MASTERS, DERIVED, derivedPng, halve, crc32, BG, BG_DARK, splashImages, splashLinks, solidPng } = await import('../scripts/build-icons.mjs');
+const { MASTERS, ICONS, SOURCE, iconPng, decodePng, crc32, BG, BG_DARK, splashImages, splashLinks, solidPng } = await import('../scripts/build-icons.mjs');
 const { BRAND } = await import('../server/brand.js');
 
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
@@ -94,44 +94,31 @@ test('manifest: česky, standalone, barvy Letsi (Vápno), ikony 192/512/1024 i m
     assert.equal(icon.type, 'image/png');
     const img = readPng(Buffer.from(await res.arrayBuffer()), icon.src);
     assert.equal(`${img.width}x${img.height}`, icon.sizes, `${icon.src}: skutečné rozměry`);
-    const opaque = img.px.every((v, i) => i % 4 !== 3 || v === 255);
-    if (icon.purpose === 'maskable') {
-      assert.ok(opaque, `${icon.src}: maskovatelná ikona bez průhlednosti (Android ji ořízne)`);
-      // Letsi: Pistácie do krajů (systém ořízne sám), znak kukátka uvnitř bezpečné zóny
-      const rgbAt = (x, y) => { const o = (y * img.width + x) * 4; return '#' + [0, 1, 2].map((j) => img.px[o + j].toString(16).padStart(2, '0')).join(''); };
-      assert.equal(rgbAt(0, 0), '#d6de82', `${icon.src}: roh = Pistácie`);
-      assert.equal(rgbAt(img.width - 1, img.height - 1), '#d6de82');
-      // na ploše je vidět střed ikony (podle Androidu a Chromu 67–87 %): kruh 87 % i čtverec 80 % bez okraje v barvě pozadí
-      const k = Math.round(img.width * (0.5 - 0.87 / 2 / Math.SQRT2)), q = Math.round(img.width * 0.1);
-      assert.notEqual(rgbAt(k, k), m.background_color, `${icon.src}: na ploše žádný tmavý okraj (kruh)`);
-      assert.notEqual(rgbAt(q, q), m.background_color, `${icon.src}: na ploše žádný tmavý okraj (čtverec)`);
-    }
-    else {
-      assert.equal(alphaAt(img, 0, 0), 0, `${icon.src}: průhledný zaoblený roh`);
-      assert.equal(alphaAt(img, img.width >> 1, img.height >> 1), 255);
-    }
+    // všechny (any i maskable): plný čtverec Pistácie bez průhlednosti – launcher ho jen zaoblí, nezvětší (test/ikona-splash.test.js)
+    assert.ok(img.px.every((v, i) => i % 4 !== 3 || v === 255), `${icon.src}: bez průhlednosti`);
+    const rgbAt = (x, y) => { const o = (y * img.width + x) * 4; return '#' + [0, 1, 2].map((j) => img.px[o + j].toString(16).padStart(2, '0')).join(''); };
+    assert.equal(rgbAt(0, 0), '#d6de82', `${icon.src}: roh = Pistácie`);
+    assert.equal(rgbAt(img.width - 1, img.height - 1), '#d6de82');
+    // na ploše je vidět střed ikony (podle Androidu a Chromu 67–87 %): kruh 87 % i čtverec 80 % bez okraje v barvě pozadí
+    const k = Math.round(img.width * (0.5 - 0.87 / 2 / Math.SQRT2)), q = Math.round(img.width * 0.1);
+    assert.notEqual(rgbAt(k, k), m.background_color, `${icon.src}: na ploše žádný tmavý okraj (kruh)`);
+    assert.notEqual(rgbAt(q, q), m.background_color, `${icon.src}: na ploše žádný tmavý okraj (čtverec)`);
   }
 });
 
-test('ikony v public/icons/: hotová PNG z balíku Letsi a zmenšeniny ze scripts/build-icons.mjs (po nové ikoně skript spustit znovu)', () => {
-  const size = { 'icon-1024.png': 1024, 'icon-192.png': 192, 'icon-maskable-512.png': 512, 'apple-touch-icon.png': 180 };
-  assert.deepEqual(Object.values(MASTERS).sort(), Object.keys(size).sort());
-  for (const [f, s] of Object.entries(size)) {
-    const img = readPng(readFileSync(path.join(PUB, 'icons', f)), f);
-    assert.deepEqual([img.width, img.height], [s, s], f);
+test('ikony v public/icons/: z ikony balíku Letsi (scripts/balik/) podle scripts/build-icons.mjs (po nové ikoně skript spustit znovu)', () => {
+  assert.deepEqual(Object.values(MASTERS), ['apple-touch-icon.png']);
+  const src = decodePng(readFileSync(SOURCE));
+  assert.deepEqual([src.width, src.height], [1024, 1024]);
+  const manifest = JSON.parse(read('public/manifest.webmanifest'));
+  const listed = new Set([...manifest.icons, ...manifest.shortcuts.flatMap((s) => s.icons)].map((i) => i.src));
+  assert.deepEqual([...listed].sort(), ICONS.map((i) => `icons/${i.file}`).sort(), 'skript dělá právě ikony z manifestu');
+  for (const { file, size } of ICONS) {
+    const buf = readFileSync(path.join(PUB, 'icons', file));
+    assert.ok(buf.equals(iconPng(size, src)), `${file}: jako ze skriptu (npm run build:icons)`);
+    const img = readPng(buf, file);
+    assert.deepEqual([img.width, img.height], [size, size], file);
   }
-  for (const d of DERIVED) {
-    const buf = readFileSync(path.join(PUB, 'icons', d.file));
-    assert.ok(buf.equals(derivedPng(d, path.join(PUB, 'icons'))), `${d.file}: jako ze skriptu (${d.from} na polovinu)`);
-    const img = readPng(buf, d.file), src = readPng(readFileSync(path.join(PUB, 'icons', d.from)), d.from);
-    assert.deepEqual([img.width * 2, img.height * 2], [src.width, src.height]);
-    // průhledné rohy i neprůhledný střed zůstanou (zmenšení váží barvu krytím – okraj dlaždice neztmavne)
-    assert.equal(alphaAt(img, 0, 0), 0);
-    assert.equal(alphaAt(img, img.width >> 1, img.height >> 1), 255);
-  }
-  // zmenšení: průměr 2 × 2 vážený krytím
-  const h = halve({ width: 2, height: 2, px: new Uint8Array([255, 0, 0, 255, 0, 0, 0, 0, 255, 0, 0, 255, 0, 0, 0, 0]) });
-  assert.deepEqual([...h.px], [255, 0, 0, 128]);
   // iOS: bez průhlednosti (průhledné místo by na ploše bylo černé), 180 × 180
   const apple = readPng(readFileSync(path.join(PUB, 'icons', 'apple-touch-icon.png')), 'apple-touch-icon.png');
   assert.equal(apple.width, 180);
