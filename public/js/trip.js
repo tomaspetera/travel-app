@@ -834,8 +834,10 @@ let calOut = false; // jedna obsluha klepnutí mimo nabídku „Do kalendáře �
     const mine = S.trip;
     // „Změnit let“ u uložené cesty (app.js editTrip → window.reflight = její tripId): let se vymění u ní – dřív vznikla
     // druhá cesta se stejným názvem bez programu. Značka platí jen pro tento výběr (app.js go ji smaže i při odchodu z Letů).
-    const re = window.reflight && Array.isArray(S.trips) ? savedEdit(S.trips.find(x => x && x.tripId && x.tripId === window.reflight)) : null;
+    const old = window.reflight && Array.isArray(S.trips) ? S.trips.find(x => x && x.tripId && x.tripId === window.reflight) : null, ow = old && old.wizard;
     window.reflight = null;
+    // let jinam (v Letech hledal jiný cíl) = nová cesta jako dřív – program a název starého cíle by k letu nepatřily
+    const re = ow && ow.flight && ow.flight.out && (ow.flight.out.to === t.out.to || (ow.dest && ow.dest.label === dest.label)) ? savedEdit(old) : null;
     // stejný let tam i zpět znovu (z výsledků, z uložených výsledků) pro stejně lidí a zavazadla → pokračovat v rozpracované
     // cestě; za stejnou cenu z novějšího hledání platí cena k jeho času
     if (!re && mine && mine.flight && JSON.stringify([mine.flight.out, midLegs(mine), mine.flight.back || null]) === JSON.stringify([t.out, Array.isArray(t.mid) ? t.mid : [], t.back || null])

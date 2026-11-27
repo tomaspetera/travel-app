@@ -119,6 +119,20 @@ test('Změnit let: značka bez uložené cesty (smazaná mezitím) založí novo
   assert.equal(c.window.reflight, null);
 });
 
+test('Změnit let: v Letech vybraný let jinam (jiný cíl) založí novou cestu – Lisabon s programem zůstane beze změny', () => {
+  const c = load();
+  const e = saved(c), id = e.tripId, before = JSON.stringify(e.wizard.flight);
+  c.S.trip = null;
+  c.window.reflight = id;
+  pick(c, { dest: ROM, from: 7, to: 11 });
+  assert.equal(c.window.reflight, null);
+  assert.notEqual(c.S.trip.created, id, 'Řím je nová cesta');
+  assert.equal(c.S.trip.dest.label, 'Řím');
+  const n = c.S.trips.find((x) => x.tripId === id);
+  assert.equal(JSON.stringify(n.wizard.flight), before, 'let Lisabonu se nezměnil');
+  assert.equal(n.dest, 'Lisabon');
+});
+
 test('app.js: „Změnit let“ nastaví značku, odchod z Letů ji smaže; start na #trip a Zpět jako záložka (tabGo), sdílená cesta průvodce', () => {
   const ed = fnOf('editTrip');
   assert.match(ed, /\$\('#etFlight'\); if \(ef\) ef\.onclick = \(\) => \{ modalClose\(\); window\.reflight = t\.tripId; tripFlights\(t\); \};/);
