@@ -10,6 +10,8 @@ const read = (f) => readFileSync(new URL(`../public/${f}`, import.meta.url), 'ut
 const SRC = ['index.html', 'js/app.js', 'js/trip.js', 'js/flights.js', 'js/places.js', 'js/transfer.js', 'js/about.js'];
 const ALL = SRC.map((f) => [f, read(f)]);
 const ATLAS = read('css/atlas.css');
+// ikony, které balík nemá – nakreslené podle stylu sady (vendor/letsi/README.md), s balíkem se nesrovnávají
+const MIMO_BALIK = ['slunce', 'asie', 'afrika', 'amerika'];
 const HELPER = /const ikona = n => `<span class="ico i-\$\{n\}" aria-hidden="true"><\/span>`;/;
 
 /** Názvy ikon použité ve zdroji: ikona('…') v JS a class="ico i-…" v hotovém HTML. */
@@ -28,7 +30,9 @@ test('ikona(): jedna pomocná funkce, v modulech stejná kopie (běží i v node
 });
 
 test('každá použitá ikona má pravidlo v atlas.css a soubor z balíku (currentColor, jedna adresa na ikonu)', () => {
-  const names = new Set(ALL.flatMap(([, s]) => used(s)));
+  // dlaždice Rychlého hledání berou ikonu z pole QF (ikona(q[0]) v renderQuick, flights.js) – used() je nevidí
+  const qf = read('js/flights.js').match(/const QF = \[[\s\S]*?\n {4}\];/)[0];
+  const names = new Set([...ALL.flatMap(([, s]) => used(s)), ...[...qf.matchAll(/^ {6}\['([a-z-]+)'/gm)].map((m) => m[1])]);
   assert.ok(names.size >= 25, `${names.size} ikon`);
   const rules = new Map([...ATLAS.matchAll(/^\.i-([a-z-]+)\{--ico:url\(\.\.\/vendor\/letsi\/ikony\/([a-z-]+)\.svg\)\}$/gm)].map((m) => [m[1], m[2]]));
   const balik = process.env.LETSI_BALIK;
@@ -37,7 +41,7 @@ test('každá použitá ikona má pravidlo v atlas.css a soubor z balíku (curre
     const f = `vendor/letsi/ikony/${n}.svg`;
     assert.ok(existsSync(new URL(`../public/${f}`, import.meta.url)), f);
     assert.match(read(f), /stroke="currentColor"/, f);
-    if (balik) assert.equal(read(f), readFileSync(`${balik}/ikony-ui/svg/${n}.svg`, 'utf8'), `${f} beze změny z balíku`);
+    if (balik && !MIMO_BALIK.includes(n)) assert.equal(read(f), readFileSync(`${balik}/ikony-ui/svg/${n}.svg`, 'utf8'), `${f} beze změny z balíku`);
   }
   // v atlas.css žádné pravidlo navíc (soubor bez použití by se zbytečně dostal do sady pro instalaci)
   assert.deepEqual([...rules.keys()].filter((n) => !names.has(n)), []);

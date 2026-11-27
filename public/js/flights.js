@@ -5385,13 +5385,13 @@
     // [ikona Letsi (dlaždice je tlačítko – ne emoji), název, popis, hledání, fotka]
     const QF = [
       ['kompas', 'Kamkoliv levně', 'Levné cíle z tvého okolí, příští 2 měsíce', { to: [] }, 'Lisabon'],
-      ['odlet', 'Za teplem', 'Kde bývá přes den 25 °C a víc · příští 2 měsíce', { to: [], minTemp: 25, trip: 'return', len: 'custom', nMin: 5, nMax: 10 }, 'Tenerife'],
+      ['slunce', 'Za teplem', 'Kde bývá přes den 25 °C a víc · příští 2 měsíce', { to: [], minTemp: 25, trip: 'return', len: 'custom', nMin: 5, nMax: 10 }, 'Tenerife'],
       ['kalendar', 'Víkend v Evropě', 'Čt/Pá–Ne/Po, příštích 6 týdnů', { to: [], len: 'weekend', dTo: addDays(today(), 45) }, 'Paříž'],
       // pole Kam pojme nejvýš 5 míst
       ['let', 'Dálky a exotika', 'Thajsko, Bali, Vietnam, Emiráty, Srí Lanka', { to: EXOTIC.slice(0, 5).map(cc => ({ id: 'cc:' + cc, label: byIso[cc]?.cs || cc, flag: flag(cc) })), len: 'custom', nMin: 7, nMax: 21, dTo: addDays(today(), 90) }, 'Bali'],
-      ['jazyk', 'Asie', 'Thajsko, Vietnam, Japonsko, Bali, Srí Lanka…', { to: [{ id: 'ct:asia', label: 'Asie', flag: '🌏' }], len: 'custom', nMin: 7, nMax: 21, dTo: addDays(today(), 60) }, 'Kjóto'],
-      ['jazyk', 'Afrika', 'Egypt, Maroko, Keňa, Zanzibar, Kapské Město…', { to: [{ id: 'ct:africa', label: 'Afrika', flag: '🌍' }], len: 'custom', nMin: 7, nMax: 16, dTo: addDays(today(), 60) }, 'Kapské Město'],
-      ['jazyk', 'Amerika', 'New York, Mexiko, Karibik, Kuba…', { to: [{ id: 'ct:namerica', label: 'Severní a Střední Amerika', flag: '🗽' }], len: 'custom', nMin: 7, nMax: 21, dTo: addDays(today(), 60) }, 'New York'],
+      ['asie', 'Asie', 'Thajsko, Vietnam, Japonsko, Bali, Srí Lanka…', { to: [{ id: 'ct:asia', label: 'Asie', flag: '🌏' }], len: 'custom', nMin: 7, nMax: 21, dTo: addDays(today(), 60) }, 'Kjóto'],
+      ['afrika', 'Afrika', 'Egypt, Maroko, Keňa, Zanzibar, Kapské Město…', { to: [{ id: 'ct:africa', label: 'Afrika', flag: '🌍' }], len: 'custom', nMin: 7, nMax: 16, dTo: addDays(today(), 60) }, 'Kapské Město'],
+      ['amerika', 'Amerika', 'New York, Mexiko, Karibik, Kuba…', { to: [{ id: 'ct:namerica', label: 'Severní a Střední Amerika', flag: '🗽' }], len: 'custom', nMin: 7, nMax: 21, dTo: addDays(today(), 60) }, 'New York'],
     ];
     // ⭐ Moje cíle: prvních 5 (pole Kam jich víc nepojme) v termínech radaru
     const fav = prefLists().fav;
