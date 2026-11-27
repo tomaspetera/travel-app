@@ -96,3 +96,13 @@ test('U13: původ ceny a řádek řazení jedním klidným blokem stejným písm
   assert.match(fl, /body = sortBar \+ body;/);
   assert.match(fl, /host\.innerHTML = summary \+ \([^\n]*priceSrc\(\{ orient: true, trip: res\.query\.trip \}\) : ''\) \+ body/);
 });
+
+test('U26: tečka před „orientační“ jen na telefonu – v úzkém sloupci na počítači se řádek zalomí a začínal by „· “', () => {
+  const at = css.indexOf('.cache-mark::before{content:"· "}');
+  assert.ok(at > 0, 'tečka před „orientační“ ve flights.css');
+  assert.equal(css.indexOf('.cache-mark::before'), css.lastIndexOf('.cache-mark::before'), 'jen jedno pravidlo');
+  // ve stejném bloku @media(max-width:560px) jako řádek ceny přes celou šířku karty
+  const row = css.indexOf('  .pbox .pr-row{flex-basis:100%;justify-content:flex-start}'), open = css.lastIndexOf('@media', row);
+  assert.equal(css.slice(open, css.indexOf('{', open)), '@media(max-width:560px)');
+  assert.ok(at > row && !css.slice(row, at).includes('\n}'), 'uvnitř telefonního bloku');
+});

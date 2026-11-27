@@ -393,8 +393,6 @@ button.b:hover{filter:brightness(1.18);text-decoration:underline}
 .pl.pr-row>span{white-space:nowrap}
 .pl.pr-row b{color:var(--text)}
 .pin-card .pr-row{justify-content:flex-start}
-/* „orientační“ v řádku ceny letenky za „/os.“ (flights.js priceRows) */
-.pl.pr-row .cache-mark::before{content:"· "}
 /* cena i s cestou sbaleně (flights.js doorRow) – rozpad dopravy a částka za všechny až po rozbalení */
 .pr-door{flex-basis:100%;margin-top:6px}
 .pr-door summary{list-style:none;cursor:pointer;min-height:32px;display:flex;align-items:center;justify-content:flex-end;gap:4px;color:var(--muted)}
@@ -872,6 +870,9 @@ button.b:hover{filter:brightness(1.18);text-decoration:underline}
   .pbox .tr-buy{flex-direction:row}
   .pbox .tr-buy .btn{flex:1 1 0;width:auto;min-width:0}
   .pbox .pr-row{flex-basis:100%;justify-content:flex-start}
+  /* „orientační“ za „/os.“ s tečkou jen tady, kde se řádek ceny vejde celý – v úzkém sloupci karty na počítači se
+     zalomí pod cenu a začínal by tečkou („· orientační“) */
+  .trip-row>.pbox .pl.pr-row .cache-mark::before{content:"· "}
   .pr-door summary{justify-content:flex-start}
   .ld{min-width:0}
   .search-card{padding:16px}
