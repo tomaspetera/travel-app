@@ -139,9 +139,9 @@ test('karta hotelu: cena „za 3 noci · …/noc“, odkaz říká kam vede (Boo
   const card = (id) => html(c).split('<div class="stay ').find((x) => x.includes(`<div class="st-name">Hotel ${id} `));
   // „za 3 noci · 1 000 Kč/noc“ (na telefonu za noc na dalším řádku – oddělovač a cena za noc ve vlastních značkách)
   assert.match(card('h4'), /<div class="pp">3 000 Kč<\/div><div class="faint">za 3 noci<span class="st-sep"> · <\/span><span class="st-pn">1 000 Kč\/noc<\/span><\/div>/);
-  assert.match(card('h1'), /title="Hotel na Booking\.com na tvoje dny a hosty – cenu a volno ověř tam">Booking\.com ↗<\/a>/);
+  assert.match(card('h1'), /title="Hotel na Booking\.com na tvoje dny a hosty – cenu a volno ověř tam" aria-label="Booking\.com: Hotel h1">Booking\.com ↗<\/a>/);
   assert.match(card('h2'), />Booking\.com ↗<\/a>/, 'partnerský odkaz na Booking.com');
-  assert.match(card('h4'), /title="Rezervace hotelu na tvoje dny">rezervovat ↗<\/a>/);
+  assert.match(card('h4'), /title="Rezervace hotelu na tvoje dny" aria-label="rezervovat: Hotel h4">rezervovat ↗<\/a>/);
   assert.ok(!html(c).includes('detail ↗'));
 });
 
