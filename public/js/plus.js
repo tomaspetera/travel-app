@@ -11,7 +11,7 @@
   const PRICES = [0, 199, 399, 599, 799];
   const ASK_DAYS = 30; // otázka na cenu nejvýš jednou za 30 dní
   const CARD_DAYS = 14; // karta sešitu na Přehledu nejdřív 14 dní před odletem
-  const ASK_KEY = 'atlas_price_q', CARD_KEY = 'atlas_sesit_card';
+  const ASK_KEY = 'atlas_price_q', CARD_KEY = 'atlas_sesit_card', TIME_KEY = 'atlas_time_q';
   const SOON = 'chystáme na jaro';
 
   const h = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -129,6 +129,24 @@
     };
   }
 
+  /**
+   * Malé tlačítko „· Plus“ u věci (falešné dveře, odpověď „chystáme na jaro“). Nabízí se jen u vlastní uložené cesty
+   * s termínem, která zrovna neběží: ne u cesty od jiného (sdílená cesta je reklama zdarma), ne u sama uložené
+   * rozpracované (auto) a ne během cesty (tam je „Dnes na cestě“, bez Plus). Cestu otevřenou v průvodci vynechá volající.
+   */
+  function similarOk(t, today) {
+    if (!t || typeof t !== 'object' || t.auto || fromOther(t) || !isYmd(t.start)) return false;
+    const end = isYmd(t.end) ? t.end : t.start;
+    return !(t.start <= today && today <= end);
+  }
+  // kind → [text tlačítka, nadpis okna, co by to dělalo]; události plus_<kind>_shown a plus_<kind>_click v EVENTS
+  const SOON_KIND = {
+    similar: ['Naplánuj podobnou · Plus', 'Naplánuj podobnou', 'Cestu zkopíruješ jedním klepnutím na nový termín: trasa, noci, program po dnech, vlastní věci k sbalení i rozpočet. Ceny se načtou znovu.'],
+    pack: ['Uložit jako šablonu · Plus', 'Moje balicí seznamy', 'Seznam si uložíš jako šablonu (Moře, Hory s dětmi…) a vlastní položky ti zůstanou pro další cesty. Každý z party dostane svůj seznam k odškrtání.'],
+  };
+  /** Tlačítko pro kind z SOON_KIND; key = která věc (cesta) – zobrazení se počítá jednou za načtení pro kind a key. */
+  const soonBtn = (kind, key) => `<button type="button" class="linkbtn plus-soon" data-plus-soon="${kind}" data-plus-key="${h(key)}">${h(SOON_KIND[kind][0])}</button>`;
+
   /* ---------- HTML ---------- */
   // n = kolik započítaných cest už je: kdo jich má víc (uložené před limitem), tomu „jednu“ a „obě“ lhaly
   const uloz = n => (n <= 4 ? `uložené ${n} cesty` : `uložených ${n} cest`);
@@ -144,18 +162,32 @@
       </div>
     </div>`;
   }
+  // Anketa po „Chci Plus“: co z chystaného Plus ušetří nejvíc času. Počítá se jen klepnutá volba (události plus_q_*),
+  // stejně jako otázka na cenu nejvýš jednou za 30 dní (do prohlížeče jen den, atlas_time_q).
+  const TIME = [['plus_q_similar', 'Naplánuj podobnou'], ['plus_q_sesit', 'Sešit s průvodcem zemí'], ['plus_q_pack', 'Balicí šablony'],
+    ['plus_q_nav', 'Celá cesta do navigace'], ['plus_q_variants', 'Varianty vedle sebe'], ['plus_q_split', 'Útraty party']];
+  const timeHtml = () => `<div class="plus-price plus-time" id="plusTime"><b>Co by ti ušetřilo nejvíc času?</b>
+    <div class="plus-opts">${TIME.map(([e, l]) => `<button type="button" class="btn sm" data-time="${e}">${h(l)}</button>`).join('')}</div></div>`;
+  /**
+   * Které otázky po „Chci Plus“ (time = i anketa o čase) a v jakém pořadí: cena první, anketa hned po odpovědi na cenu,
+   * nebo sama, když se na cenu tentokrát neptáme. Obě nejvýš jednou za 30 dní (askDue). → ['price', 'time'] apod.
+   */
+  const askPlan = (lastPrice, lastTime, today, time) => [askDue(lastPrice, today) && 'price', time && askDue(lastTime, today) && 'time'].filter(Boolean);
   const priceHtml = () => `<div class="plus-price" id="plusPrice"><b>Kolik by ti Plus stálo za rok?</b>
     <div class="plus-opts">${PRICES.map(p => `<button type="button" class="btn sm" data-price="${p}">${p ? kc(p) : 'Nic, stačí mi zdarma'}</button>`).join('')}</div></div>`;
+  // Na telefonu musí tabulka zůstat krátká: bezplatné řádky „✓ / ✓“ po dvou spojené, dva zůstávají jako ujištění.
+  // Varianty a útraty tu zatím nejsou – měří je jen anketa (TIME), ať tabulka neslibuje příliš.
   const FREE = [
-    ['Hledání letenek a orientační ceny', 'ano', 'ano'],
-    ['Ověření ceny u prodejce', 'ano', 'ano'],
+    ['Hledání letenek, orientační ceny a\u00a0ověření u\u00a0prodejce', 'ano', 'ano'],
     ['Informace o zemích a Objevuj', 'ano', 'ano'],
     ['Naplánované cesty (i\u00a0z\u00a0⚡\u00a0Poskládej)', 'jedna', 'neomezeně'], // pevné mezery: závorka se zalomí celá, ne „⚡“ zvlášť
-    ['Záloha do souboru', 'ano', 'ano'],
-    ['Sdílení cesty', 'ano', 'ano'],
-    ['Archiv minulých cest', 'ne', 'ano'],
-    ['Sešit cesty k tisku a do PDF', 'ne', 'ano'],
-    ['Průvodce zemí do Sešitu (offline PDF)', 'ne', 'ano'], // informace o zemi zůstávají zdarma, Plus je jen uloží
+    ['Záloha do souboru a sdílení cesty', 'ano', 'ano'],
+    ['Balicí seznam podle počasí', 'ano', 'ano'], // chytrý seznam zůstává zdarma – Plus si jen pamatuje a dělí
+    ['Kódy rezervací', 'ano', 'ano'], // dnes zdarma – vzít je by bylo zamčení bezplatné funkce
+    ['Archiv a Naplánuj podobnou', 'ne', 'ano'],
+    ['Sešit cesty s průvodcem zemí (PDF bez signálu)', 'ne', 'ano'], // informace o zemi zůstávají zdarma, Plus je jen uloží
+    ['Vlastní šablony balení, seznam pro každého', 'ne', 'ano'],
+    ['Celá cesta do navigace jedním souborem', 'ne', 'ano'],
   ];
   const cell = v => (v === 'ano' ? '<span aria-hidden="true">✓</span><span class="sr-only">ano</span>' : v === 'ne' ? '<span aria-hidden="true">–</span><span class="sr-only">ne</span>' : h(v));
   /**
@@ -204,17 +236,28 @@
   const genOf = s => (typeof doGen === 'function' ? doGen(s) : null);
   const countryOf = iso => (typeof byIso !== 'undefined' && iso && byIso[iso] ? byIso[iso].cs : '');
 
-  /** Do el (v otevřeném okně) zprávu a pod ni otázku na cenu, je-li čas se zeptat. */
-  function after(el, msg) {
+  /** Do el (v otevřeném okně) zprávu a pod ni otázku na cenu, je-li čas se zeptat; time = po ní i anketa o čase (askPlan). */
+  function after(el, msg, time) {
     if (!el) return;
-    const today = ymd(), ask = askDue(store.get(ASK_KEY), today);
-    el.innerHTML = `<p class="note info plus-msg">${h(msg)}</p>${ask ? priceHtml() : ''}`;
-    if (!ask) return;
+    const today = ymd(), plan = askPlan(store.get(ASK_KEY), store.get(TIME_KEY), today, time);
+    el.innerHTML = `<p class="note info plus-msg">${h(msg)}</p>`;
+    const timeAsk = () => {
+      el.insertAdjacentHTML('beforeend', timeHtml());
+      store.set(TIME_KEY, today);
+      el.querySelectorAll('[data-time]').forEach(b => { b.onclick = () => {
+        hit(b.dataset.time);
+        const box = el.querySelector('#plusTime');
+        if (box) box.innerHTML = '<p class="plus-thanks">Díky, podle toho vybereme, co postavit první.</p>';
+      }; });
+    };
+    if (plan[0] !== 'price') { if (plan.length) timeAsk(); return; }
+    el.insertAdjacentHTML('beforeend', priceHtml());
     store.set(ASK_KEY, today); // jen den – podle něj se za 30 dní zeptá znovu
     el.querySelectorAll('[data-price]').forEach(b => { b.onclick = () => {
       hit(`price_${b.dataset.price}`);
       const box = el.querySelector('#plusPrice');
       if (box) box.innerHTML = `<p class="plus-thanks">Díky, pomůže nám to nastavit cenu férově. ${priceNote(b.dataset.price)}</p>`;
+      if (plan[1] && !el.querySelector('#plusTime')) timeAsk(); // anketa až po ceně – dvě otázky naráz by byly moc
     }; });
   }
 
@@ -222,7 +265,7 @@
   function open() {
     modalOpen(pageHtml(), { x: true });
     hit('plus_page'); hit('plus_offer_shown');
-    q('#plusWant').onclick = () => { hit('plus_offer_click'); after(q('#plusAfter'), 'Plus chystáme na jaro – dáme vědět tady v aplikaci.'); };
+    q('#plusWant').onclick = () => { hit('plus_offer_click'); after(q('#plusAfter'), 'Plus chystáme na jaro – dáme vědět tady v aplikaci.', true); };
     // provize podle serveru (stejný dotaz /api/health, který app.js stahuje při startu) – jen věta, ať nezmizí odpověď na „Chci Plus“
     if (window.Flights && Flights.warm) Flights.warm().then(hl => { const p = q('#plusLives'); if (p) p.textContent = livesTxt(hl); }, () => { /* bez serveru zůstane věta bez provizí */ });
   }
@@ -256,6 +299,35 @@
   }
   /** Klepnutí na ten odkaz: zájem se započítá a otevře se stránka Zdarma × Plus (cena až po otázce – priceNote). */
   function fromCountry() { hit('sesit_country_click'); open(); }
+
+  const soonSeen = new Set();
+  /**
+   * Tlačítka „· Plus“ v root (soonBtn): zobrazení se počítá, až když je tlačítko opravdu na obrazovce (seznam balení je
+   * na telefonu daleko dole, proběhlé cesty ve sbaleném „Proběhlé cesty“), jednou za otevření aplikace pro věc – jinak by
+   * zájem vyšel přehnaně nízký (jako cardSeen). Klepnutí se počítá a otevře okno „chystáme na jaro“ s otázkou na cenu.
+   * Volá se po každém vykreslení; už zapojené tlačítko přeskočí.
+   */
+  function watchSoon(root) {
+    if (!root || !root.querySelectorAll) return;
+    root.querySelectorAll('[data-plus-soon]').forEach(b => {
+      const kind = b.dataset.plusSoon, id = `${kind}|${b.dataset.plusKey}`;
+      if (!SOON_KIND[kind] || b.dataset.plusOn) return;
+      b.dataset.plusOn = '1';
+      // karta cesty se klepnutím otevírá – klepnutí na tlačítko ji otevřít nesmí
+      b.onclick = e => { e.stopPropagation(); hit(`plus_${kind}_click`); soon(kind); };
+      const seen = () => { if (!soonSeen.has(id)) { soonSeen.add(id); hit(`plus_${kind}_shown`); } };
+      if (soonSeen.has(id)) return;
+      if (typeof IntersectionObserver === 'undefined') { seen(); return; }
+      const io = new IntersectionObserver(es => { if (es.some(x => x.isIntersecting)) { io.disconnect(); seen(); } });
+      io.observe(b);
+    });
+  }
+  /** Okno po klepnutí na „· Plus“: co to bude dělat, že to chystáme na jaro, a otázka na cenu (priceNote až po odpovědi). */
+  function soon(kind) {
+    const [, title, text] = SOON_KIND[kind];
+    modalOpen(`<div class="modal-body plus-page"><h3>⭐ ${h(title)}</h3><p>${h(text)}</p><div id="plusAfter"></div></div>`, { x: true });
+    after(q('#plusAfter'), `Chystáme na jaro do ${NAME} – dáme vědět tady v aplikaci.`);
+  }
 
   /**
    * Před vznikem nové cesty, kterou člověk vědomě ukládá (kind: 'form' | 'trip' | 'offer' – odkud). newTrip = nová
@@ -326,5 +398,6 @@
     }
   }
 
-  window.Plus = { NAME, YEAR_CZK, MONTH_CZK, PRICES, priceNote, counts, countedTrips, needsGate, askDue, cardPick, cardText, termTxt, sesitLine, sesitHtml, pageHtml, livesTxt, gateFlow, tripKey, open, sesit, sesitShown, countryShown, fromCountry, gateNewTrip, renderCard, addToMenu };
+  window.Plus = { NAME, YEAR_CZK, MONTH_CZK, PRICES, priceNote, counts, countedTrips, needsGate, askDue, cardPick, cardText, termTxt, sesitLine, sesitHtml, pageHtml, livesTxt, gateFlow, tripKey, open, sesit, sesitShown, countryShown, fromCountry, gateNewTrip, renderCard, addToMenu,
+    TIME, askPlan, similarOk, soonBtn, watchSoon };
 })();

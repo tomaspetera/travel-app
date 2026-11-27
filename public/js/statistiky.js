@@ -27,7 +27,12 @@
     { shown: 'plus_offer_shown', label: 'Nabídka Plus', clicks: [['plus_offer_click', 'klepnutí']] },
     { shown: 'sesit_shown', label: 'Sešit', clicks: [['sesit_click', 'klepnutí']] },
     { shown: 'sesit_country_shown', label: 'Sešit z průvodce zemí', clicks: [['sesit_country_click', 'klepnutí']] },
+    { shown: 'plus_similar_shown', label: 'Naplánuj podobnou (Moje cesty)', clicks: [['plus_similar_click', 'klepnutí']] },
+    { shown: 'plus_pack_shown', label: 'Uložit jako šablonu (Co sbalit)', clicks: [['plus_pack_click', 'klepnutí']] },
   ];
+  // Anketa po „Chci Plus“ (plus.js TIME): přesné znění a volby jako v aplikaci, počítá se jen klepnutá volba
+  const TIME_Q = { q: 'Co by ti ušetřilo nejvíc času?', opts: [['plus_q_similar', 'Naplánuj podobnou'], ['plus_q_sesit', 'Sešit s průvodcem zemí'], ['plus_q_pack', 'Balicí šablony'],
+    ['plus_q_nav', 'Celá cesta do navigace'], ['plus_q_variants', 'Varianty vedle sebe'], ['plus_q_split', 'Útraty party']] };
   const VIEWS = [['view_dashboard', 'Přehled'], ['view_flights', 'Lety'], ['view_trip', 'Průvodce cestou'], ['view_trips', 'Moje cesty'], ['view_explore', 'Objevuj'], ['view_world', 'Svět (mapa a země)']];
   const TABLE = [['app_open', 'Otevř.'], ['search_done', 'Hled.'], ['verify_click', 'Ověř.'], ['buy_click', 'Prokl.'], ['trip_started', 'Prův.'], ['trip_saved', 'Ulož.']];
   // Kde to drhne (počty dělá server sám ze svých odpovědí): [událost, základ = události, jejichž součet je 100, popisek].
@@ -309,7 +314,7 @@
   const NO_VISITS = 'Zatím žádné návštěvy. Záznam odejde, až člověk aplikaci zavře nebo přepne jinam, a zapisuje se s odstupem – nová návštěva se tu objeví zhruba do 40 minut.';
 
   window.Stats = { MAIN, PRICES, DOORS, VIEWS, TABLE, SNAGS, PERIODS, FEW, num, pct, totals, funnel, rates, median, survey, doors, dayRows, period, fmtNum, fmtPct, fmtKc, fmtDay };
-  Object.assign(window.Stats, { QUESTIONS, dist });
+  Object.assign(window.Stats, { QUESTIONS, dist, TIME_Q });
   Object.assign(window.Stats, { RAGE, names, top, exits, lastSteps, topPaths, after, visitStats, label, NO_VISITS });
   Object.assign(window.Stats, { FL_SNAGS, FL_FIX, FL_RES, FL_RANK });
   Object.assign(window.Stats, { TRIP_FUNNEL, TRIP_AUTO, TRIP_MORE, EXPLORE, tripFunnel });
@@ -330,6 +335,9 @@
     const svBody = table(sv.options.map((o) => row(o.label, fmtNum(o.n), fmtPct(o.pct))))
       + `<p>Odpovědí: <b>${fmtNum(sv.answers)}</b>. Medián: <b>${fmtKc(sv.median)}</b>. Aspoň 399 Kč by dalo: <b>${fmtPct(sv.atLeast399)}</b>.</p>`
       + (sv.few ? `<p class="warn">Odpovědí je zatím málo (méně než ${FEW}) – na závěr to nestačí.</p>` : '');
+    const tq = dist(total, TIME_Q);
+    const tqBody = table(tq.options.map((o) => row(o.label, fmtNum(o.n), fmtPct(o.pct))))
+      + `<p>Odpovědí: <b>${fmtNum(tq.answers)}</b>.</p>` + (tq.few ? `<p class="warn">Málo odpovědí (méně než ${FEW}) – na závěr to nestačí.</p>` : '');
     const doorBody = doors(total).map((d) => `<h3>${esc(d.label)}</h3>`
       + table([row('Zobrazeno', fmtNum(d.shown), ''), ...d.clicks.map((c) => row(c.label, fmtNum(c.n), fmtPct(c.pct)))])).join('')
       + table([row('Stránka Plus otevřená', fmtNum(num(total, 'plus_page')), '')]);
@@ -368,6 +376,7 @@
       + section('Průvodce – podrobnosti', rateRows(TRIP_MORE), `${deepHint} Ubytování na 100 příchodů na krok Ubytování, návraty na 100 příchodů na Trasu, nenačtení na 100 otevření aplikace (otevření počítáme u všech – poměr je spodní odhad).`)
       + section('Objevuj', rateRows(EXPLORE), `${deepHint} Na 100 návštěv Objevuj – návštěvy počítáme u všech, poměr je proto spodní odhad. Opuštěné hledání se zatím nepočítá.`)
       + section('Kolik by dali za Plus', svBody)
+      + section('Co by ušetřilo nejvíc času', tqBody, 'Anketa po „Chci Plus“ – jen klepnutá volba, nejvýš jednou za 30 dní.')
       + section('Zájem o Plus', doorBody, 'Procento = klepnutí ze zobrazení.')
       + section('Návštěvy sekcí', views)
       + section('Odpovědi na otázky', answers, 'Krátké otázky v aplikaci (odpověď jedním klepnutím). Kolikrát se otázka ukázala, se nepočítá – procento je ze všech odpovědí.')
