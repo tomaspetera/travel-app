@@ -66,6 +66,20 @@ test('U7: Kamkoliv a hledání bez známého města – cíl se neoznačuje, odl
   assert.deepEqual(plain(H.apTags({ out: leg('PRG', 'BCN') }, H.apCtx(null))), []);
 });
 
+test('U7: odlet „Česko“ ani druhé zadané město („Brno, Vídeň“) nejsou „jiné letiště“', () => {
+  const cz = { query: { from: ['cc:CZ'] }, home: null, origins: [{ iata: 'PRG', city: 'Praha' }, { iata: 'BRQ', city: 'Brno' }, { iata: 'PED', city: 'Pardubice' }], destination: res.destination };
+  const c = H.apCtx(cz);
+  assert.deepEqual(plain(H.apTags({ out: leg('BRQ', 'BCN'), back: leg('BCN', 'PED') }, c)), [], 'zadaná je celá země');
+  assert.deepEqual(plain(H.apTags({ out: leg('BRQ', 'GRO') }, c)), ['na letiště Girona'], 'cíl se hlídá dál');
+  const two = { query: { from: ['geo:49.19,16.60|Brno', 'geo:48.20,16.37|Vídeň'] }, home: { label: 'Brno' }, origins: [{ iata: 'BRQ', city: 'Brno' }, { iata: 'VIE', city: 'Vídeň' }, { iata: 'PED', city: 'Pardubice' }], destination: res.destination };
+  const c2 = H.apCtx(two);
+  assert.deepEqual(plain(H.apTags({ out: leg('BRQ', 'BCN'), back: leg('BCN', 'VIE') }, c2)), []);
+  assert.deepEqual(plain(H.apTags({ out: leg('PED', 'BCN') }, c2)), ['z letiště Pardubice']);
+  assert.deepEqual([...H.apCtx({ ...two, query: { from: ['geo:49.19,16.60|Brno', 'ap:VIE'] } }).home], ['BRQ', 'VIE'], 'letiště zadané kódem');
+  assert.equal(H.originsTxt(two, doGen), null, '„z Brna a okolí“ by Vídeň zamlčelo – kódy');
+  assert.equal(H.originsTxt({ ...res, query: { from: ['geo:50.08,14.42|Praha'] } }, doGen), 'z Prahy a okolí (5 letišť)');
+});
+
 test('U7: meta řádek „z Prahy a okolí (5 letišť)“ místo kódů; nesklonné jméno bez 2. pádu; jedno letiště kódem', () => {
   assert.equal(H.originsTxt(res, doGen), 'z Prahy a okolí (5 letišť)');
   assert.equal(H.originsTxt({ ...res, home: { label: 'Brno' }, origins: res.origins.slice(0, 3) }, doGen), 'z Brna a okolí (3 letiště)');
