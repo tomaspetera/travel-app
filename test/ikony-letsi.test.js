@@ -78,6 +78,6 @@ test('ikony jen ve významu z ikony.json: Moje cesty jen ve spodní navigaci, Lu
   // kukátko“ (v sadě není), „kalendář cen je clona“ – tam, kde ikona v sadě chybí, zůstává emoji
   const names = new Set(ALL.flatMap(([, s]) => used(s)));
   for (const n of ['moje-cesty', 'lupa']) assert.ok(!names.has(n), n);
-  assert.match(read('index.html'), /id="doSearch" type="submit">🔎 Najít lety<\/button>/);
+  assert.match(read('index.html'), /id="doSearch" type="submit">Najít lety<\/button>/);
   assert.doesNotMatch(read('js/flights.js'), /ikona\('kalendar'\)\} Kalendář cen/);
 });

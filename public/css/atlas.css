@@ -213,7 +213,6 @@ a{color:inherit}
 /* velké písmo systému (200 %): dlouhá slova a popisky dlaždic a nastavení se zalomí v okně, ne za jeho pravý okraj */
 .more-tile b,.more-tile small{max-width:100%;overflow-wrap:break-word}
 .more-sheet .more-nav .btn .faint{font-weight:400}
-.more-tip{font-size:12px;margin-top:6px}
 .btn.primary{background:#fff;border-color:transparent;color:#0b1226;box-shadow:0 10px 26px -12px rgba(0,0,0,.6)}
 .btn.primary:hover{box-shadow:0 14px 30px -12px rgba(0,0,0,.7)}
 [data-theme="light"] .btn.primary{background:#0f1830;color:#fff}

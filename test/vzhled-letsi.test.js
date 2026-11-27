@@ -391,3 +391,27 @@ test('tisk: tiskové tokeny přebijí tmavý režim Letsi, plovoucí okna (Novin
   const hide = print.match(/\n\s*([^{}]*\.sidebar[^{}]*)\{display:none !important\}/)[1].split(',');
   for (const s of ['.wn-pop', '.pwa-update']) assert.ok(hide.includes(s), s);
 });
+
+test('poslední sklo a smaragdová ATLASu: karty Kam letět levně, hlavička cesty a štítky Shrnutí letsi.css přebíjí', () => {
+  const src = CSS.replace(/\/\*[\s\S]*?\*\//g, '');
+  const rules = [...src.matchAll(/([^{}]+)\{([^}]*)\}/g)].map((m) => ({ sel: m[1].trim(), body: m[2] }));
+  /** Pravidlo letsi.css, které třídu vybere (cls přesně, jak stojí v selektoru) a nastaví vlastnost. */
+  const has = (cls, prop) => rules.some((r) => r.sel.includes(cls) && r.body.includes(prop));
+  // zdroj: ve flights.css / trip.css / pretrip.css / atlas.css mají sklo rgba(10,14,30…) nebo smaragdovou
+  const atlas = ['flights.css', 'trip.css', 'pretrip.css', 'atlas.css'].map((f) => read(`css/${f}`)).join('\n');
+  for (const c of ['.rc-panel', '.radar-card .rc-badges .b', '.radar-card>.dm-btn', '.th-reset', '.th-total']) {
+    assert.match(atlas, new RegExp(`${c.replace(/[.>]/g, '\\$&')}[^{]*\\{[^}]*rgba\\(10,14,30`), `${c}: sklo ve zdroji`);
+    assert.ok(has(c, 'background:#14161F'), `${c}: plná Noc`);
+    assert.ok(has(c, 'backdrop-filter:none'), `${c}: bez rozmazání`);
+  }
+  assert.ok(has('.th-flag', 'backdrop-filter:none') && has('.th-flag', 'background:#F3F4F0'), 'vlajka plné Vápno');
+  // štítek „proč“ (dřív rgba(4,100,72)) a dobrá cena: Pistácie s Nocí – silnější selektor než .radar-card .rc-badges .b
+  assert.match(atlas, /\.radar-card \.rc-badges \.b\.why[^{]*\{background:rgba\(4,100,72/);
+  assert.match(src, /\] \.radar-card \.rc-badges :is\(\.b\.why,\.b\.good\)\{background:#D6DE82;color:#14161F\}/);
+  // Shrnutí a Před cestou: #047857 → pěna (ve světlém #EDEFD6) s textem
+  for (const c of ['.ec-ok', '.pt-prog', '.pt-v-ok']) {
+    assert.match(atlas, new RegExp(`\\[data-theme="light"\\][^{]*\\${c}[^{]*\\{color:#047857`), `${c}: smaragdová ve zdroji`);
+    assert.ok(rules.some((r) => r.sel.includes(c) && /background:var\(--surface-2\);color:var\(--text\)/.test(r.body)), `${c}: pěna s textem`);
+  }
+  assert.match(src, /--surface-2:#EDEFD6/);
+});

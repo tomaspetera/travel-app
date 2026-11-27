@@ -1463,7 +1463,7 @@
     let other = false;
     try { other = JSON.stringify(payloadOf(getForm())) !== running.key; } catch (e) { /* rozepsaný formulář */ }
     btn.disabled = !other;
-    btn.innerHTML = other ? '🔎 Najít lety' : '<span class="spin"></span> Hledám…';
+    btn.innerHTML = other ? 'Najít lety' : '<span class="spin"></span> Hledám…';
   }
   // Po hledání změněná cesta na letiště (🏠 vlastní cena, jízdné ×, autem/veřejnou): ceny dopravy ve výsledcích jsou
   // ještě podle předchozího nastavení → nad výsledky „↻ Přepočítat“ (hledání znovu). Zmizí s novým hledáním
@@ -1650,7 +1650,7 @@
     } finally {
       busySearches--;
       // tlačítko odemkne jen poslední hledání – zrušené předchozí by ho odemklo uprostřed běžícího
-      if (running && running.ctl === ctl) { running = null; btn.disabled = false; btn.innerHTML = '🔎 Najít lety'; }
+      if (running && running.ctl === ctl) { running = null; btn.disabled = false; btn.innerHTML = 'Najít lety'; }
     }
     })();
     running = { key: pkey, ctl, job };
@@ -5486,7 +5486,8 @@
     // před Vánoci (listopad – 20. 12.) i obojí svátky najednou – věta, kterou formulář sám nenastaví (přesná data ± 1 den);
     // nm je index PŘÍŠTÍHO měsíce (listopad → 11, prosinec → 0)
     const xmas = nm === 11 || (nm === 0 && t.slice(8) <= '20');
-    return [summer ? `k moři v ${mn} do 5000` : 'k moři v květnu do 5000', 'Řím na víkend ve dvou', ...(xmas ? ['Kanáry přes Vánoce a Silvestr'] : []),
+    // první konkrétní místo a termín: ukáže, že věta stačí i bez formuláře (ne jen obecné „k moři“)
+    return ['Barcelona na víkend v březnu', summer ? `k moři v ${mn} do 5000` : 'k moři v květnu do 5000', 'Řím na víkend ve dvou', ...(xmas ? ['Kanáry přes Vánoce a Silvestr'] : []),
       ...(hike ? [`na hory v ${mn} na týden`] : [`za teplem v ${mn} na týden`, ...(snow ? [`na hory v ${mn} na lyže`] : [])]),
       'Londýn příští měsíc jen přímé',
       // víc měst jednou větou – z domova (bez něj by věta neměla odkud)
