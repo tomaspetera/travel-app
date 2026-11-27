@@ -133,6 +133,7 @@ a{color:inherit}
 .nav-item.active::before{content:"";position:absolute;left:-16px;top:50%;transform:translateY(-50%);width:4px;height:22px;border-radius:0 4px 4px 0;background:var(--grad)}
 .nav-badge{margin-left:auto;font-size:11px;background:var(--surface-2);padding:2px 8px;border-radius:20px;color:var(--text);font-weight:700}
 .side-foot{margin-top:auto;display:flex;flex-direction:column;gap:8px;padding-top:12px}
+.side-tools{display:flex;flex-direction:column;gap:8px}
 .theme-toggle{display:flex;align-items:center;justify-content:space-between;padding:10px 13px;border:1px solid var(--border);border-radius:13px;cursor:pointer;font-size:13px;color:var(--muted);background:var(--surface)}
 .theme-toggle:hover{color:var(--text)}
 .theme-toggle svg{width:18px;height:18px;flex:none}
@@ -195,24 +196,31 @@ a{color:inherit}
 }
 .btn:hover{transform:translateY(-1px);border-color:var(--accent)}
 .btn svg{width:17px;height:17px;flex-shrink:0}
-.more-nav .btn .faint{min-width:0;overflow:hidden;text-overflow:ellipsis}
-/* ⋯ Další: sekce mimo spodní lištu jako dlaždice, pod nimi nastavení */
-.more-sheet h3{margin-bottom:12px}
-.mn-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;margin-bottom:16px}
-.mn-grid .more-tile:last-child:nth-child(odd){grid-column:1/-1} /* lichá poslední dlaždice přes celou šířku */
-.more-tile{display:flex;flex-direction:column;align-items:flex-start;gap:3px;padding:14px;border-radius:18px;border:1px solid var(--border);
-  background:var(--btn-bg,var(--surface-2));box-shadow:var(--btn-sh,none);color:var(--text);font:inherit;text-align:left;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .12s var(--ease)}
-.more-tile:active{transform:scale(.97)}
-.more-tile .mt-ico{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;margin-bottom:6px;color:var(--accent-ink);
-  background:color-mix(in srgb,var(--accent) 14%,transparent)}
-.more-tile .mt-ico svg{width:20px;height:20px}
-.more-tile b{font-size:15px;line-height:1.2}
-.more-tile small{color:var(--muted);font-size:12.5px;line-height:1.3}
-.more-h{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:0 0 8px}
-.more-sheet .more-nav .btn{justify-content:flex-start;width:100%;margin-bottom:8px;gap:8px;white-space:normal;text-align:left}
-/* velké písmo systému (200 %): dlouhá slova a popisky dlaždic a nastavení se zalomí v okně, ne za jeho pravý okraj */
-.more-tile b,.more-tile small{max-width:100%;overflow-wrap:break-word}
-.more-sheet .more-nav .btn .faint{font-weight:400}
+/* ⋯ Další jako Nastavení v telefonu (app.js openMore): skupiny zaoblených bloků, řádek = ikona ve čtverečku, název,
+   krátký popis pod ním a šipka (nebo přepínač). Řádky modulů (.btn ghost z addToMenu) dostanou stejný vzhled. */
+.more-sheet h3{margin-bottom:14px}
+.more-h{font-size:12.5px;font-weight:700;color:var(--muted);margin:0 0 7px 14px}
+.more-sheet .mg{border:1px solid var(--border);border-radius:16px;background:var(--card);overflow:hidden;margin-bottom:22px}
+.more-sheet .mg>.btn{position:relative;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:1px;width:100%;min-height:58px;margin:0;
+  padding:9px 48px 9px 62px;border:0;border-radius:0;background:none;box-shadow:none;color:var(--text);font-size:15.5px;font-weight:600;line-height:1.25;text-align:left;white-space:normal;overflow-wrap:anywhere}
+.more-sheet .mg>.btn+.btn{border-top:1px solid var(--border)}
+.more-sheet .mg>.btn:hover{transform:none}
+@media(hover:hover){.more-sheet .mg>.btn:hover{background:var(--surface)}}
+.more-sheet .mg>.btn:active{transform:none;background:var(--surface-2)}
+.more-sheet .mg>[hidden]{display:none}
+.more-sheet .mg>.btn::before{content:"";position:absolute;left:14px;top:50%;width:34px;height:34px;margin-top:-17px;border-radius:10px;background:var(--surface-2)}
+.more-sheet .mg>.btn>.ico{position:absolute;left:22px;top:50%;width:18px;height:18px;margin-top:-9px}
+.more-sheet .mg>.btn .faint{font-size:13px;font-weight:400;color:var(--muted)}
+/* šipka vpravo: lomená čára, ne znak (stejná tloušťka jako ikony) */
+.more-sheet .mg>.btn::after{content:"";position:absolute;right:22px;top:50%;width:8px;height:8px;margin-top:-4px;border:solid var(--faint);border-width:2px 2px 0 0;transform:rotate(45deg)}
+.more-sheet .mg>[role="switch"]::after{display:none}
+.more-sheet .sw{position:absolute;right:14px;top:50%;width:48px;height:28px;margin-top:-14px;border-radius:14px;background:var(--border-2);transition:background-color .2s var(--ease)}
+.more-sheet .sw::after{content:"";position:absolute;left:3px;top:3px;width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:transform .2s var(--ease)}
+.more-sheet [aria-checked="true"] .sw{background:var(--accent)}
+.more-sheet [aria-checked="true"] .sw::after{transform:translateX(20px)}
+@media(prefers-reduced-motion:reduce){.more-sheet .sw,.more-sheet .sw::after{transition:none}}
+/* poznámka pod skupinou (souhlas s měřením) jako popisek pod sekcí nastavení */
+.more-foot{font-size:12.5px;line-height:1.4;margin:-15px 14px 22px}
 .btn.primary{background:#fff;border-color:transparent;color:#0b1226;box-shadow:0 10px 26px -12px rgba(0,0,0,.6)}
 .btn.primary:hover{box-shadow:0 14px 30px -12px rgba(0,0,0,.7)}
 [data-theme="light"] .btn.primary{background:#0f1830;color:#fff}
@@ -718,6 +726,9 @@ html:has(#modalBg.show) body{overflow:hidden} /* na body, ne na html: přejde na
   .mobile-nav .mi.active{background:#fff;color:#0b1226;box-shadow:0 4px 14px -6px rgba(0,0,0,.45)}
   [data-theme="light"] .mobile-nav .mi.active{background:#0f1830;color:#fff;box-shadow:0 6px 16px -8px rgba(15,24,48,.7)}
   .mobile-nav .mi:active svg{transform:scale(.84)}
+  /* otevřená klávesnice: lišta pryč jako v nativní aplikaci – na Androidu by jinak vyjela nad klávesnici a zakryla pole
+     a návrhy našeptávače */
+  html:has(:is(input:not([type=checkbox],[type=radio],[type=range],[type=button],[type=submit]),textarea):focus) .mobile-nav{display:none}
   .toast{bottom:calc(90px + env(safe-area-inset-bottom));max-width:calc(100% - 32px)}
   /* Tab z klávesnice (a posun k poli): prvek se odroluje nad plovoucí lištu, ne pod ni – dřív končil fokus na tlačítkách
      a kartách schovaný za lištou */
@@ -871,6 +882,20 @@ html:has(#modalBg.show) body{overflow:hidden} /* na body, ne na html: přejde na
 .dt-x{flex:none;border:none;background:none;color:var(--muted);font-size:15px;line-height:1;cursor:pointer;padding:6px 8px;border-radius:7px;position:relative}
 .dt-x::after{content:"";position:absolute;inset:-8px} /* ✕ 29 × 27 px – plocha pro prst kolem 44 px, vzhled stejný */
 .dt-x:hover,.dt-x:focus-visible{color:var(--text);background:var(--surface-2)}
+/* 🧳 Naplánuj celou dovolenou (Přehled pod radarem, app.js renderPlanCard): co průvodce poskládá, příklady vět, Začít */
+/* sloupec minmax(0,1fr): dlouhý příklad věty („Lisabon a zpět z Porta…“) kartu nerozšíří – stránka by jinak na telefonu
+   ujížděla do strany */
+.plan-card{display:grid;grid-template-columns:minmax(0,1fr);gap:10px;margin:18px 0;padding:14px 10px 14px 14px;font-size:13.5px;line-height:1.45}
+.plan-card[hidden]{display:none}
+.plc-top{display:flex;gap:10px;align-items:flex-start}
+.plc-top b{font-size:15px}
+.plc-top p{margin:4px 0 0}
+.plc-steps{font-size:12.5px}
+.plc-steps span{white-space:nowrap} /* ikona kroku se neodtrhne od názvu */
+.plc-try{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.plc-try .faint{font-size:12.5px;font-weight:700}
+.plc-try .recent-chip{white-space:normal;text-align:left} /* věta se zalomí, neuřízne */
+.plan-card>.btn{justify-self:start}
 /* 🕘 Od minula (Přehled nahoře po návratu jiný den, app.js renderSince): nejvýš 3 řádky, celý řádek je tlačítko
    (na telefonu dost velký cíl pro prst), dlouhý název se zalomí */
 .since-wrap{margin-bottom:16px}
@@ -898,17 +923,15 @@ html:has(#modalBg.show) body{overflow:hidden} /* na body, ne na html: přejde na
 .wc-steps .wc-n{flex:none;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-weight:700;font-size:13px;background:var(--accent);color:#fff}
 .wc-steps div{display:flex;flex-direction:column;gap:2px;font-size:14px}
 .wc-steps small{color:var(--muted);font-size:12.5px;line-height:1.4}
-/* čipy měst pod Odkud na Přehledu (bez domova) i u hledání bez Odkud – jako filtry (.fchip), na telefonu větší na prst;
-   zalomí se do dvou řádků */
+/* „Odkud letíš?“ – čipy jako filtry (.fchip), na telefonu větší na prst; zalomí se do dvou řádků */
+.wc-home{margin:0 0 14px;font-size:14px}
 .wc-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:7px}
 .wc-chips .fchip{padding:8px 12px;font-size:13px;color:var(--text);background:var(--btn-bg,var(--surface));box-shadow:var(--btn-sh,none)}
 .wc-chips .fchip:disabled{opacity:.55;cursor:default}
-.wc-chips[hidden]{display:none}
-#radarHead{scroll-margin-top:90px} /* posun k radaru (Od minula): nadpis pod lepicí hlavičkou */
-/* karta souhlasu s měřením (app.js helpCard): nadpis jako text karty, ne jako nadpis oddílu – žádost o laskavost
-   nemá být největší věc na Přehledu */
-#whatsNew .help-h{margin:0 0 6px;font-size:16px;line-height:1.35;font-weight:700}
-#whatsNew .help-t{font-size:13.5px;margin:0 0 12px}
+.wc-from{margin-top:8px}
+/* našeptávač pole „Jiné město“ přes karty pod uvítáním (karty s backdrop-filter by ho jinak překryly) */
+.whats-new:has(.pi-dd:not([hidden])){position:relative;z-index:30}
+#radarHead{scroll-margin-top:90px} /* posun z uvítání: nadpis radaru pod lepicí hlavičkou */
 /* úzký telefon (≤ 340 px): přepínače (seg) se vejdou – menší odsazení tlačítek, nikdy širší než řádek */
 @media (max-width:340px){
   .seg{max-width:100%}

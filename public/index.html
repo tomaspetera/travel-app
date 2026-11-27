@@ -213,10 +213,15 @@ if (!(navigator.serviceWorker && navigator.serviceWorker.controller)) ['data/cou
     </div>
     <nav class="nav" id="nav" aria-label="Sekce"></nav>
     <div class="side-foot">
-      <div class="src-box" id="srcBox"></div>
+      <!-- stav cen jedním řádkem, klepnutím seznam zdrojů (flights.js renderSources); prázdný = skrytý -->
+      <details class="src-box" id="srcBox"></details>
+      <!-- řada malých tlačítek: motiv, a za něj moduly přidají Co je nového, Přenést, Plus, O aplikaci (popisek při
+           najetí – app.js data-tip); Přidat na plochu (pwa.js) před motiv jako samostatný řádek -->
+      <div class="side-tools">
       <div class="theme-toggle" id="themeToggle" role="button" tabindex="0" aria-pressed="false">
         <span>Tmavý režim</span>
         <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+      </div>
       </div>
     </div>
   </aside>

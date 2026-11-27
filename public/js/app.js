@@ -128,16 +128,14 @@ const ikona = n => `<span class="ico i-${n}" aria-hidden="true"></span>`;
 function buildNav() {
   // U přehledu odznak „zlevnilo“ z hlídaných cen (plní flights.js).
   $('#nav').innerHTML = NAV.map(n => `<div class="nav-item" data-view="${n[0]}">${ico(n[3])}<span>${n[1]}</span>${n[0] === 'map' ? '<span class="nav-badge" id="navBadge">0</span>' : n[0] === 'dashboard' ? '<span class="nav-badge drop" id="navDrops" title="Hlídané ceny, které od minule zlevnily" hidden></span>' : ''}</div>`).join('');
-  // Na mobilu dole pět pevných míst: Přehled, Lety, Cesty, Objevuj a ⋯ Další – ostatní sekce jako dlaždice, záloha,
-  // vzhled, instalace. Lišta je jediná pevná orientace (i v návodech), proto se podle používání nepřeskládá (dřív
-  // ji řadil počet otevření a Objevuj z ní mizel). Svět = mapa a země s přepínačem nahoře.
+  // Na mobilu dole pět pevných míst: Přehled, Lety, Cesty, Objevuj a ⋯ Další (ostatní sekce a nastavení). Lišta je
+  // jediná pevná orientace (i v návodech), proto se podle používání nepřeskládá (dřív ji řadil počet otevření a
+  // Objevuj z ní mizel).
   // tlačítka (ne <div>): čtečka obrazovky je ohlásí jako tlačítka a jdou vybrat Tabem; jméno z popisku pod ikonou,
   // u Přehledu i tečka „zlevnilo“
-  const mi = k => k === 'world'
-    ? `<button type="button" class="mi" id="worldNav" title="Svět" aria-label="Svět – mapa a země">${ico(NAV.find(n => n[0] === 'countries')[3])}<span>Svět</span></button>`
-    : (n => `<button type="button" class="mi" data-view="${k}" title="${n[1]}">${ico(n[3])}<span>${n[1]}</span>${k === 'dashboard' ? '<i class="mi-dot" id="mobDrops" hidden><span class="sr-only"> – zlevnilo</span></i>' : ''}</button>`)(NAV.find(n => n[0] === k));
+  const mi = k => (n => `<button type="button" class="mi" data-view="${k}" title="${n[1]}">${ico(n[3])}<span>${n[1]}</span>${k === 'dashboard' ? '<i class="mi-dot" id="mobDrops" hidden><span class="sr-only"> – zlevnilo</span></i>' : ''}</button>`)(NAV.find(n => n[0] === k));
   $('#mobileNav').innerHTML = ['dashboard', ...navBar].map(mi).join('')
-    + `<button type="button" class="mi" id="moreNav" title="Další" aria-label="Další – ostatní sekce, záloha a vzhled">${ico('M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6h-6zM14 14h6v6h-6z')}<span>Další</span></button>`;
+    + `<button type="button" class="mi" id="moreNav" title="Další" aria-label="Další – ostatní sekce, domov, záloha a vzhled">${ico('M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6h-6zM14 14h6v6h-6z')}<span>Další</span></button>`;
   $$('[data-view]').forEach(el => el.onclick = () => go(el.dataset.view));
   // Postranní panel (počítač, tablet – na telefonu skrytý): sekce přidá krok historie jako na webu – Zpět prohlížeče
   // vrátí na sekci, odkud uživatel přišel (ne vždy na Přehled), a tam, kde na ní byl. Z klávesnice Tab + Enter.
@@ -146,15 +144,15 @@ function buildNav() {
     el.onclick = () => go(el.dataset.view, { drill: true });
     el.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); el.click(); } };
   });
-  const wn = $('#worldNav'); if (wn) wn.onclick = () => go(WORLD_VIEWS.includes(activeView) ? activeView : lastWorld);
   $$('.world-tabs [data-w]').forEach(b => b.onclick = () => go(b.dataset.w, { keepScroll: true }));
   $('#moreNav').onclick = openMore;
   $('#menuBtn').onclick = openMore;
 }
-// sekce s vlastním místem (world = Mapa a Země): první tři jsou v liště, ostatní dlaždice v ⋯ Další
+// sekce mimo Přehled, jejichž otevření se počítá (S.navUse – tipy na Přehledu); world = Mapa a Země
 const NAV_PICK = ['flights', 'trip', 'explore', 'world', 'recommend'];
-const NAV_INFO = { world: ['Svět', 'Mapa procestovaných zemí a průvodce zeměmi', 'countries'] };
-const navBar = NAV_PICK.slice(0, 3);
+// sekce ve spodní liště (pevně) a sekce v ⋯ Další: [název, popis, ikona Letsi]
+const navBar = ['flights', 'trip', 'explore'];
+const NAV_INFO = { world: ['Svět', 'Mapa procestovaných zemí a průvodce zeměmi', 'mapa'], recommend: ['Doporučení', 'Kam se vyplatí jet právě teď', 'super-cena'] };
 let navLast = null;
 /** Otevření sekce do počtů (staré se časem vytrácí – nad 200 otevření se vše vydělí dvěma). Lištu už neřadí –
  *  slouží tipům na Přehledu (co uživatel ještě nezkusil). */
@@ -167,34 +165,44 @@ function navCount(v) {
   if (Object.values(u).reduce((a, b) => a + b, 0) > 200) for (const x of Object.keys(u)) u[x] = Math.floor(u[x] / 2);
   S.navUse = u; save();
 }
-/** ⋯ Další: sekce, které nejsou v liště (dlaždice v pevném pořadí), a nastavení. */
+/** Popis domova v Další: „Praha (PRG) · +200 km“, bez domova výzva. */
+const homeLine = h => (h && h.from && h.from.length ? `${h.from.map(x => x.label).join(', ')} · +${h.radius ?? 200} km` : 'Odkud obvykle létáš – nastavit');
+/**
+ * ⋯ Další jako Nastavení v telefonu: nahoře domovské letiště, pak skupiny Sekce · Moje data · Vzhled · O Letsi.
+ * Řádek = ikona, název, krátký popis a šipka (nebo přepínač). Položky modulů (přenos, Plus, O aplikaci, plocha) si
+ * řádek přidají samy do své skupiny (addToMenu).
+ */
 function openMore() {
-  const rest = NAV_PICK.filter(k => !navBar.includes(k));
-  const tile = k => {
-    const n = NAV.find(x => x[0] === k), [lbl, sub, icoKey] = NAV_INFO[k] || [n[1], n[2], k];
-    return `<button type="button" class="more-tile" data-mv="${k === 'world' ? lastWorld : k}"><span class="mt-ico">${ico(NAV.find(x => x[0] === icoKey)[3])}</span><b>${lbl}</b><small>${sub}</small></button>`;
-  };
-  modalOpen(`<div class="modal-body more-sheet"><h3>Další</h3><div class="mn-grid">${rest.map(tile).join('')}</div>
-    <div class="more-h">Nastavení</div><div class="more-nav"></div></div>`, { x: true });
-  $$('[data-mv]', $('#modal')).forEach(b => b.onclick = () => { modalClose(); go(b.dataset.mv); });
-  const list = $('.more-nav', $('#modal'));
-  if (window.Transfer) Transfer.addToMenu(list); // 📲 Přenést do jiného zařízení – odkaz nebo soubor (transfer.js)
+  const row = (attr, i, t, sub) => `<button type="button" class="btn ghost" ${attr}>${ikona(i)} ${t} <span class="faint">${esc(sub)}</span></button>`;
+  const grp = (h, id, html = '') => `<div class="more-h" id="${id}H">${h}</div><div class="mg" id="${id}" role="group" aria-labelledby="${id}H">${html}</div>`;
+  modalOpen(`<div class="modal-body more-sheet"><h3>Další</h3>
+    <div class="mg">${row('id="moreHome"', 'domov', 'Domovské letiště', homeLine(S.home))}</div>
+    ${grp('Sekce', 'mgSec', ['world', 'recommend'].map(k => row(`data-mv="${k === 'world' ? lastWorld : k}"`, NAV_INFO[k][2], NAV_INFO[k][0], NAV_INFO[k][1])).join(''))}
+    ${grp('Moje data', 'mgData')}${grp('Vzhled', 'mgLook')}${grp('O Letsi', 'mgAbout')}</div>`, { x: true });
+  const m = $('#modal'), data = $('#mgData', m), look = $('#mgLook', m), about = $('#mgAbout', m);
+  $$('[data-mv]', m).forEach(b => b.onclick = () => { modalClose(); go(b.dataset.mv); });
+  // domov mění nastavení radaru na Přehledu – stejná cesta jako čip domova nahoře (flights.js updateHomeChip)
+  $('#moreHome', m).onclick = () => { modalClose(); $('#homeChip').click(); };
+  if (window.Transfer) Transfer.addToMenu(data); // Přenést do jiného zařízení – odkaz nebo soubor (transfer.js)
   if (window.Backup) {
-    list.insertAdjacentHTML('beforeend', `<button type="button" class="btn ghost" id="moreBk">${ikona('stahnout')} Záloha do souboru <span class="faint">stáhnout, obnovit</span></button>`);
+    data.insertAdjacentHTML('beforeend', `<button type="button" class="btn ghost" id="moreBk">${ikona('stahnout')} Záloha do souboru <span class="faint">stáhnout, obnovit</span></button>`);
     $('#moreBk').onclick = () => { modalClose(); Backup.open(); };
   }
-  list.insertAdjacentHTML('beforeend', `<button type="button" class="btn ghost" id="moreWn">${ikona('novinky')} Co je nového <span class="faint">novinky</span></button>`);
-  $('#moreWn').onclick = () => { modalClose(); whatsNewOpen(); };
-  if (window.Plus) Plus.addToMenu(list); // ⭐ Plus: co je zdarma a co chystáme navíc (plus.js)
-  if (window.About) About.addToMenu(list); // ℹ️ O aplikaci a soukromí (about.js)
-  if (window.Count && Count.consent) { // 🤝 souhlas s podrobným měřením – ve výchozím stavu vypnuto (count.js)
-    list.insertAdjacentHTML('beforeend', helpBtn('moreHelp') + `<p class="faint more-tip" style="margin:-4px 0 6px">${HELP_TXT}</p>`);
+  if (window.Count && Count.consent) { // souhlas s podrobným měřením – ve výchozím stavu vypnuto (count.js)
+    data.insertAdjacentHTML('beforeend', helpBtn('moreHelp'));
+    data.insertAdjacentHTML('afterend', `<p class="faint more-foot">${HELP_TXT}</p>`);
     helpSwitch($('#moreHelp'));
   }
-  // motiv: přepínač v postranním panelu je na telefonu skrytý
-  list.insertAdjacentHTML('beforeend', `<button type="button" class="btn ghost" id="moreTheme">${ikona('motiv')} ${themeNow() === 'dark' ? 'Světlý' : 'Tmavý'} režim <span class="faint">vzhled</span></button>`);
-  $('#moreTheme').onclick = () => { modalClose(); $('#themeToggle').click(); };
-  if (window.Pwa) Pwa.addToMenu(list); // ➕ Přidat ATLAS na plochu (pwa.js)
+  // motiv: přepínač v postranním panelu je na telefonu skrytý; okno zůstane otevřené a motiv se změní hned pod ním
+  look.insertAdjacentHTML('beforeend', `<button type="button" class="btn ghost" role="switch" aria-checked="${themeNow() === 'dark'}" id="moreTheme">${ikona('motiv')} Tmavý režim <span class="faint">vzhled aplikace</span></button>`);
+  $('#moreTheme').onclick = e => { $('#themeToggle').click(); e.currentTarget.setAttribute('aria-checked', String(themeNow() === 'dark')); };
+  if (window.Pwa) Pwa.addToMenu(look); // Přidat Letsi na plochu (pwa.js), jen když to jde
+  about.insertAdjacentHTML('beforeend', `<button type="button" class="btn ghost" id="moreWn">${ikona('novinky')} Co je nového <span class="faint">novinky</span></button>`);
+  $('#moreWn').onclick = () => { modalClose(); whatsNewOpen(); };
+  if (window.Plus) Plus.addToMenu(about); // Plus: co je zdarma a co chystáme navíc (plus.js)
+  if (window.About) About.addToMenu(about); // O aplikaci a soukromí (about.js)
+  // přepínač jako v nastavení telefonu (jen vzhled – stav nese aria-checked)
+  $$('[role="switch"]', m).forEach(b => b.insertAdjacentHTML('beforeend', '<i class="sw" aria-hidden="true"></i>'));
 }
 /* ---------- 🤝 Pomáhat se zlepšováním (souhlas, count.js Count.consent) ----------
    Přepínač v Další a v O aplikaci (about.js), karta na Přehledu (helpCard). Odvolání musí jít stejně snadno jako
@@ -404,7 +412,7 @@ function go(v, opts = {}) {
   $$('.nav-item').forEach(el => cur(el, el.dataset.view === v));
   // sekce mimo lištu (z ⋯ Další) rozsvítí Další
   const inBar = v === 'dashboard' || navBar.includes(WORLD_VIEWS.includes(v) ? 'world' : v);
-  $$('.mobile-nav .mi').forEach(el => cur(el, el.dataset.view === v || (el.id === 'worldNav' && WORLD_VIEWS.includes(v)) || (el.id === 'moreNav' && !inBar)));
+  $$('.mobile-nav .mi').forEach(el => cur(el, el.dataset.view === v || (el.id === 'moreNav' && !inBar)));
   navCount(v);
   if (WORLD_VIEWS.includes(v)) { lastWorld = v; $$('.world-tabs [data-w]').forEach(b => { b.classList.toggle('on', b.dataset.w === v); b.setAttribute('aria-pressed', String(b.dataset.w === v)); }); }
   // Mapa a Země jsou jedna sekce Svět (přepínač nahoře, v liště i v menu „Svět“) – nadpis Svět, ne „Mapa“
@@ -523,6 +531,9 @@ function themeRepaint() { applyTheme(); if (window.Flights) Flights.repaintMap()
 $('#themeToggle').onclick = () => { S.theme = themeNow() === 'dark' ? 'light' : 'dark'; save(); themeRepaint(); };
 // přepínač v postranním panelu i z klávesnice (Tab + Enter / mezerník)
 $('#themeToggle').onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.currentTarget.click(); } };
+// malá tlačítka dole v postranním panelu mají text jen pro čtečku – popisek při najetí a fokusu (CSS [data-tip]) z něj;
+// tlačítka přidávají i moduly a pwa.js (až po app.js), proto až při prvním najetí
+['mouseover', 'focusin'].forEach(t => $('.side-tools').addEventListener(t, e => { const b = e.target.closest('.side-tools>*'); if (b && !b.dataset.tip) b.dataset.tip = b.textContent.trim(); }));
 // bez vlastní volby motiv sleduje systém i za běhu (telefon večer sám přepne na tmavý)
 if (sysLightMq) {
   const sysChanged = () => { if (themeOf(S.theme, true) !== themeOf(S.theme, false)) themeRepaint(); };

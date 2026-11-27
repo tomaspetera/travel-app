@@ -132,7 +132,7 @@ test('spodní lišta: sekce jako <button> (Tab, čtečka) a aktivní sekce s ari
   assert.match(html, /<nav class="mobile-nav" id="mobileNav" aria-label="Sekce"><\/nav>/);
   const nav = appJs.match(/^function buildNav\(\) \{[\s\S]*?^\}/m)[0];
   assert.doesNotMatch(nav, /<div class="mi"/);
-  assert.equal(nav.match(/<button type="button" class="mi"/g).length, 3, 'sekce, Svět, Další');
+  assert.equal(nav.match(/<button type="button" class="mi"/g).length, 2, 'sekce, Další');
   assert.match(appJs, /const cur = \(el, on\) => \{ el\.classList\.toggle\('active', on\); if \(on\) el\.setAttribute\('aria-current', 'page'\); else el\.removeAttribute\('aria-current'\); \};/);
   // <button> bez vzhledu tlačítka prohlížeče – lišta vypadá stejně jako s <div>
   assert.match(atlasCss, /\.mobile-nav \.mi\{[^}]*border:0;padding:0( 2px)?;background:none;font:inherit/);
@@ -242,7 +242,7 @@ test('omezit pohyb, přiblížení a jazyk: bez plujících barev a vyjetí sekc
   assert.doesNotMatch(vp, /user-scalable|maximum-scale/, 'Android: přiblížení prsty musí jít');
   // velké písmo systému: hlavní tlačítko hledání a nabídka Další se zalomí, ne vytečou z okna
   assert.match(flightsCss, /\.sf-actions #doSearch\{[^}]*white-space:normal/);
-  assert.match(atlasCss, /\.mn-grid\{display:grid;grid-template-columns:minmax\(0,1fr\) minmax\(0,1fr\)/);
+  assert.match(atlasCss, /\.more-sheet \.mg>\.btn\{[^}]*white-space:normal;overflow-wrap:anywhere/);
 });
 
 test('přiblížení prsty i na iPhonu a v aplikaci na ploše: viewport bez omezení (ani skriptem pro iOS), pole na telefonu a tabletu aspoň 16 px – iOS pak při klepnutí do pole stránku nepřibližuje', () => {
@@ -433,7 +433,8 @@ test('přepínač motivu v panelu: stálý název „Tmavý režim“ (ikonu kre
   assert.match(html, /<div class="theme-toggle" id="themeToggle" role="button" tabindex="0" aria-pressed="false">\n\s*<span>Tmavý režim<\/span>/);
   assert.match(pick('applyTheme'), /\$\('#themeToggle'\)\.setAttribute\('aria-pressed', String\(t === 'dark'\)\)/);
   assert.doesNotMatch(appJs, /themeLabel/);
-  assert.match(appJs, /id="moreTheme">\$\{ikona\('motiv'\)\} \$\{themeNow\(\) === 'dark' \? 'Světlý' : 'Tmavý'\} režim/);
+  // v Další přepínač (role switch, stav v aria-checked) se stálým názvem jako v nastavení telefonu
+  assert.match(appJs, /role="switch" aria-checked="\$\{themeNow\(\) === 'dark'\}" id="moreTheme">\$\{ikona\('motiv'\)\} Tmavý režim /);
 });
 
 test('našeptávač Odkud/Kam: šipka po Esc nabídku znovu otevře (prázdné pole → tipy), jinak beze změny', () => {

@@ -7,7 +7,6 @@
 .side-foot .pwa-install{width:100%;font:inherit;font-size:13px;text-align:left;justify-content:flex-start}
 .side-foot .pwa-install:hover{border-color:var(--border-2)}
 .pwa-install[hidden],.pwa-menu-item[hidden]{display:none}
-.more-nav .pwa-menu-item{justify-content:flex-start;width:100%;margin-bottom:8px}
 .pwa-menu-item .faint{font-weight:400;min-width:0;overflow:hidden;text-overflow:ellipsis}
 /* ikona v řádku flex: mezera za ní se ztratí (jako .side-about) */
 .side-foot .pwa-install>.ico{margin-right:.45em}

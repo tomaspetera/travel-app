@@ -113,10 +113,16 @@
    * Panel Zdroje cen (počítač, #srcBox): jen zdroje, které server opravdu používá. „Ryanair vypnuto“ nebo tlačítko
    * „Zapnout hotely“ návštěvníkovi nic neřeknou (zapnout je může jen správce serveru – návod je ve ⋯ Další).
    */
+  const srcOn = h => (h && Array.isArray(h.providers) ? h.providers : []).filter(p => p.enabled || p.kind === 'demo');
+  const srcSt = p => (p.blocked ? 'blokováno' : p.tag ? esc(p.tag) : p.kind === 'cached' ? 'orientačně' : p.kind === 'demo' ? 'demo' : 'živě');
   function srcBoxHtml(h = health) {
-    const ps = (h && Array.isArray(h.providers) ? h.providers : []).filter(p => p.enabled || p.kind === 'demo');
-    const st = p => (p.blocked ? 'blokováno' : p.tag ? esc(p.tag) : p.kind === 'cached' ? 'orientačně' : p.kind === 'demo' ? 'demo' : 'živě');
-    return `<div class="src-t">Zdroje cen</div>` + ps.map(p => `<div class="src on" title="${esc(p.note || '')}${p.hint ? ' – ' + esc(p.hint) : ''}"><i style="background:${p.color}"></i>${esc(p.name)}<span>${st(p)}</span></div>`).join('');
+    return `<div class="src-t">Zdroje cen</div>` + srcOn(h).map(p => `<div class="src on" title="${esc(p.note || '')}${p.hint ? ' – ' + esc(p.hint) : ''}"><i style="background:${p.color}"></i>${esc(p.name)}<span>${srcSt(p)}</span></div>`).join('');
+  }
+  /** Jeden klidný řádek stavu cen dole v postranním panelu – rozbalí se na seznam zdrojů (srcBoxHtml). */
+  function srcLine(h = health) {
+    const st = srcOn(h).map(srcSt), n = st.length;
+    if (!n) return 'Zdroje cen se načítají';
+    return `Ceny ${st.includes('živě') ? 'živě' : st.includes('demo') ? 'demo' : 'orientačně'} · ${n} ${n === 1 ? 'zdroj' : n < 5 ? 'zdroje' : 'zdrojů'}`;
   }
 
   /** Lety jen z mezipaměti (Aviasales) – žádný živý ani ukázkový zdroj letů zapnutý. Bez /api/health ne (jako dřív). */
@@ -6040,7 +6046,7 @@
 
   function renderSources() {
     const box = $('#srcBox'); if (!box || !health) return;
-    box.innerHTML = srcBoxHtml();
+    box.innerHTML = `<summary>${srcLine()}</summary>` + srcBoxHtml(); // #srcBox je <details> (index.html)
   }
 
   /**

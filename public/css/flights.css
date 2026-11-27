@@ -9,6 +9,13 @@
 /* zdroje v sidebaru */
 .src-box{border:1px solid var(--border);border-radius:13px;padding:10px 12px;background:var(--surface);font-size:12px}
 .src-box:empty{display:none} /* než odpoví server (uspaný server na Renderu) – žádný prázdný rámeček */
+/* #srcBox je <details>: zavřený = jeden řádek stavu („Ceny živě · 3 zdroje“), otevřený = seznam zdrojů */
+.src-box>summary{display:flex;align-items:center;gap:8px;cursor:pointer;list-style:none;color:var(--muted);font-size:12.5px;font-weight:600}
+.src-box>summary::-webkit-details-marker{display:none}
+.src-box>summary::before{content:"";flex:none;width:7px;height:7px;border-radius:50%;background:var(--good-ink)}
+.src-box>summary::after{content:"";flex:none;margin-left:auto;width:6px;height:6px;border:solid currentColor;border-width:0 1.5px 1.5px 0;transform:translateY(-2px) rotate(45deg)}
+.src-box[open]>summary{margin-bottom:8px}
+.src-box[open]>summary::after{transform:translateY(1px) rotate(-135deg)}
 .src-t{font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-size:10.5px;margin-bottom:6px}
 .src{display:flex;align-items:center;gap:7px;padding:3px 0;color:var(--faint)}
 .src i{width:8px;height:8px;border-radius:50%;opacity:.4}
