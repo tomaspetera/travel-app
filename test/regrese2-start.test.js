@@ -33,11 +33,12 @@ test('wnHold: lišta novinek čeká jen na Přehledu s viditelnou kartou v #what
 });
 
 test('whatsNewPop: s kartou souhlasu na Přehledu nic nevloží ani neoznačí za viděné, zkusí to znovu', () => {
-  const run = (cardHidden) => {
+  const run = (cardHidden, top = '2026-11-01a') => {
     const set = [], timers = [];
     let created = 0;
     const ctx = {
-      activeView: 'dashboard', WN_ID: '2026-12-01a', WN_POP: 3,
+      activeView: 'dashboard', WN_ID: '2026-12-01a', WN_POP: 3, WN_TOP_LS: 'atlas_wn_top',
+      localStorage: { getItem: (k) => (k === 'atlas_wn_top' ? top : null) },
       wnSince: () => '2026-11-01a', wnNew: () => [['let', 'A', 't', '2026-12-01a']],
       wnMark: () => set.push('mark'),
       $: (s) => (s === '#whatsNew' ? { hidden: cardHidden } : null),
@@ -54,6 +55,8 @@ test('whatsNewPop: s kartou souhlasu na Přehledu nic nevloží ani neoznačí z
   assert.equal(held.timers.length, 1);
   assert.equal(held.timers[0][0], held.pop);
   assert.equal(run(true).created, 1, 'bez karty se lišta ukáže');
+  // během čekání otevřel okno Co je nového (wnMark zapsal WN_ID): po zavření karty už lišta tytéž novinky neukáže
+  assert.equal(run(true, '2026-12-01a').created, 0);
 });
 
 test('lišta novinek na nízkém telefonu (do 800 px, 360×780) jen 30 % výšky – nesahá přes Najít lety', () => {

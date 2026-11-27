@@ -1186,6 +1186,8 @@ function whatsNewPop() {
   if (since == null || since > WN_ID) return;
   const fresh = wnNew(since), f = { show: fresh.slice(0, WN_POP), more: Math.max(0, fresh.length - WN_POP) };
   if (!f.show.length) return wnMark();
+  // okno Co je nového otevřené, zatímco lišta čekala na kartu (wnMark), už tytéž novinky ukázalo – podruhé ne
+  try { if (localStorage.getItem(WN_TOP_LS) === WN_ID) return; } catch (e) { /* soukromé okno: sem nedojde (since null) */ }
   // karta souhlasu na Přehledu: lišta by ji zakryla (na 360×780 i Kam a Najít lety) – počká, až karta zmizí nebo
   // uživatel odejde z Přehledu; viděná se do té doby neoznačí (zavřená aplikace je ukáže při dalším otevření)
   if (wnHold($('#whatsNew'), activeView)) return void setTimeout(whatsNewPop, 2000);
