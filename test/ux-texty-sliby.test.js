@@ -90,6 +90,6 @@ test('Letsi Plus: „žije z příspěvků“ jen s tlačítkem 💛 Podpořit L
   assert.equal(P.livesTxt({ support: { url: 'https://example.com/pay' } }), 'Letsi je zatím zdarma a pořadí výsledků si nikdo nekoupí.', 'jen platební odkaz Stripe (About.okPay)');
   assert.equal(P.livesTxt({ support: pay }), 'Z čeho Letsi žije: z dobrovolných příspěvků (💛 Podpořit Letsi v O aplikaci), později i z předplatného Plus. Pořadí výsledků si nikdo nekoupí.');
   assert.equal(P.livesTxt({ affiliate: true, support: pay }), 'Z čeho Letsi žije: z provizí partnerů (takové odkazy jsou označené reklama) a z dobrovolných příspěvků (💛 Podpořit Letsi v O aplikaci), později i z předplatného Plus. Pořadí výsledků si nikdo nekoupí.');
-  // cena Plus a otázka na ni zůstávají
-  assert.match(P.pageHtml(), /<p class="plus-small">Plus: /);
+  // cena Plus se ukáže až po odpovědi na otázku o ceně (priceNote – test/ux-plus-cena.test.js), stránka ji neukazuje
+  assert.doesNotMatch(P.pageHtml(), /<p class="plus-small">Plus: /);
 });
