@@ -30,6 +30,7 @@
   let stayView = { sort: 'value', minRating: 0, maxNight: null, type: '', free: false };
   let staysData = null;
   let carsData = null;
+let calOut = false; // jedna obsluha klepnutí mimo nabídku „Do kalendáře ▾“ (Shrnutí se překresluje)
   // pořadí dotazů api/cars: po rychlé změně polí (i po novém vykreslení kroku Auto) smí srovnávače vykreslit jen
   // odpověď na poslední – starší by ukázala odkazy s jinými časy
   let carSeq = 0;
@@ -4091,6 +4092,8 @@
     // volba v nabídce „Do kalendáře ▾“ ji zavře (jinak by visela přes tlačítka pod ní)
     const calShut = () => { const d = $('#sumCal').parentNode; if (d) d.open = false; };
     $('#sumGcal').onclick = calShut;
+    // klepnutí mimo otevřenou nabídku ji zavře (jinak na telefonu visí přes „Hotovo“)
+    if (!calOut && typeof document !== 'undefined') { calOut = true; document.addEventListener('click', e => { const d = document.querySelector('.sum-cal[open]'); if (d && !d.contains(e.target)) d.open = false; }); }
     $('#sumIcs').onclick = () => (calShut(), window.Count && Count.hit('calendar_export'), icsDownload(`letsi-${t.dest.label}-${checkin}`, calendarEvents(t), { name: `Cesta: ${t.dest.label}` }));
     $('#sumNew').onclick = () => newAfterPast(); // hotová cesta zůstane v Mých cestách
     // 📒 Sešit cesty (plus.js, zatím falešné dveře): náhled z uložené cesty, jinak z průvodce

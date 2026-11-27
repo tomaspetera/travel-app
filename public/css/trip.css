@@ -578,7 +578,11 @@ table.cost tr.entry-tot td{font-weight:800;border-bottom:none}
   #tripRoot .th-mini .th-sub{margin-top:1px;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   #tripRoot .th-mini :is(.th-cc,.th-nn,.th-route){display:none}
   #tripRoot .th-mini .th-total{order:2;position:static;flex:none;align-self:center;margin:0;padding:0;background:none;border:none}
-  #tripRoot .th-mini .th-total .faint{display:none}
+  /* „Celkem zatím“ drobně nad cenou (bez něj by součet bez ubytování vypadal jako cena celé cesty); „na osobu“ a samotné
+     „Cenu doplníš“ (jediný řádek) se v pruhu nevejdou – cena se tu ukáže, jen když je známá */
+  #tripRoot .th-mini .th-total{text-align:right}
+  #tripRoot .th-mini .th-total .faint:first-child{font-size:10.5px;line-height:1.2}
+  #tripRoot .th-mini .th-total .faint:last-child{display:none}
   #tripRoot .th-mini .th-total .tt{font-size:17px}
   #tripRoot .th-mini .th-reset{order:3;position:static;flex:none;width:36px;padding:0}
   #tripRoot .th-mini .th-rl{display:none}
@@ -742,7 +746,7 @@ table.cost tr.entry-tot td{font-weight:800;border-bottom:none}
 /* den v okně cesty bez aktivit (app.js openTrip): jen řádek s „+ přidat“, pole až po klepnutí */
 .day-block.bare{padding:10px 14px}
 .day-block.bare h4{margin-bottom:0}
-.day-block .day-add{margin-left:auto;font-size:13px}
+.day-block .day-add{margin:-12px -8px -12px auto;font-size:13px;min-height:44px;padding:0 8px;display:inline-flex;align-items:center} /* plocha pro prst 44 px, řádek se nezvětší */
 .day-block .day-new[hidden]{display:none}
 /* Objevuj: na telefonu jen prvních 8 míst, další po „Zobrazit další místa“ */
 .poi-morebtn{display:none}

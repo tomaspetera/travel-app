@@ -52,9 +52,9 @@ test('U18: v pruhu se schová země i noci – zbude „termín · os.“, cena 
   c.S.trip.step = 'summary'; c.window.Trip.render();
   assert.match(c.__els['#tripRoot'].innerHTML, /<div class="trip-head card" /);
   const css = read('public/css/trip.css');
-  // jen telefon a tablet; „Cenu doplníš“ (jen .faint) se v pruhu schová, rámeček ceny bez pozadí
+  // jen telefon a tablet; „Cenu doplníš“ (jediný .faint) i „na osobu“ se v pruhu schovají, „Celkem zatím“ zůstane drobně, rámeček bez pozadí
   assert.match(css, /@media\(max-width:1023px\)\{\s*#tripRoot \.trip-head\.th-mini\{flex-direction:row;/);
-  assert.match(css, /#tripRoot \.th-mini \.th-total \.faint\{display:none\}/);
+  assert.match(css, /#tripRoot \.th-mini \.th-total \.faint:last-child\{display:none\}/);
   assert.match(css, /#tripRoot \.th-mini :is\(\.th-cc,\.th-nn,\.th-route\)\{display:none\}/);
 });
 
