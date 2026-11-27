@@ -57,6 +57,8 @@ test('hlídání ceny: texty podle toho, jak kontrola opravdu běží (po otevř
   // ♡ ve sbaleném formuláři vypadalo jako „oblíbené“ – ikona hlídání s textem
   assert.match(fl, /id="ssWatch" aria-label="Hlídat cenu">\$\{ikona\('hlidam'\)\} Hlídat<\/button>/);
   assert.match(fl, /w\.innerHTML = `\$\{ikona\('hlidam'\)\} \$\{on \? 'Hlídáš' : 'Hlídat'\}`;/);
+  // tip na Přehledu jmenuje tlačítko nad výsledky tak, jak se opravdu jmenuje (ne „♡ Hlídat cenu“ – to je pod sbaleným formulářem)
+  assert.match(app, /h: 'Hlídání ceny', t: 'nad výsledky hledání klepni na Hlídat – tady/);
   // tip neslibuje skládání kombinací Ryanair/Wizz (v čistém režimu je jen Aviasales)
   assert.doesNotMatch(data, /Letsi skládá i takové kombinace/);
 });

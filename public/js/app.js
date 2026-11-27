@@ -1353,7 +1353,7 @@ const tipNext = (s, today) => (s.trips || []).map((t, i) => ({ t, i })).filter(y
 const DASH_TIPS = [
   { id: 'any', ico: '🌍', h: 'Kamkoliv', t: 'nech pole Kam prázdné a ukážu levné cíle z tvých letišť; v 📅 Kalendáři uvidíš nejlevnější den.', btn: 'Hledat kamkoliv',
     used: s => (s.recent || []).some(e => e && e.form && Array.isArray(e.form.to) && !e.form.to.length && e.form.trip !== 'multi'), run: () => (window.Flights ? Flights.searchTo([]) : go('flights')) },
-  { id: 'watch', ico: '♡', h: 'Hlídání ceny', t: 'nad výsledky hledání klepni na ♡ Hlídat cenu – tady na Přehledu pak uvidíš, kdy cesta zlevní.', btn: 'Otevřít Lety',
+  { id: 'watch', ico: '♡', h: 'Hlídání ceny', t: 'nad výsledky hledání klepni na Hlídat – tady na Přehledu pak uvidíš, kdy cesta zlevní.', btn: 'Otevřít Lety',
     used: s => (s.watch || []).length > 0, run: () => go('flights') },
   { id: 'pin', ico: '📌', h: 'Odložené nabídky', t: '📌 Odložit u nabídky ji schová na později – pak je porovnáš vedle sebe a pošleš k výběru.', btn: 'Otevřít Lety',
     used: s => (s.pins || []).length > 0, run: () => go('flights') },
@@ -2404,13 +2404,13 @@ function shiftEnd(oldStart, end, start) {
   if (okYmd(oldStart) && okYmd(end) && okYmd(start)) return new Date(Date.parse(end) + Date.parse(start) - Date.parse(oldStart)).toISOString().slice(0, 10);
   return end && okYmd(start) && end < start ? start : end;
 }
+/** Popisek odkazu do editTrip: cestě z průvodce (t.wizard) jde změnit jen název – termín a cestující jsou podle letu. */
+const tripEditLbl = t => (t && t.wizard ? 'Upravit název' : 'Upravit název a termín');
 /**
  * ✏️ Upravit v detailu cesty: název, termín a počet cestujících (dřív jen při vytvoření – překlep nebo posunutá cesta
  * znamenaly smazat a založit znovu). Cesta z průvodce má termín a cestující podle letu – ty se mění v průvodci (při
  * dalším uložení by je průvodce stejně přepsal); vlastní název jí průvodce nechá.
  */
-/** Popisek odkazu do editTrip: cestě z průvodce (t.wizard) jde změnit jen název – termín a cestující jsou podle letu. */
-const tripEditLbl = t => (t && t.wizard ? 'Upravit název' : 'Upravit název a termín');
 function editTrip(i) {
   const t = S.trips[i]; if (!t) return;
   const fixed = Boolean(t.wizard);
