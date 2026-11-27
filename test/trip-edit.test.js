@@ -28,11 +28,12 @@ test('kratší cesta: dny za návratem se přidají k poslednímu dni, před odj
   assert.deepEqual(shiftDays(undefined, '2026-12-10', '2026-12-11', '2026-12-12'), {});
 });
 
-test('detail cesty má ✏️ Upravit; cesta z průvodce mění jen název (termín a cestující přepíše průvodce)', () => {
+test('detail cesty má ✏️ Upravit; cesta s letem z výsledků mění jen název (termín a cestující přepíše průvodce)', () => {
   assert.match(src, /<button type="button" class="trip-edit" id="tripEdit">✏️ \$\{tripEditLbl\(t\)\}<\/button>/);
   assert.match(src, /\$\('#tripEdit'\)\.onclick = \(\) => editTrip\(i\);/);
   const ed = src.match(/function editTrip\(i\) \{[\s\S]*?\n\}/)[0];
-  assert.match(ed, /const fixed = Boolean\(t\.wizard\);/);
+  // vlastní let (Letenku už mám) termín mění – test/termin-cesty.test.js
+  assert.match(ed, /const own = ownWiz\(t\), fixed = Boolean\(t\.wizard\) && !own;/);
   // pole termínu a cestujících jen u vlastní cesty
   assert.match(ed, /\$\{fixed \? `<div class="note info"[\s\S]*?: `[\s\S]*?id="etStart"[\s\S]*?id="etPax"[\s\S]*?`\}/);
   assert.match(ed, /if \(start && end && end < start\) \{ toast\('Návrat je před odjezdem', 'err'\); return; \}/);

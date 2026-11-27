@@ -2282,15 +2282,22 @@ async function saveTrip(iso, flightTxt) {
   if (window.Plus) Plus.gateNewTrip('form', add, trip); else add();
 }
 /** „Hledat lety“ u cesty v plánovači: do jejího města (nebo země) v termínu cesty, je-li ještě před ní. */
-window.planSearch = i => {
-  const t = S.trips[i]; if (!t || !window.Flights) return go('flights');
+window.planSearch = i => tripFlights(S.trips[i]);
+/**
+ * Lety do cíle cesty t ({ wizard, place, iso, start, end } – uložená cesta, i stav průvodce: „↩ Jiný let“, „Změnit let“
+ * v ✏️ Upravit) s předvyplněným cílem a termínem.
+ */
+window.tripFlights = t => {
+  if (!t || !window.Flights) return go('flights');
   // cesta přes víc měst letadlem (z průvodce): stejná trasa znovu, ne zpáteční let do prvního města
   const wf = t.wizard && t.wizard.flight;
   if (wf && wf.out && Array.isArray(wf.mid) && wf.mid.length && Flights.searchLegs) {
     return Flights.searchLegs([wf.out, ...wf.mid, ...(wf.back ? [wf.back] : [])], ((t.wizard.route && t.wizard.route.bases) || []).map(b => b.name));
   }
   const wd = t.wizard && t.wizard.dest, p = t.place || (wd && { id: wd.id, label: wd.label, flag: wd.cc ? flag(wd.cc) : '' });
-  const to = p && /^(ap|metro):[A-Z]{3}$/.test(p.id || '') ? [{ id: p.id, label: String(p.label || ''), flag: p.flag || (t.iso ? flag(t.iso) : '') }]
+  // cesta z průvodce s cílem městem („Lisabon“ z Letenku už mám): letiště, kam let vede – ne celá země
+  const ap = p && /^(ap|metro):[A-Z]{3}$/.test(p.id || '') ? p.id : wf && wf.out && /^[A-Z]{3}$/.test(wf.out.to) ? 'ap:' + wf.out.to : '';
+  const to = ap ? [{ id: ap, label: String((p && p.label) || wf.out.to), flag: (p && p.flag) || (t.iso ? flag(t.iso) : '') }]
     : t.iso && byIso[t.iso] ? [{ id: 'cc:' + t.iso, label: byIso[t.iso].cs, flag: flag(t.iso) }] : null;
   if (!to) return go('flights');
   Flights.searchTo(to, { xOut: t.start, xBack: t.end });
@@ -2371,31 +2378,52 @@ function shiftEnd(oldStart, end, start) {
   if (okYmd(oldStart) && okYmd(end) && okYmd(start)) return new Date(Date.parse(end) + Date.parse(start) - Date.parse(oldStart)).toISOString().slice(0, 10);
   return end && okYmd(start) && end < start ? start : end;
 }
-/** Popisek odkazu do editTrip: cestě z průvodce (t.wizard) jde změnit jen název – termín a cestující jsou podle letu. */
-const tripEditLbl = t => (t && t.wizard ? 'Upravit název' : 'Upravit název a termín');
+/** Cesta z průvodce s vlastním letem (Letenku už mám): termín i cestující jde změnit – žádná nabídka je neurčuje. */
+const ownWiz = t => Boolean(t && t.wizard && t.wizard.flight && t.wizard.flight.own && t.wizard.flight.out);
+/** Popisek odkazu do editTrip: cestě s letem vybraným z výsledků jde změnit jen název – termín a cestující jsou podle letu. */
+const tripEditLbl = t => (t && t.wizard && !ownWiz(t) ? 'Upravit název' : 'Upravit název a termín');
 /**
  * ✏️ Upravit v detailu cesty: název, termín a počet cestujících (dřív jen při vytvoření – překlep nebo posunutá cesta
- * znamenaly smazat a založit znovu). Cesta z průvodce má termín a cestující podle letu – ty se mění v průvodci (při
- * dalším uložení by je průvodce stejně přepsal); vlastní název jí průvodce nechá.
+ * znamenaly smazat a založit znovu). Cesta s letem z výsledků má termín a cestující podle letu – jen ke čtení a „Změnit
+ * let“ (Lety s cílem a daty cesty); vlastní název jí průvodce nechá. Cesta z průvodce s vlastním letem se přepočítá
+ * v průvodci (Trip.retimeSaved – let, program, název s datem).
  */
 function editTrip(i) {
   const t = S.trips[i]; if (!t) return;
-  const fixed = Boolean(t.wizard);
+  const own = ownWiz(t), fixed = Boolean(t.wizard) && !own;
   modalOpen(`<div class="modal-hero"><div class="mh-bg"></div><button class="modal-close" data-close aria-label="Zavřít">${ico('M18 6L6 18M6 6l12 12')}</button><div class="modal-hero-inner"><h2 style="font-size:24px">✏️ Upravit cestu</h2><div style="font-size:13px">${esc(t.dest)}</div></div></div>
   <div class="modal-body">
     <div class="field"><label for="etName">Název cesty</label><input class="input" id="etName" value="${esc(t.name || '')}" maxlength="120"></div>
-    ${fixed ? `<div class="note info" style="margin-top:12px">📅 ${t.start ? esc(dateSpan(t.start, t.end, ' – ')) + ' – ' : ''}termín a počet cestujících jsou podle letu, změníš je v průvodci (🧳 Otevřít v průvodci).</div>`
+    ${fixed ? `<div class="note info" style="margin-top:12px">${ikona('kalendar')} <div>${t.start ? `<b>${esc(dateSpan(t.start, t.end, ' – '))}</b> · ${esc(t.pax)} os.<br>` : ''}Termín a počet cestujících jsou podle vybraného letu.</div></div>
+    <button type="button" class="btn block" id="etFlight" style="margin-top:8px">${ikona('let')} Změnit let</button>
+    <div class="faint" style="font-size:12px;margin-top:6px">Otevřu Lety s cílem a termínem cesty – nový let pak vybereš do průvodce.</div>`
     : `<div class="grid" style="grid-template-columns:repeat(2,minmax(0,1fr));margin-top:12px"><div class="field"><label for="etStart">Odjezd</label><input class="input" type="date" id="etStart" value="${okYmd(t.start) ? t.start : ''}"></div><div class="field"><label for="etEnd">Návrat</label><input class="input" type="date" id="etEnd" value="${okYmd(t.end) ? t.end : ''}" min="${okYmd(t.start) ? t.start : ''}"></div></div>
-    <div class="faint" style="font-size:12px;margin-top:6px">Návrat i program dnů se posunou s odjezdem; co by vypadlo za návrat, přidám k poslednímu dni.</div>
+    <div class="faint" style="font-size:12px;margin-top:6px">Návrat i program dnů se posunou s odjezdem; co by vypadlo za návrat, přidám k poslednímu dni.${own ? ' Datum letu se změní taky.' : ''}</div>
     <div class="field" style="margin-top:12px"><label for="etPax">Cestující</label><select id="etPax">${[1, 2, 3, 4, 5, 6, 7, 8, 9].map(n => `<option ${n === (+t.pax || 2) ? 'selected' : ''}>${n}</option>`).join('')}</select></div>`}
     <div class="row" style="gap:8px;margin-top:18px"><button class="btn primary" style="flex:1" id="etSave">Uložit</button><button class="btn ghost" id="etBack">Zpět</button></div>
   </div>`);
   const st = $('#etStart'); let prev = st && st.value;
   if (st) st.onchange = e => { const v = e.target.value, en = $('#etEnd'); en.value = shiftEnd(prev, en.value, v); en.min = v; if (okYmd(v)) prev = v; };
   $('#etBack').onclick = () => openTrip(i);
+  const ef = $('#etFlight'); if (ef) ef.onclick = () => { modalClose(); tripFlights(t); };
   $('#etSave').onclick = () => {
     const x = S.trips[i]; if (x !== t) return modalClose(); // mezitím smazaná nebo jiná cesta (jiný panel, záloha)
     const name = $('#etName').value.trim();
+    if (own) {
+      const start = $('#etStart').value, end = $('#etEnd').value, pax = $('#etPax').value;
+      if (!okYmd(start)) { toast('Zadej datum odjezdu – let bez něj nejde', 'err'); return; }
+      if (end && end < start) { toast('Návrat je před odjezdem', 'err'); return; }
+      if (name) t.name = name;
+      if (start === t.start && end === (t.end || '') && pax === String(t.pax)) { save(); tripsChanged(); openTrip(i); toast('Cesta upravená'); return; }
+      // přepočet je v průvodci (trip.js se stahuje až po startu) – záznam cesty nahradí nový se stejným místem v seznamu
+      withMod('trip', () => {
+        if (S.trips[i] !== t) return modalClose();
+        const msg = Trip.retimeSaved(t, { start, end, adults: pax });
+        if (msg == null) { toast('Termín se nepodařilo změnit', 'err'); return; }
+        tripsChanged(); openTrip(i); toast(msg ? `Termín změněn – ${msg}` : 'Cesta upravená');
+      });
+      return;
+    }
     if (!fixed) {
       const start = $('#etStart').value, end = $('#etEnd').value;
       if (start && end && end < start) { toast('Návrat je před odjezdem', 'err'); return; }
