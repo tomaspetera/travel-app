@@ -35,6 +35,24 @@ test('obecný seznam balení: bez adaptéru a hotovosti v místní měně (odpor
   assert.deepEqual(pack.filter((x) => /adaptér|místní měně/i.test(x)), []);
 });
 
+test('uložená cesta se starým obecným seznamem (8 položek s adaptérem), nic neodškrtnuté → dnešní seznam; upravený zůstane', () => {
+  const ctx = {};
+  vm.createContext(ctx);
+  vm.runInContext(`${read('public/js/data.js')}\nthis.d = { PACK, PACK_OLD, PACK_OUT, packFresh };`, ctx);
+  const { PACK, PACK_OLD, PACK_OUT, packFresh } = ctx.d;
+  const ck = (list, done = -1) => list.map((t, i) => ({ t, done: i === done }));
+  const texts = (r) => r && [...r.map((x) => x.t)];
+  assert.deepEqual(texts(packFresh({ checklist: ck(PACK_OLD) }, false)), [...PACK]);
+  assert.equal(packFresh({ checklist: ck(PACK) }, false), null, 'už dnešní – neukládat znovu');
+  assert.equal(packFresh({ checklist: ck(PACK_OLD, 2) }, false), null, 'odškrtnutí patří uživateli');
+  assert.equal(packFresh({ checklist: [...ck(PACK_OLD), { t: 'Plavky', done: false }] }, false), null, 'vlastní položka');
+  assert.equal(packFresh({ checklist: [] }, false), null);
+  assert.equal(packFresh({}, false), null);
+  // výlet z Objevuj bez letu: starý i dnešní obecný seznam → seznam na den venku (jako dřív u PACK)
+  for (const old of [PACK_OLD, PACK]) assert.deepEqual(texts(packFresh({ src: 'hike', checklist: ck(old) }, true)), [...PACK_OUT]);
+  assert.equal(packFresh({ src: 'hike', checklist: ck(PACK_OUT) }, true), null);
+});
+
 test('✨ Zkus napsat: první ukázka „Barcelona na víkend v březnu“ – konkrétní místo, víkend a měsíc', () => {
   const fl = read('public/js/flights.js');
   const src = fl.slice(fl.indexOf('const homeWord = '), fl.indexOf('function paintSmartTry()'));

@@ -12,3 +12,8 @@ const PACK_BIKE=['Helma','Duše, lepení a pumpička','Světla','Voda a svačina
 // Uložená cesta je výlet bez letu a přespání (src z Objevuj: pěšky, na kole, vlakem tam a kolem zpět, výlety na den)
 const localTrip=t=>/^(hike|bike|train|day-)/.test(String((t&&t.src)||''));
 const packFor=src=>(/^(bike|train)$/.test(String(src||''))?PACK_BIKE:localTrip({src})?PACK_OUT:PACK);
+// obecný seznam starší verze (s adaptérem a hotovostí) – mají ho cesty uložené dřív
+const PACK_OLD=['Pas / OP','Letenky a rezervace','Cestovní pojištění','Nabíječka + powerbanka','Univerzální adaptér','Léky a lékárnička','Hotovost v místní měně','Kopie dokladů'];
+/** Neupravený obecný seznam (texty PACK_OLD nebo PACK, nic neodškrtnuté) → dnešní seznam cesty (u výletu bez letu na den
+ *  venku), jinak null: odškrtnutí a vlastní položky patří uživateli, přepsat se smí jen nedotčený výchozí seznam. */
+const packFresh=(t,local)=>{const ck=t&&t.checklist,now=local?packFor(t.src):PACK,same=p=>Array.isArray(ck)&&ck.length===p.length&&ck.every((x,k)=>x&&x.t===p[k]&&!x.done);return !same(now)&&(same(PACK_OLD)||same(PACK))?now.map(x=>({t:x,done:false})):null;};

@@ -2443,8 +2443,10 @@ function openTrip(i) {
   flushRide(); // rozepsané pole vlaku (rideSoon) napřed uložit – překreslené okno ho ukáže
   const t = S.trips[i]; if (!t) return; tripShown = t; const c = t.iso ? byIso[t.iso] : null; const city = c && c.cap ? c.cap : t.dest;
   const local = localTrip(t) && !t.flight && !t.wizard, home = t.iso === 'CZ' && !t.flight && !t.wizard;
-  // výlet z Objevuj uložený dřív s cestovním seznamem (pas, adaptér…), nic neodškrtnuté → seznam na den venku
-  if (local && Array.isArray(t.checklist) && t.checklist.length === PACK.length && t.checklist.every((x, k) => x && x.t === PACK[k] && !x.done)) { t.checklist = packFor(t.src).map(x => ({ t: x, done: false })); save(); }
+  // neupravený seznam uložený dřív: výlet z Objevuj s cestovním seznamem → seznam na den venku, jiná cesta se starým
+  // obecným (adaptér, hotovost v místní měně – odporovaly radám podle země) → dnešní PACK; průvodce si seznam skládá sám
+  const fresh = !t.wizard && packFresh(t, local);
+  if (fresh) { t.checklist = fresh; save(); }
   const days = dateRange(t.start, t.end), live = tripLive(t), rides = tripRides(t);
   const dayHtml = (d, di) => { const acts = t.days[d] || [], now = live && live.today === d; return `<div class="day-block${now ? ' today' : ''}" data-day="${d}"><h4>Den ${di + 1} <span class="faint" style="font-weight:600">· ${fmtDate(d)}</span>${now ? '<span class="day-now">dnes</span>' : ''}</h4>${rides.filter(r => r.date === d).map(rideEd).join('')}${acts.map((a, ai) => `<div class="act"><span>${esc(a)}</span><button data-delact="${ai}" aria-label="Smazat aktivitu">${ico('M18 6L6 18M6 6l12 12')}</button></div>`).join('')}<div class="row" style="gap:8px;margin-top:8px"><input class="input" id="act-${i}-${d}" data-addact placeholder="Přidej aktivitu…" aria-label="Nová aktivita – den ${di + 1}"><button class="btn sm" data-addact>Přidat</button></div></div>`; };
   const part = {
