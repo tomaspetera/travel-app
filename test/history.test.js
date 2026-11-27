@@ -239,8 +239,9 @@ test('Zpět po obnovení stránky (Shrnutí → Uložit do plánovače, telefon 
 });
 
 test('Zpět na počítači: sekce z postranního panelu přidá krok – šipka Zpět vrátí na předchozí sekci i s posunem', () => {
-  // postranní panel volá go(v, { drill: true }) (app.js, .nav-item) – lišta dole na telefonu dál bez něj
-  assert.match(APP, /\$\$\('\.nav-item'\)\.forEach\(el => \{[\s\S]*?el\.onclick = \(\) => go\(el\.dataset\.view, \{ drill: true \}\);/);
+  // postranní panel volá go(v, { drill: true }) přes tabGo (app.js, .nav-item) – lišta dole na telefonu dál bez něj
+  assert.match(APP, /\$\$\('\.nav-item'\)\.forEach\(el => \{[\s\S]*?el\.onclick = \(\) => tabGo\(el\.dataset\.view, \{ drill: true \}\);/);
+  assert.match(APP, /^const tabGo = \(v, opts = \{\}\) => go\(v, [^\n]*\? \{ \.\.\.opts, mine: true \} : opts\);$/m);
   const side = (a, v) => a.tap(v, { drill: true });
   const a = app();
   side(a, 'flights');

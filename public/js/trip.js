@@ -1044,7 +1044,14 @@ let calOut = false; // jedna obsluha klepnutí mimo nabídku „Do kalendáře �
   function showMine(t) {
     if (autoT || !entryOf(t)) autoSave();
     if (!window.myTrips) return;
-    mineFor = t.created; render(); window.scrollTo({ top: 0, behavior: 'smooth' });
+    mineFor = t.created; render(); if (typeof histTop === 'function') histTop();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+  // ze seznamu Moje cesty do průvodce: Zpět telefonu vrátí na seznam (krok uvnitř sekce – app.js histSub), ne až na
+  // Přehled. Návrat jen dokud je průvodce cesty vidět (jinak Zpět pokračuje dál).
+  function listBack() {
+    if (typeof histSub !== 'function') return;
+    histSub(() => { const t = T(); if (!t || mineFor === t.created || activeView !== 'trip') return false; showMine(t); return true; });
   }
   const askHtml = (lead = 'Kam chceš jet?') => `<form class="card trip-ask" id="tripAsk"><label class="trip-ask-l">${lead}</label>
           <div class="trip-ask-row"><div class="place-input" id="tripAskTo"></div><button class="btn primary" type="submit">Najít lety</button></div>
@@ -1073,7 +1080,7 @@ let calOut = false; // jedna obsluha klepnutí mimo nabídku „Do kalendáře �
       try { start = outLeg(t).date; end = backLeg(t) ? backLeg(t).date : stayDates(t).checkout; } catch (e) { /* cesta bez letu */ }
       info = { name: tripName(t), cc: t.dest && t.dest.cc, start, end, step: (STEPS.find(x => x[0] === t.step) || STEPS[0])[2], done: t.step === 'summary', shared: Boolean(t.shared) };
     }
-    window.myTrips(root, { active: t, info, ask: askHtml('Nová cesta – kam chceš jet?'), resume: () => { mineFor = null; render(); window.scrollTo({ top: 0, behavior: 'smooth' }); } });
+    window.myTrips(root, { active: t, info, ask: askHtml('Nová cesta – kam chceš jet?'), resume: () => { mineFor = null; render(); listBack(); window.scrollTo({ top: 0, behavior: 'smooth' }); } });
     askWire();
   }
   function render() {
@@ -1088,7 +1095,7 @@ let calOut = false; // jedna obsluha klepnutí mimo nabídku „Do kalendáře �
         <div class="card dest trip-hero" data-photo="Amalfi" style="--h:200"><div class="flag">🧳</div><div class="dest-panel"><div class="cname">Sestav si celou cestu</div>
           <div class="cblurb">Let, ubytování, auto i program na místě – a celková cena na jednom místě.</div></div></div>
         ${askHtml()}
-        <div class="trip-intro-act"><button type="button" class="btn ghost" id="tripGoExplore">${ikona('kompas')} Jen objevovat místa</button>${window.newTrip ? '<button type="button" class="btn ghost" id="tripOwn">' + ikona('plus') + ' Vlastní cesta bez letu</button>' : ''}</div>
+        <div class="trip-intro-act">${window.newTrip ? '<button type="button" class="btn ghost" id="tripOwn">' + ikona('plus') + ' Vlastní cesta bez letu</button>' : ''}</div>
         <div class="trip-steps-h">Jak to funguje</div>
         <ol class="trip-steps">
           <li><span>✈️</span><div><b>Let</b><small>Napiš výš, kam chceš (nebo hledej v Letech či v Kam letět levně na Přehledu), a u nabídky klikni na <b>Naplánovat celou cestu</b>.</small></div></li>
@@ -1097,7 +1104,6 @@ let calOut = false; // jedna obsluha klepnutí mimo nabídku „Do kalendáře �
           <li><span>🗺️</span><div><b>Program</b><small>Co vidět den po dni, výlety, kolo i pěšky.</small></div></li>
           <li><span>✅</span><div><b>Shrnutí</b><small>Celková cena a kalendář. Cesta se ukládá sama do Mých cest.</small></div></li>
         </ol></div>`;
-      $('#tripGoExplore').onclick = () => go('explore');
       if (window.newTrip) $('#tripOwn').onclick = () => newTrip(); // jako v Mých cestách (dřív prázdný Plánovač)
       askWire();
       if (window.Photos) Photos.paint(root);
@@ -4457,15 +4463,16 @@ let calOut = false; // jedna obsluha klepnutí mimo nabídku „Do kalendáře �
     let t = null;
     try { t = w && w.flight && w.flight.out ? sanitizeTrip(JSON.parse(JSON.stringify(w))) : null; } catch (e) { t = null; }
     if (!t) { toast('Cestu se nepodařilo otevřít', 'err'); return false; }
-    const mine = S.trip;
+    const mine = S.trip, fromList = typeof activeView === 'string' && activeView === 'trip' && Boolean($('#tripRoot .trip-mine'));
     // tatáž cesta je v průvodci: otevřít průvodce, ne zůstat v seznamu Moje cesty (mineFor) – dřív „Otevřít v průvodci“
     // z detailu cesty jen zavřelo okno
-    if (mine && mine.created === id) { mineFor = null; go('trip'); render(); return true; }
+    if (mine && mine.created === id) { mineFor = null; go('trip'); render(); if (fromList) listBack(); return true; }
     if (!leaveTrip(mine, done => `V průvodci máš rozpracovanou cestu: ${mine.dest?.label || mine.flight.out.to} (${done.join(', ')}). Nahradit ji uloženou cestou ${t.dest.label || t.flight.out.to}?`, true)) return false;
     S.trip = { ...t, booked: bookedOf(w), step: 'summary', created: id };
     staysData = null; carsData = null;
     save(); // jen otevřená – do Mých cest není co ukládat
     go('trip');
+    if (fromList) listBack();
     return true;
   }
 
@@ -4959,6 +4966,7 @@ let calOut = false; // jedna obsluha klepnutí mimo nabídku „Do kalendáře �
     const t = T();
     if (t) { if (autoT || !entryOf(t)) autoSave(); mineFor = t.created; }
     safeRender();
+    if (typeof histTop === 'function') histTop(); // záložka Cesty z průvodce: kroky průvodce pryč (app.js)
   }
   function safeRender() {
     try {
