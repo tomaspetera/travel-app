@@ -158,9 +158,10 @@ test('letsi.css krok 2: žádná modrá ani fialová, ceny barvou textu, stupnic
   assert.match(src, /\] \.pc-bar::before\{[^}]*background:#D6DE82/);
   // Sdílet cestu: tlačítko jako hlavní (dřív přechod modrá–fialová)
   assert.match(src, /\] \.jed-go2\{background:var\(--letsi-tlacitko\)/);
-  // spodní lišta: aktivní položka bez plochy, tučně barvou textu; ostatní text-3
-  assert.match(src, /\.mobile-nav \.mi\.active\{background:none;color:var\(--text\)/);
-  assert.match(src, /\] \.mobile-nav \.mi\{color:var\(--faint\)\}/);
+  // spodní lišta v Noci: aktivní položka bez plochy (kapsle Pistácie je pod ikonou), popisek Vápnem; ostatní šedé Vápno
+  // (7,9 : 1 na Noci – navigace.test.js)
+  assert.match(src, /\.mobile-nav \.mi\.active\{background:none;color:#F3F4F0/);
+  assert.match(src, /\] \.mobile-nav \.mi\{[^}]*color:var\(--nav-ico\)\}/);
   // tmavý režim: třetí text na čipu o stupeň světlejší (#8E949E na #2A2E3A je 4,44 : 1)
   assert.match(src, /\[data-theme="dark"\] :is\(\.chip,[^)]*\)\{--faint:#A6ACB6\}/);
 });
@@ -194,7 +195,9 @@ test('vendor/letsi: každý soubor, na který letsi.css, atlas.css (ikony místo
   // ikony rozhraní místo emoji jsou v atlas.css (.i-…): ikona je v textu tlačítka, takže platí i bez data-brand
   const css = [...(SRC + read('css/atlas.css')).matchAll(/url\(\.\.\/(vendor\/letsi\/[^)]+)\)/g)].map((m) => m[1]);
   const boot = [...INDEX.matchAll(/href="(vendor\/letsi\/[^"]+)"/g)].map((m) => m[1]);
-  const used = new Set([...css, ...boot]);
+  // logo jako obrázek: stránky ze serveru (seo.js, pravni.js); úvodní obrazovka ho kreslí v index.html sama (.l-logo)
+  const srv = ['seo', 'pravni'].flatMap((f) => [...readFileSync(new URL(`../server/lib/${f}.js`, import.meta.url), 'utf8').matchAll(/src="\/(vendor\/letsi\/[^"]+)"/g)].map((m) => m[1]));
+  const used = new Set([...css, ...boot, ...srv]);
   assert.ok(used.size >= 20, `${used.size} souborů`);
   for (const f of used) assert.ok(existsSync(pub(f)), f);
   const ls = (d) => readdirSync(pub(d), { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? ls(`${d}${e.name}/`) : [`${d}${e.name}`]));
@@ -256,8 +259,7 @@ test('ikony Letsi: ikony lišt a tlačítek z index.html mají náhradu, velikos
   assert.match(SRC, /:is\(\.icon-btn,\.theme-toggle,\.sf-ico,\.sf-swap\)>svg\{width:20px;height:20px\}/, 'tlačítka a pole 20 px');
   // logo: lišta aplikace jednobarevná (slunce patří nejlevnější ceně), úvodní obrazovka hlavní / negativ podle režimu
   assert.match(SRC, /\.brand-name\{[^}]*letsi-logo-mala-mono\.svg/);
-  assert.match(SRC, /\] #launch::before\{[^}]*letsi-logo-hlavni\.svg/);
-  assert.match(SRC, /\[data-theme="dark"\] #launch::before\{background-image:url\(\.\.\/vendor\/letsi\/letsi-logo-negativ\.svg\)\}/);
+  assert.match(SRC, /\] #launch :is\(\.l-ico,\.l-jet,b\)\{display:none\}/, 'úvodní obrazovka: logo kreslí index.html (.l-logo), ne obrázek');
 });
 
 test('logo v horní liště: jen na Přehledu a jen bez postranního panelu, jednobarevné, bez vlivu na výšku lišty', () => {
@@ -414,4 +416,21 @@ test('poslední sklo a smaragdová ATLASu: karty Kam letět levně, hlavička ce
     assert.ok(rules.some((r) => r.sel.includes(c) && /background:var\(--surface-2\);color:var\(--text\)/.test(r.body)), `${c}: pěna s textem`);
   }
   assert.match(src, /--surface-2:#EDEFD6/);
+});
+
+test('úvodní obrazovka Letsi: logo s očima inline, bez přechodů a skla, pohyb jen transform/opacity, s omezeným pohybem statické', () => {
+  const svg = INDEX.match(/<div id="launch" aria-hidden="true">[\s\S]*?(<svg class="l-logo"[\s\S]*?<\/svg>)/)[1];
+  // nic se nestahuje (vidět hned) a žádný přechod ani filtr – starý přechod ATLASu (#launchG) má jen jeho .l-ico
+  assert.doesNotMatch(svg, /gradient|filter|<image|href=|url\((?!#launchOko\))/i);
+  const css = INDEX.match(/<style>\n\/\* Úvodní obrazovka ve vzhledu Letsi[\s\S]*?<\/style>/)[0];
+  assert.doesNotMatch(css.replace(/\/\*[\s\S]*?\*\//g, ''), /gradient|filter|blur|shadow|url\(/i);
+  const frames = [...css.matchAll(/@keyframes ([\w-]+)\{((?:[^{}]*\{[^{}]*\})*)\s*\}/g)];
+  assert.ok(frames.length >= 5, frames.map((f) => f[1]).join());
+  for (const [, name, body] of frames) for (const [, prop] of body.matchAll(/([a-z-]+):/g)) assert.match(prop, /^(transform|opacity|animation-timing-function)$/, name);
+  // každá animace je použitá jen pod #launch vzhledu Letsi a omezený pohyb ji vypne celou (výchozí stav pravidel = hotové logo)
+  for (const [, name] of frames) assert.match(css, new RegExp(`\\[data-brand=letsi\\] #launch [^{]*\\{[^}]*animation:${name} `), name);
+  assert.match(css, /@media \(prefers-reduced-motion:reduce\)\{\[data-brand=letsi\] #launch [^{]*\.l-logo \*[^{]*\{animation:none!important[^}]*\}\}/);
+  // mimo vzhled Letsi skryté; celá #launch se ukazuje jen v aplikaci na ploše (display-mode)
+  assert.match(css, /#launch \.l-logo\{display:none\}/);
+  assert.match(INDEX, /#launch\{display:none\}\n@media \(display-mode:standalone\)/);
 });

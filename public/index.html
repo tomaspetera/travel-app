@@ -166,6 +166,40 @@ document.addEventListener('submit', function (e) {
 @keyframes launch-off{to{opacity:0;visibility:hidden}}
 @media (prefers-reduced-motion:reduce){#launch .l-sq,#launch .l-pp,#launch .l-paper{animation:none}#launch .l-air,#launch .l-jet{display:none}}
 </style>
+<style>
+/* Úvodní obrazovka ve vzhledu Letsi (výchozí): logo kreslené přímo tady (inline SVG, nic se nestahuje – je vidět hned
+   s první kresbou). Znak „oo“ je postavený jako kukátko (js/kukatko.js: rám, okénka, zorničky, clony; stejná geometrie
+   i poloha zorniček v klidu = logo). Oči uprostřed jednou mrknou, rozhlédnou se doleva a nahoru doprava („kam
+   poletíme?“), znak dosedne na své místo v logu a vedle se vysune nápis, nakonec se rozsvítí slunce nad i. Pohyb
+   ~1,2 s, jen transform a opacity. Výchozí stav pravidel = hotové logo: bez animace (omezený pohyb) zůstane statické.
+   app.js launchDone (launchWait) nechá hlavní pohyb dohrát (~1,25 s od začátku), pak obrazovka zmizí, jakmile je přehled
+   hotový; pojistka launch-off 6 s platí dál. */
+#launch .l-logo{display:none}
+[data-brand=letsi] #launch .l-logo{display:block;position:absolute;left:50%;top:45%;width:288px;height:64px;margin:-32px 0 0 -144px;overflow:visible;fill:currentColor}
+[data-brand=letsi] #launch .l-okno{fill:var(--bg)}
+[data-brand=letsi] #launch :is(.l-oo,.l-lid,.l-sun){transform-box:fill-box;transform-origin:center}
+[data-brand=letsi] #launch .l-oo{animation:lo-oo 1.2s both}
+/* klidový pohled znaku (= logo): okénka posunutá k 38°, zorničky nahoru doprava; sakáda s doběhem jako kukátko */
+[data-brand=letsi] #launch .l-hl{transform:translate(4.73px,-1.29px);animation:lo-hl 1.2s cubic-bezier(.3,.7,.4,1) both}
+[data-brand=letsi] #launch .l-zor{transform:translate(7.01px,-13.48px);animation:lo-zor 1.2s cubic-bezier(.3,.7,.4,1) both}
+[data-brand=letsi] #launch .l-lid{transform-origin:50% 0;transform:scaleY(0);animation:lo-lid 1.2s both}
+[data-brand=letsi] #launch .l-word{animation:lo-word 1.2s cubic-bezier(.2,.8,.2,1) both}
+[data-brand=letsi] #launch .l-sun{animation:lo-sun 1.2s ease-out both}
+/* znak nejdřív uprostřed obrazovky (logo je posunuté o polovinu šířky nápisu), o polovinu větší */
+@keyframes lo-oo{0%{opacity:0;transform:translate(1417.4px,0) scale(1.42)}
+  10%{opacity:1;transform:translate(1417.4px,0) scale(1.5)}
+  63%{transform:translate(1417.4px,0) scale(1.5);animation-timing-function:cubic-bezier(.2,.8,.2,1)}}
+/* mrknutí jako kukátko: ~55 ms dolů, 18 ms skoro zavřeno, 70 ms nahoru; víčka jen do 90 % okénka – úplně zavřené oči
+   by na okamžik udělaly ze znaku plný tmavý tvar a vypadalo by to jako chyba načítání */
+@keyframes lo-lid{14%{transform:scaleY(0);animation-timing-function:cubic-bezier(.5,0,1,1)}
+  18.5%{transform:scaleY(.9)}20%{transform:scaleY(.9);animation-timing-function:cubic-bezier(0,0,.3,1)}26%{transform:scaleY(0)}}
+/* pohled: na tebe → doleva → nahoru doprava (klid); okénka (hlava) jdou s ním */
+@keyframes lo-zor{0%,29%{transform:translate(0,-8px)}43%,52%{transform:translate(-7px,-8px)}66%{transform:translate(7.01px,-13.48px)}}
+@keyframes lo-hl{0%,29%{transform:translate(0,0)}43%,52%{transform:translate(-6px,0)}66%{transform:translate(4.73px,-1.29px)}}
+@keyframes lo-word{0%,69%{opacity:0;transform:translate(-300px,0)}}
+@keyframes lo-sun{0%,86%{opacity:0;transform:scale(.3)}}
+@media (prefers-reduced-motion:reduce){[data-brand=letsi] #launch .l-logo *{animation:none!important}}
+</style>
 <link rel="stylesheet" href="css/pwa.css">
 <script src="js/pwa.js" defer></script>
 <script>
@@ -197,7 +231,7 @@ if (!(navigator.serviceWorker && navigator.serviceWorker.controller)) ['data/cou
 <body>
 <!-- klávesnice: první prvek stránky, vidět jen při fokusu – přeskočí postranní panel a lištu (app.js) -->
 <a class="skip" href="#main">Přeskočit na obsah</a>
-<div id="launch" aria-hidden="true"><svg class="l-ico" viewBox="0 0 512 512"><defs><linearGradient id="launchG" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#22d3ee"/><stop offset=".45" stop-color="#5b8cff"/><stop offset="1" stop-color="#a855f7"/></linearGradient></defs><rect class="l-sq" width="512" height="512" rx="87.04" fill="url(#launchG)"/><g class="l-pp"><g class="l-paper"><path d="M372 165.4 218.4 272.9 126.2 226.8z" fill="#fff"/><path d="M372 165.4 264.4 365.1 218.4 272.9z" fill="#fff" fill-opacity=".8"/></g><path class="l-air" transform="translate(250 262) rotate(-38.5) scale(2.2) translate(-50 -50)" fill="#fff" d="M97 50C97 47 94 45.5 90 45.5H60L40 9H33L45 45.5H22L14 31H9L12 47L11 50L12 53L9 69H14L22 54.5H45L33 91H40L60 54.5H90C94 54.5 97 53 97 50Z"/></g></svg><svg class="l-jet" viewBox="0 0 100 100"><path fill="#fff" transform="rotate(-7 50 50)" d="M97 50C97 47 94 45.5 90 45.5H60L40 9H33L45 45.5H22L14 31H9L12 47L11 50L12 53L9 69H14L22 54.5H45L33 91H40L60 54.5H90C94 54.5 97 53 97 50Z"/></svg><b>Letsi</b></div>
+<div id="launch" aria-hidden="true"><svg class="l-ico" viewBox="0 0 512 512"><defs><linearGradient id="launchG" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#22d3ee"/><stop offset=".45" stop-color="#5b8cff"/><stop offset="1" stop-color="#a855f7"/></linearGradient></defs><rect class="l-sq" width="512" height="512" rx="87.04" fill="url(#launchG)"/><g class="l-pp"><g class="l-paper"><path d="M372 165.4 218.4 272.9 126.2 226.8z" fill="#fff"/><path d="M372 165.4 264.4 365.1 218.4 272.9z" fill="#fff" fill-opacity=".8"/></g><path class="l-air" transform="translate(250 262) rotate(-38.5) scale(2.2) translate(-50 -50)" fill="#fff" d="M97 50C97 47 94 45.5 90 45.5H60L40 9H33L45 45.5H22L14 31H9L12 47L11 50L12 53L9 69H14L22 54.5H45L33 91H40L60 54.5H90C94 54.5 97 53 97 50Z"/></g></svg><svg class="l-jet" viewBox="0 0 100 100"><path fill="#fff" transform="rotate(-7 50 50)" d="M97 50C97 47 94 45.5 90 45.5H60L40 9H33L45 45.5H22L14 31H9L12 47L11 50L12 53L9 69H14L22 54.5H45L33 91H40L60 54.5H90C94 54.5 97 53 97 50Z"/></svg><b>Letsi</b><svg class="l-logo" viewBox="0 -892.6 4087.9 908.6" aria-hidden="true"><defs><clipPath id="launchOko"><path d="M-2.56 -50H2.56C21.39 -50 32 -39.39 32 -20.56V20.56C32 39.39 21.39 50 2.56 50H-2.56C-21.39 50 -32 39.39 -32 20.56V-20.56C-32 -39.39 -21.39 -50 -2.56 -50Z" transform="translate(-48 0)"/><path d="M-2.56 -50H2.56C21.39 -50 32 -39.39 32 -20.56V20.56C32 39.39 21.39 50 2.56 50H-2.56C-21.39 50 -32 39.39 -32 20.56V-20.56C-32 -39.39 -21.39 -50 -2.56 -50Z" transform="translate(48 0)"/></clipPath></defs><g class="l-word"><path d="M2131.2 16Q2218.2 16 2293.7 -5.5Q2369.2 -27 2428.2 -67V-197Q2377.2 -167 2314.7 -150.5Q2252.2 -134 2189.2 -134Q2120.2 -134 2072.7 -154Q2025.2 -174 2000.7 -211.5Q1995.9 -218.9 1992 -227H2443.2Q2443.2 -337 2403.7 -418Q2364.2 -499 2291.7 -543.5Q2219.2 -588 2116.2 -588Q2017.2 -588 1938.7 -550Q1860.2 -512 1815.2 -444.5Q1770.2 -377 1770.2 -288Q1770.2 -197 1817.2 -128.5Q1864.2 -60 1945.7 -22Q2027.2 16 2131.2 16ZM2450.2 -420H2566.2V-224Q2566.2 -151 2595.2 -96.5Q2624.2 -42 2684.7 -13Q2745.2 16 2840.2 16Q2892.2 16 2941.2 7Q2990.2 -2 3020.2 -13V-167Q2993.2 -155 2960.7 -147.5Q2928.2 -140 2886.2 -140Q2820.2 -140 2795.2 -165Q2770.2 -190 2770.2 -252V-420H3010.2V-571H2770.2V-725H2654.2L2566.2 -556L2450.2 -509ZM1484.2 -770V0H1689.2V-770ZM1982.8 -350Q1987.1 -364.1 1994.2 -376.5Q2012.2 -408 2044.2 -426Q2076.2 -444 2121.2 -444Q2162.2 -444 2191.7 -428Q2221.2 -412 2239.2 -381.5Q2247.7 -367.2 2253 -350Z"/><path d="M3280.1 -65.6Q3252.8 -65.6 3230.6 -80.5Q3208.4 -95.4 3185.4 -134.3Q3165.9 -173.8 3145.3 -194.1Q3124.6 -214.5 3093.6 -214.5Q3064.5 -214.5 3048.1 -192.9Q3031.7 -171.3 3032.3 -134.3Q3032.3 -94.2 3055.7 -60.8Q3079 -27.3 3129.8 -6.7Q3180.5 14 3261.3 14.6Q3345.1 13.4 3405.9 -10Q3466.6 -33.4 3500.4 -72.9Q3534.1 -112.4 3534.7 -161Q3537.7 -193.2 3528 -220.8Q3518.3 -248.5 3491.3 -277Q3464.2 -305.6 3412.6 -339.6Q3373.1 -365.7 3350.6 -386.1Q3328.1 -406.4 3319.9 -423.8Q3311.7 -441.1 3314.8 -460.5Q3318.4 -483 3332.1 -495.7Q3345.8 -508.5 3368.2 -508.5Q3397.4 -508.5 3420.5 -489.7Q3443.6 -470.8 3464.8 -432.6Q3484.3 -387.6 3503.1 -370Q3521.9 -352.4 3548.1 -351.8Q3577.2 -352.4 3593.3 -375.8Q3609.4 -399.1 3609.4 -442.9Q3608.2 -484.2 3585.1 -516.4Q3562 -548.6 3514.9 -567.1Q3467.9 -585.7 3396.2 -586.3Q3303.8 -585.1 3240.6 -557.4Q3177.5 -529.8 3145.6 -485.7Q3113.7 -441.7 3113.7 -389.4Q3112.5 -351.8 3124.3 -322.3Q3136.2 -292.8 3164.1 -267.6Q3192 -242.4 3238.2 -216.9Q3277.7 -195.6 3299.3 -179.5Q3320.8 -163.4 3329 -148.2Q3337.2 -133 3334.8 -113.6Q3330.6 -92.3 3317.2 -79Q3303.8 -65.6 3280.1 -65.6ZM3901.6 -145.8Q3885.2 -145.2 3883.4 -161.9Q3881.6 -178.6 3895.6 -216.3L3958.8 -394.3Q3981.2 -452.6 3977.9 -494.5Q3974.5 -536.5 3947.2 -559.5Q3919.9 -582.6 3868.8 -582Q3803.8 -582.6 3747.3 -547.7Q3690.8 -512.8 3658 -460.5Q3643.4 -436.2 3645.6 -418.9Q3647.7 -401.6 3660.5 -396.1Q3666.5 -393.7 3674.1 -394.6Q3681.7 -395.5 3691.4 -401.6Q3706 -414.3 3715.4 -419.5Q3724.9 -424.7 3733.4 -425.3Q3750.4 -425.3 3751.6 -408.3Q3752.8 -391.3 3735.8 -346.9L3669.6 -165.2Q3649.5 -114.2 3651 -73.5Q3652.6 -32.8 3679.6 -10Q3706.6 12.8 3761.9 12.8Q3833 13.4 3886.5 -19.7Q3939.9 -52.9 3967.9 -104.5Q3981.8 -131.2 3979.7 -148.2Q3977.6 -165.2 3966 -169.5Q3960 -173.8 3953.6 -172.8Q3947.2 -171.9 3939.3 -165.9Q3925.9 -154.3 3917.7 -150.1Q3909.5 -145.8 3901.6 -145.8Z"/><path class="l-sun" fill="#DF3A14" d="M4087.9 -748.5C4087.9 -690.8 4041.1 -644 3983.4 -644C3925.7 -644 3879 -690.8 3879 -748.5C3879 -806.1 3925.7 -852.9 3983.4 -852.9C4041.1 -852.9 4087.9 -806.1 4087.9 -748.5Z"/></g><g class="l-oo"><g transform="translate(626.6 -438.3) scale(5.2217)"><path d="M-51.36 -87H-44.64Q-21.61 -87 -5.87 -78.18Q-3.13 -76.65 0 -76.65Q3.13 -76.65 5.87 -78.18Q21.61 -87 44.64 -87H51.36Q84.28 -87 102.14 -69.14Q120 -51.28 120 -18.36V18.36Q120 51.28 102.14 69.14Q84.28 87 51.36 87L44.64 87Q21.61 87 5.87 78.18Q3.13 76.65 0 76.65Q-3.13 76.65 -5.87 78.18Q-21.61 87 -44.64 87H-51.36Q-84.28 87 -102.14 69.14Q-120 51.28 -120 18.36V-18.36Q-120 -51.28 -102.14 -69.14Q-84.28 -87 -51.36 -87Z"/><g class="l-hl"><path class="l-okno" d="M-2.56 -50H2.56C21.39 -50 32 -39.39 32 -20.56V20.56C32 39.39 21.39 50 2.56 50H-2.56C-21.39 50 -32 39.39 -32 20.56V-20.56C-32 -39.39 -21.39 -50 -2.56 -50Z" transform="translate(-48 0)"/><path class="l-okno" d="M-2.56 -50H2.56C21.39 -50 32 -39.39 32 -20.56V20.56C32 39.39 21.39 50 2.56 50H-2.56C-21.39 50 -32 39.39 -32 20.56V-20.56C-32 -39.39 -21.39 -50 -2.56 -50Z" transform="translate(48 0)"/><g clip-path="url(#launchOko)"><g class="l-zor"><circle cx="-48" r="20"/><circle cx="48" r="20"/></g></g><g class="l-lid"><rect x="-88" y="-56" width="80" height="112"/><rect x="8" y="-56" width="80" height="112"/></g></g></g></g></svg></div>
 <div class="app">
   <!-- ===== SIDEBAR ===== -->
   <aside class="sidebar">
@@ -213,10 +247,15 @@ if (!(navigator.serviceWorker && navigator.serviceWorker.controller)) ['data/cou
     </div>
     <nav class="nav" id="nav" aria-label="Sekce"></nav>
     <div class="side-foot">
-      <div class="src-box" id="srcBox"></div>
+      <!-- stav cen jedním řádkem, klepnutím seznam zdrojů (flights.js renderSources); prázdný = skrytý -->
+      <details class="src-box" id="srcBox"></details>
+      <!-- řada malých tlačítek: motiv, a za něj moduly přidají Co je nového, Přenést, Plus, O aplikaci (popisek při
+           najetí – app.js data-tip); Přidat na plochu (pwa.js) před motiv jako samostatný řádek -->
+      <div class="side-tools">
       <div class="theme-toggle" id="themeToggle" role="button" tabindex="0" aria-pressed="false">
         <span>Tmavý režim</span>
         <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+      </div>
       </div>
     </div>
   </aside>

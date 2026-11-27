@@ -33,7 +33,7 @@ test('✕ Zavřít: modalOpen přidá křížek jen oknům, která o něj požá
   // jen jako křížky v záhlaví ostatních oken (stejná ikona i jméno) a se společnou obsluhou [data-close]
   assert.match(pick('modalOpen'), /\$\('#modal'\)\.innerHTML = \(o\.x \? `<button type="button" class="modal-close mc-plain" data-close aria-label="Zavřít">\$\{ico\('M18 6L6 18M6 6l12 12'\)\}<\/button>` : ''\) \+ html;/);
   assert.match(appJs, /\$\('#modal'\)\.addEventListener\('click', e => \{ if \(e\.target\.closest && e\.target\.closest\('\[data-close\]'\)\) modalClose\(\); \}\);/);
-  assert.match(pick('openMore'), /<\/div><\/div>`, \{ x: true \}\);/);
+  assert.match(pick('openMore'), /<\/div>`, \{ x: true \}\);/);
   assert.match(read('public/js/about.js'), /modalOpen\(html\(\{[^\n]*\}\), \{ x: true \}\);/);
   assert.equal(read('public/js/transfer.js').match(/\$\{PASTE\}<\/div>`, \{ x: true \}\);/g).length, 2, 'Přenést prázdný i s daty');
   const plus = read('public/js/plus.js');

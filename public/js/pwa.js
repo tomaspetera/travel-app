@@ -159,7 +159,45 @@
       </ol>`;
   }
 
-  const api = { every, iosSteps, netError, installMode, isApi, slowError, withDeadline, readOrStall, whenOnline, flushOnline, retryAfterS, statusMsg, httpError, waitTxt, OFFLINE_MSG, DOWN_MSG, SLOW_MSG, API_WAIT, THEME, THEME_LETSI, addToMenu() {} };
+  /* Probouzení uspaného serveru (Render zdarma usíná po ~15 min bez návštěvy a startuje 30–60 s): vracející se uživatel
+     má kostru aplikace hned ze service workeru, ale dotazy na API visí bez odpovědi. Dotaz, na který do WAKE_MS nepřijde
+     ani hlavička, ukáže klidný pruh „Probouzím server…“ (flights.js wakeBar) – jen když server od začátku dotazu (ani
+     AWAKE_MS před ním) neodpověděl: pomalý výpočet u vzhůru serveru (místa v okolí přes minutu) probouzení není. Žádné
+     dotazy navíc – jen hlídá ty, které aplikace stejně posílá. */
+  const WAKE_MS = 4000;
+  const AWAKE_MS = 10 * 60e3;
+  /** Má dotaz na API odeslaný v since ukázat „Probouzím server“? lastOk = poslední odpověď serveru (ms) | null. */
+  function wakeDue(since, lastOk, now) {
+    return now - since >= WAKE_MS && !(lastOk != null && lastOk >= since - AWAKE_MS);
+  }
+  /**
+   * Hlídač probouzení: start() u každého dotazu na API → done(ok) při hlavičce odpovědi (ok) nebo chybě. notify('wait')
+   * jednou, když některý čekající dotaz splní wakeDue; až žádný nečeká, notify('ok') (server odpověděl) / 'fail'.
+   */
+  function wakeWatch(notify, { now = () => Date.now(), later = setTimeout } = {}) {
+    const pending = new Set();
+    let lastOk = null, shown = false;
+    const paint = (ok) => {
+      const t = now(), due = [...pending].some((x) => wakeDue(x.since, lastOk, t));
+      if (due && !shown) { shown = true; notify('wait'); }
+      else if (!due && shown) { shown = false; notify(ok ? 'ok' : 'fail'); }
+    };
+    return {
+      start() {
+        const x = { since: now() };
+        pending.add(x);
+        later(() => { if (pending.has(x)) paint(false); }, WAKE_MS);
+        return (ok) => {
+          if (!pending.delete(x)) return;
+          if (ok) lastOk = now();
+          paint(ok);
+        };
+      },
+      get shown() { return shown; },
+    };
+  }
+
+  const api = { wakeDue, wakeWatch, WAKE_MS, onWake() {}, every, iosSteps, netError, installMode, isApi, slowError, withDeadline, readOrStall, whenOnline, flushOnline, retryAfterS, statusMsg, httpError, waitTxt, OFFLINE_MSG, DOWN_MSG, SLOW_MSG, API_WAIT, THEME, THEME_LETSI, addToMenu() {} };
   window.Pwa = api;
   if (typeof document === 'undefined' || !document.documentElement) return; // testy v node:vm – jen funkce výše
 
@@ -170,11 +208,20 @@
         program…): jen u API ATLASu a jen při chybě sítě – odpovědi serveru i zrušená hledání beze změny. API navíc
         s limitem na odpověď (API_WAIT), ať slabý signál nenechá spinner točit donekonečna. */
   const downDue = every(60e3);
+  // pruh „Probouzím server“ kreslí flights.js (Pwa.onWake) – až se přihlásí, dostane i stav, který už běží
+  let wakeFn = null;
+  const wake = wakeWatch((st) => { if (wakeFn) wakeFn(st); });
+  api.onWake = (fn) => { wakeFn = fn; if (wake.shown) fn('wait'); };
   if (nativeFetch) {
     window.fetch = function (input, init) {
       const p = isApi(input, document.baseURI)
         ? withDeadline((i, o) => nativeFetch.call(window, i, o), input, init)
         : nativeFetch.apply(window, arguments);
+      if (isApi(input, document.baseURI)) {
+        const done = wake.start();
+        // 502–504 posílá Render, dokud se server probouzí – to ještě není odpověď serveru
+        p.then((r) => done(!(r.status >= 502 && r.status <= 504)), () => done(false));
+      }
       return p.catch((e) => {
         const err = netError(e, input, { online: navigator.onLine !== false, base: document.baseURI });
         // server neodpovídá (ne offline): podrobný počet jen se zapnutou pomocí, výpadek = desítky dotazů → 1× za minutu

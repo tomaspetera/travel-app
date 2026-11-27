@@ -9,6 +9,13 @@
 /* zdroje v sidebaru */
 .src-box{border:1px solid var(--border);border-radius:13px;padding:10px 12px;background:var(--surface);font-size:12px}
 .src-box:empty{display:none} /* než odpoví server (uspaný server na Renderu) – žádný prázdný rámeček */
+/* #srcBox je <details>: zavřený = jeden řádek stavu („Ceny živě · 3 zdroje“), otevřený = seznam zdrojů */
+.src-box>summary{display:flex;align-items:center;gap:8px;cursor:pointer;list-style:none;color:var(--muted);font-size:12.5px;font-weight:600}
+.src-box>summary::-webkit-details-marker{display:none}
+.src-box>summary::before{content:"";flex:none;width:7px;height:7px;border-radius:50%;background:var(--good-ink)}
+.src-box>summary::after{content:"";flex:none;margin-left:auto;width:6px;height:6px;border:solid currentColor;border-width:0 1.5px 1.5px 0;transform:translateY(-2px) rotate(45deg)}
+.src-box[open]>summary{margin-bottom:8px}
+.src-box[open]>summary::after{transform:translateY(1px) rotate(-135deg)}
 .src-t{font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-size:10.5px;margin-bottom:6px}
 .src{display:flex;align-items:center;gap:7px;padding:3px 0;color:var(--faint)}
 .src i{width:8px;height:8px;border-radius:50%;opacity:.4}
@@ -422,6 +429,8 @@ button.b:hover{filter:brightness(1.18);text-decoration:underline}
 .empty-res h2{margin:8px 0}
 .empty-res ul{padding-left:18px}
 .warm-retry{justify-content:center;gap:6px;margin-top:12px}
+/* čistý režim: Hledat na Aviasales / Kamkoliv pod textem prázdného výsledku (flights.js cleanEmpty) */
+.clean-next{justify-content:center;gap:6px;margin-top:12px}
 
 /* výpadek Kiwi.com, aktivní filtry */
 .kiwi-note{align-items:center;margin-bottom:14px}
@@ -1543,6 +1552,12 @@ ol.guide code,.note code{background:var(--surface-2);padding:1px 6px;border-radi
 .trip-mini .tm-price small{font-size:12px;font-weight:600;color:var(--muted);margin-left:2px}
 .trip-mini .tm-price .tm-trip{display:block;margin:1px 0 0;font-size:11px;text-align:right}
 .trip-mini .tm-chev{color:var(--muted);font-size:14px}
+/* jiné letiště, než uživatel zadal („z letiště Karlovy Vary“): dlouhé jméno se zalomí uvnitř štítku – nepřeteče přes
+   kartu a název města (to hlavní) se neuřízne „…“ */
+.ap-tag{max-width:100%;white-space:normal}
+.trip-mini .tm-ap{display:flex;flex-wrap:wrap;gap:4px;margin-top:3px;min-width:0}
+/* nad výpisem: podle čeho je seřazeno a odkaz na opačné řazení */
+.sort-line{font-size:13px;margin:0 2px 10px}
 .trip-mini:active{background:var(--surface-2)}
 /* ---------- 📅 termín nabídky v kalendáři (karta nabídky, náhled cíle) ---------- */
 .scal-slot{margin-top:8px}

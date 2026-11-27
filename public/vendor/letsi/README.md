@@ -13,7 +13,7 @@ nepatří – uloží se pro offline až po prvním stažení, stejně jako pís
 | `ikony/*.svg` (ikony místo emoji) | `ikony-ui/svg/` | ikony v textu tlačítek, nadpisů a čipů místo emoji: `ikona()` v `public/js/app.js` → `<span class="ico i-…">`, maska v `public/css/atlas.css` (platí i ve vzhledu ATLASu); hlídá `test/ikony-letsi.test.js` |
 | `letsi-znak-mono.svg` | `znak/` | záložka Lety (hledání) – znak kukátka 27 px |
 | `letsi-logo-mala-mono.svg` | `logo/` | postranní panel na počítači (lišta aplikace = jednobarevné logo) |
-| `letsi-logo-hlavni.svg`, `letsi-logo-negativ.svg` | `logo/` | úvodní obrazovka (světlý / tmavý režim) |
+| `letsi-logo-hlavni.svg`, `letsi-logo-negativ.svg` | `logo/` | stránky ze serveru (`server/lib/seo.js`, `pravni.js`; světlý / tmavý režim). Úvodní obrazovka aplikace kreslí logo inline v `index.html` (`.l-logo`, tvary převzaté beze změny) |
 | `favicon.svg`, `favicon-32.png` | `ikona/` | favicon |
 
 Kterou ikonu kam: `ikony-ui/ikony.json` v balíku (význam a použití). Přidávej jen soubory, které aplikace opravdu

@@ -2275,6 +2275,66 @@
     return null;
   }
 
+  /**
+   * Řádek nad výpisem: podle čeho je seřazeno a odkaz na opačné řazení. Hlavička hlásí „nejlevněji 1 599 Kč“, ale
+   * doporučené pořadí počítá i s cestou na letiště, a tak nahoře bývá dražší letenka – bez vysvětlení to vypadalo, že
+   * aplikace něco tají. sort = view.sort, label = popisek té volby v Řazení ve Filtrech.
+   */
+  function sortLine(sort, label = '') {
+    if (sort === 'total') return { now: 'od nejlevnější', to: 'best', link: 'Doporučené' };
+    const now = sort === 'best' ? 'doporučené (i s cestou na letiště)' : String(label).charAt(0).toLowerCase() + String(label).slice(1);
+    return { now, to: 'total', link: 'Seřadit od nejlevnější' };
+  }
+  /**
+   * Letiště odletu a cíle ve výsledku: „z Prahy“ prohledá i PED, KLV, DRS a JCL, „do Barcelony“ i GRO a REU – ve výpisu
+   * byly jen kódy a let z Karlových Varů do Girony vypadal jako Praha → Barcelona. home = letiště zadaného města odletu
+   * (stejné město, jinak nejbližší; „Brno, Vídeň“ = letiště obou; odlet ze země nebo oblasti – „Česko“ – nic, zadaná
+   * jsou všechna), main = letiště zadaného cíle (null = nejde poznat: Kamkoliv, hledání do země),
+   * names = IATA → český název města bez zadaného města („Barcelona-Girona“ → „Girona“).
+   */
+  function apCtx(res) {
+    const origins = (res && res.origins) || [], hl = (res && res.home && res.home.label) || '';
+    // zadaná místa odletu (query.from: „geo:…|Brno“, „ap:VIE“, „cc:CZ“) – res.home je jen to první
+    const from = (res && res.query && Array.isArray(res.query.from) ? res.query.from : []).map(String);
+    const wide = from.some(id => /^(cc|rg):/.test(id));
+    const labels = new Set([hl, ...from.map(id => id.split('|')[1])].filter(Boolean));
+    const aps = new Set(from.filter(id => id.startsWith('ap:')).map(id => id.slice(3)));
+    const dl = (res && res.destination && res.destination.label) || '', cities = (res && res.destination && res.destination.cities) || {};
+    const short = (c, l) => (l && c.startsWith(l + '-') ? c.slice(l.length + 1) : c);
+    const names = {};
+    for (const o of origins) if (o.city) names[o.iata] = short(o.city, hl);
+    for (const k of Object.keys(cities)) if (cities[k] && cities[k] !== k) names[k] = short(cities[k], dl);
+    const same = origins.filter(o => (o.city && labels.has(o.city)) || aps.has(o.iata));
+    const main = Object.keys(cities).filter(k => cities[k] === dl);
+    return { home: new Set(wide ? [] : (same.length ? same : origins.filter(o => !o.hub).slice(0, 1)).map(o => o.iata)), main: main.length ? new Set(main) : null, names };
+  }
+  /** Název města letiště (bez názvu kód). */
+  const apName = (iata, c) => (c && c.names[iata]) || iata;
+  /**
+   * Štítky u nabídky, která letí odjinud nebo jinam než zadané město: ['z letiště Karlovy Vary', 'na letiště Girona',
+   * 'zpět na letiště Pardubice'].
+   */
+  function apTags(t, c) {
+    const out = [];
+    if (!t || !t.out || !c) return out;
+    if (c.home.size && !c.home.has(t.out.from)) out.push(`z letiště ${apName(t.out.from, c)}`);
+    if (c.main && !c.main.has(t.out.to)) out.push(`na letiště ${apName(t.out.to, c)}`);
+    // návrat jinam než odlet a mimo zadané město (Praha → … → Pardubice): auto, cesta domů
+    if (t.back && t.back.to !== t.out.from && c.home.size && !c.home.has(t.back.to)) out.push(`zpět na letiště ${apName(t.back.to, c)}`);
+    return out;
+  }
+  /**
+   * Meta řádek výsledků: „z Prahy a okolí (5 letišť)“ místo „z PRG, PED, KLV, DRS, JCL“ (kódy nováček nezná). gen = 2. pád
+   * jména (app.js doGen) – když jméno vyskloňovat nejde, „odlet: Kolín a okolí (3 letiště)“. Jedno letiště nebo víc
+   * zadaných míst („Brno, Vídeň“ – „z Brna a okolí“ by Vídeň zamlčelo) → null (kódy).
+   */
+  function originsTxt(res, gen) {
+    const o = (res && res.origins) || [], hl = res && res.home && res.home.label;
+    if (o.length < 2 || !hl || (res.query && Array.isArray(res.query.from) && res.query.from.length > 1)) return null;
+    const n = `${o.length} ${o.length <= 4 ? 'letiště' : 'letišť'}`, g = gen ? gen(hl) : null;
+    return g ? `${zeOf(g)} ${g} a okolí (${n})` : `odlet: ${hl} a okolí (${n})`;
+  }
+
   window.SearchHelp = {
     HOME_CITIES, myPlace, homeOf,
     onlyOriginSet, recentWhen,
@@ -2295,5 +2355,6 @@
     wazeUrl, WAZE_HOME, PID_APP, pidLeg, resumeKind,
     PAX_MAX, paxOf, paxTxt, paxShort, paxTotalLbl, paxTotalOn, paxNote, kidsBuyNote, radarPax, roundBookUrl,
     resEmpty, fixKind, formErrKind, buyRank,
+    sortLine, apCtx, apName, apTags, originsTxt,
   };
 })();
