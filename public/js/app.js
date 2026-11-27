@@ -334,6 +334,7 @@ function histPop() {
     return histFlush();
   }
   // Zpět při otevřeném okně: krok okna už je pryč – jen ho zavřít
+  const modal = hist.modal;
   if (hist.modal) { hist.modal = false; modalShow(false); }
   const st = history.state;
   // odkaz vložený do otevřené stránky (#sync=, #trip=, #plan=… – nový krok bez stavu aplikace) není Zpět: průvodce by
@@ -342,8 +343,11 @@ function histPop() {
   // Zpět z kroku průvodce: předchozí krok, kterým uživatel prošel (krok, na kterém cesta už je, se přeskočí); krok
   // průvodce se vrátí, dokud je kam couvat – nebylo-li kam, Zpět pokračuje o krok dál (výsledky, Přehled). Jen když je
   // průvodce vidět: odkaz (#sync=…) přepne jinam bez kroku historie a Zpět, které pak zavře jeho náhled, by skrytý
-  // průvodce vrátil o krok a uložil (autoSave) – cesta by se změnila, i když se nic neslučovalo
-  if (hist.step && activeView === 'trip' && !(st && st.atlasT)) {
+  // průvodce vrátil o krok a uložil (autoSave) – cesta by se změnila, i když se nic neslučovalo. Stejně odkaz #plan=
+  // otevřený v Cestě: náhled plánu nad seznamem Moje cesty, Zpět ho zavře na kroku bez stavu aplikace – krok průvodce
+  // se proto vrací jen z kroku sekce pod krokem průvodce (st.atlasV) a jen když je průvodce opravdu vykreslený
+  // (#tripStep – seznam Moje cesty ho nemá) a Zpět nezavíralo okno
+  if (hist.step && activeView === 'trip' && !modal && histDepth(st) && !st.atlasT && $('#tripStep')) {
     hist.step = false;
     let prev, moved = false;
     while (!moved && (prev = hist.trail.pop())) moved = Boolean(window.Trip && Trip.stepTo && Trip.stepTo(prev));

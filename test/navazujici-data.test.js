@@ -51,8 +51,10 @@ const pick = (...names) => names.map((n) => {
 }).join('\n');
 function hist() {
   const H = { list: [{ url: '#dashboard', state: null }, { url: '#trip', state: { atlasV: 1 } }], i: 1, pending: [] };
+  // els['#tripStep'] = průvodce je vidět (trip.js ho vykreslí jen v průvodci, ne v seznamu Moje cesty)
+  const els = { '#tripStep': {}, '#modalBg': { classList: { contains: () => false } } };
   const c = {
-    setTimeout: () => 0, clearTimeout: () => {}, Math, Number, modalShow() {},
+    setTimeout: () => 0, clearTimeout: () => {}, Math, Number, modalShow() {}, els, $: (s) => els[s] || null,
     location: { get hash() { return H.list[H.i].url; } },
     history: {
       get state() { return H.list[H.i].state; },
@@ -96,6 +98,41 @@ test('Zpět, které zavře náhled přenosu z odkazu, nevrátí skrytý průvodc
   H.i--; c.histPop();
   assert.equal(c.Trip.step, 'summary', 'průvodce na Přehledu není vidět – krok ani uložení');
   assert.equal(H.list.length, n, 'žádný nový krok průvodce v historii');
+  assert.deepEqual(H.pending, []);
+});
+
+test('odkaz na plán (#plan=) otevřený v Cestě: Zpět, které zavře náhled, ani Zpět v seznamu Moje cesty průvodce nevrátí o krok', () => {
+  const { c, H } = hist();
+  c.histTrip('flight', 'summary'); c.Trip.step = 'summary';
+  c.history.pushState(null, '', '#plan=z7VxNj9xGev4');
+  c.histPop();
+  // importPlanFromHash: adresa → #planner, okno náhledu plánu; go('planner') = seznam Moje cesty v Cestě (bez kroku historie)
+  c.history.replaceState(null, '', '#planner');
+  vm.runInContext('hist.modal = true;', c);
+  c.history.pushState({ atlasM: 1 }, '', '#planner');
+  delete c.els['#tripStep'];
+  const n = H.list.length;
+  H.i--; c.histPop();
+  assert.equal(c.Trip.step, 'summary', 'Zpět jen zavřelo náhled – krok cesty (a s ním uložená cesta) zůstane');
+  assert.equal(H.list.length, n, 'žádný nový krok průvodce v historii');
+  assert.deepEqual(H.pending, []);
+  // Zpět dál přes odkaz a krok průvodce: seznam Moje cesty pořád nahoře – průvodce není vidět, krok se nemění
+  H.i--; c.histPop();
+  H.i--; c.histPop();
+  assert.equal(c.Trip.step, 'summary', 'seznam Moje cesty: skrytý průvodce se neposune');
+  assert.deepEqual(H.pending, []);
+});
+
+test('obyčejné Zpět v průvodci dál couvá po krocích, kterými uživatel prošel', () => {
+  const { c, H } = hist();
+  c.histTrip('flight', 'route'); c.Trip.step = 'route';
+  c.histTrip('route', 'stay'); c.Trip.step = 'stay';
+  assert.equal(H.list.length, 3, 'Přehled, Cesta a jeden krok průvodce');
+  H.i--; c.histPop();
+  assert.equal(c.Trip.step, 'route');
+  assert.equal(H.list.length, 3, 'krok průvodce zase v historii – další Zpět couvá dál');
+  H.i--; c.histPop();
+  assert.equal(c.Trip.step, 'flight');
   assert.deepEqual(H.pending, []);
 });
 
