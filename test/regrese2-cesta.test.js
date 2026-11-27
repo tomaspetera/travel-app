@@ -1,6 +1,7 @@
 // Regresní kontrola 2 – Cesty: „Změnit let“ v ✏️ Upravit vymění let u uložené cesty (trip.js start s window.reflight),
 // dřív vznikla druhá cesta se stejným názvem bez programu; obnovená stránka na #trip se 2+ cestami ukáže Moje cesty
-// (app.js boot a hashView přes tabGo jako záložka), sdílená cesta z odkazu dál průvodce.
+// (app.js boot a hashView přes tabGo jako záložka), sdílená cesta z odkazu dál průvodce. „↩ Jiný let“ v průvodci
+// (otherFlight) se stejnou značkou – let do téhož cíle se vymění i u cesty ještě neuložené.
 // Zástupný DOM jako v termin-cesty.test.js: $ vrací stálé objekty podle selektoru.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -131,6 +132,71 @@ test('Změnit let: v Letech vybraný let jinam (jiný cíl) založí novou cestu
   const n = c.S.trips.find((x) => x.tripId === id);
   assert.equal(JSON.stringify(n.wizard.flight), before, 'let Lisabonu se nezměnil');
   assert.equal(n.dest, 'Lisabon');
+});
+
+// „↩ Jiný let“ v průvodci (trip.js otherFlight): značka jako „Změnit let“ – vybraný let do téhož cíle vymění let u této
+// cesty, dřív vznikla druhá (komentář ve start() to popisoval jako záměr)
+function jinyLet(c) {
+  c.S.trip.step = 'flight';
+  c.window.Trip.render();
+  c.__els['#tfBack'].onclick();
+  assert.equal(c.window.reflight, c.S.trip.created, 'značka = id cesty v průvodci');
+  assert.equal(c.__go.at(-1), 'flights');
+}
+
+test('↩ Jiný let: uložená cesta otevřená v průvodci – let se vymění u ní, bez kopie, program na nový termín', () => {
+  const c = load();
+  const e = saved(c), id = e.tripId;
+  assert.equal(c.S.trip.created, id);
+  jinyLet(c);
+  pick(c, { from: 7, to: 11, czk: 2500 });
+  assert.equal(c.window.reflight, null);
+  assert.equal(c.S.trips.length, 1, 'žádná nová cesta');
+  assert.equal(c.S.trip.created, id);
+  const n = c.S.trips[0];
+  assert.equal(n.wizard.flight.out.date, day(47));
+  assert.equal(n.wizard.flight.flightCzk, 2500);
+  assert.deepEqual(plain(n.days), { [day(48)]: ['Belém', 'Večeře u Rity'] });
+});
+
+test('↩ Jiný let: cesta ještě neuložená v Mých cestách se vymění na místě se vším vyplněným – bez otázky a bez druhé', () => {
+  const c = load();
+  c.S.trips = [];
+  const t = pick(c), id = t.created;
+  t.stay = { mode: 'manual', name: 'U kamaráda', totalCzk: 3000 };
+  t.booked = { 'geo:38.69,-9.21': true };
+  t.nightsOneWay = 5;
+  jinyLet(c);
+  let asked = 0;
+  c.confirm = () => { asked++; return true; }; // leaveTrip by se ptal „Nahradit ji novou cestou?“
+  pick(c, { from: 3, back: false, adults: 1 });
+  assert.equal(asked, 0);
+  assert.equal(c.window.reflight, null);
+  assert.equal(c.S.trip.created, id, 'tatáž cesta');
+  assert.equal(c.S.trip.flight.out.date, day(43));
+  assert.equal(c.S.trip.flight.back, null);
+  assert.equal(c.S.trip.adults, 1);
+  assert.deepEqual(plain(c.S.trip.stay), { mode: 'manual', name: 'U kamaráda', totalCzk: 3000 }, 'ručně zadané ubytování zůstane');
+  assert.deepEqual(plain(c.S.trip.booked), { 'geo:38.69,-9.21': true });
+  assert.equal(c.S.trip.nightsOneWay, 5);
+  assert.equal(c.S.trip.step, 'flight');
+  assert.equal(c.S.trips.length, 0, 'do Mých cest nic navíc');
+});
+
+test('↩ Jiný let: let jinam založí novou cestu, rozpracovaná stará zůstane v Mých cestách beze změny', () => {
+  const c = load();
+  c.S.trips = [];
+  const t = pick(c), id = t.created, before = JSON.stringify(t.flight);
+  t.stay = { mode: 'manual', name: 'U kamaráda', totalCzk: 3000 };
+  jinyLet(c);
+  pick(c, { dest: ROM, from: 7, to: 11 });
+  assert.equal(c.window.reflight, null);
+  assert.notEqual(c.S.trip.created, id);
+  assert.equal(c.S.trip.dest.label, 'Řím');
+  assert.equal(c.S.trip.stay, null);
+  const e = c.S.trips.find((x) => x.tripId === id);
+  assert.ok(e, 'Lisabon s ubytováním uložen (leaveTrip)');
+  assert.equal(JSON.stringify(e.wizard.flight), before);
 });
 
 test('app.js: „Změnit let“ nastaví značku, odchod z Letů ji smaže; start na #trip a Zpět jako záložka (tabGo), sdílená cesta průvodce', () => {
