@@ -12,11 +12,11 @@
     theatre: ['🎭', 'Divadla', '#d946ef'], sight: ['📍', 'Zajímavosti', '#fb7185'], daytrip: ['🚆', 'Výlety', '#14b8a6'],
   };
   const INTERESTS = [
-    ['history', '🏰 Historie a památky', { church: 1.5, castle: 1.6, palace: 1.5, monument: 1.3, oldtown: 1.6, ruins: 1.6, square: 1.3 }],
-    ['art', '🖼️ Muzea a umění', { museum: 1.7, gallery: 1.8, theatre: 1.4 }],
-    ['nature', '🌳 Příroda a výhledy', { park: 1.6, nature: 1.8, viewpoint: 1.8, beach: 1.6 }],
-    ['kids', '🧒 S dětmi', { zoo: 2, theme: 2, park: 1.4, museum: 1.1 }],
-    ['trips', '🚆 Výlety mimo město', { daytrip: 1.8 }],
+    ['history', 'Historie a památky', { church: 1.5, castle: 1.6, palace: 1.5, monument: 1.3, oldtown: 1.6, ruins: 1.6, square: 1.3 }],
+    ['art', 'Muzea a umění', { museum: 1.7, gallery: 1.8, theatre: 1.4 }],
+    ['nature', 'Příroda a výhledy', { park: 1.6, nature: 1.8, viewpoint: 1.8, beach: 1.6 }],
+    ['kids', 'S dětmi', { zoo: 2, theme: 2, park: 1.4, museum: 1.1 }],
+    ['trips', 'Výlety mimo město', { daytrip: 1.8 }],
   ];
   const DAY_COLORS = ['#5b8cff', '#f59e0b', '#22c55e', '#ec4899', '#14b8a6', '#a855f7', '#ef4444', '#0ea5e9'];
   // Vzhled Letsi: dny (a místa trasy v trip.js) z palety Letsi místo duhy ATLASu – tmavé a světlé se střídají, ať jdou
@@ -43,21 +43,19 @@
     errs: {}, recent: [], listOpen: false, restored: false,
     bike: { km: 40, bike: 'trekking', scenery: 'mixed', hills: 'normal', variant: 0, kind: 'loop' }, bikeRoute: null, trainRoute: null,
     hike: { km: 10, scenery: 'mixed', hills: 'normal', variant: 0, kind: 'loop' }, hikeRoute: null, hikePlan: null, hikeEx: new Set() };
-  const TRIP_INTERESTS = [['towns', '🏘️ Města'], ['sights', '🏰 Památky'], ['culture', '🏛️ Poznávací'], ['nature', '🌲 Příroda'], ['spa', '♨️ Lázně'], ['kids', '🧒 S dětmi']];
-  const MODES = [['city', '🏙️ Program ve městě'], ['day', '🎒 Jednodenní výlety'], ['loop', '🧭 Vícedenní okruh'], ['bike', '🚴 Na kole'], ['hike', '🥾 Pěšky']];
-  // Na telefonu přepínač režimů v jednom řádku: ikona nad krátkým názvem (celý název přečte čtečka).
+  const TRIP_INTERESTS = [['towns', 'Města'], ['sights', 'Památky'], ['culture', 'Poznávací'], ['nature', 'Příroda'], ['spa', 'Lázně'], ['kids', 'S dětmi']];
+  const MODES = [['city', 'Program ve městě'], ['day', 'Jednodenní výlety'], ['loop', 'Vícedenní okruh'], ['bike', 'Na kole'], ['hike', 'Pěšky']];
+  // Na telefonu přepínač režimů v jednom řádku jen krátkým názvem (celý název přečte čtečka); emoji v tlačítku ne,
+  // kolo a turistika v sadě ikon Letsi nejsou
   const MODE_SHORT = { city: 'Město', day: 'Výlety', loop: 'Okruh', bike: 'Kolo', hike: 'Pěšky' };
-  const modeBtns = cur => MODES.map(([id, l]) => {
-    const [ico, ...rest] = l.split(' ');
-    return `<button type="button" data-mode="${id}" class="${cur === id ? 'on' : ''}" aria-label="${rest.join(' ')}"><span class="m-long">${l}</span><span class="m-short"><b>${ico}</b>${MODE_SHORT[id]}</span></button>`;
-  }).join('');
-  const BIKE_KINDS = [['loop', '🔁 Okruh'], ['train', '🚆 Vlakem tam, na kole zpět']];
+  const modeBtns = cur => MODES.map(([id, l]) => `<button type="button" data-mode="${id}" class="${cur === id ? 'on' : ''}" aria-label="${l}"><span class="m-long">${l}</span><span class="m-short">${MODE_SHORT[id]}</span></button>`).join('');
+  const BIKE_KINDS = [['loop', 'Okruh'], ['train', 'Vlakem tam, na kole zpět']];
   // Pěšky: jeden okruh, nebo na každý den pobytu jiná túra (hory a příroda – server/lib/hikeplan.js)
-  const HIKE_KINDS = [['loop', '🔁 Jeden okruh'], ['days', '🗓️ Túra na každý den']];
-  const BIKE_TYPES = [['road', '🏎️ Silniční'], ['trekking', '🚲 Trek / město'], ['gravel', '🪨 Gravel'], ['mtb', '🚵 Horské']];
-  const BIKE_SCENERY = [['city', '🏙️ Městem'], ['mixed', '🔀 Smíšeně'], ['nature', '🌲 Přírodou']];
-  const BIKE_HILLS = [['flat', '〰️ Spíš rovina'], ['normal', '⛰️ Normálně'], ['hilly', '🏔️ Do kopců']];
-  const TRANSPORTS = [['car', '🚗 Autem'], ['transit', '🚆 Vlakem a busem']];
+  const HIKE_KINDS = [['loop', 'Jeden okruh'], ['days', 'Túra na každý den']];
+  const BIKE_TYPES = [['road', 'Silniční'], ['trekking', 'Trek / město'], ['gravel', 'Gravel'], ['mtb', 'Horské']];
+  const BIKE_SCENERY = [['city', 'Městem'], ['mixed', 'Smíšeně'], ['nature', 'Přírodou']];
+  const BIKE_HILLS = [['flat', 'Spíš rovina'], ['normal', 'Normálně'], ['hilly', 'Do kopců']];
+  const TRANSPORTS = [['car', `${ikona('auto')} Autem`], ['transit', `${ikona('vlak')} Vlakem a busem`]];
 
   const icon = c => (CAT[c] || CAT.sight)[0];
   // ikona místa: mešita a synagoga (serverový popis kategorie church) ne ⛪
@@ -818,7 +816,7 @@
           <a href="${esc(gmSearch(opts.center ? poiQ(p, opts.center) : p.name))}" target="_blank" rel="noopener" data-gm>Google Maps ↗</a>
           ${opts.toggle ? (opts.inPlan?.has(p.id) ? '<span class="poi-in">✓ v plánu</span>' : mustBtn(p.id, opts.must?.has(p.id))) : ''}
           ${opts.tripToggle ? `<button type="button" class="linkbtn" data-tmust="${esc(p.id)}">+ přidat do výletu</button>` : ''}
-          ${opts.tripGo ? `<button type="button" class="linkbtn" data-tgo="${esc(p.id)}" title="Naplánovat jednodenní výlety s tímto místem">🎒 Výlet sem</button>` : ''}</div></div>
+          ${opts.tripGo ? `<button type="button" class="linkbtn" data-tgo="${esc(p.id)}" title="Naplánovat jednodenní výlety s tímto místem">Výlet sem</button>` : ''}</div></div>
     </div>`;
   }
 
@@ -911,7 +909,7 @@
     // zájmy nejsou filtr – vybraná místa dostanou v programu přednost; „on“ s barvou a aria-pressed, ať je vidět, co platí
     return `<div class="row wrap" style="gap:8px;margin:10px 0">
       <span class="faint" style="font-size:12.5px;align-self:center">Víc toho, co tě baví:</span>${INTERESTS.map(([id, label]) => `<button type="button" class="fchip ${st.interests.has(id) ? 'on' : ''}" data-int="${id}" aria-pressed="${st.interests.has(id)}">${label}</button>`).join('')}
-      <select data-pace aria-label="Tempo programu" style="width:auto;padding:7px 30px 7px 10px;font-size:12.5px">${[['relaxed', '🐢 V klidu'], ['normal', '🚶 Normálně'], ['intense', '🏃 Nabitě']].map(o => `<option value="${o[0]}" ${st.pace === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select>
+      <select data-pace aria-label="Tempo programu" style="width:auto;padding:7px 30px 7px 10px;font-size:12.5px">${[['relaxed', 'V klidu'], ['normal', 'Normálně'], ['intense', 'Nabitě']].map(o => `<option value="${o[0]}" ${st.pace === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select>
     </div>`;
   }
 
@@ -968,7 +966,7 @@
     const showKind = on => {
       kindEl.hidden = !on;
       if (!on) return;
-      kindEl.innerHTML = `<div class="seg wrap tp-kinds">${[['hike', '🥾 Túra na každý den'], ['city', '🏙️ Program po místech']].map(([id, l]) => `<button type="button" data-tpk="${id}" class="${mode === id ? 'on' : ''}" aria-pressed="${mode === id}">${l}</button>`).join('')}</div>${
+      kindEl.innerHTML = `<div class="seg wrap tp-kinds">${[['hike', 'Túra na každý den'], ['city', 'Program po místech']].map(([id, l]) => `<button type="button" data-tpk="${id}" class="${mode === id ? 'on' : ''}" aria-pressed="${mode === id}">${l}</button>`).join('')}</div>${
         area ? `<div class="faint tp-area">⛰️ ${esc(area.cs)} – v horách je na každý den lepší túra než program po památkách.</div>` : ''}`;
       $$('[data-tpk]', kindEl).forEach(b => b.onclick = () => { if (mode !== b.dataset.tpk) { mode = b.dataset.tpk; go(); } });
     };
@@ -995,7 +993,7 @@
     const center = { lat: opts.lat, lon: opts.lon, label: opts.label, city: opts.city, country: opts.country };
     const pf = opts.plan && opts.plan.prefs ? opts.plan.prefs : null;
     const st = { kids: pf ? Boolean(pf.kids) : Array.isArray(opts.interests) && opts.interests.includes('kids'), exclude: new Set(pf && Array.isArray(pf.exclude) ? pf.exclude.map(String) : []), map: null };
-    host.innerHTML = `<div class="row wrap" style="gap:8px;margin:10px 0"><button type="button" class="fchip ${st.kids ? 'on' : ''}" data-hkids aria-pressed="${st.kids}">🧒 S dětmi</button></div>
+    host.innerHTML = `<div class="row wrap" style="gap:8px;margin:10px 0"><button type="button" class="fchip ${st.kids ? 'on' : ''}" data-hkids aria-pressed="${st.kids}">S dětmi</button></div>
       <div class="ex-layout"><div><div id="tpPlan"></div></div><div class="ex-map" id="tpMap"></div></div>`;
     st.map = makeMap($('#tpMap', host), center);
     let seq = 0;
@@ -1702,7 +1700,7 @@
     if (!el) return;
     const list = ex.recent.filter(r => !samePlace(r, ex.place)).slice(0, 4);
     el.hidden = !list.length;
-    el.innerHTML = list.length ? `<span class="faint">Naposledy:</span>${list.map((r, i) => `<button type="button" class="fchip" data-recent="${i}">${r.cc ? flag(r.cc) : '📍'} ${esc(r.label)}</button>`).join('')}` : '';
+    el.innerHTML = list.length ? `<span class="faint">Naposledy:</span>${list.map((r, i) => `<button type="button" class="fchip" data-recent="${i}">${r.cc ? flag(r.cc) : ikona('misto')} ${esc(r.label)}</button>`).join('')}` : '';
     $$('[data-recent]', el).forEach(b => b.onclick = () => openOther(list[+b.dataset.recent]));
   }
 
@@ -2019,9 +2017,9 @@
     const chips = `<div class="ex-ccats" role="group" aria-label="Co hledáš?"><span class="ex-ccats-l">Co hledáš?</span>${CC_CATS.map(([id, l]) => `<button type="button" class="fchip${id === cat ? ' on' : ''}" data-ccat="${id}" aria-pressed="${id === cat}">${esc(l)}</button>`).join('')}</div>`;
     const lastKm = ex.lastKm || 10;
     body.innerHTML = `${d.demo ? '<div class="note warn" style="margin-bottom:12px">⚠️ <div><b>DEMO data</b> – místa jsou vymyšlená.</div></div>' : ''}
-      <div class="section-head ex-head" style="margin-top:6px"><h2>${flag(d.cc || p.cc || '')} ${esc(name || 'Země')} · celá země</h2><span class="ex-head-act">${window.Flights && tgt ? `<button type="button" class="btn sm ghost" id="exCFly" title="Hledat lety kamkoliv do země">✈️ Najít lety sem</button>` : ''}<button type="button" class="btn sm ghost" id="exReset" title="Vybrat jinou zemi">🌍 Jiná země</button></span></div>
+      <div class="section-head ex-head" style="margin-top:6px"><h2>${flag(d.cc || p.cc || '')} ${esc(name || 'Země')} · celá země</h2><span class="ex-head-act">${window.Flights && tgt ? `<button type="button" class="btn sm ghost" id="exCFly" title="Hledat lety kamkoliv do země">${ikona('let')} Najít lety sem</button>` : ''}<button type="button" class="btn sm ghost" id="exReset" title="Vybrat jinou zemi">Jiná země</button></span></div>
       <div class="muted ex-cnote">Města a další cíle, které vybral cestovní průvodce Wikivoyage, památky UNESCO a národní parky. Vzdálenost od ${p.capital ? 'hlavního města' : 'místa'} ${esc(p.label)} vzdušnou čarou. 🔎 Prozkoumat ukáže, co je v místě k vidění.
-        <span class="ex-cact"><button type="button" class="fchip" data-cback="city">🏙️ ${esc(p.label)} · okruh ${lastKm} km</button><button type="button" class="fchip" data-cback="loop">🧭 Okruh odsud na pár dní</button></span></div>
+        <span class="ex-cact"><button type="button" class="fchip" data-cback="city">${ikona('misto')} ${esc(p.label)} · okruh ${lastKm} km</button><button type="button" class="fchip" data-cback="loop">${ikona('kompas')} Okruh odsud na pár dní</button></span></div>
       ${d.degraded ? '<div class="faint" style="font-size:12px;margin:6px 0">Část údajů se teď nenačetla (popisy nebo výběr Wikivoyage) – zkus to později znovu.</div>' : ''}
       ${chips}
       <div class="ex-layout ex-main"><div id="exMapSlot"></div>
@@ -2161,7 +2159,7 @@
   // Výlet autem: navigace na zastávku ve Waze (otevře aplikaci v mobilu, jinak web; SearchHelp.wazeUrl)
   const wazeLink = s => {
     const u = window.SearchHelp && window.SearchHelp.wazeUrl({ lat: s.lat, lon: s.lon });
-    return u ? `<a class="app-chip" href="${esc(safeUrl(u))}" target="_blank" rel="noopener" title="${esc(`Navigace autem ve Waze – ${s.name || ''}`)}">🚗 Navigovat ve Waze</a>` : '';
+    return u ? `<a class="app-chip" href="${esc(safeUrl(u))}" target="_blank" rel="noopener" title="${esc(`Navigace autem ve Waze – ${s.name || ''}`)}">${ikona('auto')} Navigovat ve Waze</a>` : '';
   };
 
   function tripHtml(trip, center) {
@@ -2349,8 +2347,8 @@
     : `Všechna tahle místa už v programu cesty ${name} máš`);
   const shortName = s => (s.length > 32 ? `${s.slice(0, 30).trim()}…` : s);
   const saveHtml = (i, trips) => (i >= 0
-    ? `<button class="btn" id="exSave" title="${esc(`Přidat k cestě ${trips[i].name} (stejné místo v jejím termínu)`)}">💾 Přidat k cestě ${esc(shortName(trips[i].name))}</button><button type="button" class="linkbtn ex-savenew" id="exSaveNew">uložit jako novou</button>`
-    : '<button class="btn" id="exSave">💾 Uložit do Mých cest</button>');
+    ? `<button class="btn" id="exSave" title="${esc(`Přidat k cestě ${trips[i].name} (stejné místo v jejím termínu)`)}">Přidat k cestě ${esc(shortName(trips[i].name))}</button><button type="button" class="linkbtn ex-savenew" id="exSaveNew">uložit jako novou</button>`
+    : '<button class="btn" id="exSave">Uložit do Mých cest</button>');
   // Hláška s tlačítkem (toast z app.js tlačítko neumí); delší, ať se na tlačítko stihne kliknout.
   function actToast(msg, label, fn) {
     const t = $('#toast');
@@ -2739,7 +2737,7 @@
     const cityPlan = Boolean(ex.plan?.days.some(d => d.items.length));
     const hasPlan = hikeDays ? hp : routeMode ? rr : road ? trip && trip.days.length : cityPlan;
     // program ve městě v horách (Krkonoše z Pece): nabídnout túru na každý den místo programu po místech
-    const ruralTip = isRural(ex.plan) ? '<div class="note info hk-tip" style="margin-bottom:10px">⛰️ <div>Tady je hlavně příroda – místo programu po místech zkus túru na každý den. <button type="button" class="btn sm" data-tohike>🥾 Túra na každý den</button></div></div>' : '';
+    const ruralTip = isRural(ex.plan) ? '<div class="note info hk-tip" style="margin-bottom:10px">⛰️ <div>Tady je hlavně příroda – místo programu po místech zkus túru na každý den. <button type="button" class="btn sm" data-tohike>Túra na každý den</button></div></div>' : '';
     const out = hikeDays ? hikePlanHtml(hp, p) : routeMode ? routeHtml(rr, p, ex.start) : road ? tripHtml(trip, p) : !ex.plan ? ''
       : cityPlan ? ruralTip + planHtml(ex.plan, p.geo ? p : { ...p, startAt: 'center' }) : planEmptyHtml(ex.radius);
     const inPlan = ex.mode === 'city' ? planIds(ex.plan) : new Set();
@@ -2767,7 +2765,7 @@
           <div class="field" style="margin:0"><label for="exDays">Počet dní</label><select id="exDays">${dayOpts.map(n => `<option ${curDays === n ? 'selected' : ''}>${n}</option>`).join('')}</select></div>
           ${planBtn}${saveBtn}
         </div>
-        <div class="row wrap" style="gap:8px;margin:10px 0"><button type="button" class="fchip ${ex.interests.has('kids') ? 'on' : ''}" data-hkids aria-pressed="${ex.interests.has('kids')}">🧒 S dětmi</button></div>`;
+        <div class="row wrap" style="gap:8px;margin:10px 0"><button type="button" class="fchip ${ex.interests.has('kids') ? 'on' : ''}" data-hkids aria-pressed="${ex.interests.has('kids')}">S dětmi</button></div>`;
     const routeCtl = `${bikeMode ? `<div class="seg wrap" style="margin:0 0 10px">${segBtns(BIKE_KINDS, 'data-bkind', ex.bike.kind)}</div>` : hikeKinds}
         <div class="row wrap" style="gap:10px;align-items:end">
           <div class="field" style="margin:0"><label for="exStart">Kdy</label><input class="input" type="date" id="exStart" value="${ex.start}"></div>
@@ -2790,20 +2788,20 @@
         ${farL.length || farState ? `<div class="poi-sec"><b>🚗 V okolí do ${ex.radius} km</b> <span class="faint">${farL.length ? `(${farL.length}) · ` : ''}nejzajímavější města, hrady a příroda, doba jízdy autem odhadem</span></div>${farState}${cards(farL)}` : ''}`
         || empty;
     const hidden = far ? Math.max(0, cityL.length - LIST_TOP) + Math.max(0, farL.length - LIST_TOP) : Math.max(0, list.length - LIST_TOP);
-    const placesIn = `${cats.length ? `<div class="ex-cats"><button type="button" data-cat="" class="${!ex.cat ? 'on' : ''}">Vše</button>${cats.map(c => `<button type="button" data-cat="${c}" class="${ex.cat === c ? 'on' : ''}">${icon(c)} ${(CAT[c] || CAT.sight)[1]}</button>`).join('')}</div>` : ''}
+    const placesIn = `${cats.length ? `<div class="ex-cats"><button type="button" data-cat="" class="${!ex.cat ? 'on' : ''}">Vše</button>${cats.map(c => `<button type="button" data-cat="${c}" class="${ex.cat === c ? 'on' : ''}">${(CAT[c] || CAT.sight)[1]}</button>`).join('')}</div>` : ''}
         <div class="poi-list${ex.listAll ? ' all' : ''}" id="exList">${listIn}</div>
         ${hidden && !ex.listAll ? `<button type="button" class="btn ghost poi-morebtn" id="exListMore">Zobrazit další místa (${hidden})</button>` : ''}`;
     // Na kole, pěšky a u výletů je hlavní výsledek trasa na mapě – seznam míst ve městě je sbalený.
     // místo v Česku: místo ✈️ (tam se neletí) spojení vlakem a autobusem v IDOS
     const idos = idosUrl(p, homeCity(), ex.datePicked ? ex.start : '');
     const places = ex.mode === 'city' ? `<div class="ex-places">${placesIn}</div>`
-      : `<details class="more ex-places" id="exPlaces"${ex.listOpen ? ' open' : ''}><summary>📍 Místa v okolí (${ex.items.length})</summary>${placesIn}</details>`;
+      : `<details class="more ex-places" id="exPlaces"${ex.listOpen ? ' open' : ''}><summary>Místa v okolí (${ex.items.length})</summary>${placesIn}</details>`;
     body.innerHTML = `${ex.demo ? '<div class="note warn" style="margin-bottom:12px">⚠️ <div><b>DEMO data</b> – místa jsou vymyšlená.</div></div>' : ''}
-      <div class="section-head ex-head" style="margin-top:6px"><h2>${p.cc ? flag(p.cc) : '📍'} ${esc(p.label)} · ${placesTxt(cityN)} do ${cityKm(ex.radius)} km${far ? (tripN ? ` <span class="ex-head-more">+ ${placesTxt(tripN)} v okolí do ${ex.radius} km</span>` : '')
+      <div class="section-head ex-head" style="margin-top:6px"><h2>${p.cc ? flag(p.cc) + ' ' : ''}${esc(p.label)} · ${placesTxt(cityN)} do ${cityKm(ex.radius)} km${far ? (tripN ? ` <span class="ex-head-more">+ ${placesTxt(tripN)} v okolí do ${ex.radius} km</span>` : '')
           : tripN ? ` <span class="ex-head-more">+ ${plural(tripN, 'výlet', 'výlety', 'výletů')}</span>` : ''}</h2>${
-        `<span class="ex-head-act">${window.Flights && flyTarget(p) ? '<button type="button" class="btn sm ghost" id="exFly">' + ikona('let') + ' Najít lety sem</button>' : idos ? `<a class="btn sm ghost" id="exIdos" href="${esc(safeUrl(idos))}" target="_blank" rel="noopener" title="Vlak a autobus sem – jízdní řády IDOS">🚆 Spojení ↗</a>` : ''}<button type="button" class="btn sm ghost" id="exReset" title="Zrušit místo, plán i výběr míst">↺ Začít znovu</button></span>`}</div>
+        `<span class="ex-head-act">${window.Flights && flyTarget(p) ? '<button type="button" class="btn sm ghost" id="exFly">' + ikona('let') + ' Najít lety sem</button>' : idos ? `<a class="btn sm ghost" id="exIdos" href="${esc(safeUrl(idos))}" target="_blank" rel="noopener" title="Vlak a autobus sem – jízdní řády IDOS">${ikona('vlak')} Spojení ↗</a>` : ''}<button type="button" class="btn sm ghost" id="exReset" title="Zrušit místo, plán i výběr míst">↺ Začít znovu</button></span>`}</div>
       <div class="ex-layout ex-main">
-      <div class="card step-card ex-plan${ex.planOpen || out || bz || wait ? '' : ' shut'}" id="exPlanCard"><h3 class="ex-plan-h"><button type="button" class="ex-plan-tg" id="exPlanTg">🗓️ Naplánovat <span class="faint ex-plan-hint">– program, výlety, kolo, pěšky</span><span class="ex-plan-chev" aria-hidden="true">▾</span></button></h3>
+      <div class="card step-card ex-plan${ex.planOpen || out || bz || wait ? '' : ' shut'}" id="exPlanCard"><h3 class="ex-plan-h"><button type="button" class="ex-plan-tg" id="exPlanTg">${ikona('kalendar')} Naplánovat <span class="faint ex-plan-hint">– program, výlety, kolo, pěšky</span><span class="ex-plan-chev" aria-hidden="true">▾</span></button></h3>
         <div class="seg wrap" id="exMode" style="margin:4px 0 12px">${modeBtns(ex.mode)}</div>
         <div class="muted" style="font-size:13px;margin:-4px 0 10px">${ex.mode === 'city' ? 'Pěší program po památkách – každý den jiná část města.'
           : train ? `Vlakem z místa (${esc(p.label)}) na nádraží v dosahu zvolené délky jízdy a na kole zpátky: zvol délku, kolo a krajinu. Najdu nádraží, trasu domů a odkaz na spojení vlakem.`
@@ -2817,7 +2815,7 @@
           <div class="field" style="margin:0"><label for="exStart">Od</label><input class="input" type="date" id="exStart" value="${ex.start}"></div>
           <div class="field" style="margin:0"><label for="exDays">${ex.mode === 'day' ? 'Počet výletů' : 'Počet dní'}</label><select id="exDays">${dayOpts.map(n => `<option ${curDays === n ? 'selected' : ''}>${n}</option>`).join('')}</select></div>
           ${planBtn}${road ? '' : `<span class="ex-mustn" id="exMustN">${mustHtml(st.must.size)}</span>`}${saveBtn}
-        </div>${road ? `<div class="row wrap" style="gap:8px;margin:10px 0"><div class="seg" id="exTransport">${TRANSPORTS.map(([id, l]) => `<button type="button" data-transport="${id}" class="${ex.transport === id ? 'on' : ''}">${l}</button>`).join('')}</div><select data-pace aria-label="Tempo programu" style="width:auto;padding:7px 30px 7px 10px;font-size:12.5px">${[['relaxed', '🐢 V klidu'], ['normal', '🚶 Normálně'], ['intense', '🏃 Nabitě']].map(o => `<option value="${o[0]}" ${ex.pace === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select></div>
+        </div>${road ? `<div class="row wrap" style="gap:8px;margin:10px 0"><div class="seg" id="exTransport">${TRANSPORTS.map(([id, l]) => `<button type="button" data-transport="${id}" class="${ex.transport === id ? 'on' : ''}">${l}</button>`).join('')}</div><select data-pace aria-label="Tempo programu" style="width:auto;padding:7px 30px 7px 10px;font-size:12.5px">${[['relaxed', 'V klidu'], ['normal', 'Normálně'], ['intense', 'Nabitě']].map(o => `<option value="${o[0]}" ${ex.pace === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select></div>
         <div class="row wrap" style="gap:8px;margin:0 0 10px"><span class="faint" style="font-size:12.5px;align-self:center">Co tě láká:</span>${TRIP_INTERESTS.map(([id, l]) => `<button type="button" class="fchip ${ex.tripInterests.has(id) ? 'on' : ''}" data-tint="${id}" aria-pressed="${ex.tripInterests.has(id)}">${l}</button>`).join('')}</div>` : plannerControls(st)}`}
         <div id="exPlanOut" class="${bz ? 'stale' : ''}">${wait}${errNote}${out}</div></div>
       <div id="exMapSlot"></div>

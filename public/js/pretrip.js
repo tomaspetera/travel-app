@@ -22,7 +22,7 @@
   const canon = iso => (Object.hasOwn(ALIAS, iso) ? ALIAS[iso] : iso);
   const own = (o, k) => Boolean(o) && typeof o === 'object' && Object.hasOwn(o, k);
   // Aktivity, podle kterých se doplní seznam věcí (výchozí výběr podle programu, země a podnebí)
-  const ACTS = [['beach', '🏖️ Pláž a moře'], ['hike', '🥾 Turistika a příroda'], ['city', '🏙️ Města a památky'], ['snow', '⛷️ Sníh a hory v zimě']];
+  const ACTS = [['beach', 'Pláž a moře'], ['hike', 'Turistika a příroda'], ['city', 'Města a památky'], ['snow', 'Sníh a hory v zimě']];
   const ACT_IDS = ACTS.map(a => a[0]);
   // Kategorie míst z programu (places.js), které znamenají prohlídky měst a památek
   const CITY_CATS = ['museum', 'gallery', 'church', 'castle', 'palace', 'monument', 'square', 'oldtown', 'tower', 'bridge', 'market', 'theatre', 'sight', 'ruins'];
@@ -823,19 +823,19 @@
     return `<input type="checkbox" data-ptk="${esc(`${kind}:${id}`)}" ${done[`${kind}:${id}`] ? 'checked' : ''}>`;
   }
   /**
-   * Karta „🧭 Co zařídit a co sbalit“ do shrnutí průvodce (pod „🛂 Před cestou“). o = { isos, via, ret } (jako u contextOf).
+   * Karta „Co zařídit a co sbalit“ do shrnutí průvodce (pod „Před cestou“). o = { isos, via, ret } (jako u contextOf).
    * Když data ještě nejsou, vrátí zástupnou kartu a po načtení (dat i podnebí) se překreslí sama.
    */
   // Seznam věcí sbalený do řádku „🎒 Seznam věcí: 24 položek · sbaleno 3“ (Shrnutí je jinak dlouhé); rozbalený zůstane
   // rozbalený i po překreslení karty (podnebí, aktivity)
   let packOpen = false;
-  const packTxt = (n, k) => `🎒 Seznam věcí na míru: ${n} ${n === 1 ? 'položka' : n < 5 ? 'položky' : 'položek'}${k ? ` · sbaleno ${k}` : ''}`;
+  const packTxt = (n, k) => `Seznam věcí na míru: ${n} ${n === 1 ? 'položka' : n < 5 ? 'položky' : 'položek'}${k ? ` · sbaleno ${k}` : ''}`;
   const packSum = (groups, done) => packTxt(groups.reduce((s, g) => s + g.items.length, 0), groups.reduce((s, g) => s + g.items.filter(x => done[`pack:${x.id}`]).length, 0));
   function html(t, o = {}) {
     if (!t) return '';
     last = { t, o };
     const key = tripKey(t);
-    const head = '<h3>🧭 Co zařídit a co sbalit</h3>';
+    const head = '<h3>Co zařídit a co sbalit</h3>';
     if (!DATA) {
       // po chybě už znovu nezkoušet (překreslení po chybě by jinak načítalo dokola) – pomůže obnovení stránky
       if (!failed && typeof fetch === 'function') load().catch(() => { });
@@ -860,7 +860,7 @@
     }).join('');
     const chips = ACTS.map(([id, label]) => `<button type="button" class="fchip${ctx.acts.has(id) ? ' on' : ''}" data-pt-act="${id}" aria-pressed="${ctx.acts.has(id)}">${esc(label)}</button>`).join('');
     const tips = bagTips(ctx);
-    const packHtml = groups.map(g => `<div class="pt-grp"><h5>${esc(g.icon)} ${esc(g.title)}</h5>
+    const packHtml = groups.map(g => `<div class="pt-grp"><h5>${esc(g.title)}</h5>
       <ul class="pt-pack">${g.items.map(x => `<li class="${[x.own && 'pt-own', done[`pack:${x.id}`] && 'done'].filter(Boolean).join(' ')}"><label class="pt-row">${chk('pack', x.id, done)}<span>${esc(x.text)}${x.note ? ` <span class="faint">– ${esc(x.note)}</span>` : ''}</span></label>${x.own ? `<button type="button" class="pt-del" data-pt-del="${esc(x.id)}" title="Smazat položku" aria-label="Smazat položku ${esc(x.text)}">✕</button>` : ''}</li>`).join('')}</ul></div>`).join('');
     const addHtml = `<form class="pt-add" data-pt-add><input class="input" maxlength="${OWN_LEN}" placeholder="Přidat vlastní položku…" aria-label="Přidat vlastní položku do seznamu věcí" autocomplete="off" enterkeyhint="done"><button type="submit" class="btn sm">+ Přidat</button></form>`;
     const total = list.filter(x => x.level !== 'info').length + groups.reduce((s, g) => s + g.items.length, 0);
@@ -868,10 +868,10 @@
     const S = src();
     return `<div class="card step-card pt-card" id="preTrip" data-ptkey="${esc(key)}">
       <div class="pt-top"><div>${head}<div class="muted pt-sub">${esc(subtitle(ctx))}</div></div>
-        <div class="pt-tools"><span class="pt-prog" data-pt-prog title="Hotovo / celkem">✔ ${ticked}/${total}</span><button type="button" class="btn sm" data-pt-print>🖨️ Vytisknout</button></div></div>
+        <div class="pt-tools"><span class="pt-prog" data-pt-prog title="Hotovo / celkem">✔ ${ticked}/${total}</span><button type="button" class="btn sm" data-pt-print>Vytisknout</button></div></div>
       <div class="pt-grid">
-        <section class="pt-sec"><h4>📋 Co zařídit</h4><ul class="pt-todo">${todoHtml}</ul></section>
-        <section class="pt-sec"><h4>🎒 Co sbalit</h4>
+        <section class="pt-sec"><h4>Co zařídit</h4><ul class="pt-todo">${todoHtml}</ul></section>
+        <section class="pt-sec"><h4>Co sbalit</h4>
           <div class="pt-acts" role="group" aria-label="Co budeš na cestě dělat"><span class="faint">Co budeš dělat:</span> ${chips}</div>
           ${climateHtml(ctx)}${tips.length ? `<ul class="pt-tips">${tips.map(x => `<li>🧳 ${esc(x)}</li>`).join('')}</ul>` : ''}<div class="pt-groups"><details class="pt-packd" data-pt-packd${packOpen ? ' open' : ''}><summary>${packSum(groups, done)}</summary>${packHtml}</details></div>${addHtml}</section>
       </div>

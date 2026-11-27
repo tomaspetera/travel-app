@@ -189,5 +189,10 @@
     } catch (err) { return null; } // otázka nesmí nic rozbít
   }
 
-  window.Count = { hit, view, viewEvent, ask, helping, deep, consent, rageTap };
+  // Karta s otázkou testerům na Přehledu (otazky.js) a Count.ask se dělí o jedno místo za stránku: po „Pomohl ti
+  // průvodce…?“ by hned přišlo „Co ti v průvodci chybělo?“ – dvě skoro stejné otázky za sebou.
+  const askedNow = () => Boolean(asked);
+  const holdAsk = () => { asked = asked || { id: null, row: null, open: false }; };
+
+  window.Count = { hit, view, viewEvent, ask, helping, deep, consent, rageTap, askedNow, holdAsk };
 })();

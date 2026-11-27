@@ -87,7 +87,7 @@ test('💬 Napsat nám: mailto s verzí a obrazovkou v předmětu, jen s platnou
   assert.equal(url, `mailto:atlas@example.org?subject=${encodeURIComponent('Letsi – zpětná vazba (verze 2026-10-22, obrazovka: Cesta)')}`);
   const html = A.html({ version: '2026-10-22', email: 'atlas@example.org', screen: 'Cesta' });
   assert.match(html, /id="abMail" href="mailto:atlas@example\.org\?subject=Letsi%20%E2%80%93/);
-  assert.match(html, /💬 Napsat nám/);
+  assert.match(html, />Napsat nám<\/a>/);
   for (const bad of ['a@b.cz?bcc=x@y.cz', '"><img src=x>@a.cz', null, 42]) {
     assert.equal(A.mailto(bad, 'v', 's'), null, String(bad));
     assert.doesNotMatch(A.html({ version: 'v', email: bad }), /mailto:/);
@@ -137,9 +137,9 @@ test('okno: 💛 Podpořit Letsi a provozovatel jen s platnými údaji; text se 
   const none = A.html({ version: 'v' });
   assert.doesNotMatch(none, /abSupport|Provozovatel|Příspěvek/);
   const html = A.html({ version: 'v', support: 'https://buy.stripe.com/test_7sI4hY0abc', operator: 'Jan Novák, IČO 12345678' });
-  assert.match(html, /<a class="btn" id="abSupport" href="https:\/\/buy\.stripe\.com\/test_7sI4hY0abc" target="_blank" rel="noopener">💛 Podpořit Letsi ↗<\/a>/);
+  assert.match(html, /<a class="btn" id="abSupport" href="https:\/\/buy\.stripe\.com\/test_7sI4hY0abc" target="_blank" rel="noopener">Podpořit Letsi ↗<\/a>/);
   assert.match(html, /zaplatíš kartou na stránce Stripe/);
-  assert.match(html, /<b>Příspěvek<\/b> \(💛 Podpořit Letsi\): platíš na stránce Stripe/, 'v soukromí, kdo platbu zpracovává');
+  assert.match(html, /<b>Příspěvek<\/b> \(Podpořit Letsi\): platíš na stránce Stripe/, 'v soukromí, kdo platbu zpracovává');
   assert.match(html, /Správce osobních údajů: <b id="abOp">Jan Novák, IČO 12345678<\/b>\./);
   for (const bad of ['https://evil.cz/x', 'javascript:alert(1)', 42, null]) {
     assert.equal(A.okPay(bad), false, String(bad));

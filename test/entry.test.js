@@ -421,7 +421,7 @@ test('„Před cestou“: doklady s datem platnosti pasu, registrace s cenou a o
   assert.equal(plain(Entry.checklist(['MX'], { ret: '2026-12-14', via: ['CA'] }))[1].docs, '🛂 Cestovní pas – občanský průkaz nestačí', 'přestup: bez data platnosti (lhůta je pro vstup)');
 
   const html = sp(Entry.checklistHtml(['US', 'TH'], { ret: '2026-12-14', pax: 2 }));
-  assert.match(html, /<h3>🛂 Před cestou<\/h3>/);
+  assert.match(html, /<h3>Před cestou<\/h3>/);
   assert.match(html, /Nutná online registrace předem: ESTA<\/b> · ~36 € \(≈ 900 Kč\) na osobu \(2 os\. ≈ 1 800 Kč\)/);
   assert.match(html, /<a href="https:\/\/esta\.cbp\.dhs\.gov\/" target="_blank" rel="noopener">oficiální web ↗<\/a>/);
   assert.match(html, /platí i při přestupu/);
@@ -484,7 +484,7 @@ test('Sinaj bez víza: přílet i odlet Šarm aš-Šajch / Taba do 15 dní – p
 
 test('detail země: režim česky, pobyt, doklad, platnost pasu, cena v € a Kč, zdroj a upozornění', () => {
   const us = sp(Entry.detailHtml('US'));
-  assert.match(us, /<h3>🛂 Vstup pro občany ČR<\/h3>/);
+  assert.match(us, /<h3>Vstup pro občany ČR<\/h3>/);
   assert.match(us, /Nutná online registrace předem: ESTA/);
   assert.match(us, /ESTA · <b>~36 € \(≈ 900 Kč\)<\/b> na osobu/);
   assert.match(us, /Nutná i při přestupu/);
@@ -526,7 +526,7 @@ test('průvodce cestou: shrnutí má „🛂 Před cestou“ a vstupní poplatky
   c.S.trip = usTrip();
   c.window.Trip.render();
   const h = sp(host.innerHTML);
-  assert.match(h, /<h3>🛂 Před cestou<\/h3>/);
+  assert.match(h, /<h3>Před cestou<\/h3>/);
   assert.match(h, /<td>Celkem<\/td><td>44 000 Kč<\/td>/, 'součet cesty beze změny');
   assert.match(h, /<tr class="entry-fee"><td>🛂<\/td><td>ESTA \(USA\) · 2 × ~36 € <span class="faint">– vstupní poplatek, orientačně<\/span><\/td><td>\+ 1 800 Kč<\/td><\/tr>/);
   assert.match(h, /<td>Celkem i se vstupními poplatky<\/td><td>45 800 Kč<\/td>/);

@@ -1688,7 +1688,7 @@ test('karta hotelu z okolí: „v okolí: Noto · 24 km od místa Palazzolo Acre
   // hotely s cenou napřed, pod nimi ubytování v místě (první 3, zbytek na požádání)
   const [top, town] = html.split('<div class="st-town">');
   assert.ok(top.includes('Gagliardi Boutique Hotel') && !top.includes('Hotel Colle Acre'));
-  assert.match(town, /<h4>🏡 V místě – Palazzolo Acreide \(bez ceny\)<\/h4>/);
+  assert.match(town, /<h4>V místě – Palazzolo Acreide \(bez ceny\)<\/h4>/);
   assert.match(town, /cenu ověř u partnera/);
   assert.match(town, /id="stayTownN">▼ Další v místě \(1\)/);
   // filtr ceny schová hotely s cenou nad limit, ubytování v místě (bez ceny) zůstane

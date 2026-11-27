@@ -79,10 +79,10 @@
 
   /** Předmět e-mailu: verze a obrazovka, ze které uživatel píše (ať je jasné, o čem je řeč). */
   const subject = (version, screen) => `Letsi – zpětná vazba (verze ${version || '?'}${screen ? `, obrazovka: ${screen}` : ''})`;
-  /** mailto: odkaz, nebo null bez platné adresy. */
-  function mailto(email, version, screen) {
+  /** mailto: odkaz, nebo null bez platné adresy; body = předvyplněný text (otázka a odpověď z otazky.js). */
+  function mailto(email, version, screen, body) {
     if (!okEmail(email)) return null;
-    return `mailto:${email}?subject=${encodeURIComponent(subject(version, screen))}`;
+    return `mailto:${email}?subject=${encodeURIComponent(subject(version, screen))}${body ? `&body=${encodeURIComponent(body)}` : ''}`;
   }
 
   /** Správce údajů, kontakt, stížnost u ÚOOÚ a odkazy na plné zásady a podmínky (server/lib/pravni.js vykreslí
@@ -105,7 +105,7 @@
     const mail = mailto(email, version, screen), pay = okPay(support) ? support : null, earn = earnings(health);
     const op = typeof operator === 'string' ? operator.trim().slice(0, 200) : '';
     return `<div class="modal-body about-modal">
-      <h3 style="margin-bottom:8px">ℹ️ O aplikaci a soukromí</h3>
+      <h3 style="margin-bottom:8px">O aplikaci a soukromí</h3>
       <p style="font-size:14px">Letsi najde levné letenky ze všech letišť ve tvém okolí a poskládá z nich celou cestu – ubytování, dopravu na letiště i na místě, program a shrnutí s odkazy k rezervaci. Je zdarma, bez účtu a bez registrace. Letenky ani hotely neprodává: rezervuješ vždy přímo u aerolinky nebo partnera.</p>
       ${legal(op, okEmail(email) ? email : '')}
       <h4 class="ab-h">Jak to funguje a z čeho žiju</h4>
@@ -116,24 +116,24 @@
       <p style="font-size:14px;margin-top:10px">Letsi není spojen s žádnou leteckou společností ani prodejcem; ceny a odkazy jsou z veřejných a partnerských zdrojů.</p>
       <h4 class="ab-h">Co se ukládá a kam</h4>
       <ul class="ab-list">
-        <li><b>Jen v tomhle prohlížeči na tomhle zařízení</b> (localStorage): cesty, hlídané ceny, odložené nabídky, domov, navštívené země, oblíbená a skrytá místa, poslední i rozepsané hledání a nastavení. Na jiné zařízení je přeneseš odkazem (📲 Přenést do jiného zařízení) nebo zálohou.</li>
+        <li><b>Jen v tomhle prohlížeči na tomhle zařízení</b> (localStorage): cesty, hlídané ceny, odložené nabídky, domov, navštívené země, oblíbená a skrytá místa, poslední i rozepsané hledání, nastavení a které krátké otázky testovací verze už padly (odpovědi ne). Na jiné zařízení je přeneseš odkazem (📲 Přenést do jiného zařízení) nebo zálohou.</li>
         <li><b>Na serveru nic o tobě</b>: žádný účet ani profil. <b>Žádné cookies ani sledování jednotlivců</b> – kromě záznamu návštěvy bez jména a IP adresy, pokud ho sám zapneš (Pomáhat se zlepšováním – přepínač níž v tomhle okně). Počítám jen souhrnné denní počty (kolikrát se otevřela aplikace, kolik proběhlo hledání, kolik cest vzniklo, kde aplikace nic nenašla nebo selhala a které možnosti lidé volí v krátkých otázkách) – bez osobních údajů a bez vazby na tebe nebo tvoje zařízení. Jinak jen cesty, které sám sdílíš krátkým odkazem (níže).</li>
         <li><b>Co se na server posílá</b> – jen to, co je potřeba k odpovědi: u hledání letů odkud, kam, termín, počet cestujících, zavazadla a cesta na letiště (i 🏠 vlastní ceny); u ubytování místo, termín a počet hostů; v Objevuj místo a volby plánu; polohu, jen když sám použiješ 📍 Moje poloha nebo Moje okolí. Server odpovědi chvíli drží v mezipaměti (bez vazby na tebe) a IP adresu si kvůli limitům požadavků pamatuje nejdéle hodinu od posledního požadavku (u hledání 10 minut), pak ji sám smaže.</li>
         <li><b>Přímo z prohlížeče</b> se načítají mapy (OpenFreeMap) a fotky (Unsplash, Pexels, Wikimedia) – tyhle služby vidí tvou IP adresu jako u každého webu. Počasí, kurzy a hledání míst jdou přes server Letsi, tvou adresu tedy nevidí.</li>
         <li><b>Krátký odkaz na sdílenou cestu</b> (letsi.cz/c/…): když klepneš na Poslat kamarádům nebo Sdílet plán, cesta se uloží na serveru na 400 dní, aby šel odkaz otevřít – bez jména a kódů rezervací, nic dalšího se k němu neukládá. Bez krátkého odkazu (i u odkazu 📲 přenosu) nese data část adresy za #, kterou prohlížeč na server neposílá. Po klepnutí na odkaz k rezervaci jsi na webu partnera a platí jeho pravidla.</li>
-        ${pay ? '<li><b>Příspěvek</b> (💛 Podpořit Letsi): platíš na stránce Stripe, která platbu zpracovává – aplikace ani server Letsi údaje o platbě a kartě nedostanou. Provozovatel ve Stripe uvidí jen údaje k přijaté platbě (jméno, e-mail, částku a poslední 4 číslice karty).</li>' : ''}
+        ${pay ? '<li><b>Příspěvek</b> (Podpořit Letsi): platíš na stránce Stripe, která platbu zpracovává – aplikace ani server Letsi údaje o platbě a kartě nedostanou. Provozovatel ve Stripe uvidí jen údaje k přijaté platbě (jméno, e-mail, částku a poslední 4 číslice karty).</li>' : ''}
       </ul>
       ${typeof help === 'boolean' ? `<button type="button" class="btn ghost" id="abHelp" role="switch" aria-checked="${help}"><span class="ico i-cestujici" aria-hidden="true"></span> Pomáhat se zlepšováním <span class="faint">${help ? 'zapnuto' : 'vypnuto'}</span></button>
       <p class="faint" style="font-size:12.5px">Záznam obrazovek a hlavních akcí při návštěvě s náhodným číslem návštěvy, bez textu, míst, cen, jména a IP adresy; smaže se do 31 dnů. Ve výchozím stavu vypnuto, vypnutím smažu i záznam právě probíhající návštěvy.</p>` : ''}
-      ${backup ? '<button type="button" class="btn ghost" id="abBk">💾 Záloha do souboru <span class="faint">PC ↔ telefon</span></button>' : ''}
+      ${backup ? '<button type="button" class="btn ghost" id="abBk"><span class="ico i-stahnout" aria-hidden="true"></span> Záloha do souboru <span class="faint">PC ↔ telefon</span></button>' : ''}
       <h4 class="ab-h">Jak se řadí výsledky</h4>
       <p style="font-size:14px">Pořadí určuje jen zvolené řazení (cena, termín, vzdálenost, dny dovolené…), placené pozice nejsou.</p>
       <h4 class="ab-h">Ceny jsou orientační</h4>
       <p style="font-size:14px">Aerolinky a hotely ceny mění i během minut a ceny označené jako orientační můžou být starší. Platí cena, kterou ukáže web prodejce před zaplacením – <b>vždy ji ověř u partnera</b>.</p>
       ${pay ? `<h4 class="ab-h">Podpoř Letsi</h4>
       <p style="font-size:14px">Letsi je zdarma a bez reklam v pořadí výsledků. Jestli ti to pomohlo, můžeš poslat dobrovolný příspěvek – částku si zvolíš, zaplatíš kartou na stránce Stripe.</p>
-      <a class="btn" id="abSupport" href="${h(pay)}" target="_blank" rel="noopener">💛 Podpořit Letsi ↗</a>` : ''}
-      ${mail ? `<a class="btn primary" id="abMail" href="${h(mail)}">💬 Napsat nám</a>` : ''}
+      <a class="btn" id="abSupport" href="${h(pay)}" target="_blank" rel="noopener">Podpořit Letsi ↗</a>` : ''}
+      ${mail ? `<a class="btn primary" id="abMail" href="${h(mail)}">Napsat nám</a>` : ''}
       <p class="faint" style="font-size:12.5px;margin-top:12px">Verze ${h(version || '?')}${build ? ` · sestavení ${h(build)}` : ''}</p>
     </div>`;
   }

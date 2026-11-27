@@ -106,6 +106,22 @@ test('Count.ask: ✕ otázku zavře bez odeslání; nejvýš jedna otázka za na
   assert.equal(ctx.Count, C);
 });
 
+test('Count.ask a karta otázky na Přehledu (otazky.js) se dělí o jedno místo za stránku: askedNow(), holdAsk()', () => {
+  const a = loadCount(0);
+  assert.equal(a.C.askedNow(), false);
+  a.C.ask(a.p, Q);
+  assert.equal(a.C.askedNow(), true, 'po otázce ve výsledcích Přehled počká');
+  const b = loadCount(0);
+  b.C.holdAsk(); // karta na Přehledu se ukázala
+  assert.equal(b.C.ask(b.p, { ...Q, rate: 1 }), null, 'pak už se Count.ask na téhle stránce nezeptá');
+  assert.equal(b.C.askedNow(), true);
+  assert.deepEqual(b.log.storage, [], 'nic se neukládá');
+  const src = read('public/js/otazky.js');
+  assert.match(src, /busy: busy \|\| typing \|\| searching \|\| asked,/);
+  assert.match(src, /const asked = Boolean\(!held && window\.Count && Count\.askedNow && Count\.askedNow\(\)\);/);
+  assert.match(src, /if \(window\.Count && Count\.holdAsk\) \{ Count\.holdAsk\(\); held = true; \}/);
+});
+
 test('Count.ask: výběr podle rate (Math.random < rate), rate 0 se nikdy nezeptá; neukázaná otázka místo nezabere', () => {
   const { C, p, ctx } = loadCount(0.25);
   assert.equal(C.ask(p, Q), null, '0.25 není < 0.25');
@@ -157,11 +173,14 @@ const ANSWERS = {
   'public/js/flights.js': ['mq_empty_place', 'mq_empty_dates', 'mq_empty_lost', 'mq_empty_try', 'mq_price_same', 'mq_price_higher', 'mq_price_gone'],
   'public/js/trip.js': ['mq_restart_date', 'mq_restart_price', 'mq_restart_lost', 'mq_restart_try', 'mq_trip_good', 'mq_trip_missing', 'mq_trip_lost'],
   'public/js/places.js': ['mq_ex_city', 'mq_ex_nature', 'mq_ex_region', 'mq_ex_other'],
+  'public/js/otazky.js': ['mq_found_yes', 'mq_found_almost', 'mq_found_no', 'mq_found_price', 'mq_found_other',
+    'mq_miss_stay', 'mq_miss_prog', 'mq_miss_ground', 'mq_miss_none', 'mq_miss_other',
+    'mq_back_cheap', 'mq_back_plan', 'mq_back_idea', 'mq_back_try', 'mq_back_other'],
 };
 const ALL = Object.values(ANSWERS).flat();
 
 test('názvy mq_*: v EVENTS serveru, každý doslova na právě jednom místě aplikace a na stránce Statistiky; žádné _shown', () => {
-  assert.equal(ALL.length, 18);
+  assert.equal(ALL.length, 33);
   assert.deepEqual(ALL.filter((e) => !EVENTS.includes(e)), []);
   assert.deepEqual(EVENTS.filter((e) => e.startsWith('mq_')), ALL, 'v EVENTS jen odpovědi, ve stejném pořadí');
   const stats = read('public/js/statistiky.js');
@@ -172,7 +191,7 @@ test('názvy mq_*: v EVENTS serveru, každý doslova na právě jednom místě a
       assert.ok(stats.includes(`'${e}'`), `${e} na stránce Statistiky`);
     }
   }
-  for (const f of ['public/js/count.js', 'public/js/flights.js', 'public/js/trip.js', 'public/js/places.js', 'public/js/statistiky.js', 'server/lib/counts.js']) {
+  for (const f of ['public/js/count.js', 'public/js/flights.js', 'public/js/trip.js', 'public/js/places.js', 'public/js/otazky.js', 'public/js/statistiky.js', 'server/lib/counts.js']) {
     const src = read(f);
     assert.doesNotMatch(src, /mq_\w*shown/, `${f}: zobrazení otázky se zatím neposílá (čeká na advokáta)`);
     assert.doesNotMatch(src, /'mq_' *\+/, `${f}: název se neskládá za běhu`);
@@ -187,7 +206,8 @@ const S = ctx.window.Stats;
 test('Statistiky: otázky a volby stejně jako v aplikaci', () => {
   const inApp = ALL.map((e) => { const f = Object.keys(ANSWERS).find((k) => ANSWERS[k].includes(e)); return [e, read(f).match(new RegExp(`\\['${e}', '([^']+)'\\]`))[1]]; });
   assert.deepEqual(plain(S.QUESTIONS.flatMap((q) => q.opts)), inApp);
-  const asked = ['Co by ti teď pomohlo nejvíc?', 'Seděla cena u prodejce?', 'Proč začínáš znovu?', 'Pomohl ti průvodce naplánovat cestu?', 'Co jsi hledal/a?'];
+  const asked = ['Co by ti teď pomohlo nejvíc?', 'Seděla cena u prodejce?', 'Proč začínáš znovu?', 'Pomohl ti průvodce naplánovat cestu?', 'Co jsi hledal/a?',
+    'Našel jsi, co jsi hledal?', 'Co ti v průvodci nejvíc chybělo?', 'Co tě sem vrací?'];
   S.QUESTIONS.forEach((q, i) => assert.ok(q.q.endsWith(asked[i]), q.q));
 });
 

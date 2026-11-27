@@ -49,6 +49,10 @@
     { q: 'Po ↺ Začít znovu: Proč začínáš znovu?', opts: [['mq_restart_date', 'Jiný let nebo termín'], ['mq_restart_price', 'Moc draho'], ['mq_restart_lost', 'Nevyznal/a jsem se'], ['mq_restart_try', 'Jen zkouším']] },
     { q: 'Shrnutí cesty: Pomohl ti průvodce naplánovat cestu?', opts: [['mq_trip_good', 'Ano, hodně'], ['mq_trip_missing', 'Něco chybělo'], ['mq_trip_lost', 'Nevyznal/a jsem se']] },
     { q: 'Objevuj bez výsledku: Co jsi hledal/a?', opts: [['mq_ex_city', 'Město'], ['mq_ex_nature', 'Vesnici nebo přírodu'], ['mq_ex_region', 'Oblast nebo zemi'], ['mq_ex_other', 'Něco jiného']] },
+    // otázky testerům na Přehledu (otazky.js, nejvýš 1 denně); „Jiné – napiš“ jen počet, text chodí e-mailem
+    { q: 'Přehled po hledání: Našel jsi, co jsi hledal?', opts: [['mq_found_yes', 'Ano'], ['mq_found_almost', 'Skoro – chyběl termín nebo letiště'], ['mq_found_no', 'Ne'], ['mq_found_price', 'Nerozumím cenám'], ['mq_found_other', 'Jiné – napiš']] },
+    { q: 'Přehled po naplánované cestě: Co ti v průvodci nejvíc chybělo?', opts: [['mq_miss_stay', 'Ceny ubytování'], ['mq_miss_prog', 'Víc tipů na program'], ['mq_miss_ground', 'Doprava na místě'], ['mq_miss_none', 'Nic, bylo to dobré'], ['mq_miss_other', 'Jiné – napiš']] },
+    { q: 'Přehled od 3. dne návštěvy: Co tě sem vrací?', opts: [['mq_back_cheap', 'Levné letenky'], ['mq_back_plan', 'Plánuju konkrétní cestu'], ['mq_back_idea', 'Hledám, kam vyrazit'], ['mq_back_try', 'Jen zkouším'], ['mq_back_other', 'Jiné – napiš']] },
   ];
   // Opakované klepnutí podle sekce (count.js, jen se souhlasem Pomáhat se zlepšováním)
   const RAGE = [['rage_dashboard', 'Přehled'], ['rage_flights', 'Lety'], ['rage_trip', 'Průvodce a Moje cesty'], ['rage_explore', 'Objevuj'], ['rage_world', 'Svět']];

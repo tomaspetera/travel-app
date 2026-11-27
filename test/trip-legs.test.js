@@ -181,7 +181,7 @@ test('krok Auto: 📅 dny auta – Lisabon jen 2. a 3. den: odkazy s městem a �
   await tick();
   assert.deepEqual([c.$('#carFrom').value, c.$('#carTo').value, c.$('#carPu').value, c.$('#carPu').hidden, c.$('#carPuCity').hidden], ['2026-11-11T09:00', '2026-11-12T18:00', 'LIS', true, false]);
   assert.equal(sp(c.$('#carPuCity').innerHTML), '🏙️ Lisabon');
-  assert.equal(c.$('#carPuW').innerHTML, '✈️ na letišti');
+  assert.equal(c.$('#carPuW').innerHTML, '<span class="ico i-let" aria-hidden="true"></span> na letišti');
   assert.equal(c.$('#carRangeN').innerHTML, '2 dny');
   assert.equal(sp(c.$('#carDays').innerHTML), '2 dny pronájmu');
   const q = new URLSearchParams(calls.at(-1).split('?')[1]);
@@ -261,14 +261,14 @@ test('krok Trasa: přepínač 🚗 / 🚆 u každého úseku s časem a cenou, p
   const t = pisa(undefined, { step: 'route', car: { mode: 'manual', totalCzk: 3100, pickup: 'PSA', dropoff: 'PSA', from: '2026-11-12T09:00', to: '2026-11-14T16:00' } });
   render(c, t);
   const list = sp(c.__els['#rtList'].innerHTML), tools = sp(c.__els['#rtTools'].innerHTML);
-  assert.match(tools, /<button type="button" class="on" aria-pressed="true" disabled[^>]*>🔀 Kombinovaně<\/button>/);
+  assert.match(tools, /<button type="button" class="on" aria-pressed="true" disabled[^>]*>Kombinovaně<\/button>/);
   assert.match(tools, /data-tr="car" class=""><span class="ico i-auto" aria-hidden="true"><\/span> Autem/);
   // úsek z letiště vlakem (jízdenky za 2), přejezd autem (palivo), na letiště autem (palivo a mýtné)
   assert.match(list, /🚆 ~1 h 10 min vlakem \/ busem \(odhad\) · ~180 Kč za 2 os\./);
   assert.match(list, /<b>72 km · ~1 h 10 min autem · ~300 Kč<\/b> <span class="faint">\(podle trasy; 🚌 autobusem \/ minibusem ~1 h 35 min, ~180 Kč za 2 os\.\)<\/span>/);
   assert.match(list, /<button type="button" data-lm="0" data-m="transit" class="on" aria-pressed="true"/);
   assert.match(list, /<button type="button" data-lm="1" data-m="car" class="on"/);
-  assert.match(list, /data-lm="1" data-m="transit" class="" aria-pressed="false" title="Autobusem" aria-label="Autobusem">🚌</, 'kde jezdí jen autobusy, 🚌');
+  assert.match(list, /data-lm="1" data-m="transit" class="" aria-pressed="false" title="Autobusem" aria-label="Autobusem"><span class="ico i-autobus" aria-hidden="true"><\/span></, 'kde jezdí jen autobusy, ikona autobusu');
   assert.match(list, /<b>Přejezdy celkem ~3 h 45 min · ~810 Kč<\/b> <span class="faint">\(🚗 2× · 🚆 1×; palivo a mýtné, jízdenky, odhad\)/);
   // Siena → letiště vlakem: auto (vybrané pro Florencie → letiště) neplatí
   c.__all['[data-lm]'][0].onclick();

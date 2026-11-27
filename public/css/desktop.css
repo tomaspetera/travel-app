@@ -188,6 +188,11 @@
   :root[data-brand="letsi"] .side-tools>:is(.theme-toggle,.side-about):hover{background:#262A36;color:#F3F4F0}
   :root[data-brand="letsi"] .side-tools>:focus-visible{outline-offset:-2px}
   :root[data-brand="letsi"] .side-tools>.side-about>.ico{width:20px;height:20px;margin:0}
+  /* Testovací verze v tmavém panelu Letsi (otazky.js) */
+  .side-test{margin:0;padding:0 12px;font-size:12.5px}
+  :root[data-brand="letsi"] .side-test{color:#A6ACB6}
+  :root[data-brand="letsi"] .side-test .test-tag{border-color:#2A2E3A}
+  :root[data-brand="letsi"] .side-test .test-fb{color:#F3F4F0}
   /* text tlačítek zůstává pro čtečku (font-size 0), u motivu je ve <span> */
   :root[data-brand="letsi"] #themeToggle>span{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
   :root[data-brand="letsi"] #themeToggle{order:1}

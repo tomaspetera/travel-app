@@ -589,7 +589,7 @@
     const fresh = isEmpty(counts(cur)), canReplace = link && !fresh && !empty;
     const from = link ? 'Odkaz' : 'Záloha', src = link ? 'z odkazu' : 'ze zálohy';
     const acts = link
-      ? `${nothing ? '' : `<button type="button" class="btn primary" id="bkApply">${fresh ? '📥 Přenést sem' : 'Sloučit'}</button>`}${canReplace ? '<button type="button" class="btn" id="bkReplace">Nahradit…</button>' : ''}<button type="button" class="btn ghost" id="bkCancel">${nothing ? 'Zavřít' : 'Zrušit'}</button>`
+      ? `${nothing ? '' : `<button type="button" class="btn primary" id="bkApply">${fresh ? 'Přenést sem' : 'Sloučit'}</button>`}${canReplace ? '<button type="button" class="btn" id="bkReplace">Nahradit…</button>' : ''}<button type="button" class="btn ghost" id="bkCancel">${nothing ? 'Zavřít' : 'Zrušit'}</button>`
       : `${nothing ? '' : '<button type="button" class="btn primary" id="bkApply">Sloučit do tohoto zařízení</button>'}<button type="button" class="btn ghost" id="bkCancel">${nothing ? 'Zavřít' : 'Zrušit'}</button>`;
     body.innerHTML = `<p style="font-size:14px;margin-bottom:10px"><b>${from}${inc.at ? ' z ' + esc(new Date(inc.at).toLocaleString('cs-CZ', { day: 'numeric', month: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })) : ''}:</b> ${empty && link ? 'Odkaz je prázdný.' : summaryHtml(inc, df)}</p>
       ${df.trips.changed ? `<label class="bk-opt"><input type="checkbox" id="bkOver"> Přepsat změněné cesty verzí ${src} (${df.trips.changed})</label>` : ''}
@@ -611,7 +611,7 @@
   /** 📲 Odkaz z jiného zařízení (transfer.js): okno s náhledem – Sloučit, nebo Nahradit (s potvrzením). */
   function incoming(inc) {
     modalOpen(`<div class="modal-body bk-modal">
-      <h3 style="margin-bottom:8px">📲 Přenos z jiného zařízení</h3>
+      <h3 style="margin-bottom:8px">Přenos z jiného zařízení</h3>
       <div id="bkBody"></div>
       <p class="faint" style="font-size:12px;margin-top:12px">Data byla jen v odkazu – server je neviděl. Odkaz od někoho jiného nesluč: jeho cesty a hlídání by se přidaly k tvým.</p></div>`, { x: true });
     preview(inc, { link: true });
@@ -629,7 +629,7 @@
       ${gone.length ? `<div class="note warn" style="margin:8px 0">⚠️ <div>Z tohoto zařízení zmizí ${esc(gone.join(', '))}.</div></div>` : '<div class="note info" style="margin:8px 0">ℹ️ <div>Nic se neztratí – všechno z tohoto zařízení odkaz má.</div></div>'}
       ${ls.changed ? `<div class="note warn" style="margin:8px 0">✏️ <div>${pl(ls.changed, 'cesta se přepíše', 'cesty se přepíšou', 'cest se přepíše')} verzí z odkazu.</div></div>` : ''}
       <p class="faint" style="font-size:12.5px;margin-top:8px">Motiv a nastavení zařízení zůstanou${r.home && !inc.home ? ', domov (odkud létáš) taky (odkaz žádný nemá)' : ''}. Hned po nahrazení to jde vrátit tlačítkem <b>Vrátit</b> v hlášce.</p>
-      <div class="bk-actions" style="margin-top:14px"><button type="button" class="btn warm" id="bkReplaceGo">Nahradit</button><button type="button" class="btn" id="bkSaveFirst">⬇️ Nejdřív stáhnout zálohu</button><button type="button" class="btn ghost" id="bkBack">Zpět</button></div>`;
+      <div class="bk-actions" style="margin-top:14px"><button type="button" class="btn warm" id="bkReplaceGo">Nahradit</button><button type="button" class="btn" id="bkSaveFirst"><span class="ico i-stahnout" aria-hidden="true"></span> Nejdřív stáhnout zálohu</button><button type="button" class="btn ghost" id="bkBack">Zpět</button></div>`;
     $('#bkReplaceGo').onclick = () => replaceNow(inc);
     $('#bkSaveFirst').onclick = () => { download(); toast('Záloha tohoto zařízení stažena'); };
     $('#bkBack').onclick = () => preview(inc, { link: true });
@@ -735,14 +735,14 @@
     if (window.Lazy && !Lazy.has('trip')) return Lazy.run('trip', open);
     const canShare = typeof navigator.share === 'function' && typeof File === 'function', link = Boolean(window.Transfer);
     modalOpen(`<div class="modal-body bk-modal">
-      <h3 style="margin-bottom:8px">💾 Záloha do souboru</h3>
+      <h3 style="margin-bottom:8px">Záloha do souboru</h3>
       <p class="muted" style="font-size:14px;margin-bottom:12px">🧳 Moje cesty, hlídané ceny, 📌 odložené nabídky, domov (odkud létáš), navštívené země, ⭐ moje cíle a 🙈 skrytá města, odškrtnuté položky „Před cestou“ a 🏠 vlastní ceny na letiště jsou jen v tomhle prohlížeči. Přenes je do telefonu nebo počítače ${link ? 'odkazem, nebo souborem' : 'souborem'} – nic se neukládá na server.</p>
       <div id="bkBody">
         <div class="bk-actions">
-          ${link ? '<button type="button" class="btn primary" id="bkLink">📲 Přenést odkazem</button>' : ''}
-          ${canShare ? `<button type="button" class="btn${link ? '' : ' primary'}" id="bkShare">📤 Poslat soubor zálohy</button>` : ''}
-          <button type="button" class="btn${canShare || link ? '' : ' primary'}" id="bkDown">⬇️ Stáhnout zálohu</button>
-          <button type="button" class="btn ghost" id="bkPick">📂 Obnovit ze zálohy…</button>
+          ${link ? '<button type="button" class="btn primary" id="bkLink">Přenést odkazem</button>' : ''}
+          ${canShare ? `<button type="button" class="btn${link ? '' : ' primary'}" id="bkShare"><span class="ico i-sdilet" aria-hidden="true"></span> Poslat soubor zálohy</button>` : ''}
+          <button type="button" class="btn${canShare || link ? '' : ' primary'}" id="bkDown"><span class="ico i-stahnout" aria-hidden="true"></span> Stáhnout zálohu</button>
+          <button type="button" class="btn ghost" id="bkPick">Obnovit ze zálohy…</button>
           <input type="file" id="bkFile" accept=".json,.txt,application/json,text/plain" hidden>
         </div>
         <div class="faint" style="font-size:12.5px;margin-top:12px"><span id="bkStatus">${statusTxt()}</span><span id="bkStore"></span></div>
@@ -761,7 +761,7 @@
     const has = (S.trips || []).length || (S.watch || []).length;
     const n = S.backupAt ? daysAgo(S.backupAt) : null;
     const nudge = !has ? '' : n == null ? '<span class="faint">zatím bez zálohy – vše je jen v tomhle prohlížeči</span>' : n >= 30 ? `<span class="faint">poslední záloha před ${n} dny</span>` : '';
-    return `<div class="row wrap plan-tools"><button type="button" class="btn sm ghost" id="bkOpen">💾 Záloha do souboru</button>${nudge}</div>`;
+    return `<div class="row wrap plan-tools"><button type="button" class="btn sm ghost" id="bkOpen"><span class="ico i-stahnout" aria-hidden="true"></span> Záloha do souboru</button>${nudge}</div>`;
   }
 
   // 📲 přenos odkazem (transfer.js): stav zařízení k zabalení (cesty bez tripId dostanou pid jako u zálohy – bez razítka

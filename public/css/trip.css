@@ -279,12 +279,11 @@ details.more.ex-places>summary::before{content:none}
   /* kategorie v jednom posuvném řádku místo pěti; chyba se „Zkusit znovu“ pod textem */
   .ex-cats{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
   .ex-cats button{flex:none;white-space:nowrap}
-  /* přepínač režimů v jednom řádku: ikona nad krátkým názvem (místo čtyř řádků dlouhých názvů) */
+  /* přepínač režimů v jednom řádku: krátký název (místo čtyř řádků dlouhých názvů) */
   #exMode{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));width:100%}
   #exMode button{padding:6px 2px;font-size:11.5px}
   #exMode .m-long{display:none}
   #exMode .m-short{display:flex;flex-direction:column;align-items:center;gap:1px;white-space:nowrap}
-  #exMode .m-short b{font-size:17px;font-weight:400;line-height:1.25}
   .ex-err{flex-wrap:wrap}.ex-err .btn{width:100%}}
 /* Telefon: kompaktní karta ubytování (~135–160 px místo 230–460 px u TripAdvisoru – na obrazovku se vejde ~5 hotelů místo 2,
    porovnává se bez posouvání). .st-main a .st-price se rozpustí do mřížky karty: nahoře malá fotka, název, typ
@@ -597,12 +596,14 @@ table.cost tr.entry-tot td{font-weight:800;border-bottom:none}
 .stepbar i{flex:1 1 0;min-width:6px;height:2px;margin-top:18px;background:var(--border-2);border-radius:2px}
 .stepbar i.done{background:var(--good)}
 .stepbar .st{flex:none;display:flex;flex-direction:column;align-items:center;gap:5px;padding:0 2px;border:none;background:none;color:var(--muted);font:700 11.5px Inter,sans-serif;cursor:pointer;white-space:nowrap}
-.stepbar .st span{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;background:var(--surface-2);border:1px solid var(--border);font-size:17px;transition:transform .15s}
-.stepbar .st:active span{transform:scale(.92)}
+.stepbar .st>span{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;background:var(--surface-2);border:1px solid var(--border);color:var(--text);font-size:17px;transition:transform .15s}
+.stepbar .st:active>span{transform:scale(.92)}
+/* ikona kroku (ikona() v trip.js) ve 20 px jako ikony spodní lišty – stejně silná čára */
+.stepbar .st .ico{width:20px;height:20px}
 .stepbar .st.done{color:var(--text)}
-.stepbar .st.done span{background:var(--good);border-color:transparent;color:#04231a;font-weight:800;font-size:15px}
+.stepbar .st.done>span{background:var(--good);border-color:transparent;color:#04231a;font-weight:800;font-size:15px}
 .stepbar .st.on{color:var(--text);font-weight:800}
-.stepbar .st.on span{background:var(--grad);border-color:transparent;box-shadow:0 8px 18px -8px rgba(91,140,255,.8)}
+.stepbar .st.on>span{background:var(--grad);color:#fff;border-color:transparent;box-shadow:0 8px 18px -8px rgba(91,140,255,.8)}
 /* karta kroku */
 .step-card{border-radius:24px}
 .step-card h3{font-size:18px;margin-bottom:10px}
@@ -655,7 +656,7 @@ table.cost tr.entry-tot td{font-weight:800;border-bottom:none}
   .th-total .tt{font-size:19px}
   .stepbar{padding:10px 6px 8px;margin-left:-4px;margin-right:-4px}
   .stepbar .st{font-size:10.5px}
-  .stepbar .st span{width:34px;height:34px;font-size:15px}
+  .stepbar .st>span{width:34px;height:34px;font-size:15px}
   .stepbar i{margin-top:16px;min-width:3px}
   .tl-route b{font-size:18px}
 }

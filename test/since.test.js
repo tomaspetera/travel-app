@@ -174,7 +174,7 @@ test('řádek „Od minula“ pod hledáním: „+2 další“, ale „+5 dalš�
   assert.match(FL, /\+\$\{rest\} \$\{rest <= 4 \? 'další' : 'dalších'\}/);
   assert.doesNotMatch(FL, /\} další<\/span>/);
   const APP = readFileSync(new URL('../public/js/app.js', import.meta.url), 'utf8');
-  assert.match(APP, /data-nw-save>💾 Uložit do Mých cest</);
+  assert.match(APP, /data-nw-save>Uložit do Mých cest</);
   assert.match(APP, /'Dnes na cestě i bez plánovače', [^\n]*💾 Uložit do Mých cest/);
   assert.doesNotMatch(APP, /<b>💾 Uložit do plánovače<\/b>/);
 });

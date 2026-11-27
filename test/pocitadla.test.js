@@ -359,7 +359,7 @@ test('count.js: bez souhlasu nic neukládá do prohlížeče – žádné cookie
   C.hit('app_open');
   assert.deepEqual(log.beacons, [{ url: 'https://letsi.example/app/api/count', body: '{"e":"app_open"}' }], 'jen název události');
   assert.equal(log.fetches.length, 0);
-  assert.deepEqual(Object.keys(ctx.Count).sort(), ['ask', 'consent', 'deep', 'helping', 'hit', 'rageTap', 'view', 'viewEvent']);
+  assert.deepEqual(Object.keys(ctx.Count).sort(), ['ask', 'askedNow', 'consent', 'deep', 'helping', 'hit', 'holdAsk', 'rageTap', 'view', 'viewEvent']);
   assert.equal(ctx.Count.helping(), false, 'bez localStorage = bez souhlasu');
 });
 
