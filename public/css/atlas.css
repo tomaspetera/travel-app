@@ -837,6 +837,8 @@ html:has(#modalBg.show) body{overflow:hidden} /* na body, ne na html: přejde na
 .tf-lead{font-size:14px;margin-bottom:12px}
 .tf-qr-box{display:flex;flex-direction:column;align-items:center;margin:0 0 12px;min-height:60px}
 .tf-qr-box .note{align-self:stretch}
+/* prázdný rámeček (QR kód schovaný, odkaz se ještě chystá) nezabírá místo – okno pak neposkočí */
+.tf-qr-box:empty{display:none}
 .tf-wait{font-size:13px;padding:20px 0}
 .tf-qr{display:block;padding:0;border:0;border-radius:10px;background:#fff;line-height:0;cursor:zoom-in;-webkit-tap-highlight-color:transparent;max-width:100%}
 .tf-qr svg{display:block;max-width:100%;height:auto}
@@ -986,7 +988,6 @@ html:has(#modalBg.show) body{overflow:hidden} /* na body, ne na html: přejde na
 .i-plus{--ico:url(../vendor/letsi/ikony/plus.svg)}
 .i-poloha{--ico:url(../vendor/letsi/ikony/poloha.svg)}
 .i-program{--ico:url(../vendor/letsi/ikony/program.svg)}
-.i-qr{--ico:url(../vendor/letsi/ikony/qr.svg)}
 .i-sdilet{--ico:url(../vendor/letsi/ikony/sdilet.svg)}
 .i-skryt{--ico:url(../vendor/letsi/ikony/skryt.svg)}
 .i-smazat{--ico:url(../vendor/letsi/ikony/smazat.svg)}
