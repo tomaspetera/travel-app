@@ -117,8 +117,8 @@ const NAV = [['dashboard', 'Přehled', 'Levné lety a tvoje cesty', 'M3 12l9-9 9
 ['flights', 'Lety', 'Levné letenky ze všech letišť v okolí', 'M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z'],
 ['trip', 'Cesty', 'Moje cesty a průvodce: let, ubytování, auto, program', 'M9 6V4h6v2M3 7h18v13H3zM8 7v13M16 7v13'],
 ['explore', 'Objevuj', 'Co vidět a kam vyrazit kdekoliv na světě', 'M12 2a7 7 0 017 7c0 5-7 13-7 13S5 14 5 9a7 7 0 017-7zM12 11.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z'],
-['map', 'Mapa', 'Procestuj svět a odškrtávej země', 'M9 20l-5.5 2.5V5L9 2.5m0 17.5l6-3m-6 3V2.5m6 14.5l5.5 2.5V5L15 2.5m0 14.5V2.5m-6 0l6 3'],
-['countries', 'Země', 'Počasí, ceny, bezpečnost a tipy', 'M12 2a10 10 0 100 20 10 10 0 000-20zM2 12h20M12 2c2.5 2.7 4 6.3 4 10s-1.5 7.3-4 10c-2.5-2.7-4-6.3-4-10s1.5-7.3 4-10z'],
+['map', 'Mapa', 'Moje mapa – kde jsem byl/a', 'M9 20l-5.5 2.5V5L9 2.5m0 17.5l6-3m-6 3V2.5m6 14.5l5.5 2.5V5L15 2.5m0 14.5V2.5m-6 0l6 3'],
+['countries', 'Země', 'Země – vstup, sezóna, ceny', 'M12 2a10 10 0 100 20 10 10 0 000-20zM2 12h20M12 2c2.5 2.7 4 6.3 4 10s-1.5 7.3-4 10c-2.5-2.7-4-6.3-4-10s1.5-7.3 4-10z'],
 ['recommend', 'Doporučení', 'Kam se vyplatí jet právě teď', 'M12 2l2.4 7.4H22l-6 4.3 2.3 7.3-6.3-4.6L5.7 21 8 13.7 2 9.4h7.6z']];
 let activeView = 'dashboard';
 function ico(d) { return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="${d}"/></svg>`; }
@@ -128,7 +128,7 @@ const ikona = n => `<span class="ico i-${n}" aria-hidden="true"></span>`;
 function buildNav() {
   // U přehledu odznak „zlevnilo“ z hlídaných cen (plní flights.js). Nadpisy skupin (NAV_GROUP) ukazuje jen panel Letsi na
   // počítači (desktop.css) – sedm sekcí pod sebou bez členění se hůř hledá.
-  $('#nav').innerHTML = NAV.map(n => (NAV_GROUP[n[0]] ? `<div class="nav-h" aria-hidden="true">${NAV_GROUP[n[0]]}</div>` : '') + `<div class="nav-item" data-view="${n[0]}">${ico(n[3])}<span>${n[1]}</span>${n[0] === 'map' ? '<span class="nav-badge" id="navBadge">0</span>' : n[0] === 'dashboard' ? '<span class="nav-badge drop" id="navDrops" title="Hlídané ceny, které od minule zlevnily" hidden></span>' : ''}</div>`).join('');
+  $('#nav').innerHTML = NAV.map(n => (NAV_GROUP[n[0]] ? `<div class="nav-h" aria-hidden="true">${NAV_GROUP[n[0]]}</div>` : '') + `<div class="nav-item" data-view="${n[0]}">${ico(n[3])}<span>${n[1]}</span>${n[0] === 'map' ? '<span class="nav-badge" id="navBadge" hidden></span>' : n[0] === 'dashboard' ? '<span class="nav-badge drop" id="navDrops" title="Hlídané ceny, které od minule zlevnily" hidden></span>' : ''}</div>`).join('');
   // Na mobilu dole pět pevných míst: Přehled, Lety, Cesty, Objevuj a ⋯ Další (ostatní sekce a nastavení). Lišta je
   // jediná pevná orientace (i v návodech), proto se podle používání nepřeskládá (dřív ji řadil počet otevření a
   // Objevuj z ní mizel).
@@ -137,12 +137,12 @@ function buildNav() {
   const mi = k => (n => `<button type="button" class="mi" data-view="${k}" title="${n[1]}">${ico(n[3])}<span>${n[1]}</span>${k === 'dashboard' ? '<i class="mi-dot" id="mobDrops" hidden><span class="sr-only"> – zlevnilo</span></i>' : ''}</button>`)(NAV.find(n => n[0] === k));
   $('#mobileNav').innerHTML = ['dashboard', ...navBar].map(mi).join('')
     + `<button type="button" class="mi" id="moreNav" title="Další" aria-label="Další – ostatní sekce, domov, záloha a vzhled">${ico('M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6h-6zM14 14h6v6h-6z')}<span>Další</span></button>`;
-  $$('[data-view]').forEach(el => el.onclick = () => go(el.dataset.view));
+  $$('[data-view]').forEach(el => el.onclick = () => tabGo(el.dataset.view));
   // Postranní panel (počítač, tablet – na telefonu skrytý): sekce přidá krok historie jako na webu – Zpět prohlížeče
   // vrátí na sekci, odkud uživatel přišel (ne vždy na Přehled), a tam, kde na ní byl. Z klávesnice Tab + Enter.
   $$('.nav-item').forEach(el => {
     el.tabIndex = 0; el.setAttribute('role', 'link');
-    el.onclick = () => go(el.dataset.view, { drill: true });
+    el.onclick = () => tabGo(el.dataset.view, { drill: true });
     el.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); el.click(); } };
   });
   $$('.world-tabs [data-w]').forEach(b => b.onclick = () => go(b.dataset.w, { keepScroll: true }));
@@ -254,7 +254,7 @@ let lastWorld = 'map';
    Okno zavřené jinak (✕, klepnutí vedle, stažení dolů, Escape) svůj krok vrátí přes history.back() – ten je
    asynchronní: zápisy do historie, které přijdou mezitím (go() hned po modalClose(), další okno), počkají na jeho
    popstate, jinak by návrat skončil na staré adrese a hashchange přepnul pohled zpátky. */
-const hist = { modal: false, mq: null, step: false, trail: [], sub: null, backs: 0, queue: [], t: 0 };
+const hist = { modal: false, mq: null, step: false, trail: [], sub: null, subAt: 0, backs: 0, queue: [], t: 0 };
 // Posun stránky po Zpět řídí aplikace (sekce tam, kde uživatel byl – viewStep, okno a náhled stránkou nehýbou):
 // automatická obnova prohlížeče by skočila na posun z dřívějška i ve chvíli, kdy se mezitím přepnula sekce (okno
 // zavřené a hned jiná sekce) a nová sekce by začala uprostřed. Nové kroky ruční obnovu přebírají od aktuálního.
@@ -337,7 +337,22 @@ function histSub(back) {
     let st = history.state;
     // sekce bez kroku (aplikace otevřená rovnou v ní): Přehled pod ní jako u sekce z lišty
     if (!histDepth(st)) { history.replaceState(st, '', '#dashboard'); history.pushState(st = { atlasV: 1 }, '', '#' + activeView); }
-    history.pushState({ atlasV: histDepth(st) + 1, atlasS: 1 }, '', '#' + activeView);
+    history.pushState({ atlasV: hist.subAt = histDepth(st) + 1, atlasS: 1 }, '', '#' + activeView);
+  });
+}
+/**
+ * Seznam Moje cesty místo průvodce („‹ Moje cesty“, záložka Cesty – trip.js showMine, mine): kroky průvodce a krok
+ * uvnitř sekce pryč z historie. Jinak by Zpět ze seznamu jednou „nic neudělalo“ (krok průvodce, který už není vidět)
+ * a na Přehled vedlo až to druhé.
+ */
+function histTop() {
+  histDo(() => {
+    // vrátit jen kroky navrchu historie (krok průvodce a pod ním krok seznamu – hloubka z histSub): po odbočce z Cest
+    // jinam (panel na počítači, odkaz) a zpátky leží pod jinou sekcí a návrat by z Cest odešel tam
+    const st = history.state, d = histDepth(st);
+    const top = hist.step && st && st.atlasT ? 1 : 0, n = top + (hist.sub && hist.subAt === d - top && (top || (st && st.atlasS)) ? 1 : 0);
+    hist.step = false; hist.trail = []; hist.sub = null;
+    if (n && !hist.modal) histBack(n);
   });
 }
 function histPop() {
@@ -406,6 +421,11 @@ const flBack = (kept, mark, busy) => (kept && mark && kept.mark === mark && !bus
 document.addEventListener('submit', () => { flKept = null; }, true);
 // Cesta bez rozpracované cesty ukáže Moje cesty, jsou-li nějaké (trip.js render) – ve statistikách jako Moje cesty
 const tripMine = (trip, trips) => !trip && Array.isArray(trips) && trips.some(Boolean);
+// kolik cest je v Mých cestách: uložené a rozpracovaná z průvodce, není-li mezi nimi (trip.js entryOf – podle tripId)
+const tripCount = (trip, trips) => { const l = Array.isArray(trips) ? trips.filter(Boolean) : []; return l.length + (trip && !l.some(x => x.tripId && x.tripId === trip.created) ? 1 : 0); };
+// Sekce z lišty nebo panelu. Cesty se dvěma a více cestami = seznam Moje cesty (rozpracovaná nahoře s „pokračovat ›“):
+// rovnou průvodce jedné z nich schovával ostatní za odkaz „‹ Moje cesty“. S jednou cestou průvodce jako dřív.
+const tabGo = (v, opts = {}) => go(v, v === 'trip' && tripCount(S.trip, S.trips) >= 2 ? { ...opts, mine: true } : opts);
 function go(v, opts = {}) {
   // Plánovač je 🧳 Moje cesty v záložce Cesta: staré odkazy (#planner, zástupce na ploše) i „Otevřít plán →“ vedou
   // na seznam cest – i když je v průvodci rozpracovaná cesta
@@ -430,8 +450,9 @@ function go(v, opts = {}) {
   $$('.mobile-nav .mi').forEach(el => cur(el, el.dataset.view === v || (el.id === 'moreNav' && !inBar)));
   navCount(v);
   if (WORLD_VIEWS.includes(v)) { lastWorld = v; $$('.world-tabs [data-w]').forEach(b => { b.classList.toggle('on', b.dataset.w === v); b.setAttribute('aria-pressed', String(b.dataset.w === v)); }); }
-  // Mapa a Země jsou jedna sekce Svět (přepínač nahoře, v liště i v menu „Svět“) – nadpis Svět, ne „Mapa“
-  const [ttl, sub] = WORLD_VIEWS.includes(v) ? NAV_INFO.world : NAV.find(x => x[0] === v).slice(1); $('#pageTitle').textContent = ttl; $('#pageSub').textContent = sub;
+  // Mapa a Země jsou jedna sekce Svět (přepínač nahoře, v liště i v menu „Svět“) – nadpis Svět, ne „Mapa“; podnadpis
+  // podle karty (na počítači jsou v panelu zvlášť a pod stejným „Svět“ se nedalo poznat, co je co)
+  const nv = NAV.find(x => x[0] === v); $('#pageTitle').textContent = WORLD_VIEWS.includes(v) ? NAV_INFO.world[0] : nv[1]; $('#pageSub').textContent = nv[2];
   // i left: 0 – posun na (0, 0) prohlížeč provede bez vynuceného rozvržení stránky (jen top by si ho vyžádal)
   if (!opts.keepScroll) window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
   if (flY != null) {
@@ -565,13 +586,15 @@ function applyMapStyle() {
 $('#mapStyle').onclick = () => { S.mapStyle = S.mapStyle === 'dark' ? 'light' : 'dark'; save(); applyMapStyle(); if (window.Places) Places.retheme(); };
 
 /* ================= STATS ================= */
+// odznak u Mapy v panelu: „3 země“ – samotné „0“ nikdo nečetl jako počet navštívených zemí; bez nich žádný
+const visBadge = n => (n > 0 ? `${n} ${n <= 4 ? 'země' : 'zemí'}` : '');
 function stats() {
   const v = [...visited]; const conts = new Set(v.map(i => byIso[i]?.cont).filter(Boolean));
   return { count: v.length, pct: Math.round(v.length / TOT * 100), conts: conts.size };
 }
 function refreshStats() {
   const st = stats();
-  const badge = $('#navBadge'); if (badge) badge.textContent = st.count;
+  const badge = $('#navBadge'); if (badge) { badge.textContent = visBadge(st.count); badge.hidden = !st.count; }
   if ($('#mapPct')) {
     $('#mapPct').textContent = st.pct + ' %'; $('#mapBar').style.width = st.pct + '%'; $('#mapCount').textContent = st.count; $('#mapCont').textContent = st.conts;
     const chip = $('#mapChip'), zemi = n => n >= 1 && n <= 4 ? 'země' : 'zemí';
@@ -1936,6 +1959,7 @@ function openCountry(iso) {
      <div style="margin-top:14px"><div class="k" style="font-size:11px;color:var(--muted);text-transform:uppercase;font-weight:700;letter-spacing:.04em">Nejlepší období${c.months ? '' : ' — orientačně'}</div>${monthsStrip(c.months)}</div>
      <div id="climBox" style="margin-top:12px" title="Dlouhodobý průměr – není to předpověď"><div class="k clim-k">Průměrná denní maxima <span id="climWhere" class="faint"></span></div>${climStrip(null)}</div>
      ${c.tags ? `<div class="tags" style="margin-top:16px">${c.tags.map(t => `<span class="chip accent">${t}</span>`).join('')}</div>` : ''}
+     ${window.Plus ? `<p class="cm-sesit"><button type="button" class="linkbtn" id="cmSesit">${ikona('stahnout')} Uložit do Sešitu · Plus</button></p>` : ''}
      <div class="note info" style="margin-top:16px">${ico('M12 16v-4M12 8h.01M12 2a10 10 0 100 20 10 10 0 000-20z')}<div>Bezpečnostní a geopolitická situace se mění. Před cestou si vždy ověř aktuální doporučení na <a href="${mzv}" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">MZV ČR</a>.</div></div>
    </div>`);
   // tlačítka okna (data-cm) – obsluha tady, ne atributem onclick v HTML (CSP)
@@ -1944,6 +1968,9 @@ function openCountry(iso) {
   // cesta z průvodce do průvodce (Shrnutí), vlastní cesta do svého okna – jako klepnutí na kartu v Mých cestách
   const ct = $('#cmTrip');
   if (ct) ct.onclick = () => { const t = S.trips[mine.i]; modalClose(); if (!t) return; if (t.wizard) withMod('trip', () => Trip.openSaved(t.wizard, t.tripId)); else openTrip(mine.i); };
+  // ⭐ Plus jako falešné dveře (plus.js): průvodce zemí do Sešitu offline – zatím jen měří zájem a ukáže Zdarma × Plus
+  const cs = $('#cmSesit');
+  if (cs) { Plus.countryShown(iso, cs); cs.onclick = () => Plus.fromCountry(); }
   Photos.paint($('#modal')); // fotka hlavního města v hlavičce
   loadWeather(c);
   loadFx(c);
@@ -2282,15 +2309,22 @@ async function saveTrip(iso, flightTxt) {
   if (window.Plus) Plus.gateNewTrip('form', add, trip); else add();
 }
 /** „Hledat lety“ u cesty v plánovači: do jejího města (nebo země) v termínu cesty, je-li ještě před ní. */
-window.planSearch = i => {
-  const t = S.trips[i]; if (!t || !window.Flights) return go('flights');
+window.planSearch = i => tripFlights(S.trips[i]);
+/**
+ * Lety do cíle cesty t ({ wizard, place, iso, start, end } – uložená cesta, i stav průvodce: „↩ Jiný let“, „Změnit let“
+ * v ✏️ Upravit) s předvyplněným cílem a termínem.
+ */
+window.tripFlights = t => {
+  if (!t || !window.Flights) return go('flights');
   // cesta přes víc měst letadlem (z průvodce): stejná trasa znovu, ne zpáteční let do prvního města
   const wf = t.wizard && t.wizard.flight;
   if (wf && wf.out && Array.isArray(wf.mid) && wf.mid.length && Flights.searchLegs) {
     return Flights.searchLegs([wf.out, ...wf.mid, ...(wf.back ? [wf.back] : [])], ((t.wizard.route && t.wizard.route.bases) || []).map(b => b.name));
   }
   const wd = t.wizard && t.wizard.dest, p = t.place || (wd && { id: wd.id, label: wd.label, flag: wd.cc ? flag(wd.cc) : '' });
-  const to = p && /^(ap|metro):[A-Z]{3}$/.test(p.id || '') ? [{ id: p.id, label: String(p.label || ''), flag: p.flag || (t.iso ? flag(t.iso) : '') }]
+  // cesta z průvodce s cílem městem („Lisabon“ z Letenku už mám): letiště, kam let vede – ne celá země
+  const ap = p && /^(ap|metro):[A-Z]{3}$/.test(p.id || '') ? p.id : wf && wf.out && /^[A-Z]{3}$/.test(wf.out.to) ? 'ap:' + wf.out.to : '';
+  const to = ap ? [{ id: ap, label: String((p && p.label) || (wf && wf.out.to) || ''), flag: (p && p.flag) || (t.iso ? flag(t.iso) : '') }]
     : t.iso && byIso[t.iso] ? [{ id: 'cc:' + t.iso, label: byIso[t.iso].cs, flag: flag(t.iso) }] : null;
   if (!to) return go('flights');
   Flights.searchTo(to, { xOut: t.start, xBack: t.end });
@@ -2371,31 +2405,52 @@ function shiftEnd(oldStart, end, start) {
   if (okYmd(oldStart) && okYmd(end) && okYmd(start)) return new Date(Date.parse(end) + Date.parse(start) - Date.parse(oldStart)).toISOString().slice(0, 10);
   return end && okYmd(start) && end < start ? start : end;
 }
-/** Popisek odkazu do editTrip: cestě z průvodce (t.wizard) jde změnit jen název – termín a cestující jsou podle letu. */
-const tripEditLbl = t => (t && t.wizard ? 'Upravit název' : 'Upravit název a termín');
+/** Cesta z průvodce s vlastním letem (Letenku už mám): termín i cestující jde změnit – žádná nabídka je neurčuje. */
+const ownWiz = t => Boolean(t && t.wizard && t.wizard.flight && t.wizard.flight.own && t.wizard.flight.out);
+/** Popisek odkazu do editTrip: cestě s letem vybraným z výsledků jde změnit jen název – termín a cestující jsou podle letu. */
+const tripEditLbl = t => (t && t.wizard && !ownWiz(t) ? 'Upravit název' : 'Upravit název a termín');
 /**
  * ✏️ Upravit v detailu cesty: název, termín a počet cestujících (dřív jen při vytvoření – překlep nebo posunutá cesta
- * znamenaly smazat a založit znovu). Cesta z průvodce má termín a cestující podle letu – ty se mění v průvodci (při
- * dalším uložení by je průvodce stejně přepsal); vlastní název jí průvodce nechá.
+ * znamenaly smazat a založit znovu). Cesta s letem z výsledků má termín a cestující podle letu – jen ke čtení a „Změnit
+ * let“ (Lety s cílem a daty cesty); vlastní název jí průvodce nechá. Cesta z průvodce s vlastním letem se přepočítá
+ * v průvodci (Trip.retimeSaved – let, program, název s datem).
  */
 function editTrip(i) {
   const t = S.trips[i]; if (!t) return;
-  const fixed = Boolean(t.wizard);
+  const own = ownWiz(t), fixed = Boolean(t.wizard) && !own;
   modalOpen(`<div class="modal-hero"><div class="mh-bg"></div><button class="modal-close" data-close aria-label="Zavřít">${ico('M18 6L6 18M6 6l12 12')}</button><div class="modal-hero-inner"><h2 style="font-size:24px">✏️ Upravit cestu</h2><div style="font-size:13px">${esc(t.dest)}</div></div></div>
   <div class="modal-body">
     <div class="field"><label for="etName">Název cesty</label><input class="input" id="etName" value="${esc(t.name || '')}" maxlength="120"></div>
-    ${fixed ? `<div class="note info" style="margin-top:12px">📅 ${t.start ? esc(dateSpan(t.start, t.end, ' – ')) + ' – ' : ''}termín a počet cestujících jsou podle letu, změníš je v průvodci (🧳 Otevřít v průvodci).</div>`
+    ${fixed ? `<div class="note info" style="margin-top:12px">${ikona('kalendar')} <div>${t.start ? `<b>${esc(dateSpan(t.start, t.end, ' – '))}</b> · ${esc(t.pax)} os.<br>` : ''}Termín a počet cestujících jsou podle vybraného letu.</div></div>
+    <button type="button" class="btn block" id="etFlight" style="margin-top:8px">${ikona('let')} Změnit let</button>
+    <div class="faint" style="font-size:12px;margin-top:6px">Otevřu Lety s cílem a termínem cesty – nový let pak vybereš do průvodce.</div>`
     : `<div class="grid" style="grid-template-columns:repeat(2,minmax(0,1fr));margin-top:12px"><div class="field"><label for="etStart">Odjezd</label><input class="input" type="date" id="etStart" value="${okYmd(t.start) ? t.start : ''}"></div><div class="field"><label for="etEnd">Návrat</label><input class="input" type="date" id="etEnd" value="${okYmd(t.end) ? t.end : ''}" min="${okYmd(t.start) ? t.start : ''}"></div></div>
-    <div class="faint" style="font-size:12px;margin-top:6px">Návrat i program dnů se posunou s odjezdem; co by vypadlo za návrat, přidám k poslednímu dni.</div>
+    <div class="faint" style="font-size:12px;margin-top:6px">Návrat i program dnů se posunou s odjezdem; co by vypadlo za návrat, přidám k poslednímu dni.${own ? ' Datum letu se změní taky.' : ''}</div>
     <div class="field" style="margin-top:12px"><label for="etPax">Cestující</label><select id="etPax">${[1, 2, 3, 4, 5, 6, 7, 8, 9].map(n => `<option ${n === (+t.pax || 2) ? 'selected' : ''}>${n}</option>`).join('')}</select></div>`}
     <div class="row" style="gap:8px;margin-top:18px"><button class="btn primary" style="flex:1" id="etSave">Uložit</button><button class="btn ghost" id="etBack">Zpět</button></div>
   </div>`);
   const st = $('#etStart'); let prev = st && st.value;
   if (st) st.onchange = e => { const v = e.target.value, en = $('#etEnd'); en.value = shiftEnd(prev, en.value, v); en.min = v; if (okYmd(v)) prev = v; };
   $('#etBack').onclick = () => openTrip(i);
+  const ef = $('#etFlight'); if (ef) ef.onclick = () => { modalClose(); tripFlights(t); };
   $('#etSave').onclick = () => {
     const x = S.trips[i]; if (x !== t) return modalClose(); // mezitím smazaná nebo jiná cesta (jiný panel, záloha)
     const name = $('#etName').value.trim();
+    if (own) {
+      const start = $('#etStart').value, end = $('#etEnd').value, pax = $('#etPax').value;
+      if (!okYmd(start)) { toast('Zadej datum odjezdu – let bez něj nejde', 'err'); return; }
+      if (end && end < start) { toast('Návrat je před odjezdem', 'err'); return; }
+      if (name) t.name = name;
+      if (start === t.start && end === (t.end || '') && pax === String(t.pax)) { save(); tripsChanged(); openTrip(i); toast('Cesta upravená'); return; }
+      // přepočet je v průvodci (trip.js se stahuje až po startu) – záznam cesty nahradí nový se stejným místem v seznamu
+      withMod('trip', () => {
+        if (S.trips[i] !== t) return modalClose();
+        const msg = Trip.retimeSaved(t, { start, end, adults: pax });
+        if (msg == null) { toast('Termín se nepodařilo změnit', 'err'); return; }
+        tripsChanged(); openTrip(i); toast(msg ? `Termín změněn – ${msg}` : 'Cesta upravená');
+      });
+      return;
+    }
     if (!fixed) {
       const start = $('#etStart').value, end = $('#etEnd').value;
       if (start && end && end < start) { toast('Návrat je před odjezdem', 'err'); return; }

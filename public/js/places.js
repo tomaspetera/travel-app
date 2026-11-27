@@ -1923,6 +1923,15 @@
   const countryName = (p, d) => d?.country || countryCs(p.cc) || p.country || '';
   // země jako cíl hledání letů (cc:IT – všechna letiště země); do Česka (domov) ne
   const countryTarget = (cc, name) => (/^[A-Z]{2}$/.test(cc || '') && cc !== 'CZ' && name ? { id: `cc:${cc}`, type: 'country', label: name, flag: flag(cc) } : null);
+  // Průvodce zemí (vstup a víza, počasí, bezpečnost – app.js openCountry) přímo ze záhlaví výsledku: dřív jen přes
+  // Další → Svět → Země → hledat. Česko ne (vstup tu nikoho nezajímá), země bez průvodce (mimo countries.json) taky ne.
+  const guideCc = cc => { const c = String(cc || '').toUpperCase(); return c !== 'CZ' && typeof openCountry === 'function' && typeof byIso === 'object' && byIso[c] ? c : ''; };
+  function guideBtn(body, cc) {
+    const c = guideCc(cc), rs = c && $('#exReset', body);
+    if (!rs) return;
+    rs.insertAdjacentHTML('beforebegin', `<button type="button" class="btn sm ghost" id="exGuide">${ikona('info')} Vstup, počasí, bezpečnost</button>`);
+    $('#exGuide', body).onclick = () => openCountry(c);
+  }
   /** Karta cíle v přehledu země: fotka, druh, vzdálenost od místa, popis (český, jinak úryvek z Wikivoyage) a akce. */
   function countryCard(x, g, center) {
     const desc = x.extract || x.description || x.blurb || '';
@@ -2049,6 +2058,7 @@
     });
     const fl = $('#exCFly', body); if (fl) fl.onclick = () => Flights.searchTo([tgt]);
     const rs = $('#exReset', body); if (rs) rs.onclick = () => resetExplore();
+    guideBtn(body, d.cc || p.cc);
     $$('[data-ccat]', body).forEach(b => b.onclick = () => { ex.cCat = b.dataset.ccat; remember(); paintCountry(); });
     // na telefonu je řada čipů posuvná – vybraný čip po překreslení vidět; posunout jen když by byl mimo, jinak by
     // u „Vše“ zajel popisek „Co hledáš?“ napůl pod okraj („EDÁŠ?“)
@@ -3153,6 +3163,7 @@
     // termín změněný po vykreslení (hlavička se hned nepřekresluje) – adresa až při klepnutí
     on('#exIdos', 'onclick', e => { e.currentTarget.href = safeUrl(idosUrl(p, homeCity(), ex.datePicked ? ex.start : '') || e.currentTarget.href); });
     on('#exReset', 'onclick', () => resetExplore());
+    guideBtn(body, p.cc);
     on('#exSaveNew', 'onclick', () => store(true));
     remember();
     // Program pro jiný okruh (okruh se mezitím změnil) se přeplánuje sám – jen když zrovna neběží a neselhal.
@@ -3201,6 +3212,7 @@
       uiSnapshot, uiRestore, okStart, pushRecent, samePlace, cleanPlace, getJson, firstSentence, descHtml, inclHtml, gq, poiQ, centerQ, gmDir, dayLbl, slug, gpxOf, SLOW_MS, UI_LS,
       countryCs, ccAliasHits, stopQ, mapyDir, dayLinks, planHtml, tripHtml, MAPY_WP, emptyHtml, planEmptyHtml, variantTxt, routeHtml, ROUTE_VARIANTS, blankHtml, looksEnglish, surfaceRows, surfaceHtml,
       afterDark, routeBack, sunSlot, sunHtml, fillSun, toHm, modeBtns, previewPick, previewCard, moreTxt, poiUrl, pvFor, PREVIEW_KM, ex, loadExplore,
+      guideCc, guideBtn,
       plannerEntry, findTripFor, mergeInto, busyDays, saveHtml, flyTarget, flyDates, idosUrl, idosOn, homeCity, prefsOf, makePlan, dropUndo, planTimes, tripTimes, roadSpan, carSkipFor,
       RADII, CITY_KM, COUNTRY, cityKm, farOn, withFar, driveMin, countryItems, countryCard, countryTarget, C_GROUPS, CC_CATS, countryPick, loadCountryCat, setRadius, paintCountry, loadFar,
       countryOfText, countrySugs, sugOrder, wholeCountryCat, capitalNote, dropMark, dropRefocus, openPlace, countryBack, wholeCountryOf, pickerHtml, openWholeCountry, CC_POP, smartPlace, smartName, setPlace, natureMode, exploreApply, hikeNature,

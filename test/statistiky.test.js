@@ -72,7 +72,7 @@ test('procenta: dělení nulou null, zaokrouhlení, trychtýř proti předchozí
   assert.deepEqual(f.map((s) => s.n), [200, 300, 45, 9, 0, 2]);
   assert.deepEqual(f.map((s) => s.pct), [null, 150, 15, 20, 0, null], 'po kroku s nulou se nedělí');
   const d = plain(S.doors({ limit_shown: 40, limit_plus: 10, limit_download: 3, plus_offer_click: 2 }));
-  assert.deepEqual(d.map((x) => x.shown), [40, 0, 0]);
+  assert.deepEqual(d.map((x) => x.shown), [40, 0, 0, 0]);
   assert.deepEqual(d[0].clicks.map((c) => [c.label, c.n, c.pct]), [['chci Plus', 10, 25], ['stáhnout', 3, 8], ['nahradit', 0, 0]]);
   assert.deepEqual(d[1].clicks.map((c) => c.pct), [null], 'klepnutí bez zobrazení – procento nedává smysl');
   assert.equal(S.fmtPct(null), '–');

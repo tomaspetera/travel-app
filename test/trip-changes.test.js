@@ -570,7 +570,7 @@ test('ubytování „jen odkazy“: v průběhu i poznámkách „zatím nevybr�
   assert.match(tj, /const unbook = \(t, id\) => \{ if \(t && t\.booked\) delete t\.booked\[id\]; \};/);
   assert.match(tj, /set: v => \{ T\(\)\.stay = v; unbook\(T\(\), 'stay'\); \}/);
   assert.match(tj, /set: v => \{ b\.stay = \{ \.\.\.v, checkin: d\.checkin, checkout: d\.checkout \}; unbook\(t, stayBookId\(b, d\)\); \}/);
-  assert.equal((tj.match(/unbook\(t, 'stay'\)/g) || []).length, 3, 'vlastní cena, jen odkazy, ⚡ výběr');
+  assert.equal((tj.match(/unbook\(t, 'stay'\)/g) || []).length, 4, 'vlastní cena, jen odkazy, ⚡ výběr, nový termín (retimeOwn)');
   assert.equal((tj.match(/unbook\(t, 'car'\)/g) || []).length, 3, 'nové auto, změna míst a časů (i bez Uložit)');
   // zpáteční let týž den: jen „Ubytování neřeším“ (bez ceny a „jen odkazy“, které by ve shrnutí neměly odkaz)
   assert.match(tj, /\$\{nights < 1 \? '' : '<button class="btn ghost" id="stayLinks">Vyberu později – jen odkazy →<\/button>'\}/);

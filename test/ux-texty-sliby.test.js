@@ -63,15 +63,15 @@ test('hlídání ceny: texty podle toho, jak kontrola opravdu běží (po otevř
   assert.doesNotMatch(data, /Letsi skládá i takové kombinace/);
 });
 
-test('úprava cesty: cesta z průvodce jen „Upravit název“, vlastní cesta „Upravit název a termín“', () => {
+test('úprava cesty: cesta s letem z výsledků jen „Upravit název“, vlastní cesta „Upravit název a termín“', () => {
   const m = app.match(/^const tripEditLbl = .*$/m);
   assert.ok(m, 'tripEditLbl v app.js');
-  const tripEditLbl = new Function(`${m[0]}; return tripEditLbl;`)();
+  const tripEditLbl = new Function(`${app.match(/^const ownWiz = .*$/m)[0]}\n${m[0]}; return tripEditLbl;`)();
   assert.equal(tripEditLbl({ wizard: true }), 'Upravit název');
   assert.equal(tripEditLbl({ name: 'Řím' }), 'Upravit název a termín');
   assert.match(app, /id="tripEdit">✏️ \$\{tripEditLbl\(t\)\}<\/button>/);
   // editTrip pole termínu u cesty z průvodce opravdu nemá (stejná podmínka)
-  assert.match(app, /const fixed = Boolean\(t\.wizard\);/);
+  assert.match(app, /const own = ownWiz\(t\), fixed = Boolean\(t\.wizard\) && !own;/);
 });
 
 test('📌 Odložit: hláška pojmenuje skutečné místo a tlačítkem Zobrazit otevře Porovnat', () => {

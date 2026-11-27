@@ -69,7 +69,7 @@ test('změna cest (nová, úprava v okně, smazání, záloha, jiný panel) pře
 
 test('Moje cesty místo Plánovače: Trip.mine ukáže seznam i nad rozpracovanou; úvod bez cest nabídne vlastní cestu bez letu', () => {
   const js = read('js/trip.js');
-  assert.match(js, /function mine\(\) \{\s*const t = T\(\);\s*if \(t\) \{ if \(autoT \|\| !entryOf\(t\)\) autoSave\(\); mineFor = t\.created; \}\s*safeRender\(\);\s*\}/);
+  assert.match(js, /function mine\(\) \{\s*const t = T\(\);\s*if \(t\) \{ if \(autoT \|\| !entryOf\(t\)\) autoSave\(\); mineFor = t\.created; \}\s*safeRender\(\);\s*if \(typeof histTop === 'function'\) histTop\(\);[^\n]*\n\s*\}/);
   assert.match(js, /render: safeRender, mine,/);
   assert.match(js, /\$\{window\.newTrip \? '<button type="button" class="btn ghost" id="tripOwn">' \+ ikona\('plus'\) \+ ' Vlastní cesta bez letu<\/button>' : ''\}/);
   const app = read('js/app.js');
@@ -110,7 +110,7 @@ test('karta cesty: lidé, aktivity a balení v jednom řádku s rozpočtem (na �
 });
 
 test('„🧳 Otevřít v průvodci“ z detailu cesty, která v průvodci je: průvodce, ne zase seznam Moje cesty', () => {
-  assert.match(read('js/trip.js'), /if \(mine && mine\.created === id\) \{ mineFor = null; go\('trip'\); render\(\); return true; \}/);
+  assert.match(read('js/trip.js'), /if \(mine && mine\.created === id\) \{ mineFor = null; go\('trip'\); render\(\); if \(fromList\) listBack\(\); return true; \}/);
 });
 
 test('karta cesty: pod názvem „Řím“ země, ne zase „Řím“; krok Auto bez zdvojeného názvu letiště', () => {

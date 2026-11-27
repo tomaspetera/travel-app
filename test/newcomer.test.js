@@ -99,7 +99,7 @@ test('drobnosti: filtr hodnocení hotelů s ⭐ a popiskem, hotový program „�
   assert.match(pl, /const planBtn = `<button class="btn\$\{hasPlan \? '' : ' primary'\}" id="exPlan"/);
   assert.match(pl, /: hasPlan \? `↻ \$\{planLbl\}` : planLbl\}<\/button>`;/);
   const app = read('js/app.js');
-  assert.match(app, /const \[ttl, sub\] = WORLD_VIEWS\.includes\(v\) \? NAV_INFO\.world : NAV\.find\(x => x\[0\] === v\)\.slice\(1\); \$\('#pageTitle'\)\.textContent = ttl; \$\('#pageSub'\)\.textContent = sub;/);
+  assert.match(app, /const nv = NAV\.find\(x => x\[0\] === v\); \$\('#pageTitle'\)\.textContent = WORLD_VIEWS\.includes\(v\) \? NAV_INFO\.world\[0\] : nv\[1\]; \$\('#pageSub'\)\.textContent = nv\[2\];/);
   assert.match(app, /const NAV_INFO = \{ world: \['Svět', /);
 });
 

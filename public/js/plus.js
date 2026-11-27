@@ -155,6 +155,7 @@
     ['Sdílení cesty', 'ano', 'ano'],
     ['Archiv minulých cest', 'ne', 'ano'],
     ['Sešit cesty k tisku a do PDF', 'ne', 'ano'],
+    ['Průvodce zemí do Sešitu (offline PDF)', 'ne', 'ano'], // informace o zemi zůstávají zdarma, Plus je jen uloží
   ];
   const cell = v => (v === 'ano' ? '<span aria-hidden="true">✓</span><span class="sr-only">ano</span>' : v === 'ne' ? '<span aria-hidden="true">–</span><span class="sr-only">ne</span>' : h(v));
   /**
@@ -240,6 +241,22 @@
     sesitSeen.add(id); hit('sesit_shown');
   }
 
+  const landSeen = new Set();
+  /**
+   * Odkaz „Uložit do Sešitu · Plus“ v okně země (app.js openCountry, el = odkaz) byl vidět – jednou za otevření aplikace
+   * a zemi. Až když je opravdu na obrazovce: na telefonu je pod podnebím daleko pod okrajem a kdo nedojede dolů, ten ho
+   * neviděl – jinak by zájem vyšel přehnaně nízký (jako cardSeen u karty sešitu).
+   */
+  function countryShown(iso, el) {
+    const seen = () => { if (landSeen.has(iso)) return; landSeen.add(iso); hit('sesit_country_shown'); };
+    if (landSeen.has(iso)) return;
+    if (!el || typeof IntersectionObserver === 'undefined') { seen(); return; }
+    const io = new IntersectionObserver(es => { if (es.some(e => e.isIntersecting)) { io.disconnect(); seen(); } });
+    io.observe(el);
+  }
+  /** Klepnutí na ten odkaz: zájem se započítá a otevře se stránka Zdarma × Plus (cena až po otázce – priceNote). */
+  function fromCountry() { hit('sesit_country_click'); open(); }
+
   /**
    * Před vznikem nové cesty, kterou člověk vědomě ukládá (kind: 'form' | 'trip' | 'offer' – odkud). newTrip = nová
    * cesta (proběhlá se nepočítá → bez listu). Bez listu hned proceed(false) a → false; s listem → true a proceed(true)
@@ -309,5 +326,5 @@
     }
   }
 
-  window.Plus = { NAME, YEAR_CZK, MONTH_CZK, PRICES, priceNote, counts, countedTrips, needsGate, askDue, cardPick, cardText, termTxt, sesitLine, sesitHtml, pageHtml, livesTxt, gateFlow, tripKey, open, sesit, sesitShown, gateNewTrip, renderCard, addToMenu };
+  window.Plus = { NAME, YEAR_CZK, MONTH_CZK, PRICES, priceNote, counts, countedTrips, needsGate, askDue, cardPick, cardText, termTxt, sesitLine, sesitHtml, pageHtml, livesTxt, gateFlow, tripKey, open, sesit, sesitShown, countryShown, fromCountry, gateNewTrip, renderCard, addToMenu };
 })();
