@@ -311,7 +311,7 @@
   // Stavy aplikace kukátko nezjišťuje z cizích modulů, jen pozoruje stránku (MutationObserver). Spolehlivé signály
   // v DOM (flights.js je kreslí celé přes innerHTML, takže stačí sledovat přidané a odebrané uzly):
   // - sekce: <section class="view active" id="view-…"> (app.js přepíná třídu active) – Přehled view-dashboard, Lety view-flights;
-  // - hledá se: v #progress je .progress-card bez .done (renderProgress: div.progress-card při startu, details.progress-card.part
+  // - hledá se: v #progress je .progress-card bez .done (renderProgress: details.progress-card.run při startu, details.progress-card.part
   //   s průběžnými výsledky); po dohledání details.progress-card.done;
   // - chyba hledání: #progress .note.bad (výpadek zdroje, server neodpovídá; i s průběžnými výsledky);
   // - prázdný výsledek: #results .empty-res („Nic jsem nenašel“ i „Filtrům nic neodpovídá“ – v obou není co ukázat);

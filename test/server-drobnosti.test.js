@@ -84,7 +84,8 @@ test('lowcostBanner: jeden vynechaný zdroj „ho“ (ne „je“); prázdný v�
   const fl = readFileSync(new URL('../public/js/flights.js', import.meta.url), 'utf8');
   const a = fl.indexOf('  function lowcostBanner('), b = fl.indexOf('  function kiwiOnly(', a);
   assert.ok(a >= 0 && b > a, 'lowcostBanner ve flights.js');
-  const banner = new Function('SearchHelp', 'lastResultAt', `${fl.slice(a, b)}; return lowcostBanner;`)(ctx.window.SearchHelp, Date.now());
+  const ikona = n => `<span class="ico i-${n}" aria-hidden="true"></span>`; // stejná kopie jako ve flights.js
+  const banner = new Function('SearchHelp', 'lastResultAt', 'ikona', `${fl.slice(a, b)}; return lowcostBanner;`)(ctx.window.SearchHelp, Date.now(), ikona);
   const tp = { id: 'travelpayouts', outage: 'blocked', retryAfter: 60 };
   const empty = banner({ providers: [tp], groups: [] });
   assert.match(empty, /<b>Aviasales teď neodpověděl<\/b> – jeho lety ve výsledcích chybí\. Po výpadku ho Letsi na pár minut vynechává\./);
