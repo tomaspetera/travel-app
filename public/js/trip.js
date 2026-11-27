@@ -3543,6 +3543,9 @@
       <div id="tripPlaces"></div>
       <div class="row wrap" style="gap:8px;margin-top:14px"><button class="btn primary" id="progNext">Pokračovat ke shrnutí →</button></div></div>`;
     $('#progNext').onclick = () => setStep('summary');
+    // krok se vykreslí až po progOpts – focusStep v setStep zaměřil starý nadpis, který teď zmizel (fokus spadl na body);
+    // bez názvu kroku, ten už čtečka slyšela. Fokus jinde (pole mimo krok) nebrat.
+    if (typeof document === 'object' && document.activeElement === document.body) focusStep();
     if (window.Places && opts) {
       Places.renderPlanner($('#tripPlaces'), { ...opts, plan: t.plan, onPlan: plan => { T().plan = plan; persist(); } });
     } else {

@@ -52,20 +52,23 @@ const LS = 'atlas_v1';
 let S = load();
 function load() { try { const d = JSON.parse(localStorage.getItem(LS)); if (d) return migrateGeo(migratePrices(fixState(Object.assign(defState(), d)), d.pv)); } catch (e) { } return defState(); }
 // Poškozený uložený stav (ručně, starou verzí): seznam, který seznamem není, by shodil Přehled (S.trips.filter…) –
-// opraví se jen to pole, ostatní data zůstanou. Prázdná místa v Mých cestách pryč (x.tripId na null).
+// opraví se jen to pole, ostatní data zůstanou. Prázdná místa v Mých cestách, hlídání, Nedávno a odložených pryč
+// (x.tripId, w.id, r.form na null shodí start); v domově a formuláři jen místa s id (render výběru míst čte p.flag).
 function fixState(s) {
   for (const k of ['visited', 'trips', 'watch', 'recent', 'fav', 'mute', 'pins', 'viewed']) if (!Array.isArray(s[k])) s[k] = [];
-  s.trips = s.trips.filter(x => x && typeof x === 'object' && !Array.isArray(x));
+  for (const k of ['trips', 'watch', 'recent', 'pins']) s[k] = s[k].filter(x => x && typeof x === 'object' && !Array.isArray(x));
+  for (const k of ['home', 'form']) if (s[k] && Array.isArray(s[k].from)) s[k] = { ...s[k], from: s[k].from.filter(p => p && typeof p.id === 'string') };
   return s;
 }
 // 📍 Moje poloha jde ven jen na ~1 km (SearchHelp.myPlace, 2 desetinná místa) – na letiště do 150 km to stačí. Dřív
-// uložený domov, formulář a Nedávno měly 4 místa (~11 m, skoro adresa domu v logu serveru): při načtení zaokrouhlit.
+// uložený domov, formulář, Nedávno a hlídané ceny měly 4 místa (~11 m, skoro adresa domu v logu serveru): při načtení zaokrouhlit.
 // Deklarace funkce, ne const: load() běží výš (let S = load()) a const by tam ještě neexistovalo – výjimku by catch
 // v load() spolkl a vrátil prázdný stav, který první save() uloží přes všechna data uživatele.
 function coarseGeo(p) { const m = p && /^geo:(-?[\d.]+),(-?[\d.]+)\|Moje poloha$/.exec(p.id || ''); return m ? { ...p, id: `geo:${(+m[1]).toFixed(2)},${(+m[2]).toFixed(2)}|Moje poloha` } : p; }
 function migrateGeo(s) {
   const fix = o => (o && Array.isArray(o.from) ? { ...o, from: o.from.map(coarseGeo) } : o);
-  return { ...s, home: fix(s.home), form: fix(s.form), recent: Array.isArray(s.recent) ? s.recent.map(r => (r && r.form ? { ...r, form: fix(r.form) } : r)) : s.recent };
+  const forms = a => (Array.isArray(a) ? a.map(r => (r && r.form ? { ...r, form: fix(r.form) } : r)) : a);
+  return { ...s, home: fix(s.home), form: fix(s.form), recent: forms(s.recent), watch: forms(s.watch) };
 }
 // Ceny letů jsou od pv 2 jen za letenku (+ zavazadla), dřív i s dopravou na letiště a do města: uložené karty radaru
 // se načtou znovu a „naposledy prohlížené“ ceny zapomenou – jinak by vedle nových cen vypadaly dráž („zlevnilo“).
@@ -2289,7 +2292,8 @@ async function saveTrip(iso, flightTxt) {
     save();
     // okno mezitím zavřené nebo nahrazené jiným (i listem „Místo pro jednu cestu…“ z plus.js): uložit potichu, nic
     // nezavírat ani neotevírat
-    if (b && !(b.isConnected && $('#modalBg').classList.contains('show'))) { toast('Cesta vytvořena'); tripsChanged(); return; }
+    // (otevřený list Plus píše „Cesta se uložila“ sám a toast by zakryl jeho otázku na cenu – toast jen bez okna)
+    if (b && !(b.isConnected && $('#modalBg').classList.contains('show'))) { if (!$('#modalBg').classList.contains('show')) toast('Cesta vytvořena'); tripsChanged(); return; }
     // právě uložená cesta (jiné uložení z dřívějšího okna mohlo mezitím přidat další)
     // z Moje cest (záložka Cesta) zůstat v nich – nová cesta je v seznamu
     modalClose(); if (activeView === 'trip') tripsChanged(); else go('planner'); toast('Cesta vytvořena'); setTimeout(() => { const i = S.trips.indexOf(trip); if (i >= 0) openTrip(i); }, 250);

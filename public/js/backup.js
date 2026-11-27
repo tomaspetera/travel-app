@@ -25,6 +25,7 @@
     sanitizeWizard: window.Trip && Trip.sanitizeTrip,
     txt: (window.PlanShare && PlanShare.txt) || defTxt,
     pins: window.Pins || null,
+    coarseGeo: window.coarseGeo, // 📍 Moje poloha na ~1 km jako app.js load (záloha ze starší verze má ~11 m)
   });
 
   /** Záloha → text JSON. pretrip = odškrtnutí „Před cestou“ (PreTrip.exportDone()), own = 🏠 vlastní ceny na letiště. */
@@ -275,11 +276,12 @@
     const x = raw.data;
     const at = typeof raw.at === 'string' && !isNaN(Date.parse(raw.at)) ? Date.parse(raw.at) : null;
     const fav = dests(x.fav, d.txt); // město v obou seznamech zůstane ⭐
+    const geo = o => (o ? { ...o, from: o.from.map(d.coarseGeo || (p => p)) } : o); // domov a hlídání vždy mají from
     return {
       at,
       trips: Array.isArray(x.trips) ? x.trips.slice(0, 300).filter(obj).map(t => cleanTrip(t, d)).filter(Boolean) : [],
-      watch: Array.isArray(x.watch) ? x.watch.slice(0, 30).map(w => cleanWatch(w, d.txt)).filter(Boolean) : [],
-      home: cleanHome(x.home, d.txt),
+      watch: Array.isArray(x.watch) ? x.watch.slice(0, 30).map(w => cleanWatch(w, d.txt)).filter(Boolean).map(w => ({ ...w, form: geo(w.form) })) : [],
+      home: geo(cleanHome(x.home, d.txt)),
       visited: Array.isArray(x.visited) ? [...new Set(x.visited.filter(c => typeof c === 'string' && /^[A-Z]{2}$/.test(c)))].slice(0, 260) : [],
       fav, mute: dests(x.mute, d.txt, new Set(fav.map(f => f.key))),
       pretrip: cleanPretrip(x.pretrip),

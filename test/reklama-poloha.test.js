@@ -91,12 +91,12 @@ test('načtení stavu: dřív uložená přesná 📍 Moje poloha (domov, formul
     pv: 2, trips: [{ id: 1 }], visited: ['CZ'],
     home: { from: [me], radius: 150, adults: 2 },
     form: { from: [me, city], to: [], radius: 100 },
-    recent: [{ form: { from: [me] }, at: 5 }, 'x'],
+    recent: [{ form: { from: [me] }, at: 5 }, { at: 6 }],
   });
   const coarse = { ...me, id: 'geo:50.09,14.42|Moje poloha' };
   assert.deepEqual(s.home, { from: [coarse], radius: 150, adults: 2 });
   assert.deepEqual(s.form, { from: [coarse, city], to: [], radius: 100 }, 'město s přesnou polohou se nemění');
-  assert.deepEqual(s.recent, [{ form: { from: [coarse] }, at: 5 }, 'x']);
+  assert.deepEqual(s.recent, [{ form: { from: [coarse] }, at: 5 }, { at: 6 }]);
   assert.deepEqual([s.trips, s.visited, s.pv], [[{ id: 1 }], ['CZ'], 2]);
   // bez domova a formuláře (nový uživatel, starý stav) nic nespadne
   const empty = loadWith({ pv: 2 });
