@@ -94,7 +94,7 @@ test('Cesta → Program bez vybraného hotelu (vyberu později, neřeším, vlas
 });
 
 test('drobnosti: filtr hodnocení hotelů s ⭐ a popiskem, hotový program „↻ …“ vedlejší, sekce Svět s nadpisem Svět', () => {
-  assert.match(read('js/trip.js'), /<div class="seg" id="stayMin" role="group" aria-label="Nejnižší hodnocení hostů">\$\{\[\[0, '⭐ vše'\],/);
+  assert.match(read('js/trip.js'), /<div class="seg" id="stayMin" role="group" aria-label="Nejnižší hodnocení hostů">\$\{\[\[0, 'vše'\],/);
   const pl = read('js/places.js');
   assert.match(pl, /const planBtn = `<button class="btn\$\{hasPlan \? '' : ' primary'\}" id="exPlan"/);
   assert.match(pl, /: hasPlan \? `↻ \$\{planLbl\}` : planLbl\}<\/button>`;/);

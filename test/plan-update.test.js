@@ -78,8 +78,8 @@ test('stejná cesta v Mých cestách: stejné sid; bez sid (starší odkaz nebo 
 
 test('náhled odkazu: 🔄 Aktualizovat i Uložit jako novou (u shody jen podle názvu je jistější nová cesta); shrnutí z výsledku aktualizace', () => {
   const fn = app.slice(app.indexOf('function previewPlan(shared)'), app.indexOf('// úprava v okně cesty'));
-  assert.match(fn, /'<button class="btn primary" id="planUpdate">🔄 Aktualizovat moji cestu<\/button><button class="btn" id="planImport">Uložit jako novou<\/button>'/);
-  assert.match(fn, /\? '<button class="btn primary" id="planImport">Uložit jako novou<\/button><button class="btn" id="planUpdate">🔄 Aktualizovat moji cestu<\/button>'/);
+  assert.match(fn, /'<button class="btn primary" id="planUpdate">Aktualizovat moji cestu<\/button><button class="btn" id="planImport">Uložit jako novou<\/button>'/);
+  assert.match(fn, /\? '<button class="btn primary" id="planImport">Uložit jako novou<\/button><button class="btn" id="planUpdate">Aktualizovat moji cestu<\/button>'/);
   assert.match(fn, /let upd = m\.i >= 0 \? PlanShare\.merge\(S\.trips\[m\.i\], p\) : null;/);
   assert.match(fn, /`program \$\{nActs\(mine\)\} → <b>\$\{nActs\(upd\)\}<\/b>/, 'počet aktivit po aktualizaci, ne kamarádových');
   assert.match(fn, /S\.trips\[i\] = upd;/);

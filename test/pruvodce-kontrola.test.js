@@ -137,7 +137,7 @@ test('pruvodce-5 / U16: Shrnutí „Hotovo – zpět na Moje cesty“ (cesta se 
   assert.equal(c.S.trips[0].auto, true);
   assert.equal(sumSave(c), 'Hotovo – zpět na Moje cesty');
   c.S.trip.shared = { on: '2026-10-01' };
-  assert.equal(sumSave(c), '💾 Uložit do Mých cest', 'sdílená (cizí) v Mých cestách není');
+  assert.equal(sumSave(c), 'Uložit do Mých cest', 'sdílená (cizí) v Mých cestách není');
 });
 
 test('pruvodce-5: ↺ Začít znovu nejmenuje „auto“, když člověk zvolil „bez auta“', () => {

@@ -18,12 +18,12 @@
     background:var(--bg2);background:color-mix(in srgb,var(--bg2) 90%,transparent);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);
     box-shadow:0 10px 24px -18px rgba(15,23,42,.45)}
   #tripRoot>.stepbar .st{gap:3px;font-size:11px}
-  #tripRoot>.stepbar .st span{width:32px;height:32px;font-size:15px}
-  #tripRoot>.stepbar .st.done span{font-size:13px}
+  #tripRoot>.stepbar .st>span{width:32px;height:32px;font-size:15px}
+  #tripRoot>.stepbar .st.done>span{font-size:13px}
   #tripRoot>.stepbar i{margin-top:15px}
-  #tripRoot>.stepbar .st:hover span{border-color:var(--border-2);transform:translateY(-1px)}
+  #tripRoot>.stepbar .st:hover>span{border-color:var(--border-2);transform:translateY(-1px)}
   #tripRoot>.stepbar .st:focus-visible{outline:none}
-  #tripRoot>.stepbar .st:focus-visible span{box-shadow:0 0 0 3px rgba(91,140,255,.45)}
+  #tripRoot>.stepbar .st:focus-visible>span{box-shadow:0 0 0 3px rgba(91,140,255,.45)}
   /* Shrnutí má cenu ve vlastní kartě vpravo – bublina „Celkem zatím“ ve fotce by ji jen opakovala */
   #tripRoot[data-step=summary] .th-total{display:none}
   #tripRoot[data-step=program] .ex-map{top:var(--trip-stick);height:min(720px,calc(100vh - var(--trip-stick) - 24px))}

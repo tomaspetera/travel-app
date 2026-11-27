@@ -363,7 +363,7 @@ test('🧳 Shrnutí: „Hotovo – zpět na Moje cesty“ uloží hned (na přá
   assert.match(render(c, c.S.trip), /id="sumSave">Hotovo – zpět na Moje cesty<\/button>/);
   c.__els['#sumSave'].onclick();
   assert.deepEqual(plain([c.S.trips.length, c.__toasts]), [1, ['Cesta je uložená v Mých cestách']]);
-  assert.match(render(c, vie({ step: 'summary', shared: { on: '2026-10-01' } })), /id="sumSave">💾 Uložit do Mých cest<\/button>/);
+  assert.match(render(c, vie({ step: 'summary', shared: { on: '2026-10-01' } })), /id="sumSave">Uložit do Mých cest<\/button>/);
 });
 
 test('auto: délka pronájmu a příplatek za vrácení jinde podle upravených časů; úpravy u zadané ceny platí i po „Pokračovat“', () => {

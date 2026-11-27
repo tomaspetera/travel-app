@@ -908,7 +908,7 @@ function nowCard(x, p) {
     p.ahead ? `<span>${p.ahead.l.ground ? rideAhead(p.ahead.l, x.today) : `✈️ Odlet ${esc(p.ahead.l.from)} → ${esc(p.ahead.l.to)} <b data-nw="cd"></b>${ck}`}</span>` : '',
     ...wx,
     p.shift && !x.home ? `<span>🕐 ${x.on ? 'Místní čas <b data-nw="clock"></b> – ' : 'V cíli je '}${shift}</span>` : '',
-    p.hotel ? `<span>🏨 ${esc(p.hotel.name)}${p.hotel.near ? ` <span class="faint">(${esc(p.hotel.near)})</span>` : ''}${window.Places && Places.gmDir ? ` · <a href="${esc(safeUrl(Places.gmDir('', [p.hotel.q], 'transit')))}" target="_blank" rel="noopener">navigovat ↗</a>` : ''}${p.hotel.car && window.SearchHelp ? ` <a class="app-chip" href="${esc(safeUrl(window.SearchHelp.wazeUrl({ q: p.hotel.q })))}" target="_blank" rel="noopener" title="Najít ubytování ve Waze a navigovat autem">🚗 Waze</a>` : ''}</span>` : '',
+    p.hotel ? `<span>🏨 ${esc(p.hotel.name)}${p.hotel.near ? ` <span class="faint">(${esc(p.hotel.near)})</span>` : ''}${window.Places && Places.gmDir ? ` · <a href="${esc(safeUrl(Places.gmDir('', [p.hotel.q], 'transit')))}" target="_blank" rel="noopener">navigovat ↗</a>` : ''}${p.hotel.car && window.SearchHelp ? ` <a class="app-chip" href="${esc(safeUrl(window.SearchHelp.wazeUrl({ q: p.hotel.q })))}" target="_blank" rel="noopener" title="Najít ubytování ve Waze a navigovat autem">${ikona('auto')} Waze</a>` : ''}</span>` : '',
   ].filter(Boolean);
   // před odjezdem řádky po dnech (dnes, zítra, den odjezdu)
   // dnešek ostatních probíhajících cest (výlet z plánovače či z Objevuj v den letu) – jedním řádkem s odkazem na plán
@@ -917,7 +917,7 @@ function nowCard(x, p) {
   const refs = p.refs.length ? `<div class="nw-refs">${p.refs.map(r => `<div class="nw-ref"><span>🔖${r.co ? ` ${esc(r.co)}` : ''}</span>${r.kod ? `<code>${esc(r.kod)}</code>${canCopy() ? `<button type="button" class="nw-copy" data-copy="${esc(r.kod)}" aria-label="Zkopírovat kód ${esc(r.kod)}">Kopírovat</button>` : ''}` : ''}${r.pozn ? `<span class="faint">${esc(r.pozn)}</span>` : ''}</div>`).join('')}</div>` : '';
   const todo = p.todo && (p.todo.zar || p.todo.bal) ? `<div class="nw-todo">🧾 Před cestou zbývá ${[p.todo.zar && `zařídit ${p.todo.zar}`, p.todo.bal && `sbalit ${p.todo.bal}`].filter(Boolean).join(' a ')} · <button type="button" class="linkbtn" data-nw-plan="${x.i}">odškrtat v plánu →</button></div>` : '';
   return `<div class="card now-card" id="nowCard" tabindex="-1" role="region" aria-label="Dnes na cestě">
-    <div class="nw-top"><div class="nw-h">${head}</div><button type="button" class="linkbtn nw-open" data-nw-plan="${x.i}">📋 Celý plán →</button></div>
+    <div class="nw-top"><div class="nw-h">${head}</div><button type="button" class="linkbtn nw-open" data-nw-plan="${x.i}">Celý plán →</button></div>
     ${meta.length ? `<div class="nw-meta">${meta.join('')}</div>` : ''}
     <ul class="nw-rows">${x.on ? body + also : also + body}${p.next ? row(p.next, true).replace('<li>', '<li class="nw-next">') : ''}</ul>${refs}${todo}</div>`;
 }
@@ -935,7 +935,7 @@ function nowUnsaved(today) {
   const u = window.Trip && Trip.unsavedNow ? Trip.unsavedNow(today) : null;
   if (!u) return '';
   const d = daysTo(today, u.start);
-  return `<div class="card now-card none" id="nowCard" tabindex="-1" role="region" aria-label="Na cestě"><div class="nw-h">📍 ${u.shared ? 'Sdílená cesta' : 'Cesta'} ${u.cc ? flag(u.cc) + ' ' : ''}${esc(u.label)} ${d > 0 ? 'začíná ' + inDays(d) : 'právě probíhá'}</div><div class="nw-meta"><span>${u.shared ? 'Od kamaráda – jedeš taky? Ulož si ji' : 'Ještě není v Mých cestách – ulož ji'} a tady uvidíš na každý den program, ubytování a spoje, i bez signálu. <button type="button" class="linkbtn" data-nw-save>💾 Uložit do Mých cest</button></span></div></div>`;
+  return `<div class="card now-card none" id="nowCard" tabindex="-1" role="region" aria-label="Na cestě"><div class="nw-h">📍 ${u.shared ? 'Sdílená cesta' : 'Cesta'} ${u.cc ? flag(u.cc) + ' ' : ''}${esc(u.label)} ${d > 0 ? 'začíná ' + inDays(d) : 'právě probíhá'}</div><div class="nw-meta"><span>${u.shared ? 'Od kamaráda – jedeš taky? Ulož si ji' : 'Ještě není v Mých cestách – ulož ji'} a tady uvidíš na každý den program, ubytování a spoje, i bez signálu. <button type="button" class="linkbtn" data-nw-save>Uložit do Mých cest</button></span></div></div>`;
 }
 /* 🌤️ Počasí na kartě: předpověď MET Norway (Weather.forecast – jeden dotaz na všechna místa karty) uložená
    v localStorage, ať je vidět i bez signálu. Jen když karta místa chce (na cestě, den před odjezdem) – jinak žádný dotaz.
@@ -1175,7 +1175,7 @@ function renderWhatsNew() {
   el.classList.add('welcome');
   // na domov se uvítání neptá – čipy měst jsou přímo pod Odkud v hledání nahoře (flights.js paintHomeAsk); dvě pole
   // Odkud nad sebou nováčka mátla, které vyplnit
-  el.innerHTML = `<h3 class="wc-h">👋 Vítej! Najdu levné letenky a poskládám z nich celou cestu.</h3>
+  el.innerHTML = `<h3 class="wc-h">Vítej! Najdu levné letenky a poskládám z nich celou cestu.</h3>
     <p class="faint wc-how" style="font-size:12.5px;margin:-6px 0 12px">${wcHow(null)}</p>
     <ol class="wc-steps">
       <li><span class="wc-n">1</span><div><b>Napiš, odkud a kam</b><small>město, „kamkoliv“, nebo celou větu – třeba „k moři v květnu do 5000“</small></div></li>
@@ -2232,7 +2232,7 @@ function myTrips(host, o = {}) {
     : a && !curPast ? `<div class="card trip" data-mcur="1"><div class="trip-top"${inf.name ? ` data-photo="${esc(inf.name)}" style="--h:${ccHue(inf.cc || inf.name)}"` : ''}><span class="tt-when">${inf.shared ? 'sdílená' : inf.done ? 'sestavená' : 'rozpracovaná'}</span><div class="tt-name">${esc(inf.name || 'Cesta')}</div><div class="tt-meta">${inf.cc ? flag(inf.cc) + ' ' : ''}${inf.start ? dateSpan(inf.start, inf.end) : ''}</div></div>
       <div class="trip-body"><div class="mt-cur">${inf.shared ? '🔗 Sdílená cesta z odkazu, zatím neuložená – otevřít a 💾 uložit si ji ›' : curTxt}</div></div></div>` : '';
   host.innerHTML = `<div class="trip-mine">
-    <div class="section-head"><h2>🧳 Moje cesty</h2></div>
+    <div class="section-head"><h2>Moje cesty</h2></div>
     ${curCard || coming.length ? `<div class="trip-grid">${curCard}${coming.map(card).join('')}</div>` : ''}
     ${past.length ? `<details class="mt-past"><summary>Proběhlé cesty (${past.length})</summary><div class="trip-grid past">${past.map(card).join('')}</div></details>` : ''}
     ${o.ask || ''}
@@ -2424,7 +2424,7 @@ const tripEditLbl = t => (t && t.wizard && !ownWiz(t) ? 'Upravit název' : 'Upra
 function editTrip(i) {
   const t = S.trips[i]; if (!t) return;
   const own = ownWiz(t), fixed = Boolean(t.wizard) && !own;
-  modalOpen(`<div class="modal-hero"><div class="mh-bg"></div><button class="modal-close" data-close aria-label="Zavřít">${ico('M18 6L6 18M6 6l12 12')}</button><div class="modal-hero-inner"><h2 style="font-size:24px">✏️ Upravit cestu</h2><div style="font-size:13px">${esc(t.dest)}</div></div></div>
+  modalOpen(`<div class="modal-hero"><div class="mh-bg"></div><button class="modal-close" data-close aria-label="Zavřít">${ico('M18 6L6 18M6 6l12 12')}</button><div class="modal-hero-inner"><h2 style="font-size:24px">Upravit cestu</h2><div style="font-size:13px">${esc(t.dest)}</div></div></div>
   <div class="modal-body">
     <div class="field"><label for="etName">Název cesty</label><input class="input" id="etName" value="${esc(t.name || '')}" maxlength="120"></div>
     ${fixed ? `<div class="note info" style="margin-top:12px">${ikona('kalendar')} <div>${t.start ? `<b>${esc(dateSpan(t.start, t.end, ' – '))}</b> · ${esc(t.pax)} os.<br>` : ''}Termín a počet cestujících jsou podle vybraného letu.</div></div>
@@ -2498,18 +2498,18 @@ function openTrip(i) {
     acts: `<div class="row wrap">${t.wizard && (window.Trip || window.Lazy) ? '<button class="btn primary" id="tripWizard">' + ikona('program') + ' Otevřít v průvodci</button>' : ''}${local ? '' : `${home ? '' : `<button class="btn${t.wizard ? '' : ' primary'}" id="tripSearch">${ico('M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z')} Hledat lety</button>`}<button class="btn${home ? ' primary' : ''}" id="tripStay">${ico('M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z')} Ubytování</button>`}${c && !home ? '<button class="btn ghost" id="tripCountry">Info o zemi</button>' : ''}</div>`,
     // po cestě jen „přidat na mapu“ – pas, víza a očkování nad „Cesta proběhla“ nikdo nepotřebuje
     entry: `${(t.end || t.start || '9999') < todayLocal() ? '' : tripEntryHtml(t)}${visitedPrompt(t)}`,
-    share: `<div class="row wrap" style="gap:8px;margin-top:10px">${days.length ? '<button class="btn sm" id="tripIcs">' + ikona('kalendar') + ' Do kalendáře (.ics)</button>' : ''}<button class="btn sm" id="tripShare">${ikona('sdilet')} Sdílet plán</button>${t.wizard && okYmd(t.start) && t.start >= todayLocal() ? '<button class="btn sm" id="tripJed">🙋 Jede někdo se mnou?</button>' : ''}${days.length ? `<a class="btn sm ghost" id="tripGcal" href="${esc(safeUrl(Ics.gcalUrl(planEvents(t)[0])))}" target="_blank" rel="noopener">Přidat do Google Kalendáře ↗</a>` : ''}</div>`,
+    share: `<div class="row wrap" style="gap:8px;margin-top:10px">${days.length ? '<button class="btn sm" id="tripIcs">' + ikona('kalendar') + ' Do kalendáře (.ics)</button>' : ''}<button class="btn sm" id="tripShare">${ikona('sdilet')} Sdílet plán</button>${t.wizard && okYmd(t.start) && t.start >= todayLocal() ? '<button class="btn sm" id="tripJed">' + ikona('cestujici') + ' Jede někdo se mnou?</button>' : ''}${days.length ? `<a class="btn sm ghost" id="tripGcal" href="${esc(safeUrl(Ics.gcalUrl(planEvents(t)[0])))}" target="_blank" rel="noopener">Přidat do Google Kalendáře ↗</a>` : ''}</div>`,
     days: `<div class="divider"></div>
-    <div class="row" style="justify-content:space-between"><h3 style="font-size:16px">🗺️ Itinerář</h3><span class="faint" style="font-size:12px">${days.length ? days.length + (days.length === 1 ? ' den' : days.length < 5 ? ' dny' : ' dní') : 'doplň termíny'}</span></div>
+    <div class="row" style="justify-content:space-between"><h3 style="font-size:16px">Itinerář</h3><span class="faint" style="font-size:12px">${days.length ? days.length + (days.length === 1 ? ' den' : days.length < 5 ? ' dny' : ' dní') : 'doplň termíny'}</span></div>
     <div style="margin-top:10px">${days.length ? days.map((d, di) => (live && live.today === d ? `<div class="day-ptr"><b>Den ${di + 1}</b> · ${fmtDate(d)} · dnes – je nahoře ↑</div>` : dayHtml(d, di))).join('') : `<div class="note info">${ico('M12 16v-4M12 8h.01M12 2a10 10 0 100 20 10 10 0 000-20z')}<div>Doplň termíny cesty a objeví se itinerář den po dni.</div></div>`}</div>`,
     refs: refsHtml(t, i),
     pack: `<div class="divider"></div>
     <div class="grid trip-two">
-      <div><h3 style="font-size:16px;margin-bottom:10px">🧾 Sbaleno</h3><div id="checkList">${(t.checklist || []).map((x, xi) => `<label class="check"><input type="checkbox" ${x.done ? 'checked' : ''} data-check="${xi}"><span style="${x.done ? 'opacity:.5;text-decoration:line-through' : ''}">${esc(x.t)}</span></label>`).join('')}</div><div class="row" style="gap:8px;margin-top:10px"><input class="input" id="newCheck-${i}" data-addcheck placeholder="Přidej položku…" aria-label="Nová položka do seznamu Sbaleno"><button class="btn sm" data-addcheck aria-label="Přidat položku">+</button></div></div>
-      <div><h3 style="font-size:16px;margin-bottom:10px">💰 Rozpočet</h3><div class="field"><label for="bud-${i}">Celkový rozpočet (Kč)</label><input class="input" type="number" id="bud-${i}" value="${esc(t.budget || '')}"></div>${t.budget ? `<div class="muted" style="font-size:13px;margin-top:10px">Na osobu: <b style="color:var(--text)">${Math.round(t.budget / (t.pax || 1)).toLocaleString('cs')} Kč</b></div>` : ''}<div class="field" style="margin-top:14px"><label for="notes-${i}">Poznámky</label><textarea id="notes-${i}" rows="3" placeholder="Cokoliv k cestě…">${esc(t.notes || '')}</textarea></div></div>
+      <div><h3 style="font-size:16px;margin-bottom:10px">Sbaleno</h3><div id="checkList">${(t.checklist || []).map((x, xi) => `<label class="check"><input type="checkbox" ${x.done ? 'checked' : ''} data-check="${xi}"><span style="${x.done ? 'opacity:.5;text-decoration:line-through' : ''}">${esc(x.t)}</span></label>`).join('')}</div><div class="row" style="gap:8px;margin-top:10px"><input class="input" id="newCheck-${i}" data-addcheck placeholder="Přidej položku…" aria-label="Nová položka do seznamu Sbaleno"><button class="btn sm" data-addcheck aria-label="Přidat položku">+</button></div></div>
+      <div><h3 style="font-size:16px;margin-bottom:10px">Rozpočet</h3><div class="field"><label for="bud-${i}">Celkový rozpočet (Kč)</label><input class="input" type="number" id="bud-${i}" value="${esc(t.budget || '')}"></div>${t.budget ? `<div class="muted" style="font-size:13px;margin-top:10px">Na osobu: <b style="color:var(--text)">${Math.round(t.budget / (t.pax || 1)).toLocaleString('cs')} Kč</b></div>` : ''}<div class="field" style="margin-top:14px"><label for="notes-${i}">Poznámky</label><textarea id="notes-${i}" rows="3" placeholder="Cokoliv k cestě…">${esc(t.notes || '')}</textarea></div></div>
     </div>`,
   };
-  modalOpen(`<div class="modal-hero"><div class="mh-bg ${c && c.cost >= 4 ? 'warm' : ''}"></div><button class="modal-close" data-close aria-label="Zavřít">${ico('M18 6L6 18M6 6l12 12')}</button><div class="modal-hero-inner"><div style="font-size:40px;line-height:1">${c ? flag(t.iso) : '🧳'}</div><h2 style="font-size:25px;margin-top:4px;overflow-wrap:anywhere">${esc(t.name)}</h2><div style="font-size:13px">${esc(t.dest)}${t.start ? ' · ' + dateSpan(t.start, t.end, ' – ') : ''} · ${t.pax} os.</div><button type="button" class="trip-edit" id="tripEdit">✏️ ${tripEditLbl(t)}</button></div></div>
+  modalOpen(`<div class="modal-hero"><div class="mh-bg ${c && c.cost >= 4 ? 'warm' : ''}"></div><button class="modal-close" data-close aria-label="Zavřít">${ico('M18 6L6 18M6 6l12 12')}</button><div class="modal-hero-inner"><div style="font-size:40px;line-height:1">${c ? flag(t.iso) : '🧳'}</div><h2 style="font-size:25px;margin-top:4px;overflow-wrap:anywhere">${esc(t.name)}</h2><div style="font-size:13px">${esc(t.dest)}${t.start ? ' · ' + dateSpan(t.start, t.end, ' – ') : ''} · ${t.pax} os.</div><button type="button" class="trip-edit" id="tripEdit">${ikona('upravit')} ${tripEditLbl(t)}</button></div></div>
   <div class="modal-body">
     ${tripOrder(live).map(k => part[k]).join('\n    ')}
     <div class="divider"></div>
@@ -2571,7 +2571,7 @@ function refsHtml(t, i) {
   // Enter (na telefonu „Další“ / „Hotovo“): z „Co“ a z prázdného „Kódu“ na další pole, uloží až kód nebo poslední pole
   const refs = Backup.cleanRefs(t.refs), L = Backup.REF_LEN, enter = k => `enterkeyhint="${k ? 'done' : 'next'}" data-refk="${k}"`;
   return `<div class="divider"></div>
-    <div class="row wrap" style="justify-content:space-between;gap:4px 10px"><h3 style="font-size:16px">🔖 Rezervace</h3><span class="faint" style="font-size:12px">kódy zůstanou jen v tomto zařízení a v záloze, do odkazů nejdou</span></div>
+    <div class="row wrap" style="justify-content:space-between;gap:4px 10px"><h3 style="font-size:16px">Rezervace</h3><span class="faint" style="font-size:12px">kódy zůstanou jen v tomto zařízení a v záloze, do odkazů nejdou</span></div>
     <div style="margin-top:10px">${refs.map((r, k) => `<div class="act ref-row"><span>${r.co ? `<b>${esc(r.co)}</b> ` : ''}${r.kod ? `<code class="ref-kod">${esc(r.kod)}</code>` : ''}${r.pozn ? ` <span class="faint">${esc(r.pozn)}</span>` : ''}</span><button type="button" data-delref="${k}" title="Smazat" aria-label="Smazat rezervaci ${esc(r.kod || r.co)}">${ico('M18 6L6 18M6 6l12 12')}</button></div>`).join('')}
     ${refs.length < Backup.REFS_MAX ? `<div class="ref-add"><input class="input" id="refCo-${i}" maxlength="${L.co}" placeholder="Co (let, hotel…)" aria-label="Co je to za rezervaci (let tam, hotel…)" ${enter(0)}><input class="input ref-kod-in" id="refKod-${i}" maxlength="${L.kod}" placeholder="Kód (PNR)" aria-label="Kód rezervace" autocomplete="off" autocapitalize="characters" spellcheck="false" ${enter(1)}><input class="input" id="refNote-${i}" maxlength="${L.pozn}" placeholder="Poznámka (nepovinná)" aria-label="Poznámka k rezervaci" ${enter(2)}><button type="button" class="btn sm" data-addref>Přidat</button></div>` : ''}</div>`;
 }
@@ -2772,8 +2772,8 @@ function previewPlan(shared) {
     <div class="faint" style="font-size:12.5px;margin-top:8px">${acts} ${acts === 1 ? 'aktivita' : acts >= 2 && acts <= 4 ? 'aktivity' : 'aktivit'}${days.length > 6 ? ` · ${days.length} dní s programem` : ''}${+p.budget ? ' · rozpočet ' + czk(+p.budget) : ''}${p.notes ? ' · s poznámkami' : ''}</div>
     <div class="row wrap" style="gap:8px;margin-top:16px">${mine ? (m.byName
       // shoda jen podle názvu (starší odkaz): jistější je nová cesta – aktualizace přepíše termín, let i rozpočet
-      ? '<button class="btn primary" id="planImport">Uložit jako novou</button><button class="btn" id="planUpdate">🔄 Aktualizovat moji cestu</button>'
-      : '<button class="btn primary" id="planUpdate">🔄 Aktualizovat moji cestu</button><button class="btn" id="planImport">Uložit jako novou</button>') : '<button class="btn primary" id="planImport">💾 Uložit si ji</button>'}<button class="btn ghost" id="planSkip">Nepřidávat</button></div>
+      ? '<button class="btn primary" id="planImport">Uložit jako novou</button><button class="btn" id="planUpdate">Aktualizovat moji cestu</button>'
+      : '<button class="btn primary" id="planUpdate">Aktualizovat moji cestu</button><button class="btn" id="planImport">Uložit jako novou</button>') : '<button class="btn primary" id="planImport">Uložit si ji</button>'}<button class="btn ghost" id="planSkip">Nepřidávat</button></div>
   </div>`);
   $('#planSkip').onclick = modalClose;
   // záznam vyměněné verze (sharedSnap) – při další aktualizaci se podle něj pozná, které aktivity a poznámky jsou tvoje

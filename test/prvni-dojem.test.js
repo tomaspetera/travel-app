@@ -38,7 +38,7 @@ test('texty pro uživatele bez „radaru“ – sekce se jmenuje Kam letět levn
 test('Záloha do souboru (Další, nadpis okna, odkazy) se nejmenuje skoro stejně jako Přenést do jiného zařízení', () => {
   const bk = read('backup.js');
   assert.match(APP, /id="moreBk">\$\{ikona\('stahnout'\)\} Záloha do souboru <span class="faint">stáhnout, obnovit<\/span>/);
-  assert.match(bk, /<h3 style="margin-bottom:8px">💾 Záloha do souboru<\/h3>/);
+  assert.match(bk, /<h3 style="margin-bottom:8px">Záloha do souboru<\/h3>/);
   for (const [f, s] of [['app.js', APP], ['backup.js', bk], ['about.js', read('about.js')]]) assert.doesNotMatch(code(s), /Přenos a záloha/, f);
 });
 

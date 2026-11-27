@@ -679,8 +679,8 @@ test('uložení do plánovače: stejné místo a začátek → přidat k cestě 
   assert.equal(w.name, 'Výlet: Barcelona');
 
   // tlačítko: „Přidat k cestě …“ + „uložit jako novou“, jinak „Uložit do Mých cest“
-  assert.match(TB.saveHtml(1, trips), /💾 Přidat k cestě Výlet: Barcelona<\/button><button type="button" class="linkbtn ex-savenew" id="exSaveNew">uložit jako novou</);
-  assert.equal(TB.saveHtml(-1, trips), '<button class="btn" id="exSave">💾 Uložit do Mých cest</button>');
+  assert.match(TB.saveHtml(1, trips), />Přidat k cestě Výlet: Barcelona<\/button><button type="button" class="linkbtn ex-savenew" id="exSaveNew">uložit jako novou</);
+  assert.equal(TB.saveHtml(-1, trips), '<button class="btn" id="exSave">Uložit do Mých cest</button>');
   const long = TB.saveHtml(0, [{ name: `Dlouhá cesta ${XSS} po celém Španělsku a Portugalsku` }]);
   assert.ok(!long.includes('<img src=x'));
   assert.match(long, /…<\/button>/);
@@ -1045,7 +1045,7 @@ test('okruh 50/100 km: místa ve městě do 20 km + nejzajímavější místa v 
   assert.deepEqual([3, 38, 88].map(T.driveMin), [10, 40, 100]);
   const card = T.poiCard({ id: 'mon', name: 'Montserrat', category: 'daytrip', categoryLabel: 'Hora', distanceKm: 38 }, { center: { lat: 41.39, lon: 2.17, label: 'Barcelona', country: 'Španělsko' }, drive: true, tripGo: true });
   assert.match(card, /38 km · ~40 min autem/);
-  assert.match(card, /data-tgo="mon"[^>]*>🎒 Výlet sem</);
+  assert.match(card, /data-tgo="mon"[^>]*>Výlet sem</);
   assert.ok(!T.poiCard({ id: 'x', name: 'X', category: 'museum', distanceKm: 2 }, {}).includes('autem'), 'místo ve městě bez doby jízdy');
   // prázdný okruh: z 20 km nabídne okolí do 100 km
   assert.match(T.emptyHtml(20, 'city'), /Zvětšit okruh na 100 km/);

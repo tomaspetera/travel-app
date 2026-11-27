@@ -69,7 +69,7 @@ test('úprava cesty: cesta s letem z výsledků jen „Upravit název“, vlastn
   const tripEditLbl = new Function(`${app.match(/^const ownWiz = .*$/m)[0]}\n${m[0]}; return tripEditLbl;`)();
   assert.equal(tripEditLbl({ wizard: true }), 'Upravit název');
   assert.equal(tripEditLbl({ name: 'Řím' }), 'Upravit název a termín');
-  assert.match(app, /id="tripEdit">✏️ \$\{tripEditLbl\(t\)\}<\/button>/);
+  assert.match(app, /id="tripEdit">\$\{ikona\('upravit'\)\} \$\{tripEditLbl\(t\)\}<\/button>/);
   // editTrip pole termínu u cesty z průvodce opravdu nemá (stejná podmínka)
   assert.match(app, /const own = ownWiz\(t\), fixed = Boolean\(t\.wizard\) && !own;/);
 });

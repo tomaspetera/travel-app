@@ -185,7 +185,7 @@ test('bez živého ověření (Kiwi vypnuté): žádné „Ověřit živou cenu�
     render(c, 'flight');
     await tick(); await tick();
     const s = sp(c.__els['#tripStep'].innerHTML);
-    assert.match(s, /id="tfVerify"[^>]*>🔄 Ověřit živou cenu</);
+    assert.match(s, /id="tfVerify"[^>]*><span class="ico i-znovu" aria-hidden="true"><\/span> Ověřit živou cenu</);
     assert.match(s, /id="tfAge">↻ Ověř cenu</);
     assert.doesNotMatch(s, /uvidíš až u prodejce/);
     assert.deepEqual(asked, ['api/verify'], 'první otevření kroku cenu ověří samo');
@@ -297,7 +297,7 @@ test('Shrnutí: „Průběh cesty“ je první karta (po dnech), „Cena cesty�
   const t = begin(c);
   t.plan = { days: [{ date: day(41), items: [{ name: 'Koloseum', lat: 41.89, lon: 12.49 }] }] };
   const s = render(c, 'summary');
-  const iTl = s.indexOf('<span class="ico i-kalendar" aria-hidden="true"></span> Průběh cesty'), iCost = s.indexOf('🧾 Cena cesty'), iBook = s.indexOf('✅ Co zarezervovat');
+  const iTl = s.indexOf('<span class="ico i-kalendar" aria-hidden="true"></span> Průběh cesty'), iCost = s.indexOf('<h3>Cena cesty</h3>'), iBook = s.indexOf('<span class="ico i-hotovo" aria-hidden="true"></span> Co zarezervovat');
   assert.ok(iTl > 0 && iTl < iCost && iCost < iBook, 'průběh, cena, rezervace');
   assert.equal(s.split('<span class="ico i-kalendar" aria-hidden="true"></span> Průběh cesty').length, 2, 'jen jednou');
   // den jako nadpis a pod ním jeho řádky
