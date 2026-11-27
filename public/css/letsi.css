@@ -310,7 +310,10 @@
 :root[data-brand="letsi"] :is([data-view="countries"],[data-mv="countries"] .mt-ico)>svg{--letsi-ikona:url(../vendor/letsi/ikony/jazyk.svg)}
 :root[data-brand="letsi"] :is([data-view="recommend"],[data-mv="recommend"] .mt-ico)>svg{--letsi-ikona:url(../vendor/letsi/ikony/super-cena.svg)}
 :root[data-brand="letsi"] :is(#moreNav,#menuBtn)>svg{--letsi-ikona:url(../vendor/letsi/ikony/menu.svg)}
-:root[data-brand="letsi"] #refreshBtn>svg{--letsi-ikona:url(../vendor/letsi/ikony/znovu.svg)}
+/* ↻ Aktualizovat: „znovu“ z balíku má malý oblouk a šipku do strany – v horní liště se četl jako „C“ (majitel 27. 11.);
+   plný kruh se zřetelnou šipkou ve stejné čáře (2 px, kulaté konce), barvou textu jako ostatní ikony lišty */
+:root[data-brand="letsi"] #refreshBtn>svg{--letsi-ikona:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 12a8 8 0 1 1-2.34-5.66'/%3E%3Cpath d='M20 4.5v5h-5'/%3E%3C/svg%3E")}
+:root[data-brand="letsi"] :is(#refreshBtn,#menuBtn){color:var(--text)}
 :root[data-brand="letsi"] .theme-toggle>svg{--letsi-ikona:url(../vendor/letsi/ikony/motiv.svg)}
 :root[data-brand="letsi"] .sf-from .sf-ico>svg{--letsi-ikona:url(../vendor/letsi/ikony/odlet.svg)}
 :root[data-brand="letsi"] .sf-to .sf-ico>svg{--letsi-ikona:url(../vendor/letsi/ikony/prilet.svg)}
