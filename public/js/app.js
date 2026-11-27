@@ -1947,7 +1947,7 @@ function openCountry(iso) {
   if (ct) ct.onclick = () => { const t = S.trips[mine.i]; modalClose(); if (!t) return; if (t.wizard) withMod('trip', () => Trip.openSaved(t.wizard, t.tripId)); else openTrip(mine.i); };
   // ⭐ Plus jako falešné dveře (plus.js): průvodce zemí do Sešitu offline – zatím jen měří zájem a ukáže Zdarma × Plus
   const cs = $('#cmSesit');
-  if (cs) { Plus.countryShown(iso); cs.onclick = () => Plus.fromCountry(); }
+  if (cs) { Plus.countryShown(iso, cs); cs.onclick = () => Plus.fromCountry(); }
   Photos.paint($('#modal')); // fotka hlavního města v hlavičce
   loadWeather(c);
   loadFx(c);
