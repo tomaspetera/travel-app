@@ -36,36 +36,27 @@ const jaw = live => ({ id: 'c', out: leg('PRG', 'BCN', '2027-02-01', live), back
 test('zápis ceny: 1 cestující – „Letenky 1 009 Kč/os.“, jedna letenka „Letenka“, bez částky za všechny', () => {
   assert.deepEqual(rows(M.priceRows({ per: 1009, total: 1009, ret: true, q: { adults: 1 } })), ['Letenky 1 009 Kč/os.']);
   assert.deepEqual(rows(M.priceRows({ per: 659, total: 659, ret: false, q: { adults: 1 } })), ['Letenka 659 Kč/os.']);
-  // s cestou na letiště a do města: stejná stavba, vlnovka a „(odhad)“
-  assert.deepEqual(rows(M.priceRows({ per: 1009, total: 1009, ret: true, q: { adults: 1 }, door: 2019 })),
-    ['Letenky 1 009 Kč/os.', 'S cestou na letiště a do města ~2 019 Kč/os. (odhad)']);
-  assert.deepEqual(rows(M.priceRows({ per: 659, total: 659, ret: null, q: {}, door: 1200.4 })),
-    ['Letenka 659 Kč/os.', 'S cestou na letiště a do města ~1 200 Kč/os. (odhad)']);
+  assert.deepEqual(rows(M.priceRows({ per: 659, total: 659, ret: null, q: {} })), ['Letenka 659 Kč/os.']);
 });
 
-test('zápis ceny: 2 cestující – u obou řádků částka na osobu i za oba, každá s jednotkou nebo s „pro 2“', () => {
-  assert.deepEqual(rows(M.priceRows({ per: 1009, total: 2018, ret: true, q: { adults: 2 }, door: 2019 })),
-    ['Letenky 1 009 Kč/os. · pro 2 celkem 2 018 Kč', 'S cestou na letiště a do města ~2 019 Kč/os. · pro 2 ~4 038 Kč (odhad)']);
-  assert.deepEqual(rows(M.priceRows({ per: 659, total: 1318, ret: false, q: { adults: 2 } })), ['Letenka 659 Kč/os. · pro 2 celkem 1 318 Kč']);
-  assert.deepEqual(rows(M.priceRows({ per: 659, total: 1318, ret: false, q: { adults: 2 }, door: 900 })),
-    ['Letenka 659 Kč/os. · pro 2 celkem 1 318 Kč', 'S cestou na letiště a do města ~900 Kč/os. · pro 2 ~1 800 Kč (odhad)']);
-  // žádná částka bez jednotky: za každou „Kč“ je „/os.“, nebo jí předchází „pro N (celkem)“
-  const all = rows(M.priceRows({ per: 1009, total: 2018, ret: true, q: { adults: 2 }, door: 2019 })).join(' ');
-  assert.equal((all.match(/Kč/g) || []).length, 4);
-  assert.equal((all.match(/Kč\/os\./g) || []).length + (all.match(/pro 2 (celkem )?~?[\d ]+ Kč/g) || []).length, 4);
+test('zápis ceny: 2 cestující – pod cenou na osobu řádek „ve dvou 2 018 Kč“', () => {
+  assert.deepEqual(rows(M.priceRows({ per: 1009, total: 2018, ret: true, q: { adults: 2 } })), ['Letenky 1 009 Kč/os.', 've dvou 2 018 Kč']);
+  assert.deepEqual(rows(M.priceRows({ per: 659, total: 1977, ret: false, q: { adults: 3 } })), ['Letenka 659 Kč/os.', 've třech 1 977 Kč']);
+  assert.deepEqual(rows(M.priceRows({ per: 100, total: 500, ret: false, q: { adults: 5 } })), ['Letenka 100 Kč/os.', 'pro 5 celkem 500 Kč']);
+  // žádná částka bez jednotky: za každou „Kč“ je „/os.“, nebo jí předchází „ve dvou“
+  const all = rows(M.priceRows({ per: 1009, total: 2018, ret: true, q: { adults: 2 } })).join(' ');
+  assert.equal((all.match(/Kč/g) || []).length, 2);
 });
 
 test('zápis ceny: velká částka je cena na osobu; označení „orientační“ za ní; s dětmi delší popisek celku', () => {
-  const html = M.priceRows({ per: 1009, total: 2018, ret: true, q: { adults: 2 }, door: 2019, mark: '<div class="cache-mark">orientační</div>' });
-  assert.match(html, /^<div class="pl pr-row"><span>Letenky<\/span><span><b class="pp">1 009 Kč<\/b>\/os\.<\/span>/);
+  const html = M.priceRows({ per: 1009, total: 2018, ret: true, q: { adults: 2 }, mark: '<div class="cache-mark">orientační</div>' });
+  assert.match(html, /^<div class="pl pr-row"><span>Letenky<\/span><span><b class="pp">1 009 Kč<\/b>\/os\.<\/span><div class="cache-mark">orientační<\/div><\/div><div class="pd pr-row pr-all">/);
   assert.equal((html.match(/class="pp"/g) || []).length, 1, 'jen jedna velká částka');
-  assert.match(html, /<b>2 018 Kč<\/b><\/span><div class="cache-mark">orientační<\/div><\/div><div class="pd pt pr-row">/);
   // rodina: 2 dospělí + dítě + miminko → 3 sedadla, miminko platí jen poplatek aerolinky
-  const fam = rows(M.priceRows({ per: 1000, total: 3000, ret: true, q: { adults: 2, children: 1, infants: 1 }, door: 1500 }));
-  assert.equal(fam[0], 'Letenky 1 000 Kč/os. · celkem za 3 osoby (bez poplatku za miminko) 3 000 Kč');
-  assert.equal(fam[1], 'S cestou na letiště a do města ~1 500 Kč/os. · pro 3 ~4 500 Kč (odhad)');
-  // karta nabídky ji skládá z priceRows; řádek „S cestou…“ jen při řazení, které s cestou počítá, a ne v 📌 Porovnat
-  assert.match(fl, /<div class="pbox">\$\{priceRows\(\{ per: t\.perPersonCzk, total: t\.totalCzk, ret: t\.back, q, door: ex && tripOn\(t\) \? t\.tripCzk : null, mark: cacheMark\(SearchHelp\.isCached\(t\)\) \}\)\}/);
+  const fam = rows(M.priceRows({ per: 1000, total: 3000, ret: true, q: { adults: 2, children: 1, infants: 1 } }));
+  assert.equal(fam[1], 'celkem za 3 osoby (bez poplatku za miminko) 3 000 Kč');
+  // karta nabídky ji skládá z priceRows; cena i s cestou je sbalená pod nákupem (doorRow), ne v 📌 Porovnat
+  assert.match(fl, /<div class="pbox">\$\{priceRows\(\{ per: t\.perPersonCzk, total: t\.totalCzk, ret: t\.back, q, mark: cacheMark\(SearchHelp\.isCached\(t\)\) \}\)\}/);
   assert.match(fl, /<div class="pbox">\$\{priceRows\(\{ per: r\.czk, total: r\.czk \* pax, ret: r\.d2, q: \{ adults: pax \} \}\)\}<\/div>/, '📌 karta z radaru');
   assert.ok(!fl.includes('na osobu</div>${ex ? tripLine'), 'starý zápis je pryč');
   assert.ok(!/celkem \$\{pax\} os\./.test(fl));

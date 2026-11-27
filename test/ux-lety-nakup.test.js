@@ -93,7 +93,7 @@ test('blok nákupu: věta o dvou letenkách, tlačítka, partnerský odkaz a poz
 
 test('karta nabídky: nákup pod cenou nad „Je to dobrá cena?“, Naplánovat obrysové, ověření textovými odkazy', () => {
   // priceBox vloží blok nákupu hned za cenu (zavazadla, děti) – před dopravu na letiště a „Je to dobrá cena?“
-  assert.match(fl, /<div class="pd pax-note">👶 \$\{esc\(note\)\}<\/div>` : ''\}\$\{buy\}\n\s+\$\{ex \? extrasHtml\(t, res\) : ''\}\n\s+\$\{idx != null && levelFor\(t\) \? `<button type="button" class="linkbtn pc-ask"/);
+  assert.match(fl, /<div class="pd pax-note">👶 \$\{esc\(note\)\}<\/div>` : ''\}\$\{buy\}\n\s+\$\{ex \? extrasHtml\(t, res, door\) : ''\}\n\s+\$\{idx != null && levelFor\(t\) \? `<button type="button" class="linkbtn pc-ask"/);
   const row = cut('  function tripRow(t, g, idx) {', '  /* ---------- 📅 termín nabídky v kalendáři');
   assert.match(row, /\$\{priceBox\(t, idx, lastResult, true, buyBlock\(t, lastResult\.query\)\)\}/);
   assert.match(row, /<button type="button" class="btn sm" data-pick="\$\{idx\}"/, 'Naplánovat bez primary');

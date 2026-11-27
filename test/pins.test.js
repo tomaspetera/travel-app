@@ -447,8 +447,8 @@ test('📌 Porovnat: noci a dny dovolené s oddělovačem, „i s cestou“ jen 
   // radarLeave dává <span class="rc-lv"> bez oddělovače (na kartě radaru ho dělá CSS) – v porovnání „5 nocí · 🏖️ 4 dny“
   assert.match(fl, /nightsTxt\(SearchHelp\.diffDays\(r\.d1, r\.d2\)\)\}`[^\n]*\$\{radarLeave\(r\)\}<\/div>/);
   assert.match(css, /\.pin-ln \.rc-lv::before\{content:" · "\}/);
-  // priceBox(…, false) v porovnání: bez řádku „S cestou…“ (řazení výpisu) – „Celkem i s cestou“ má karta zvlášť
-  assert.match(fl, /door: ex && tripOn\(t\) \? t\.tripCzk : null/);
+  // priceBox(…, false) v porovnání: bez řádku „I s cestou…“ (jen s ex) – „Celkem i s cestou“ má karta zvlášť
+  assert.match(fl, /\$\{ex \? extrasHtml\(t, res, door\) : ''\}/);
   assert.match(fl, /<div class="pin-pr">\$\{priceBox\(t, null, pinRes\(p\), false\)\}<\/div>/);
 });
 
