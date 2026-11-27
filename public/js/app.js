@@ -1104,6 +1104,8 @@ const wnAtStart = (seen, hash, id = WN_ID) => (!/^#sync=/.test(String(hash || ''
  * nad radarem jen odsouval jeho hlídanou cenu a rozpracovanou cestu. → true = skrýt jako „Rozumím“.
  * Mizí jen při vykreslení Přehledu (návrat z Letů, Cest), ne pod rukama; při dalším startu rozhoduje wnAtStart.
  */
+// uvítání: odkud jsou ceny a kde se kupuje (About.buyLine – podle /api/health) + že je to zdarma
+const wcHow = h => `${window.About && About.buyLine ? About.buyLine(h) : ''} Zdarma, bez placených pozic.`.trim();
 const wnDoneNow = (mode, s) => mode === 'welcome' && ((s.watch || []).length > 0 || (s.trips || []).length > 0);
 /** Kam „Začít hledat“ v uvítání dá kurzor: uvítání se ptá na domov (askHome) a Odkud na Přehledu je prázdné → 'from', jinak 'to' (Kam). */
 const wcGoTo = (askHome, fromCount) => (askHome && !fromCount ? 'from' : 'to');
@@ -1137,7 +1139,7 @@ function renderWhatsNew() {
   const homeRow = window.Flights && Flights.homeFromChip && Flights.PlaceInput && !S.home?.from?.length
     ? `<div class="wc-home"><b id="wcHomeL">Odkud letíš?</b><div class="wc-chips">${SearchHelp.HOME_CITIES.map(c => `<button type="button" class="fchip" data-wch="${esc(c[0])}">${esc(c[0])}</button>`).join('')}<button type="button" class="fchip" data-wch="geo">📍 Moje poloha</button></div><div class="place-input wc-from" id="wcFrom"></div></div>` : '';
   el.innerHTML = `<h3 class="wc-h">👋 Vítej! Najdu levné letenky a poskládám z nich celou cestu.</h3>
-    <p class="faint wc-how" style="font-size:12.5px;margin:-6px 0 12px">Ceny porovnávám, letenku koupíš u aerolinky nebo prodejce. Zdarma, bez placených pozic.</p>
+    <p class="faint wc-how" style="font-size:12.5px;margin:-6px 0 12px">${wcHow(null)}</p>
     ${homeRow}
     <ol class="wc-steps">
       <li><span class="wc-n">1</span><div><b>Napiš, odkud a kam</b><small>město, „kamkoliv“, nebo celou větu – třeba „k moři v květnu do 5000“</small></div></li>
@@ -1145,6 +1147,9 @@ function renderWhatsNew() {
       <li><span class="wc-n">3</span><div><b>Poskládej cestu</b><small>ubytování, auto, program a shrnutí s odkazy k rezervaci</small></div></li>
     </ol>
     <div class="row wrap" style="gap:8px"><button type="button" class="btn primary" id="wcGo">Začít hledat</button><button type="button" class="btn ghost" id="wnHide">Rozumím</button></div>`;
+  // věta o cenách podle zdrojů na serveru (čistý režim: orientační z Aviasales, ne porovnání u aerolinek) – do odpovědi
+  // /api/health věta, která platí v obou režimech
+  if (window.Flights && Flights.warm) Promise.resolve(Flights.warm()).then(h => { const p = $('.wc-how', el); if (p) p.textContent = wcHow(h); }, () => {});
   $('#wcGo').onclick = () => {
     // bez domova i bez Odkud by první hledání skončilo „Zadej, odkud letíš“ – uvítání zůstane a kurzor jde do Odkud
     if (wcGoTo(Boolean($('.wc-home', el)), $$('#heroFrom .pi-chip').length) === 'from') {

@@ -299,6 +299,7 @@ html:not(.booted) #view-dashboard>.hero~*{visibility:hidden;animation:boot-show 
 .hero.ph .hero-search2{background:rgba(10,14,30,.6);border-color:rgba(255,255,255,.22)}
 .hero h1{font-size:34px;font-weight:800;line-height:1.1;max-width:620px}
 .hero p{color:rgba(255,255,255,.78);margin-top:10px;max-width:560px;font-size:15px}
+.hero .hero-short{display:none}
 .hero-search{margin-top:22px;display:flex;gap:10px;max-width:600px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.22);padding:8px;border-radius:16px;-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
 .hero-search input{flex:1;background:transparent;border:none;color:#fff;font-size:15.5px;padding:10px 12px;outline:none}
 .hero-search input::placeholder{color:rgba(255,255,255,.65)}
@@ -738,8 +739,9 @@ html:has(#modalBg.show) body{overflow:hidden} /* na body, ne na html: přejde na
   .map-zoom{flex-direction:row}
   .map-layout>div:last-child>.card{border-radius:22px}
   .map-layout>div:last-child>.card:first-child{display:none} /* procento světa je na telefonu přímo na mapě */
-  /* telefon: kratší Přehled – úvod bez odstavce, dlaždice, rychlé hledání a tipy v pruhu do strany */
+  /* telefon: kratší Přehled – úvod místo odstavce jen jedním řádkem (.hero-short), dlaždice, rychlé hledání a tipy v pruhu do strany */
   .hero{padding:20px 16px;margin-bottom:16px;border-radius:22px}.hero h1{font-size:23px}.hero p{display:none}
+  .hero .hero-short{display:block;margin-top:6px;font-size:13px;line-height:1.35}
   .hero-search2{margin-top:14px}
   .stat-grid{grid-template-columns:none;grid-auto-flow:column;grid-auto-columns:43%;overflow-x:auto;scroll-snap-type:x mandatory;gap:10px;padding-bottom:6px;scrollbar-width:none}
   #quickFlights,#flIdeas,#dashRecs,.ex-insp{grid-template-columns:none;grid-auto-flow:column;grid-auto-columns:66%;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;gap:12px;margin:0 -16px;padding:2px 16px 12px;scroll-padding:0 16px}
