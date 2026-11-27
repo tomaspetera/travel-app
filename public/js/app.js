@@ -1034,15 +1034,15 @@ function showNow() {
    Novinky a kde je v aplikaci najít (nejnovější nahoře), poslední na konci položky = id: WN_ID, se kterým přibyla
    (podle něj se pozná, co uživatel už viděl). Po aktualizaci je ukáže lišta dole a okno Co je nového (Další /
    postranní panel) – jen ty od posledního otevření. Archiv se nevede: novinky starší než ~6 týdnů z pole mažeme.
-   WN_ID = verze sady (O aplikaci ji ukazuje, uvítání nováčka se k ní váže). */
+   WN_ID = verze sady (O aplikaci ji ukazuje, uvítání nováčka se k ní váže). První prvek = ikona Letsi (ikona()), ne emoji. */
 const WN_ID = '2026-11-27a';
 const WHATS_NEW = [
-  ['💬', 'Řekni mi, co ti vadí', 'Letsi je zatím testovací verze. Pod <b>Další</b> (na počítači vlevo dole) najdeš <b>Napiš, co ti vadí</b> a na <b>Přehledu</b> se občas zeptám na jednu krátkou otázku – nejvýš jednou denně a jde ji zavřít <b>Teď ne</b>.', '2026-11-27a'],
-  ['✨', 'ATLAS je teď Letsi', 'nový vzhled, kukátko, které hledá s tebou, nové ikony a adresa letsi.cz. Cesty a nastavení z dřívější adresy se sem samy nepřenesou – zálohu ze souboru obnovíš přes <b>Další</b> → <b>Záloha do souboru</b> (na počítači vlevo dole v <b>O aplikaci a soukromí</b>).', '2026-11-26c'],
-  ['🤝', 'Pomáhat se zlepšováním', 'když chceš, zapni pod <b>Další</b> → <b>Pomáhat se zlepšováním</b> (na počítači vlevo dole v <b>O aplikaci a soukromí</b>). Aplikace pak posílá, které obrazovky otevíráš a jaké hlavní akce děláš – nikdy co píšeš, kam jedeš, ceny ani nic o tobě. Záznam se smaže do 31 dnů a vypneš to tamtéž. Ve výchozím stavu je to vypnuté.', '2026-11-26b'],
-  ['⭐', 'Letsi Plus', 'podívej se, co zůstane zdarma a co chystáme navíc – a řekni nám, kolik by ti stálo za to. Najdeš ho pod <b>Další</b> → <b>Letsi Plus</b> (na počítači vlevo dole).', '2026-11-26a'],
-  ['✈️', 'Letenku už máš?', 'na <b>Přehledu</b> doplníš zbytek cesty – trasu, ubytování i program.', '2026-11-26a'],
-  ['🔒', 'Soukromí', 'počítám jen souhrnné denní počty, žádné sledování jednotlivců, pokud sám nezapneš Pomáhat se zlepšováním. Podrobnosti pod <b>Další</b> (na počítači vlevo dole) → <b>O aplikaci a soukromí</b>.', '2026-11-25a'],
+  ['napoveda', 'Řekni mi, co ti vadí', 'Letsi je zatím testovací verze. Pod <b>Další</b> (na počítači vlevo dole) najdeš <b>Napiš, co ti vadí</b> a na <b>Přehledu</b> se občas zeptám na jednu krátkou otázku – nejvýš jednou denně a jde ji zavřít <b>Teď ne</b>.', '2026-11-27a'],
+  ['novinky', 'ATLAS je teď Letsi', 'nový vzhled, kukátko, které hledá s tebou, nové ikony a adresa letsi.cz. Cesty a nastavení z dřívější adresy se sem samy nepřenesou – zálohu ze souboru obnovíš přes <b>Další</b> → <b>Záloha do souboru</b> (na počítači vlevo dole v <b>O aplikaci a soukromí</b>).', '2026-11-26c'],
+  ['cestujici', 'Pomáhat se zlepšováním', 'když chceš, zapni pod <b>Další</b> → <b>Pomáhat se zlepšováním</b> (na počítači vlevo dole v <b>O aplikaci a soukromí</b>). Aplikace pak posílá, které obrazovky otevíráš a jaké hlavní akce děláš – nikdy co píšeš, kam jedeš, ceny ani nic o tobě. Záznam se smaže do 31 dnů a vypneš to tamtéž. Ve výchozím stavu je to vypnuté.', '2026-11-26b'],
+  ['oblibene', 'Letsi Plus', 'podívej se, co zůstane zdarma a co chystáme navíc – a řekni nám, kolik by ti stálo za to. Najdeš ho pod <b>Další</b> → <b>Letsi Plus</b> (na počítači vlevo dole).', '2026-11-26a'],
+  ['let', 'Letenku už máš?', 'na <b>Přehledu</b> doplníš zbytek cesty – trasu, ubytování i program.', '2026-11-26a'],
+  ['skryt', 'Soukromí', 'počítám jen souhrnné denní počty, žádné sledování jednotlivců, pokud sám nezapneš Pomáhat se zlepšováním. Podrobnosti pod <b>Další</b> (na počítači vlevo dole) → <b>O aplikaci a soukromí</b>.', '2026-11-25a'],
 ];
 // Úplně nový uživatel (nic uloženého): místo seznamu novinek krátké „Vítej“ ve 3 krocích – novinky by ho jen zahltily.
 // Uvítání vydrží celou první návštěvu, dokud ho uživatel neskryje: atlas_wn = WN_ID + WN_NEW. Bez toho by po výběru
@@ -1079,7 +1079,7 @@ let wnFirst = false; // v tomhle otevření se ukázalo uvítání: 💡 tipy a�
 const WN_DAYS = 14;
 // „~350 Kč“, „~3 h 25“ v textu novinek s pevnou mezerou – na úzkém telefonu se jednotka neodtrhne od čísla
 const wnUnit = s => s.replace(/(\d) (?=(Kč|km|h|min|°C)(?![\p{L}]))/gu, '$1\u00a0').replace(/(\d\u00a0h) (?=\d)/g, '$1\u00a0');
-const wnLi = ([ic, title, text]) => `<li><span class="wn-ic" aria-hidden="true">${ic}</span><div><b>${esc(title)}</b> – ${wnUnit(text)}</div></li>`;
+const wnLi = ([ic, title, text]) => `<li><span class="wn-ic" aria-hidden="true">${ikona(ic)}</span><div><b>${esc(title)}</b> – ${wnUnit(text)}</div></li>`;
 /** Karta na Přehledu už jen pro nováčka (uvítání); novinky ukazuje lišta (whatsNewPop) a menu (whatsNewOpen). */
 function renderWhatsNew() {
   const el = $('#whatsNew'); if (!el) return;
@@ -1178,12 +1178,17 @@ function wnSince() {
 }
 // starší verze stránky (z mezipaměti, než se načte nová) nic nepřepíše – nová verze by pak tutéž novinku ukázala znovu
 const wnMark = () => { if (wnSince() != null && wnSince() <= WN_ID) try { localStorage.setItem(WN_TOP_LS, WN_ID); } catch (e) { /* nevadí */ } };
+/** Lišta novinek počká: na Přehledu je vidět karta v #whatsNew (souhlas s měřením, uvítání). */
+const wnHold = (card, view) => view === 'dashboard' && Boolean(card) && !card.hidden;
 function whatsNewPop() {
   const since = wnSince();
   // soukromé okno: bez paměti by lišta vyskočila při každém otevření; starší verze stránky nic neukáže
   if (since == null || since > WN_ID) return;
   const fresh = wnNew(since), f = { show: fresh.slice(0, WN_POP), more: Math.max(0, fresh.length - WN_POP) };
   if (!f.show.length) return wnMark();
+  // karta souhlasu na Přehledu: lišta by ji zakryla (na 360×780 i Kam a Najít lety) – počká, až karta zmizí nebo
+  // uživatel odejde z Přehledu; viděná se do té doby neoznačí (zavřená aplikace je ukáže při dalším otevření)
+  if (wnHold($('#whatsNew'), activeView)) return void setTimeout(whatsNewPop, 2000);
   const bar = document.createElement('div');
   bar.className = 'wn-pop';
   bar.setAttribute('role', 'region');

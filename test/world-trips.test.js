@@ -129,6 +129,6 @@ test('detail země Česko: bez „Najít lety sem“ (domov), hlavní je 🌍 Ob
 
 test('Co je nového: Letsi Plus a soukromí (starší novinky po 14 dnech mizí – app.js WN_DAYS)', () => {
   // pořadí a nejnovější nahoře hlídá test/novinky-jen-nove.test.js – tady jen znění (staré novinky se z pole mažou)
-  assert.match(app, /\['⭐', 'Letsi Plus', 'podívej se, co zůstane zdarma a co chystáme navíc – a řekni nám, kolik by ti stálo za to\./);
-  assert.match(app, /\['🔒', 'Soukromí', 'počítám jen souhrnné denní počty, žádné sledování jednotlivců, pokud sám nezapneš Pomáhat se zlepšováním\./);
+  assert.match(app, /\['oblibene', 'Letsi Plus', 'podívej se, co zůstane zdarma a co chystáme navíc – a řekni nám, kolik by ti stálo za to\./);
+  assert.match(app, /\['skryt', 'Soukromí', 'počítám jen souhrnné denní počty, žádné sledování jednotlivců, pokud sám nezapneš Pomáhat se zlepšováním\./);
 });

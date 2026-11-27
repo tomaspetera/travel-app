@@ -235,7 +235,7 @@
   const offBar = document.createElement('div');
   offBar.className = 'pwa-bar';
   offBar.setAttribute('role', 'status');
-  offBar.innerHTML = '📴 <b>Jsi offline.</b> Uložené cesty a plány fungují, hledání letů a ceny počkají na internet.';
+  offBar.innerHTML = '<b>Jsi offline.</b> Uložené cesty a plány fungují, hledání letů a ceny počkají na internet.';
   const demo = $('#demoBanner'), main = $('.main');
   if (demo) demo.after(offBar); else if (main) main.prepend(offBar);
   const paintOnline = () => { offBar.hidden = navigator.onLine !== false; };
