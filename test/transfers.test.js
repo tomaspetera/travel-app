@@ -5,6 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { stubFetch } from './helpers.js';
 import { cache } from '../server/lib/cache.js';
+import { resetBrouter } from '../server/lib/brouter.js';
 import {
   transferTimes, driveRoute, routeTransfers, routeKey, cachedRoute, parseDrive, openBorder, borderMin, congestionMin, transitKind, hsrMin, regionKey,
   railLink, RULES,
@@ -234,6 +235,7 @@ test('driveRoute: dotaz na BRouter (car-fast), rozbor, mezipaměť bez ohledu na
     assert.equal(down.calls.length, 1);
   } finally {
     down.restore();
+    resetBrouter(); // výpadek zapnul minutovou pojistku BRouteru – další testy počítají s funkčním plánovačem
   }
   // plná fronta dotazů: chyba, nic se neuloží (příště se zkusí znovu)
   const busy = Object.assign(new Error('busy'), { code: 'BUSY' });

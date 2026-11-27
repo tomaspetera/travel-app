@@ -3608,14 +3608,16 @@
     const links = buy.map(([u, p, leg]) => `<a href="${esc(safeUrl(u))}" target="_blank" rel="${buyRel(u)}">${leg === 'out' ? 'Tam' : leg === 'back' ? 'Zpět' : 'Koupit nabídku z karty'} ${esc(shop(p))} ↗</a>${adTag(u)}`).join(' · ');
     return `<div class="note info card-note">ℹ️ <div>Na kartě v Kam letět levně bylo <b>${czk(x.czk)}/os.</b> (${esc(SearchHelp.radarRoute(x))} · ${fmtDate(x.d1)}${x.d2 ? '–' + fmtDate(x.d2) : ''}). Hledání do jednoho cíle tuhle nabídku teď nevrátilo – zdroje (hlavně Kiwi.com) dávají pro „kamkoliv“ a pro konkrétní cíl různé nabídky a ceny se mění.${links ? ` ${links}` : ''}</div></div>`;
   }
-  /** Ryanair nebo Wizz Air neodpověděl: nejlevnější lety chybí a „nejlevněji“ může klamat – nahlas a se Zkusit znovu. */
+  /** Ryanair, Wizz Air nebo Aviasales neodpověděl: nejlevnější lety chybí a „nejlevněji“ může klamat – nahlas a se Zkusit znovu. */
   function lowcostBanner(res) {
     const out = SearchHelp.lowcostOutage(res.providers);
     if (!out.length) return '';
     const down = out.filter(x => x.level !== 'partial'), part = out.filter(x => x.level === 'partial');
     const names = xs => xs.map(x => x.name).join(' a ');
+    // prázdný výsledek (v čistém režimu je Aviasales jediný zdroj): „nejnižší cena může být nižší“ by nad „Nic jsem nenašel“ mátlo
+    const none = !(res.groups || []).length, many = down.length > 1;
     const txt = [
-      down.length ? `<b>${names(down)} teď ${down.length > 1 ? 'neodpověděly' : 'neodpověděl'}</b> – ${down.length > 1 ? 'jejich' : 'jeho'} lety (často ty nejlevnější) ve výsledcích chybí, takže skutečná nejnižší cena může být nižší.${down.some(x => x.level === 'blocked') ? ' Po výpadku je Letsi na pár minut vynechává.' : ''}` : '',
+      down.length ? `<b>${names(down)} teď ${many ? 'neodpověděly' : 'neodpověděl'}</b> – ${many ? 'jejich' : 'jeho'} lety ${none ? 've výsledcích chybí.' : '(často ty nejlevnější) ve výsledcích chybí, takže skutečná nejnižší cena může být nižší.'}${down.some(x => x.level === 'blocked') ? ` Po výpadku ${many ? 'je' : 'ho'} Letsi na pár minut vynechává.` : ''}` : '',
       part.length ? `<b>${names(part)} ${part.length > 1 ? 'odpověděly' : 'odpověděl'} jen zčásti</b> – některé ${part.length > 1 ? 'jejich' : 'jeho'} lety můžou chybět.` : '',
     ].filter(Boolean).join(' ');
     // všechny vynechané po výpadku (Wizz Air po 429 až 10 min): nové hledání by je stejně přeskočilo – tlačítko po odpočtu

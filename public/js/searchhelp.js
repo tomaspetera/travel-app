@@ -210,11 +210,12 @@
   }
 
   /**
-   * Výpadek Ryanairu nebo Wizz Air v tomto hledání (hlavní zdroje nejlevnějších letů) → [{ id, name, level }]
-   * (level 'down' | 'blocked' | 'partial'); bez výpadku []. Výsledky pak vypadají úplně, ale nejlevnější lety chybí.
+   * Výpadek Ryanairu, Wizz Air nebo Aviasales v tomto hledání (hlavní zdroje nejlevnějších letů; Aviasales v čistém
+   * režimu jediný) → [{ id, name, level, retryAfter }] (level 'down' | 'blocked' | 'partial'); bez výpadku [].
+   * Výsledky pak vypadají úplně, ale nejlevnější lety chybí; u 'blocked' tlačítko Zkusit znovu po odpočtu retryAfter.
    */
   function lowcostOutage(providers) {
-    const NAME = { ryanair: 'Ryanair', wizzair: 'Wizz Air' };
+    const NAME = { ryanair: 'Ryanair', wizzair: 'Wizz Air', travelpayouts: 'Aviasales' };
     return (providers || []).filter(p => p && NAME[p.id] && ['down', 'blocked', 'partial'].includes(p.outage)).map(p => ({ id: p.id, name: NAME[p.id], level: p.outage, retryAfter: p.retryAfter || 0 }));
   }
 
