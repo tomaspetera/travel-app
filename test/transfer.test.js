@@ -311,7 +311,7 @@ test('zapojení: skripty po sharelink.js a backup.js, ⋯ Další, postranní pa
   const at = (f) => html.indexOf(`<script src="js/${f}"></script>`);
   assert.ok(at('sharelink.js') > 0 && at('backup.js') > at('sharelink.js') && at('transfer.js') > at('backup.js'));
   assert.equal(at('qr.js'), -1, 'QR kód je schovaný – qr.js se nenačítá (rozhodnutí majitele)');
-  assert.match(app, /if \(window\.Transfer\) Transfer\.addToMenu\(list\);/);
+  assert.match(app, /if \(window\.Transfer\) Transfer\.addToMenu\(data\);/);
   assert.match(app, /if \(!shared && !plan && window\.Transfer && Transfer\.fromHash\(\)\) return go\('dashboard', \{ noHash: true \}\);/, 'start');
   assert.match(app, /if \(window\.Transfer && Transfer\.fromHash\(\)\) return go\('dashboard', \{ noHash: true \}\);/, 'hashchange');
   assert.match(tf, /insertAdjacentHTML\('afterend', '<button type="button" class="theme-toggle side-about" id="sideXfer">/, 'počítač: postranní panel');

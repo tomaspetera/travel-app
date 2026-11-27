@@ -38,8 +38,8 @@
   --letsi-tlacitko:#14161F; --letsi-tlacitko-text:#F3F4F0;
   --letsi-na-grad:#F3F4F0;   /* text a ikony na ploše --grad */
   --letsi-dlazdice:#14161F;  /* dlaždice bez fotky (dřív barevný přechod podle země) */
-  --nav-bg:#F3F4F0; --nav-line:#DFE2DA; --nav-ico:#585D56;
-  --nav-shadow:0 2px 10px rgba(20,22,31,.08);
+  --nav-bg:#FFFFFF; --nav-line:#DFE2DA; --nav-ico:#585D56;
+  --nav-shadow:0 10px 28px -12px rgba(20,22,31,.28),0 2px 6px rgba(20,22,31,.06);
   --shadow:0 1px 2px rgba(20,22,31,.04);
   --shadow-lg:0 20px 50px rgba(20,22,31,.18);
   --btn-bg:#FFFFFF; --btn-sh:none; --input-bg:#FFFFFF; --input-line:#878D80;
@@ -55,8 +55,8 @@
   --letsi-tlacitko:#D6DE82; --letsi-tlacitko-text:#14161F;
   --letsi-na-grad:#14161F;
   --letsi-dlazdice:#262A36;
-  --nav-bg:#14161F; --nav-line:#2A2E3A; --nav-ico:#A6ACB6;
-  --nav-shadow:0 2px 10px rgba(0,0,0,.3);
+  --nav-bg:#1D2029; --nav-line:#2A2E3A; --nav-ico:#A6ACB6;
+  --nav-shadow:0 12px 30px -10px rgba(0,0,0,.6),0 2px 6px rgba(0,0,0,.25);
   --shadow:none; --shadow-lg:0 20px 50px rgba(0,0,0,.45);
   --btn-bg:#1D2029; --btn-sh:none; --input-bg:#1D2029; --input-line:#666C7C;
 }
@@ -120,7 +120,6 @@
 :root[data-brand="letsi"] .pi-smart,:root[data-brand="letsi"] .pi-smart.on,:root[data-brand="letsi"] .pi-smart:hover{background:var(--surface-2);border-color:var(--border)}
 :root[data-brand="letsi"] .rm-home{fill:var(--text)}
 :root[data-brand="letsi"] .w-lg{background:var(--text)}
-:root[data-brand="letsi"] .more-tile .mt-ico{background:var(--surface-2);color:var(--text)}
 /* karty s modrým nádechem (teď / naposledy / pokračovat): bílá karta s linkou */
 :root[data-brand="letsi"] :is(.now-card,.resume-trip,.since-card,.whats-new.welcome,.auto-pick,.auto-trip){background:var(--card);border-color:var(--border)}
 :root[data-brand="letsi"] .day-block.today{border-color:var(--text)}
@@ -171,16 +170,65 @@
    dny tam a zpět mají písmo v protibarvě výš */
 :root[data-brand="letsi"][data-theme="light"] :is(.sc-w.wk,.sc-d:is(.wk,.hol):not(.r-out,.r-back,.r-both) span){color:#c22a45}
 
-/* ============ SPODNÍ LIŠTA: Vápno (v tmavém Noc), aktivní sekce tučně Nocí, ostatní text-3 (stav „Záložky“ z manuálu) ============ */
+/* ============ SPODNÍ LIŠTA: plovoucí pilulka jako v nativní aplikaci (iOS i Android – je to PWA, stejné CSS) ============
+   Plná plocha (bílá na Vápně, v tmavém o stupeň světlejší než Noc), jemný okraj a měkký stín, žádné sklo. Aktivní
+   sekce = ikona Noc na kapsli Pistácie (Pistácie jen jako plocha s Nocí) a tučný popisek, ostatní šedé. */
 :root[data-brand="letsi"] .mobile-nav{-webkit-backdrop-filter:none;backdrop-filter:none}
 :root[data-brand="letsi"] .mobile-nav .mi.active,:root[data-brand="letsi"][data-theme="light"] .mobile-nav .mi.active{background:none;color:var(--text);box-shadow:none}
-/* lišta přes celou šířku u spodního okraje s linkou nahoře (jako ve vzoru), ne plovoucí ostrůvek se stínem */
 @media(max-width:1023px){
-  :root[data-brand="letsi"] .mobile-nav{left:0;right:0;bottom:0;height:calc(62px + env(safe-area-inset-bottom));padding:6px 6px calc(6px + env(safe-area-inset-bottom));border-radius:0;border-width:1px 0 0;box-shadow:none}
+  :root[data-brand="letsi"] .mobile-nav{left:max(12px,env(safe-area-inset-left));right:max(12px,env(safe-area-inset-right));bottom:max(10px,env(safe-area-inset-bottom));
+    height:64px;padding:4px;border-radius:32px;gap:0}
 }
 :root[data-brand="letsi"] .mobile-nav .mi{color:var(--faint)}
+:root[data-brand="letsi"] .mobile-nav .mi{position:relative;gap:4px;border-radius:28px}
 :root[data-brand="letsi"] .mobile-nav .mi span{font-weight:500;letter-spacing:0}
 :root[data-brand="letsi"] .mobile-nav .mi.active span{font-weight:700}
+/* kapsle za ikonou (ikona je maska – barvu pozadí si nenese, proto zvláštní vrstva) */
+:root[data-brand="letsi"] .mobile-nav .mi::before{content:"";position:absolute;left:50%;top:50%;width:54px;height:32px;margin:-25px 0 0 -27px;border-radius:16px;background:transparent;transition:background-color .2s var(--ease)}
+:root[data-brand="letsi"] .mobile-nav .mi.active::before{background:#D6DE82}
+:root[data-brand="letsi"] .mobile-nav .mi>svg{position:relative}
+:root[data-brand="letsi"] .mobile-nav .mi.active>svg{color:#14161F}
+:root[data-brand="letsi"] .mobile-nav .mi:not(.active):active::before{background:var(--surface-2)}
+@media(prefers-reduced-motion:reduce){:root[data-brand="letsi"] .mobile-nav .mi::before{transition:none}}
+/* přepínač v Další: zapnuto = Pistácie s Nocí */
+:root[data-brand="letsi"] .more-sheet [aria-checked="true"] .sw{background:#D6DE82}
+:root[data-brand="letsi"] .more-sheet [aria-checked="true"] .sw::after{background:#14161F;box-shadow:none}
+
+/* ============ POSTRANNÍ PANEL (počítač a tablet; na telefonu skrytý) ============
+   Světlý panel aplikace (Vápno, v tmavém Noc) s linkou vpravo, bez přechodu a skla. Sekce jako řádky s ikonou, aktivní
+   řádek plná Noc s Vápnem (v tmavém obráceně). Dole jeden klidný řádek stavu cen a řada malých tlačítek
+   (motiv, novinky, přenos, Plus, o aplikaci) s popiskem při najetí; Přidat na plochu jako řádek nad nimi. */
+:root[data-brand="letsi"] .sidebar{background:var(--bg);border-right-color:var(--border);-webkit-backdrop-filter:none;backdrop-filter:none;padding:22px 14px 16px}
+:root[data-brand="letsi"] .brand{padding:4px 12px 20px}
+:root[data-brand="letsi"] .nav{gap:2px}
+:root[data-brand="letsi"] .nav-item{min-height:44px;padding:9px 12px;border:0;border-radius:12px;color:var(--muted);font-weight:500;font-size:15px}
+:root[data-brand="letsi"] .nav-item:hover{background:var(--surface);color:var(--text)}
+:root[data-brand="letsi"] .nav-item.active{background:var(--text);color:var(--bg);font-weight:600}
+:root[data-brand="letsi"] .nav-item.active::before{content:none}
+:root[data-brand="letsi"] .nav-item:focus-visible{outline:2px solid var(--text);outline-offset:2px}
+/* Mapa, Země a Doporučení: druhá skupina pod tenkou linkou (hlavní čtyři sekce jako dole v telefonu) */
+:root[data-brand="letsi"] .nav-item[data-view="map"]{margin-top:17px}
+:root[data-brand="letsi"] .nav-item[data-view="map"]::after{content:"";position:absolute;left:12px;right:12px;top:-9px;height:1px;background:var(--border)}
+:root[data-brand="letsi"] .nav-badge{background:var(--surface-2);color:var(--text)}
+:root[data-brand="letsi"] .nav-item.active .nav-badge{background:var(--bg);color:var(--text)}
+:root[data-brand="letsi"] .side-foot{gap:10px;padding-top:14px}
+:root[data-brand="letsi"] .src-box{border:0;background:none;padding:6px 12px}
+:root[data-brand="letsi"] .src-box>summary::before{background:var(--text)}
+:root[data-brand="letsi"] .src-box[open]{background:var(--card);box-shadow:0 0 0 1px var(--border);border-radius:12px;padding:10px 12px}
+:root[data-brand="letsi"] .src.on span{color:var(--muted)}
+:root[data-brand="letsi"] .side-tools{position:relative;flex-flow:row wrap;gap:4px;padding:8px 6px 0;border-top:1px solid var(--border)}
+:root[data-brand="letsi"] .side-tools>:is(.theme-toggle,.side-about){width:auto;flex:1 1 0;height:40px;min-width:0;padding:0;justify-content:center;border:0;border-radius:11px;background:none;color:var(--muted);font-size:0}
+:root[data-brand="letsi"] .side-tools>:is(.theme-toggle,.side-about):hover{background:var(--surface-2);color:var(--text)}
+:root[data-brand="letsi"] .side-tools>:is(.theme-toggle,.side-about):focus-visible{outline:2px solid var(--text);outline-offset:-2px}
+:root[data-brand="letsi"] .side-tools>.side-about>.ico{width:20px;height:20px;margin:0}
+/* text tlačítek zůstává pro čtečku (font-size 0), u motivu je ve <span> */
+:root[data-brand="letsi"] #themeToggle>span{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+:root[data-brand="letsi"] #themeToggle{order:1}:root[data-brand="letsi"] #sideWn{order:2}:root[data-brand="letsi"] #sideXfer{order:3}:root[data-brand="letsi"] #sidePlus{order:4}:root[data-brand="letsi"] #sideAbout{order:5}
+/* popisek při najetí: přes celou šířku nad řadou (u kraje panelu by se jinak ořízl) */
+:root[data-brand="letsi"] .side-tools>[data-tip]:hover::after,:root[data-brand="letsi"] .side-tools>[data-tip]:focus-visible::after{content:attr(data-tip);position:absolute;left:0;right:0;bottom:calc(100% + 6px);padding:6px 10px;border-radius:9px;background:var(--text);color:var(--bg);font:500 12.5px/1.3 var(--letsi-pismo-text);text-align:center;pointer-events:none;z-index:2}
+:root[data-brand="letsi"] .side-tools>.pwa-install{order:0;flex-basis:100%;margin-bottom:4px;padding:9px 12px;border:1px solid var(--border);border-radius:12px;background:var(--card);color:var(--text);font-weight:600}
+:root[data-brand="letsi"] .side-tools>.pwa-install[hidden]{display:none}
+:root[data-brand="letsi"] .side-tools>.pwa-install:hover{border-color:var(--text)}
 
 /* ============ ÚVODNÍ OBRAZOVKA (aplikace na ploše): Vápno / Noc, dlaždice Pistácie s Nocí ============ */
 :root[data-brand="letsi"] #launch{background:var(--bg);color:var(--text)}
