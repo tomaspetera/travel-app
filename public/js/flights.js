@@ -121,7 +121,9 @@
   /** Jeden klidný řádek stavu cen dole v postranním panelu – rozbalí se na seznam zdrojů (srcBoxHtml). */
   function srcLine(h = health) {
     const st = srcOn(h).map(srcSt), n = st.length;
-    if (!n) return 'Zdroje cen se načítají';
+    if (!h) return 'Zdroje cen se načítají';
+    // server odpověděl, ale žádný zdroj nejede – „načítají“ by tu viselo navždy
+    if (!n) return 'Ceny teď nejsou k dispozici';
     return `Ceny ${st.includes('živě') ? 'živě' : st.includes('demo') ? 'demo' : 'orientačně'} · ${n} ${n === 1 ? 'zdroj' : n < 5 ? 'zdroje' : 'zdrojů'}`;
   }
 

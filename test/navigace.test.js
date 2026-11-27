@@ -133,6 +133,9 @@ test('postranní panel: skupiny Cestování a Svět (jen vzhled Letsi na počít
   assert.equal(srcLine({ providers: [p('tp', { kind: 'cached' })] }), 'Ceny orientačně · 1 zdroj');
   assert.equal(srcLine({ demo: true, providers: [1, 2, 3, 4, 5].map((i) => p('d' + i, { kind: 'demo' })) }), 'Ceny demo · 5 zdrojů');
   assert.equal(srcLine(null), 'Zdroje cen se načítají');
+  // /api/health odpověděl bez jediného zapnutého zdroje: ne „načítají“ navždy
+  assert.equal(srcLine({ providers: [p('kiwi', { enabled: false })] }), 'Ceny teď nejsou k dispozici');
+  assert.equal(srcLine({}), 'Ceny teď nejsou k dispozici');
 });
 
 test('postranní panel Letsi: jen v desktop.css od 1024 px – Noc, Pistáciová kapsle, Onest, popisek pod ikonami', () => {

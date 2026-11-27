@@ -3029,9 +3029,6 @@ function wireEvents() {
 }
 function renderTips() { $('#flightTips').innerHTML = TIPS.map(t => `<div class="tip"><div class="tn"><span>${t[0]}</span>${t[1]}</div><p>${t[2]}</p></div>`).join(''); }
 
-/* Úvodní obrazovka aplikace na ploše (index.html #launch): zmizí, až je přehled vykreslený a písma načtená (na písma
-   nejvýš 0,8 s) – start bez poskakování obsahu. Pojistka: 3,1 s od otevření stránky začne mizet (bez čekání na písma),
-   za 3,5 s je pryč; přišla-li stránka pozdě (pomalá síť, uspaný server), drží se aspoň 2 s, než se přehled vykreslí. */
 /**
  * Kolik ms ještě nechat úvodní obrazovku: vlaštovka ATLASu musí vzlétnout (~0,95 s od prvního vykreslení), oči Letsi
  * dohrát hlavní pohyb (mrknutí, rozhlédnutí, vysunutý nápis ~1,25 s) – jinak by je rychlý start utnul. Oči jen
@@ -3041,6 +3038,9 @@ function launchWait({ brand, calm, app, at, now }) {
   if (calm || (brand === 'letsi' && !app)) return 0;
   return Math.max(0, at + (brand === 'letsi' ? 1250 : 950) - now);
 }
+/* Úvodní obrazovka aplikace na ploše (index.html #launch): zmizí, až je přehled vykreslený a písma načtená (na písma
+   nejvýš 0,8 s) – start bez poskakování obsahu. Pojistka: 3,1 s od otevření stránky začne mizet (bez čekání na písma),
+   za 3,5 s je pryč; přišla-li stránka pozdě (pomalá síť, uspaný server), drží se aspoň 2 s, než se přehled vykreslí. */
 function launchDone(now) {
   const el = $('#launch'); if (!el || el.dataset.out) return;
   el.dataset.out = '1';
