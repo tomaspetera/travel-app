@@ -30,9 +30,9 @@ export const EVENTS = [
   'mq_trip_good', 'mq_trip_missing', 'mq_trip_lost',
   'mq_ex_city', 'mq_ex_nature', 'mq_ex_region', 'mq_ex_other',
   // krátké otázky testerům na Přehledu (public/js/otazky.js) – jen klepnutá volba
-  'mq_found_yes', 'mq_found_almost', 'mq_found_no', 'mq_found_price', 'mq_found_other',
-  'mq_miss_stay', 'mq_miss_prog', 'mq_miss_ground', 'mq_miss_none', 'mq_miss_other',
-  'mq_back_cheap', 'mq_back_plan', 'mq_back_idea', 'mq_back_try', 'mq_back_other',
+  'mq_found_yes', 'mq_found_almost', 'mq_found_no', 'mq_found_price',
+  'mq_miss_stay', 'mq_miss_prog', 'mq_miss_ground', 'mq_miss_none',
+  'mq_back_cheap', 'mq_back_plan', 'mq_back_idea', 'mq_back_try',
   // opakované klepnutí (3× do 1 s na totéž místo – něco nereaguje) podle sekce; jen se souhlasem „Pomáhat se
   // zlepšováním“ (public/js/count.js), jako i záznam návštěvy (server/lib/traces.js)
   'rage_dashboard', 'rage_flights', 'rage_trip', 'rage_explore', 'rage_world',
@@ -50,6 +50,10 @@ export const EVENTS = [
   'ex_open_sug', 'ex_open_smart', 'ex_open_enter', 'ex_open_other', 'place_none_explore', 'ex_smart_ok', 'ex_smart_miss',
   'ex_empty_list', 'ex_empty_plan', 'ex_empty_trips', 'ex_empty_country', 'ex_fix', 'ex_save', 'ex_fly',
   'lazy_fail',
+  // test zájmu o Plus (public/js/plus.js): anketa „Co by ti ušetřilo nejvíc času?“ po Chci Plus (jen klepnutá volba)
+  // a malá tlačítka „· Plus“ u věci – zobrazení (až na obrazovce) a klepnutí
+  'plus_q_similar', 'plus_q_sesit', 'plus_q_pack', 'plus_q_nav', 'plus_q_variants', 'plus_q_split',
+  'plus_similar_shown', 'plus_similar_click', 'plus_pack_shown', 'plus_pack_click',
 ];
 // Strop seznamu: s každým názvem roste nejhorší počet zápisů do Upstash (rozpočet v test/pocitadla.test.js)
 export const MAX_EVENTS = 150;

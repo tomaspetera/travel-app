@@ -865,6 +865,8 @@
     const addHtml = `<form class="pt-add" data-pt-add><input class="input" maxlength="${OWN_LEN}" placeholder="Přidat vlastní položku…" aria-label="Přidat vlastní položku do seznamu věcí" autocomplete="off" enterkeyhint="done"><button type="submit" class="btn sm">+ Přidat</button></form>`;
     const total = list.filter(x => x.level !== 'info').length + groups.reduce((s, g) => s + g.items.length, 0);
     const ticked = list.filter(x => x.level !== 'info' && done[`todo:${x.id}`]).length + groups.reduce((s, g) => s + g.items.filter(x => done[`pack:${x.id}`]).length, 0);
+    // ⭐ „Uložit jako šablonu · Plus“ (plus.js, falešné dveře) pod seznamem – ne u cesty, kterou někdo poslal
+    const soonHtml = window.Plus && !t.shared ? `<p class="pt-soon">${Plus.soonBtn('pack', key)}</p>` : '';
     const S = src();
     return `<div class="card step-card pt-card" id="preTrip" data-ptkey="${esc(key)}">
       <div class="pt-top"><div>${head}<div class="muted pt-sub">${esc(subtitle(ctx))}</div></div>
@@ -873,7 +875,7 @@
         <section class="pt-sec"><h4>Co zařídit</h4><ul class="pt-todo">${todoHtml}</ul></section>
         <section class="pt-sec"><h4>Co sbalit</h4>
           <div class="pt-acts" role="group" aria-label="Co budeš na cestě dělat"><span class="faint">Co budeš dělat:</span> ${chips}</div>
-          ${climateHtml(ctx)}${tips.length ? `<ul class="pt-tips">${tips.map(x => `<li>🧳 ${esc(x)}</li>`).join('')}</ul>` : ''}<div class="pt-groups"><details class="pt-packd" data-pt-packd${packOpen ? ' open' : ''}><summary>${packSum(groups, done)}</summary>${packHtml}</details></div>${addHtml}</section>
+          ${climateHtml(ctx)}${tips.length ? `<ul class="pt-tips">${tips.map(x => `<li>🧳 ${esc(x)}</li>`).join('')}</ul>` : ''}<div class="pt-groups"><details class="pt-packd" data-pt-packd${packOpen ? ' open' : ''}><summary>${packSum(groups, done)}</summary>${packHtml}</details></div>${addHtml}${soonHtml}</section>
       </div>
       <div class="faint pt-src">Informativní přehled (stav ${esc(checkedTxt() + (window.SearchHelp && DATA ? SearchHelp.dataAge(DATA.checked).txt : ''))}): ${link(S.desatero, 'MZV ČR')}, ${link(S.kzpTourist, 'Kancelář zdravotního pojištění')}, ${link(S.vzpEhic, 'VZP')}, ${link(S.idp, 'Portál veřejné správy')}, ${link(S.untc1949, 'OSN – úmluvy o silničním provozu')}, ${link(S.plugs, 'přehled zásuvek')}. Pravidla se mění – před cestou je vždy ověř. Odškrtnutí se ukládá v tomto prohlížeči a odkaz na cestu ho přenese i s vlastními položkami.</div>
     </div>`;
@@ -887,6 +889,7 @@
     // rozepsaná vlastní položka překreslení přežije (podnebí může dorazit zrovna při psaní)
     const inp = el.querySelector('[data-pt-add] input'), typed = inp ? inp.value : '', focused = Boolean(inp) && document.activeElement === inp;
     el.outerHTML = html(last.t, last.o);
+    if (window.Plus) Plus.watchSoon(document.getElementById('preTrip')); // nové tlačítko · Plus – zobrazení až na obrazovce
     const again = typed || focused ? document.querySelector('#preTrip [data-pt-add] input') : null;
     if (again) { again.value = typed; if (focused) again.focus(); }
   }

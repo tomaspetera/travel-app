@@ -2222,7 +2222,9 @@ function myTrips(host, o = {}) {
   // z téhle nabídky už cesta je – nebo z toho hledání vznikla cesta v průvodci (jiná nabídka než nejlevnější, jiný termín):
   // nováček by jinak hned pod svou cestou do Říma dostal „Z posledního hledání: Řím“ jako další cestu
   if (pick && S.trips.some(t => t.dest === pick.dest && (t.start === pick.start || (t.wizard && (t.end || t.start || '') >= todayLocal())))) pick = null;
-  const card = x => tripCard(x.t, x.i, 'data-mt', x.t.wizard ? `<button type="button" class="linkbtn mt-det" data-mdet="${x.i}">Program, balení a poznámky ›</button>` : '');
+  // ⭐ „Naplánuj podobnou · Plus“ (plus.js, falešné dveře) – jen u vlastní cesty mimo průvodce, ne během cesty
+  const sim = x => (window.Plus && x !== cur && Plus.similarOk(x.t, now) ? Plus.soonBtn('similar', Plus.tripKey(x.t)) : '');
+  const card = x => tripCard(x.t, x.i, 'data-mt', (x.t.wizard ? `<button type="button" class="linkbtn mt-det" data-mdet="${x.i}">Program, balení a poznámky ›</button>` : '') + sim(x));
   // rozpracovaná cesta: uložená = její karta nahoře s „v průvodci“, neuložená = karta z údajů průvodce
   const inf = o.info || {};
   // ve Shrnutí je cesta sestavená – „rozpracovaná“ by mátla; jinak krok, na kterém uživatel skončil. Neuložená cesta
@@ -2249,7 +2251,7 @@ function myTrips(host, o = {}) {
     el.onclick = e => { if (!e.target.closest('[data-mdet]')) open(+el.dataset.mt); };
     // karta s tlačítkem „Program, balení a poznámky“ nesmí být sama tlačítkem (role=button skryje vnitřní tlačítko před
     // čtečkou) – z klávesnice ji otevře název cesty jako tlačítko, klik bublá na kartu
-    const nm = $('[data-mdet]', el) && $('.tt-name', el);
+    const nm = $('[data-mdet],[data-plus-soon]', el) && $('.tt-name', el);
     if (nm) nm.innerHTML = `<button type="button" class="tt-open">${nm.innerHTML}</button>`; else kbClick(el);
   });
   $$('[data-mdet]', host).forEach(b => b.onclick = e => { e.stopPropagation(); openTrip(+b.dataset.mdet); });
@@ -2257,6 +2259,7 @@ function myTrips(host, o = {}) {
   $('#mtNew', host).onclick = () => newTrip();
   if (pick) $('#mtLast', host).onclick = () => newTrip(null, { dest: pick.dest, iso: pick.iso, start: pick.start, end: pick.end, pax: pick.pax, budget: pick.budget, budgetNote: pick.budgetNote, flight: pick.flight });
   bkWire(host);
+  if (window.Plus) Plus.watchSoon(host);
   Photos.paint(host);
 }
 function newTrip(c, pre = {}) {

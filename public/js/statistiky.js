@@ -27,7 +27,12 @@
     { shown: 'plus_offer_shown', label: 'Nabídka Plus', clicks: [['plus_offer_click', 'klepnutí']] },
     { shown: 'sesit_shown', label: 'Sešit', clicks: [['sesit_click', 'klepnutí']] },
     { shown: 'sesit_country_shown', label: 'Sešit z průvodce zemí', clicks: [['sesit_country_click', 'klepnutí']] },
+    { shown: 'plus_similar_shown', label: 'Naplánuj podobnou (Moje cesty)', clicks: [['plus_similar_click', 'klepnutí']] },
+    { shown: 'plus_pack_shown', label: 'Uložit jako šablonu (Co sbalit)', clicks: [['plus_pack_click', 'klepnutí']] },
   ];
+  // Anketa po „Chci Plus“ (plus.js TIME): přesné znění a volby jako v aplikaci, počítá se jen klepnutá volba
+  const TIME_Q = { q: 'Co by ti ušetřilo nejvíc času?', opts: [['plus_q_similar', 'Naplánuj podobnou'], ['plus_q_sesit', 'Sešit s průvodcem zemí'], ['plus_q_pack', 'Balicí šablony'],
+    ['plus_q_nav', 'Celá cesta do navigace'], ['plus_q_variants', 'Varianty vedle sebe'], ['plus_q_split', 'Útraty party']] };
   const VIEWS = [['view_dashboard', 'Přehled'], ['view_flights', 'Lety'], ['view_trip', 'Průvodce cestou'], ['view_trips', 'Moje cesty'], ['view_explore', 'Objevuj'], ['view_world', 'Svět (mapa a země)']];
   const TABLE = [['app_open', 'Otevř.'], ['search_done', 'Hled.'], ['verify_click', 'Ověř.'], ['buy_click', 'Prokl.'], ['trip_started', 'Prův.'], ['trip_saved', 'Ulož.']];
   // Kde to drhne (počty dělá server sám ze svých odpovědí): [událost, základ = události, jejichž součet je 100, popisek].
@@ -49,10 +54,10 @@
     { q: 'Po ↺ Začít znovu: Proč začínáš znovu?', opts: [['mq_restart_date', 'Jiný let nebo termín'], ['mq_restart_price', 'Moc draho'], ['mq_restart_lost', 'Nevyznal/a jsem se'], ['mq_restart_try', 'Jen zkouším']] },
     { q: 'Shrnutí cesty: Pomohl ti průvodce naplánovat cestu?', opts: [['mq_trip_good', 'Ano, hodně'], ['mq_trip_missing', 'Něco chybělo'], ['mq_trip_lost', 'Nevyznal/a jsem se']] },
     { q: 'Objevuj bez výsledku: Co jsi hledal/a?', opts: [['mq_ex_city', 'Město'], ['mq_ex_nature', 'Vesnici nebo přírodu'], ['mq_ex_region', 'Oblast nebo zemi'], ['mq_ex_other', 'Něco jiného']] },
-    // otázky testerům na Přehledu (otazky.js, nejvýš 1 denně); „Jiné – napiš“ jen počet, text chodí e-mailem
-    { q: 'Přehled po hledání: Našel jsi, co jsi hledal?', opts: [['mq_found_yes', 'Ano'], ['mq_found_almost', 'Skoro – chyběl termín nebo letiště'], ['mq_found_no', 'Ne'], ['mq_found_price', 'Nerozumím cenám'], ['mq_found_other', 'Jiné – napiš']] },
-    { q: 'Přehled po naplánované cestě: Co ti v průvodci nejvíc chybělo?', opts: [['mq_miss_stay', 'Ceny ubytování'], ['mq_miss_prog', 'Víc tipů na program'], ['mq_miss_ground', 'Doprava na místě'], ['mq_miss_none', 'Nic, bylo to dobré'], ['mq_miss_other', 'Jiné – napiš']] },
-    { q: 'Přehled od 3. dne návštěvy: Co tě sem vrací?', opts: [['mq_back_cheap', 'Levné letenky'], ['mq_back_plan', 'Plánuju konkrétní cestu'], ['mq_back_idea', 'Hledám, kam vyrazit'], ['mq_back_try', 'Jen zkouším'], ['mq_back_other', 'Jiné – napiš']] },
+    // otázky testerům na Přehledu (otazky.js, nejvýš 1 denně); „Jiné – napiš“ se nepočítá, text chodí e-mailem
+    { q: 'Přehled po hledání: Našel jsi, co jsi hledal?', opts: [['mq_found_yes', 'Ano'], ['mq_found_almost', 'Skoro – chyběl termín nebo letiště'], ['mq_found_no', 'Ne'], ['mq_found_price', 'Nerozumím cenám']] },
+    { q: 'Přehled po naplánované cestě: Co ti v průvodci nejvíc chybělo?', opts: [['mq_miss_stay', 'Ceny ubytování'], ['mq_miss_prog', 'Víc tipů na program'], ['mq_miss_ground', 'Doprava na místě'], ['mq_miss_none', 'Nic, bylo to dobré']] },
+    { q: 'Přehled od 3. dne návštěvy: Co tě sem vrací?', opts: [['mq_back_cheap', 'Levné letenky'], ['mq_back_plan', 'Plánuju konkrétní cestu'], ['mq_back_idea', 'Hledám, kam vyrazit'], ['mq_back_try', 'Jen zkouším']] },
   ];
   // Opakované klepnutí podle sekce (count.js, jen se souhlasem Pomáhat se zlepšováním)
   const RAGE = [['rage_dashboard', 'Přehled'], ['rage_flights', 'Lety'], ['rage_trip', 'Průvodce a Moje cesty'], ['rage_explore', 'Objevuj'], ['rage_world', 'Svět']];
@@ -309,7 +314,7 @@
   const NO_VISITS = 'Zatím žádné návštěvy. Záznam odejde, až člověk aplikaci zavře nebo přepne jinam, a zapisuje se s odstupem – nová návštěva se tu objeví zhruba do 40 minut.';
 
   window.Stats = { MAIN, PRICES, DOORS, VIEWS, TABLE, SNAGS, PERIODS, FEW, num, pct, totals, funnel, rates, median, survey, doors, dayRows, period, fmtNum, fmtPct, fmtKc, fmtDay };
-  Object.assign(window.Stats, { QUESTIONS, dist });
+  Object.assign(window.Stats, { QUESTIONS, dist, TIME_Q });
   Object.assign(window.Stats, { RAGE, names, top, exits, lastSteps, topPaths, after, visitStats, label, NO_VISITS });
   Object.assign(window.Stats, { FL_SNAGS, FL_FIX, FL_RES, FL_RANK });
   Object.assign(window.Stats, { TRIP_FUNNEL, TRIP_AUTO, TRIP_MORE, EXPLORE, tripFunnel });
@@ -330,6 +335,9 @@
     const svBody = table(sv.options.map((o) => row(o.label, fmtNum(o.n), fmtPct(o.pct))))
       + `<p>Odpovědí: <b>${fmtNum(sv.answers)}</b>. Medián: <b>${fmtKc(sv.median)}</b>. Aspoň 399 Kč by dalo: <b>${fmtPct(sv.atLeast399)}</b>.</p>`
       + (sv.few ? `<p class="warn">Odpovědí je zatím málo (méně než ${FEW}) – na závěr to nestačí.</p>` : '');
+    const tq = dist(total, TIME_Q);
+    const tqBody = table(tq.options.map((o) => row(o.label, fmtNum(o.n), fmtPct(o.pct))))
+      + `<p>Odpovědí: <b>${fmtNum(tq.answers)}</b>.</p>` + (tq.few ? `<p class="warn">Málo odpovědí (méně než ${FEW}) – na závěr to nestačí.</p>` : '');
     const doorBody = doors(total).map((d) => `<h3>${esc(d.label)}</h3>`
       + table([row('Zobrazeno', fmtNum(d.shown), ''), ...d.clicks.map((c) => row(c.label, fmtNum(c.n), fmtPct(c.pct)))])).join('')
       + table([row('Stránka Plus otevřená', fmtNum(num(total, 'plus_page')), '')]);
@@ -368,6 +376,7 @@
       + section('Průvodce – podrobnosti', rateRows(TRIP_MORE), `${deepHint} Ubytování na 100 příchodů na krok Ubytování, návraty na 100 příchodů na Trasu, nenačtení na 100 otevření aplikace (otevření počítáme u všech – poměr je spodní odhad).`)
       + section('Objevuj', rateRows(EXPLORE), `${deepHint} Na 100 návštěv Objevuj – návštěvy počítáme u všech, poměr je proto spodní odhad. Opuštěné hledání se zatím nepočítá.`)
       + section('Kolik by dali za Plus', svBody)
+      + section('Co by ušetřilo nejvíc času', tqBody, 'Anketa po „Chci Plus“ – jen klepnutá volba, nejvýš jednou za 30 dní.')
       + section('Zájem o Plus', doorBody, 'Procento = klepnutí ze zobrazení.')
       + section('Návštěvy sekcí', views)
       + section('Odpovědi na otázky', answers, 'Krátké otázky v aplikaci (odpověď jedním klepnutím). Kolikrát se otázka ukázala, se nepočítá – procento je ze všech odpovědí.')
