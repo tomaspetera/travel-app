@@ -128,10 +128,9 @@ const ikona = n => `<span class="ico i-${n}" aria-hidden="true"></span>`;
 function buildNav() {
   // U přehledu odznak „zlevnilo“ z hlídaných cen (plní flights.js).
   $('#nav').innerHTML = NAV.map(n => `<div class="nav-item" data-view="${n[0]}">${ico(n[3])}<span>${n[1]}</span>${n[0] === 'map' ? '<span class="nav-badge" id="navBadge">0</span>' : n[0] === 'dashboard' ? '<span class="nav-badge drop" id="navDrops" title="Hlídané ceny, které od minule zlevnily" hidden></span>' : ''}</div>`).join('');
-  // Na mobilu dole pět míst: Přehled, 3 sekce, které uživatel otevírá nejčastěji (bez historie Lety, Cesta, Objevuj),
-  // a ⋯ Další – ostatní sekce jako dlaždice, záloha, vzhled, instalace. Výběr jen při spuštění (lišta se pod rukou
-  // nemění), sekce v liště v pevném pořadí; pět míst = stejná šířka jako dřív. Svět = mapa a země s přepínačem nahoře.
-  navBar = navSlots(S.navUse);
+  // Na mobilu dole pět pevných míst: Přehled, Lety, Cesty, Objevuj a ⋯ Další – ostatní sekce jako dlaždice, záloha,
+  // vzhled, instalace. Lišta je jediná pevná orientace (i v návodech), proto se podle používání nepřeskládá (dřív
+  // ji řadil počet otevření a Objevuj z ní mizel). Svět = mapa a země s přepínačem nahoře.
   // tlačítka (ne <div>): čtečka obrazovky je ohlásí jako tlačítka a jdou vybrat Tabem; jméno z popisku pod ikonou,
   // u Přehledu i tečka „zlevnilo“
   const mi = k => k === 'world'
@@ -152,18 +151,13 @@ function buildNav() {
   $('#moreNav').onclick = openMore;
   $('#menuBtn').onclick = openMore;
 }
-// sekce, které mohou být v liště (world = Mapa a Země); výchozí náskok, aby jedno otevření pořadí nepřehodilo
+// sekce s vlastním místem (world = Mapa a Země): první tři jsou v liště, ostatní dlaždice v ⋯ Další
 const NAV_PICK = ['flights', 'trip', 'explore', 'world', 'recommend'];
-const NAV_PRIOR = { flights: 6, trip: 4, explore: 3, world: 2, recommend: 0 };
 const NAV_INFO = { world: ['Svět', 'Mapa procestovaných zemí a průvodce zeměmi', 'countries'] };
-let navBar = ['flights', 'trip', 'explore'], navLast = null;
-/** 3 sekce do spodní lišty podle počtu otevření (+ výchozí náskok), v pevném pořadí NAV_PICK. */
-function navSlots(use) {
-  const sc = k => ((use && use[k]) || 0) + NAV_PRIOR[k];
-  return NAV_PICK.slice().sort((a, b) => sc(b) - sc(a) || NAV_PICK.indexOf(a) - NAV_PICK.indexOf(b)).slice(0, 3)
-    .sort((a, b) => NAV_PICK.indexOf(a) - NAV_PICK.indexOf(b));
-}
-/** Otevření sekce do počtů (staré se časem vytrácí – nad 200 otevření se vše vydělí dvěma). */
+const navBar = NAV_PICK.slice(0, 3);
+let navLast = null;
+/** Otevření sekce do počtů (staré se časem vytrácí – nad 200 otevření se vše vydělí dvěma). Lištu už neřadí –
+ *  slouží tipům na Přehledu (co uživatel ještě nezkusil). */
 function navCount(v) {
   const k = WORLD_VIEWS.includes(v) ? 'world' : v;
   if (k === navLast || !NAV_PICK.includes(k)) { navLast = k; return; }
@@ -173,17 +167,15 @@ function navCount(v) {
   if (Object.values(u).reduce((a, b) => a + b, 0) > 200) for (const x of Object.keys(u)) u[x] = Math.floor(u[x] / 2);
   S.navUse = u; save();
 }
-/** ⋯ Další: sekce, které nejsou v liště (dlaždice, nejpoužívanější první), a nastavení. */
+/** ⋯ Další: sekce, které nejsou v liště (dlaždice v pevném pořadí), a nastavení. */
 function openMore() {
-  const sc = k => ((S.navUse && S.navUse[k]) || 0) + NAV_PRIOR[k];
-  const rest = NAV_PICK.filter(k => !navBar.includes(k)).sort((a, b) => sc(b) - sc(a) || NAV_PICK.indexOf(a) - NAV_PICK.indexOf(b));
+  const rest = NAV_PICK.filter(k => !navBar.includes(k));
   const tile = k => {
     const n = NAV.find(x => x[0] === k), [lbl, sub, icoKey] = NAV_INFO[k] || [n[1], n[2], k];
     return `<button type="button" class="more-tile" data-mv="${k === 'world' ? lastWorld : k}"><span class="mt-ico">${ico(NAV.find(x => x[0] === icoKey)[3])}</span><b>${lbl}</b><small>${sub}</small></button>`;
   };
   modalOpen(`<div class="modal-body more-sheet"><h3>Další</h3><div class="mn-grid">${rest.map(tile).join('')}</div>
-    <div class="more-h">Nastavení</div><div class="more-nav"></div>
-    <p class="faint more-tip">Dole v liště jsou sekce, které otevíráš nejčastěji – podle toho se při dalším spuštění samy seřadí.</p></div>`, { x: true });
+    <div class="more-h">Nastavení</div><div class="more-nav"></div></div>`, { x: true });
   $$('[data-mv]', $('#modal')).forEach(b => b.onclick = () => { modalClose(); go(b.dataset.mv); });
   const list = $('.more-nav', $('#modal'));
   if (window.Transfer) Transfer.addToMenu(list); // 📲 Přenést do jiného zařízení – odkaz nebo soubor (transfer.js)
@@ -1050,7 +1042,7 @@ const WHATS_NEW = [
   ['💰', 'Cena = letenka', 'u nabídek, v <b>Kam letět levně</b> i v kalendáři je teď jen cena letenky (se zavazadly, když je vybereš). Doprava na letiště a z letiště do města je pod cenou zvlášť – jen pro představu, kolik zhruba stojí. Řazení „i s cestou na letiště“ je ve Filtrech.'],
   ['💱', 'Odkazy v korunách', 'Kiwi.com se otevře česky v Kč; u Ryanairu a Wizz Air uvidíš předem, v jaké měně web ukáže let zpět (účtují v měně země odletu).'],
   ['👀', 'Zaujalo tě', 'cíle, které sis po hledání Kamkoliv rozbalil, nabídne prázdné pole <b>Kam</b> – jedním klepnutím lety jen tam ve stejném termínu.'],
-  ['🧭', 'Lišta podle tebe', 'na telefonu jsou dole Přehled a 3 sekce, které otevíráš nejčastěji; zbytek, záloha a vzhled jsou pod <b>Další</b>. Karty v Kam letět levně mají štítek počasí vždy – do 15 dní předpověď, dál dlouhodobý průměr 🌡️.'],
+  ['🧭', 'Přehledná lišta', 'na telefonu jsou dole Přehled, Lety, Cesty a Objevuj; zbytek, záloha a vzhled jsou pod <b>Další</b>. Karty v Kam letět levně mají štítek počasí vždy – do 15 dní předpověď, dál dlouhodobý průměr 🌡️.'],
   ['🗣️', 'Hledání rozumí ještě víc', '„příští pátek“, „pozítří“, „mám 5000“, „do 80 €“, „z Kutné Hory“, „do Nového Zélandu“, „Slunečné pobřeží“ – a kdo hledá hlavně víkendy, tomu <b>Kam letět levně</b> na Přehledu nabídne <b>Víkendy</b>.'],
   ['🔤', 'Překlep nevadí', '„Barcleona“, „Lodnýn“ nebo „Krakv na 2 dny“ – našeptávač nabídne „Překlep? Asi myslíš:“ se správným místem, v Letech i v Objevuj.'],
   ['🔎', 'Stačí napsat a klepnout na Najít lety', 'našeptávač rozumí i „do Barcelony“, „levně do Paříže“, „z Brna“ nebo „Praha Londýn“; napsaný text tlačítko <b>Najít lety</b> použije, i když nic nevybereš z nabídky.'],
