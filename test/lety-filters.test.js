@@ -42,7 +42,7 @@ test('hledání do víc míst: výpis drží z každého cíle pár nejlevnějš
 test('konkrétní cíl: skupiny (hlavička, štítky „od“, Mapa) z nabídek výpisu; nadpis karet podle řazení; mapa s nejnižší cenou', () => {
   assert.match(src, /const top = res\.mode === 'route' && \(res\.top \|\| \[\]\)\.length \? res\.top : null;/);
   assert.match(src, /visibleTrips\(top \? top\.filter\(t => t\.destKey === g\.dest\.key\) : g\.options\)/);
-  assert.match(src, /date: '📅 Nejdřívější odlet', near: '📍 Nejblíž', far: '🌍 Nejdál' \}\[view\.sort\] \|\| '💸 Nejlevnější teď'/);
+  assert.match(src, /date: 'Nejdřívější odlet', near: 'Nejblíž', far: 'Nejdál' \}\[view\.sort\] \|\| 'Nejlevnější teď'/);
   assert.match(src, /t: g\.vis\.reduce\(\(m, x\) => \(x\.perPersonCzk < m\.perPersonCzk \? x : m\)\)/);
   // prázdný výpis jen jednou; „nových zemí“ jen u Kamkoliv a zemí; „Hledám jen pro dospělé (2 dospělí)“
   assert.match(src, /if \(!body\.includes\('class="empty"'\) && /);

@@ -282,7 +282,7 @@
       const c = bare ? '' : clockTxt(min), warn = early && !car && !gOut.local;
       out = { min, clock: c, prevDay: min < 0, early, mode: gOut.mode, local: Boolean(gOut.local), warn, ...(taxi ? { taxi: true } : {}) };
       if (!bare) Object.assign(out, {
-        text: car ? `🚗 z domu ${ve(min)} ${c}` : taxi ? `🚕 z domu ${ve(min)} ${c}` : `⏰ z domu už ${ve(min)} ${c}`,
+        text: car ? `autem z domu ${ve(min)} ${c}` : taxi ? `taxi z domu ${ve(min)} ${c}` : `z domu už ${ve(min)} ${c}`,
         title: `Odlet ${hhmm(o)} − ${hm(before)} na letišti − ~${hm(gm)} cesta na letiště ${o.from} (${taxi ? 'v noci taxi' : how(gOut)}, odhad) = vyrazit z domu ~${c}${min < 0 ? ' předchozího dne' : ''}.${taxi ? ` Denní MHD by trvala ~${hm(gOut.minutes)}.` : note(gOut, early, warn)}`,
       });
     }
@@ -292,7 +292,7 @@
       const late = dayMin(min) >= REACH.lateFrom && dayMin(min) < REACH.lateTo, warn = late && !car && !gBack.local;
       back = { min, clock: c, prevDay: min < 0, late, mode: gBack.mode, local: Boolean(gBack.local), warn };
       if (!bare) Object.assign(back, {
-        text: car ? `🚗 domů ~${c}` : `🏠 domů až ~${c}`,
+        text: car ? `autem domů ~${c}` : `domů až ~${c}`,
         title: `Přílet ${String(b.arr).slice(11, 16)} + ${hm(REACH.after)} na letišti + ~${hm(gBack.minutes)} cesta z letiště ${b.to} domů (${how(gBack)}, odhad) = doma ~${c}.${note(gBack, late, warn).replace('první spoj', 'spoj')}`,
       });
     }
@@ -1461,11 +1461,11 @@
     r.n = r.days.length;
     return r;
   }
-  /** Dny dovolené na štítek: „🏖️ 2 dny dovolené“ / „🎉 bez dovolené“ a do title které dny, který svátek pomáhá a proč. */
+  /** Dny dovolené na štítek: „2 dny dovolené“ / „bez dovolené“ (štítky bez emoji – nález U21) a do title které dny, který svátek pomáhá a proč. */
   function leaveTxt(x) {
     const n = x.n, d = s => `${DOW_LC[dowOf(s)]} ${dm(s)}`, hs = x.holidays || [];
     return {
-      text: n === 0 ? '🎉 bez dovolené' : `🏖️ ${n} ${n === 1 ? 'den' : n <= 4 ? 'dny' : 'dní'} dovolené`,
+      text: n === 0 ? 'bez dovolené' : `${n} ${n === 1 ? 'den' : n <= 4 ? 'dny' : 'dní'} dovolené`,
       title: (n ? `Dny dovolené: ${x.days.map(d).join(', ')}` : 'Bez dovolené: celá cesta vychází na volné dny')
         + (hs.length ? ` · ${hs.length === 1 ? 'pomáhá svátek' : 'pomáhají svátky'} ${hs.map(h => `${d(h.date)} (${h.name})`).join(', ')}` : '')
         + (x.freeOut ? ` · odlet v pracovní den od ${LW_DEP} počítám jako po práci` : '')

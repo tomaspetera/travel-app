@@ -77,15 +77,15 @@ test('řádek Kamkoliv na telefonu: termín a ✓ důvod přes celou šířku po
 test('hlídání ceny: posouvání termínu srozumitelně – u ♡ „Hlídat s posouváním…“, na kartě přepínač, nikde „klouzavé“', () => {
   // ve formuláři pod ♡ Hlídat cenu: „Posouvat termín s časem“ samo vypadalo, že mění hledání (vysvětlení jen v title,
   // které telefon neukáže); zapnuté je předem už při první návštěvě
-  assert.match(read('index.html'), /<label class="check-inline roll-opt" id="rollLbl" hidden><input type="checkbox" id="rollOn"> 📅 Hlídat s posouváním termínu<\/label>/);
+  assert.match(read('index.html'), /<label class="check-inline roll-opt" id="rollLbl" hidden><input type="checkbox" id="rollOn"> Hlídat s posouváním termínu<\/label>/);
   const js = read('js/flights.js');
   // karta hlídání: pevný termín = stejný přepínač jako zapnutý, jen vypnutý (dřív odkaz „📅 převést na klouzavé“)
   const card = js.slice(js.indexOf('const rolled = Alerts.rolls(w.form)'), js.indexOf('// karta: fotka cíle'));
-  const boxes = [...card.matchAll(/<label class="check-inline"[^>]*><input type="checkbox" data-wr="\$\{id\}"( checked)?> 📅 Posouvat termín s časem<\/label>/g)];
+  const boxes = [...card.matchAll(/<label class="check-inline"[^>]*><input type="checkbox" data-wr="\$\{id\}"( checked)?> Posouvat termín s časem<\/label>/g)];
   assert.deepEqual(boxes.map((m) => Boolean(m[1])), [true, false], 'zapnutý i vypnutý přepínač');
   // vypnutý přepínač zapne klouzavý termín stejně jako dřív odkaz (setRoll), proběhlý termín tlačítkem v poznámce
   assert.match(js, /host\.onchange = e => \{ if \(e\.target\.dataset\.wt\) [^}]*else if \(e\.target\.dataset\.wr\) setRoll\(e\.target\.dataset\.wr, e\.target\.checked\); \};/);
-  assert.match(js, /<button type="button" class="linkbtn" data-wr="\$\{id\}">📅 Posouvat termín s časem<\/button> – hlídání pojede dál s novým termínem/);
+  assert.match(js, /<button type="button" class="linkbtn" data-wr="\$\{id\}">Posouvat termín s časem<\/button> – hlídání pojede dál s novým termínem/);
   // „klouzavé“ jen v komentářích, ne v textech aplikace
   for (const f of ['js/flights.js', 'js/alerts.js', 'js/app.js', 'index.html']) {
     const code = read(f).replace(/\/\*[\s\S]*?\*\//g, '').replace(/<!--[\s\S]*?-->/g, '').replace(/^\s*(\/\/|\*).*$/gm, '').replace(/ \/\/ .*$/gm, '');

@@ -87,7 +87,8 @@ test('délky, teploty a vzdálenosti: „~32 min“, „8 °C“, „1,5 h“, �
 test('výsledky: vzdálenost „1 352 km“ a štítek cesty z letiště bez zalomení před jednotkou', () => {
   const js = read('js/flights.js');
   assert.match(js, /distanceKm\.toLocaleString\('cs'\)\}\\u00a0km` : ''\}\$\{c && c\.cost/, 'hlavička karty cíle');
-  assert.match(js, /const arrChipHtml = c => `[^`]*\$\{nbsp\(esc\(c\.text\)\)\}<\/span>`/, 'štítek „z letiště … (~460 Kč) · 1 h 15“');
+  assert.match(js, /const arrChipHtml = c => `[^`]*\$\{arrLead\(c\.text\)\}<\/span>`/, 'štítek „z letiště … (~460 Kč) · 1 h 15“');
+  assert.match(js, /const arrLead = s => [^\n]*`\$\{ikona\(ARR_ICO\[e\]\)\} \$\{nbsp\(esc\(w\.join\(' '\)\)\)\}` : nbsp\(esc\(s\)\)/, 'bez zalomení i za ikonou');
   // Kombinace na telefonu: trasa se smí zalomit jen před ↩ (tam a zpět každé celé), jinak by konec uřízly tři tečky
   assert.match(js, /\$\{t\.back \? ` ↩\\u00a0\$\{t\.back\.from/);
 });

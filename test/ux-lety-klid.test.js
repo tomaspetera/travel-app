@@ -38,7 +38,7 @@ test('U21: výpis bere štítek z výběru – karta, sbalený řádek i přehle
   assert.match(fl, /const tag = goodNow && goodNow\.has\(t\.id\) \? GOOD_MARK \+ ' ' : '';/, 'sbalený řádek');
   assert.match(fl, /\$\{goodNow && goodNow\.has\(t\.id\) \? ' ' \+ GOOD_MARK : ''\}/, 'přehled cílů');
   // značka má vysvětlení (title) i text pro čtečku
-  assert.match(line(/^ *const GOOD_MARK = [^\n]+$/m), /title="Dobrá cena[^"]+">💚<span class="sr-only"> dobrá cena<\/span>/);
+  assert.match(line(/^ *const GOOD_MARK = [^\n]+$/m), /title="Dobrá cena[^"]+">\$\{ikona\('super-cena'\)\}<span class="sr-only"> dobrá cena<\/span>/);
   assert.ok(!fl.includes("'🔥 ' : pl && pl.level === 'low' ? '💚 '"), 'řádek bez 🔥 / 💚 u každé dobré ceny');
   assert.ok(!fl.includes('title="Jedna z nejvýhodnějších cen vůči běžné ceně na tu vzdálenost">🔥</span>'), 'přehled cílů bez holého 🔥');
 });

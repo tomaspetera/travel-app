@@ -127,5 +127,5 @@ test('Lety na telefonu: cena nabídky nad lety a časy (dřív pod nimi, mimo pr
 test('Přehled: ⭐ Moje cíle jen jednou (vlastní sekce s „Hledat moje cíle“) – v Rychlém hledání ne, v Letech (Nápady) ano', () => {
   const fl = read('js/flights.js');
   assert.match(fl, /\[\['#quickFlights', qfHtml\], \['#flIdeas', favCard \+ qfHtml\]\]\.forEach/);
-  assert.match(fl, /🔎 Hledat moje cíle/);
+  assert.match(fl, /id="favGo">Hledat moje cíle<\/button>/);
 });
