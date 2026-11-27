@@ -129,7 +129,7 @@ Navigační mapa repozitáře: kde co je a jak to spolu souvisí, aby se kód da
 - Probouzení uspaného serveru (pruh „Probouzím server…“, když dotaz na API přes 4 s visí) → `public/js/pwa.js`: `wakeDue()`, `wakeWatch()` v obalu fetch, `Pwa.onWake`; pruh `wakeBar()` v `public/js/flights.js`
 - Odložené moduly a knihovny map → `public/js/lazy.js`: `need()`, `run()`, `soon()`, `url()`
 - Navigace, Zpět, okno, hlášky, stav S, motiv → `public/js/app.js`: `go()`, `buildNav()` (lišta dole v pevném pořadí `navBar`), `openMore()` (⋯ Další: domov `homeRow()` s kódem `homeCode()`, skupiny Sekce · Moje data · Vzhled · O Letsi, přepínače role=switch), postranní panel se skupinami `NAV_GROUP`, `.side-tools` (popisky `data-tip`) a řádek stavu cen `#srcBox` (flights.js `srcLine()`, `renderSources()`; vzhled panelu Letsi jen v `desktop.css`), úvodní obrazovka `launchDone()` / `launchWait()` (oči Letsi dohrají jen v aplikaci na ploše), `histPop()`, `histSub()` (krok uvnitř sekce: Zpět z 🔎 Prozkoumat na přehled země), `modalOpen()`, `modalClose()`, `toast()`, `save()`, `applyTheme()`
-- ✨ Co je nového → `public/js/app.js`: `WHATS_NEW`, `WN_ID`, `whatsNewPop()`, `whatsNewOpen()`
+- ✨ Co je nového → `public/js/app.js`: `WHATS_NEW`, `WN_ID`, `wnSeenId()`/`wnNew()` (co je nové od minula; atlas_wn_top = id poslední viděné), `whatsNewPop()`, `whatsNewOpen()`; testy `test/novinky-jen-nove.test.js`
 - 🕘 Od minula → `public/js/since.js`: `gate()`, `digest()`; `public/js/app.js`: `renderSince()`, `sinceStart()`
 - ℹ️ O aplikaci a soukromí → `public/js/about.js`: `open()`, `html()`, `SOURCES`
 
@@ -491,7 +491,7 @@ Skripty (vše `node scripts/…`; README ## Data a licence má příkazy pro akt
 - Výpis Letů: kliky se navěšují po každém `renderResults()` ve `wireResults()`/`wireHelp()` (ne delegací); data-pick/pc/live/pin jsou indexy do rowRegistry (stálý klíč data-tid); nepřekreslovat pod rukou (`paintSoon()`, `rerenderKeep()`); průběžný výsledek se neukládá.
 - Desítky testů čtou zdroj regexem nebo vyřezávají kód podle textových značek (`test/lety-form.test.js`, `test/history.test.js`, `test/tips.test.js`…) – přejmenování či přeformátování v `public/js/app.js`, `public/js/flights.js` nebo `public/index.html` může shodit `npm test`; před refaktorem grepni název v test/.
 - Čistá logika bez DOM a sítě (searchhelp, smart, rank, recs, pricecheck, alerts, since, pins, qr, offershare) se testuje v node:vm – DOM ani fetch tam nepřidávat; oprava logiky = test.
-- WHATS_NEW: nová položka na začátek pole; WN_ID se porovnává jako text → nové musí být větší řetězec (datum); jen u nových funkcí.
+- WHATS_NEW: nová položka na začátek pole, na konci položky její id = nové WN_ID; WN_ID se porovnává jako text → nové musí být větší řetězec (datum); jen u nových funkcí. Archiv se nevede: novinka se ukazuje nejvýš 14 dní od data v id (WN_DAYS v app.js) a jen tomu, kdo ji ještě neviděl; když nic nového není, okno napíše jen „Od minula nic nového“. Starší položky z pole smaž.
 - Desktop CSS jen v `public/css/desktop*.css` uvnitř přesně `@media (min-width:1024px)` (`test/desktop.test.js`); `public/css/atlas.css` má starou výjimku `@media(min-width:1081px)`, další nepřidávat. Světlý režim je laděný na kontrast ≥ 4,5:1.
 - Nezlomitelné mezery (U+00A0) mezi číslem a jednotkou a v datech zachovat.
 - `Smart.parse()`: max 200 znaků, pořadí pravidel rozhoduje, bez lookbehind (staré Safari); nový obrat = test v `test/smart.test.js`.

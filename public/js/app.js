@@ -1031,100 +1031,22 @@ function showNow() {
   const c = $('#nowCard'); if (c) c.focus({ preventScroll: true });
 }
 /* ---------- ✨ Co je nového ----------
-   Novinky posledních verzí a kde je v aplikaci najít (nejnovější nahoře). Po aktualizaci je ukáže lišta dole – jen ty
-   od posledního otevření (whatsNewPop); celý seznam je v menu ☰ / v postranním panelu → Co je nového. WN_ID = verze
-   sady (O aplikaci ji ukazuje, uvítání nováčka se k ní váže). */
+   Novinky a kde je v aplikaci najít (nejnovější nahoře), poslední na konci položky = id: WN_ID, se kterým přibyla
+   (podle něj se pozná, co uživatel už viděl). Po aktualizaci je ukáže lišta dole a okno Co je nového (Další /
+   postranní panel) – jen ty od posledního otevření. Archiv se nevede: novinky starší než ~6 týdnů z pole mažeme.
+   WN_ID = verze sady (O aplikaci ji ukazuje, uvítání nováčka se k ní váže). */
 const WN_ID = '2026-11-27a';
 const WHATS_NEW = [
-  ['💬', 'Řekni mi, co ti vadí', 'Letsi je zatím testovací verze. Pod <b>Další</b> (na počítači vlevo dole) najdeš <b>Napiš, co ti vadí</b> a na <b>Přehledu</b> se občas zeptám na jednu krátkou otázku – nejvýš jednou denně a jde ji zavřít <b>Teď ne</b>.'],
-  ['✨', 'ATLAS je teď Letsi', 'nový vzhled, kukátko, které hledá s tebou, nové ikony a adresa letsi.cz. Cesty a nastavení z dřívější adresy se sem samy nepřenesou – zálohu ze souboru obnovíš přes <b>Další</b> → <b>Záloha do souboru</b> (na počítači vlevo dole v <b>O aplikaci a soukromí</b>).'],
-  ['🤝', 'Pomáhat se zlepšováním', 'když chceš, zapni pod <b>Další</b> → <b>Pomáhat se zlepšováním</b> (na počítači vlevo dole v <b>O aplikaci a soukromí</b>). Aplikace pak posílá, které obrazovky otevíráš a jaké hlavní akce děláš – nikdy co píšeš, kam jedeš, ceny ani nic o tobě. Záznam se smaže do 31 dnů a vypneš to tamtéž. Ve výchozím stavu je to vypnuté.'],
-  ['⭐', 'Letsi Plus', 'podívej se, co zůstane zdarma a co chystáme navíc – a řekni nám, kolik by ti stálo za to. Najdeš ho pod <b>Další</b> → <b>Letsi Plus</b> (na počítači vlevo dole).'],
-  ['✈️', 'Letenku už máš?', 'na <b>Přehledu</b> doplníš zbytek cesty – trasu, ubytování i program.'],
-  ['🔒', 'Soukromí', 'počítám jen souhrnné denní počty, žádné sledování jednotlivců, pokud sám nezapneš Pomáhat se zlepšováním. Podrobnosti pod <b>Další</b> (na počítači vlevo dole) → <b>O aplikaci a soukromí</b>.'],
-  ['🔄', 'Upravený plán od kamaráda bez kopií', 'když ti kamarád pošle novější verzi plánu, který už máš, nabídnu <b>🔄 Aktualizovat moji cestu</b> – převezmeš termín, let a program, tvoje odškrtnuté „Sbaleno“, kódy rezervací a vlastní aktivity zůstanou. Dřív vznikla druhá kopie.'],
-  ['✏️', 'Cestu upravíš i po uložení', 'v <b>Cesty</b> → Moje cesty otevři cestu a klepni na <b>✏️ Upravit</b> – přejmenuješ ji; u vlastní cesty (ne z průvodce Cestou) posuneš i termín (program dnů se posune s ním) nebo změníš počet cestujících. Dřív to šlo jen smazat a založit znovu.'],
-  ['✨', 'Hledání větou rozumí víc', 'napiš třeba <b>„Kanáry přes Vánoce a Silvestr“</b>, <b>„Londýn na Den boje za svobodu“</b>, <b>„Řím s dětmi 5 a 8 let“</b> nebo <b>„Vídeň 4.–6. 12. nebo 11.–13. 12.“</b> – termín, délku i počet lidí nastavím za tebe. Funguje v <b>Letech</b> i v <b>Objevuj</b>.'],
-  ['🔎', 'Země na mapu napsáním', 'pod mapou ve <b>Světě</b> napiš začátek názvu („ital“, „usa“) a klepni – malé země už nemusíš trefovat v mapě.'],
-  ['🗺️', 'Svět zná tvoje cesty', 'pod mapou jsou země z proběhlých cest, které na ní ještě chybí – klepnutím je přidáš. V detailu země (<b>Svět → Země</b>, <b>Doporučení</b>) je nahoře tvoje nadcházející cesta tam – klepnutím ji otevřeš.'],
-  ['🧳', 'Plánovač je teď v Mých cestách', 'už není zvlášť v menu – všechny cesty najdeš v záložce <b>Cesty</b> pod <b>🧳 Moje cesty</b>. Program, balení a poznámky cesty z průvodce otevřeš odkazem <b>Program, balení a poznámky ›</b> na její kartě, ostatní cesty klepnutím na kartu.'],
-  ['💾', 'Cesta se ukládá sama', 'jakmile v průvodci pokročíš za výběr letu, cesta je sama v <b>Mých cestách</b> – nemusíš nic ukládat. Nová cesta tu rozpracovanou nezahodí, zůstane v seznamu. <b>↺ Začít znovu</b> ji odebere.'],
-  ['🧳', 'Moje cesty v záložce Cesty', 'všechny tvoje cesty na jednom místě – rozpracovaná v průvodci i uložené. Klepnutím na kartu v ní pokračuješ, z průvodce se k seznamu vrátíš přes <b>‹ Moje cesty</b>.'],
-  ['♡', 'Hlídání ceny jedním klepnutím', 'u karty v <b>Kam letět levně</b> na <b>Přehledu</b> i u cíle v <b>Kamkoliv</b> klepni na <b>⋯</b> → <b>♡ Hlídat cenu sem</b>: Letsi najde lety z tvého domova (termíny jako Kam letět levně) a cenu hlídá – když zlevní, uvidíš to na Přehledu. Bez vyplňování formuláře.'],
-  ['🔗', 'Krátký odkaz na cestu', '<b>📤 Sdílet cestu</b> → <b>Poslat kamarádům</b> (i <b>🔗 Sdílet plán</b> v plánovači) teď pošle krátký odkaz <b>…/c/…</b> místo dlouhé stěny písmen – ve WhatsAppu a Messengeru s fotkou cíle a termínem. Kamarád po klepnutí uvidí celou cestu a může si ji uložit.'],
-  ['🙋', 'Jede někdo se mnou?', 've <b>Shrnutí</b> průvodce Cestou (i u budoucí cesty v plánovači) je pod <b>📤 Sdílet cestu</b> kromě poslání celé cesty kamarádům i karta na sítě: <b>Instagram Story</b> nebo <b>příspěvek na Instagram či Facebook</b> ve tvaru palubní vstupenky – odkud, kam, měsíc a „vedle mě: třeba ty?“. Cena, přesné datum ani ubytování na kartě nejsou. Kdo klepne na odkaz, uvidí termín a jedním klepnutím lety na stejné dny ze svého letiště.'],
-  ['🚆', 'Lepší výlety z města', '<b>Výlety</b> v <b>Objevuj</b> a celodenní výlety v programu cesty vybírá Letsi podle toho, co tam je k vidění (UNESCO, známé památky, doporučení průvodce Wikivoyage, klasiky jako Sintra z Lisabonu, Tivoli a Ostia Antica z Říma nebo Wieliczka z Krakova) a jak daleko to je – předměstí a města u letiště už nevycházejí. U každého výletu je čas cesty vlakem, busem nebo lodí i autem (odhad), odkaz <b>spoje ↗</b> a jednou větou, proč tam jet.'],
-  ['🔒', 'Program podle zavíracích dnů', '<b>Program ve městě</b> v <b>Objevuj</b> i v průvodci Cestou zná zavírací dny asi 55 nejnavštěvovanějších památek (Louvre v úterý, Uffizi v pondělí, Vatikánská muzea v neděli kromě poslední v měsíci, Pergamonmuseum v rekonstrukci) – podle jejich oficiálních webů. Památku nedá na den, kdy je zavřená, a u zastávky napíše třeba „🕘 zavřeno v úterý · otevřeno 9:00–18:00“.'],
-  ['🥾', 'Túra na každý den v horách', 'pobyt v Krkonoších, na Šumavě, v Tatrách nebo v Dolomitech už nedostane program po památkách: krok <b>Program</b> v průvodci Cestou (a v <b>Objevuj</b> → 🥾 Pěšky → <b>Túra na každý den</b>, třeba „Krkonoše na 3 dny“) navrhne na každý den jinou túru z ubytování nebo ze startu u cíle – hlavní vrchol, voda, skály nebo vyhlídka, lehčí den. U každé délka, převýšení, čas chůze (DIN 33466), obtížnost, chaty po cestě, kratší varianta do deště, s dětmi lehčí cíle a v den příjezdu a odjezdu kratší túra. ✕ u cíle naplánuje jiný, trasa jde do Mapy.com nebo jako GPX.'],
-  ['🌍', 'Doporučení podle sezóny a tebe', 'v <b>Doporučení</b> (na telefonu pod <b>Další</b>) i v tipech na Přehledu je u země proč – třeba „🏖️ Kanárské ostrovy: ~25 °C přes den“ nebo „✈️ tam i zpět od 1 890 Kč“ z <b>Kam letět levně</b> – a tlačítko <b>✈️ Najít lety</b> s odletem v tom měsíci. Od 20. dne tipuje už na příští měsíc, k moři jen tam, kde je opravdu teplo, blízké země výš; když hledáš hlavně k moři nebo s dětmi, vezme to v úvahu, ⭐ moje cíle dá výš a země s 🙈 městem vynechá. Země, kam MZV ČR nedoporučuje cestovat, mají v seznamu zemí štítek ⚠️.'],
-  ['🗓️', 'Program s časy a obědem', '<b>Program ve městě</b> v <b>Objevuj</b> i v průvodci Cestou má u každé zastávky přibližný čas (podle chůze a MHD), pauzu na oběd s tipem na tržnici nebo kavárnu kousek od ní, co uvidíš cestou kolem, kam na večer a – když předpověď na ten den hlásí déšť – místa pod střechou. Nejznámější místa (Koloseum, Fontána di Trevi, Belémská věž) v programu nechybí, za den nejvýš 2 muzea, muzeum a zoo spíš dopoledne. Cesta s dětmi má rovnou zájem <b>🧒 S dětmi</b>.'],
-  ['🚆', 'Vlak na cestě s časem a počasí', 'v <b>Plánovači</b> zapíšeš k vlaku nebo busu mezi místy trasy (třeba Lisabon → Porto) čas odjezdu z jízdenky, nástupiště, vůz a místo i kód. Karta <b>📍 Dnes na cestě</b> pak odpočítává („vlak do Porta v 10:42 – za 1 h 20 min“) s odkazem na nádraží v mapě a ukáže dnešní předpověď počasí – i bez signálu. Během cesty má plán nahoře dnešní den a kódy rezervací.'],
-  ['👍', 'Doporučené pořadí letů', 'výsledky <b>Kamkoliv</b> i <b>Kam letět levně</b> řadí nahoru nabídky, které by sis opravdu vybral – ne jen nejlevnější letenku: počítá s cestou na letiště a do města (cena i čas), nočními odjezdy bez spojů, tím, kolik času zbude na místě, a cenou pod obvyklou; další cíl ze stejné země dá o kus níž. Proč je nabídka nad levnější letenkou, řekne štítek <b>✓</b> (třeba „i s cestou na letiště nejlevnější“). Čistě podle ceny dál řadí <b>Nejlevnější letenka</b> ve <b>Filtrech</b>.'],
-  ['🔀', 'Auto jen na část cesty', 'v kroku <b>Auto</b> průvodce Cestou vybereš <b>📅 dny auta</b> – třeba v Lisabonu jen 2. a 3. den na výlety: vyzvednutí i vrácení ve městě a z letiště do města dál metrem. Na trase přes víc míst má každý přejezd přepínač <b>🚗 / 🚆</b> s časem a cenou – auto se půjčí jen na úseky autem a Letsi řekne, kde ho vyzvednout a kde vrátit.'],
-  ['🚗', 'Auto na místě s radou', 'v kroku <b>Auto</b> průvodce Cestou Letsi řekne, kdy auto nepotřebuješ (bydlíš ve městě s metrem nebo vlakem z letiště, mezi místy trasy je rychlejší vlak), upozorní na zóny ZTL v italských městech, elektronické mýtné v Portugalsku a vrácení auta v jiné zemi a napíše, co je v ceně auta a co se počítá zvlášť.'],
-  ['📲', 'Přenos do jiného zařízení', 'pod <b>Další</b> (na počítači vlevo dole) je <b>📲 Přenést do jiného zařízení</b>: odkaz, který si pošleš (AirDrop, Quick Share, e-mail, chat). Přenese cesty, hlídané ceny, odložené nabídky, ⭐ / 🙈 města, navštívené země i domov – bez účtu, data jdou jen v odkazu, na server ne. Druhé zařízení ukáže, co přibude, a nabídne <b>Sloučit</b> nebo <b>Nahradit</b>.'],
-  ['💡', 'Kdy koupit hlídanou letenku', 'karta hlídání na <b>Přehledu</b> má graf ceny od uložení se zeleně vyznačenou nejnižší cenou, řádky <b>Nejníž</b> (kdy to bylo), <b>Teď</b> a šipku, jak se cena změnila za týden. Pod tím krátký <b>💡 tip</b> s důvodem – koupit, nebo ještě počkat – podle historie cen, dní do odletu a „Je to dobrá cena?“. Je to jen odhad, jistotu nedává nikdo.'],
-  ['👨‍👩‍👧', 'Cesta s dětmi', 'v <b>Letech</b> → Cestující, zavazadla a další → <b>Cestující</b> přidáš děti (2–11 let) a miminka (do 2 let). Cena celkem je za všechna sedadla – dítě platí sedadlo, u nízkonákladových aerolinek obvykle jako dospělý; miminko letí na klíně a poplatek aerolinky se doplní při nákupu. Ryanair a Wizz Air dostanou děti rovnou do odkazu na rezervaci, jinde je přidáš na webu. V průvodci Cestou je rozpočet na osobu za všechna sedadla a odkazy na ubytování s celou rodinou.'],
-  ['🕘', 'Od minula', 'když Letsi otevřeš jiný den, nahoře na <b>Přehledu</b> uvidíš, co se od minula změnilo pro tebe: která hlídaná cena zlevnila a o kolik, kdy odlétáš na uloženou cestu (i kdy se otevírá online check-in), nové levné cíle v Kam letět levně a propadlé odložené nabídky. Nejvýš 3 řádky, klepnutím na místo, ✕ je skryje, dokud nebude něco nového. Bez upozornění v telefonu.'],
-  ['📝', 'Rozepsané hledání se neztratí', 'když v <b>Letech</b> upravíš formulář (odkud, kam, termín, noci, cestující, zavazadla…) a hledat nestihneš, Letsi si ho zapamatuje – i když telefon aplikaci na pozadí zavře. Po návratu ho najdeš vyplněný (3 dny, minulé termíny vynechá); <b>↺ Začít znovu</b> ho smaže.'],
-  ['📌', 'Porovnat i s cestou na letiště', 'odložené nabídky v <b>📌 Porovnat</b> se řadí podle ceny <b>i s cestou</b> – letenka + odhad dopravy na letiště a zpět a z letiště do města. Levnější letenka z Mnichova tak nevyhraje, když cesta na letiště stojí o 500 Kč víc. Co neznám, napíšu – cena letenky zůstává vidět.'],
-  ['🔗', 'Sdílená cesta', 'cesta nebo plán z odkazu od kamaráda ukáže, ze kterého dne jsou ceny (u nových odkazů den sdílení), a <b>💾 Uložit si ji</b> ji přidá do tvého plánovače – pak je to tvoje cesta.'],
-  ['◀️', 'Zpět na telefonu', 'tlačítko nebo gesto Zpět nejdřív zavře otevřené okno, v průvodci <b>Cestou</b> vrátí o krok a z Cesty zpět k výsledkům, ze kterých jsi let vybral (na stejné místo ve výpisu) – aplikace se zavře až z Přehledu.'],
-  ['📤', 'Sdílet cestu rovnou do WhatsAppu', 've Shrnutí průvodce a u plánu v plánovači otevře <b>Sdílet</b> na telefonu nabídku sdílení (WhatsApp, Messenger, e-mail) – bez kopírování odkazu.'],
-  ['📍', 'Dnes na cestě i bez plánovače', 'cestu poskládanou v průvodci, kterou jsi neuložil, ti Přehled 2 dny před odletem nabídne <b>💾 Uložit do Mých cest</b> – pak tam každý den uvidíš program, ubytování a spoje.'],
-  ['💡', 'Věděl jsi?', 'na Přehledu občas malý tip na funkci, kterou jsi ještě nezkusil (Kamkoliv, hlídání ceny, ⚡ Poskládej cestu…) – nejvýš jeden denně, tlačítkem ji rovnou otevřeš, křížkem tip skryješ natrvalo.'],
-  ['🧾', 'Rozpočet cesty', 've <b>Shrnutí</b> průvodce Cestou je cena po položkách (letenky, doprava, ubytování, auto a přejezdy) za osobu i celkem – odhady jsou označené. Do pole <b>Můj rozpočet</b> zadej, kolik chceš utratit, a uvidíš, kolik zbývá, nebo o kolik je cesta dražší.'],
-  ['📤', 'Sdílet jednu letenku', 'u nabídky ve výsledcích je <b>📤 Sdílet</b> (vedle 📌 Odložit) – pošle krátký odkaz s trasou, termínem, cenou, aerolinkou a odkazem na koupi. Příjemci se otevře karta nabídky s upozorněním, že se cena mohla změnit, a <b>🔎 Hledat znovu</b> mu předvyplní formulář.'],
-  ['ℹ️', 'O aplikaci a soukromí', 'pod <b>Další</b> (na počítači vlevo dole): odkud Letsi bere ceny a data, co se ukládá (jen v tomhle prohlížeči, žádné cookies ani sledování, pokud sám nezapneš Pomáhat se zlepšováním), jak se řadí výsledky a verze aplikace.'],
-  ['📅', 'Připomínka hlídané ceny v kalendáři', 'na kartě hlídání na Přehledu je <b>📅 Připomínat</b> – stáhne událost do kalendáře na každé pondělí v 9:00 (nejvýš 8 týdnů, jen do odletu) s poslední nejnižší cenou. Odkaz v ní otevře Letsi přímo na tomhle hlídání a cenu zkontroluje znovu.'],
-  ['📅', 'Termín letu v kalendáři', 'u každého letu tlačítko <b>📅 V kalendáři</b> – den odletu a návratu s časy, noci mezi nimi, víkendy a svátky; jedním klepnutím lety do kalendáře v mobilu (.ics). A <b>Kalendář</b> mají i výsledky Kamkoliv: v každém dni nejlevnější cíl, klepnutím na den všechny cíle s odletem ten den.'],
-  ['🌙', 'V noci taxi za pevnou cenu', 'když přistáváš nebo vyrážíš na letiště před 5:00 či po 23:00 v Římě, Paříži, Madridu, Aténách, Florencii, Neapoli, Miláně nebo New Yorku, odhad ceny počítá úřední pevnou cenu taxi za auto (Fiumicino 55 €) místo MHD, která v noci nejezdí.'],
-  ['🧭', 'Okruh po oblasti', '„Toskánsko na 4 dny“ v <b>Objevuj</b> naplánuje okruh, který zůstane v Toskánsku (ne Rimini ani Perugia) – stejně Apulie, Istrie, Algarve, Skotsko a Laponsko. Bazilika sv. Petra má v programu hodinu, ne půl, a se zájmem „s dětmi“ přibydou ZOO a parky.'],
-  ['🏝️', 'Hotely i u letišť na ostrovech', 'Tenerife Jih, Lanzarote, Gran Canaria nebo Rhodos – ubytování se hledá ve městě u letiště (dřív nic).'],
-  ['⛽', 'Auto v cíli za skutečné ceny', 'palivo za cenu v zemi, kudy jedeš (všechny země EU), a mýtné na dálnicích v Itálii, Francii a Chorvatsku.'],
-  ['🗓️', 'Celá sezóna u zemí', 'karty zemí ukazují všechny dobré měsíce („led–bře · čvc–zář“) a <b>Kam letos</b> řadí země mimo sezónu níž.'],
-  ['🚕', 'Z letiště do města na 157 letištích', 'přibyly řecké a španělské ostrovy, Chorvatsko, Turecko, Pobaltí a Jordánsko; v Egyptě, Akabě a na Djerbě, kde autobus nejezdí, počítám taxi (cena za auto pro dva). U Stanstedu a dalších vidíš vedle ceny „od“ i běžnou cenu v den cesty (Stansted Express od 9,90 £, běžně 21 £).'],
-  ['🚆', 'Vlak nebo bus místo letadla', 'cena konkrétního spoje za běžnou cenu (Praha–Vídeň ~500 Kč, ne akční 249) a čas i s cestou na nádraží. Auto na letiště počítá parkování podle ceníku letiště.'],
-  ['🔄', 'Přepočítat po změně', 'když po hledání změníš v <b>Cestující, zavazadla a další</b> cestu na letiště (vlastní cenu, jízdné nebo auto), nad výsledky je <b>↻ Přepočítat</b>. Čipy 📝 a 🛂 u letu otevřou podmínky vstupu i na telefonu.'],
-  ['🎫', 'Cesta na letiště za skutečné ceny', 'odhad teď počítá jízdenku na konkrétní spoj v danou hodinu (ne nejlevnější spoj dne), MHD z domova na nádraží a běžný čas jízdy – z Prahy do Pardubic ~240 Kč, do Brna ~350 Kč. V <b>Cestující, zavazadla a další</b> → ✏️ Jezdíš levněji? Uprav cenu uvidíš u každého letiště, z čeho odhad je.'],
-  ['🚆', 'Reálnější časy cest', 'vlak mezi městy jede rychlotratí jen tam, kde opravdu vede (Barcelona → Valencie ~3 h 25, ne 2 h 10), jízdenky po Itálii, Španělsku a Francii za běžné ceny, autem na letiště podle skutečné rychlosti a „Vyraž z ubytování“ i s cestou na zastávku. Když brzy ráno vyrážíš na letiště ve svém městě a MHD ještě nejede, počítám v průběhu cesty s taxi 🚕.'],
-  ['📝', 'Formulář před příletem', 'Thajsko (TDAC), Filipíny, Malajsie, Singapur, Korea, Indonésie a další chtějí online formulář – uvidíš to u letu, v Před cestou i v Co zařídit s odkazem na oficiální web.'],
-  ['↻', 'Když hledání selže', 'uvidíš hned proč a tlačítko <b>Zkusit znovu</b>; 🙈 Nezajímá mě v <b>Kam letět levně</b> jde vrátit.'],
-  ['💰', 'Cena = letenka', 'u nabídek, v <b>Kam letět levně</b> i v kalendáři je teď jen cena letenky (se zavazadly, když je vybereš). Doprava na letiště a z letiště do města je pod cenou zvlášť – jen pro představu, kolik zhruba stojí. Řazení „i s cestou na letiště“ je ve Filtrech.'],
-  ['💱', 'Odkazy v korunách', 'Kiwi.com se otevře česky v Kč; u Ryanairu a Wizz Air uvidíš předem, v jaké měně web ukáže let zpět (účtují v měně země odletu).'],
-  ['👀', 'Zaujalo tě', 'cíle, které sis po hledání Kamkoliv rozbalil, nabídne prázdné pole <b>Kam</b> – jedním klepnutím lety jen tam ve stejném termínu.'],
-  ['🧭', 'Přehledná lišta', 'na telefonu jsou dole Přehled, Lety, Cesty a Objevuj; zbytek, záloha a vzhled jsou pod <b>Další</b>. Karty v Kam letět levně mají štítek počasí vždy – do 15 dní předpověď, dál dlouhodobý průměr 🌡️.'],
-  ['🗣️', 'Hledání rozumí ještě víc', '„příští pátek“, „pozítří“, „mám 5000“, „do 80 €“, „z Kutné Hory“, „do Nového Zélandu“, „Slunečné pobřeží“ – a kdo hledá hlavně víkendy, tomu <b>Kam letět levně</b> na Přehledu nabídne <b>Víkendy</b>.'],
-  ['🔤', 'Překlep nevadí', '„Barcleona“, „Lodnýn“ nebo „Krakv na 2 dny“ – našeptávač nabídne „Překlep? Asi myslíš:“ se správným místem, v Letech i v Objevuj.'],
-  ['🔎', 'Stačí napsat a klepnout na Najít lety', 'našeptávač rozumí i „do Barcelony“, „levně do Paříže“, „z Brna“ nebo „Praha Londýn“; napsaný text tlačítko <b>Najít lety</b> použije, i když nic nevybereš z nabídky.'],
-  ['🔁', 'Objevuj podle toho, co hledáš', 'v Inspiraci jsou nahoře města, kam jsi nedávno hledal letenky – jedním klepnutím, co tam vidět.'],
-  ['🧳', 'Víc měst jednou větou', 'napiš „Praha → Řím → Barcelona → Praha 10. 11. – 17. 11.“ – nastavím lety mezi městy, termíny rozdělím a hledám.'],
-  ['🔁', 'Hlídání podle toho, co hledáš', 'když stejnou cestu hledáš znovu, nabídnu nad výsledky <b>♡ Hlídat cenu</b> – na Přehledu pak uvidíš, kdy zlevní.'],
-  ['🗣️', 'Hledání rozumí víc', 'dny slovy („20. listopadu“, „koncem listopadu“), den odletu („v pátek“, „od pátku do neděle“), svátky („o Velikonocích“, „jarní prázdniny“, „na Valentýna“, „vánoční trhy“), šipku i pomlčku („Vídeň → Nice“, „Praha - Londýn“, i jen „Praha Londýn“), „bez kufru“, místní názvy („Roma“, „Wien“, „Lisboa“) a oblasti jako Toskánsko, Apulie, Dalmácie nebo Laponsko – v Letech i v Objevuj.'],
-  ['📏', 'Kratší obrazovky', 'shrnutí cesty má <b>Uložit</b> a <b>Sdílet</b> hned pod „Co zarezervovat“, celý průběh a podrobnosti se rozbalí na klepnutí; Objevuj ukáže nejdřív 8 míst.'],
-  ['📅', 'Plánovač a cesty přes víc měst', 'lety po řádcích, <b>Hledat lety</b> znovu najde stejnou trasu a <b>Ubytování</b> nabídne každé místo s jeho termínem.'],
-  ['✨', 'Vyber za mě', 'v Cestě přes víc míst vybere v kroku Ubytování jedním klepnutím, kde budeš v každém místě bydlet – změnit to můžeš kdykoliv.'],
-  ['↩', 'Pokračuj, kde jsi skončil', 'na Přehledu je rozpracovaná cesta (u kterého kroku jsi) a poslední hledání – jedním klepnutím zpátky. Cesta přes víc měst letadlem jde do průvodce i bez návratu domů.'],
-  ['✨', 'Chytré hledání', 'do pole <b>Kam</b> napiš celou větu – „k moři v květnu do 5000“, „Řím na víkend ve dvou“, „z Vídně do Barcelony 12. 11. – 16. 11.“ – a nahoře uvidíš, jak jí rozumím. Prázdné pole nabídne tipy podle toho, co hledáš. V Objevuj třeba „Lisabon na 3 dny“ nebo „výlety z Brna“.'],
-  ['🧳', 'Cesta přes víc měst letadlem', 'vyber v Letech <b>Víc měst</b> (třeba Praha → Řím → Barcelona → Praha) a <b>Naplánovat celou cestu</b>: v Cestě je trasa podle letů, ke každému městu ubytování a program, ve shrnutí všechny letenky.'],
-  ['↺', 'Začít znovu', 'v Letech pod tlačítkem hledání, v Objevuj u místa (i ✕ v poli) a v Cestě nahoře vedle vlajky – vyprázdní, co si aplikace pamatuje.'],
-  ['💸', 'Nejlevnější nahoře', 'po hledání Kamkoliv jsou první 3 cíle velké karty s fotkou; detail země má nahoře fotku hlavního města.'],
-  ['📅', 'Plánovač a Objevuj', 'cesty jako karty s fotkou cíle a štítkem „za 12 dní“; Objevuj s fotkou nahoře a hledáním na ní.'],
-  ['🗺️', 'Mapa a Cesta v novém', 'mapa přes celý rámeček se štítkem „procestováno“ a seznamem navštívených zemí; v Cestě fotka cíle nahoře, kroky s popisky a let jako jízdenka.'],
-  ['✈️', 'Nové Lety', 'fotka cíle nahoře, Odkud a Kam s tlačítkem ⇅ (prohodí je), letiště v okolí v jednom řádku, velké tlačítko hledání a <b>Nápady, kam letět</b> s fotkami.'],
-  ['📉', 'Zlevnilo – hned nahoře', 'když hlídaná cena klesne nebo je pod tvou cílovou cenou, uvidíš ji na Přehledu jako velkou kartu s fotkou a tlačítkem <b>Zobrazit lety</b>.'],
-  ['🧭', 'Přehlednější telefon', 'dole jen 5 sekcí – Mapa a Země jsou spolu ve <b>Světě</b>; Plánovač, Doporučení, záloha a vzhled v menu ☰ nahoře. V Letech je délka pobytu a teplota pod <b>Upřesnit</b>.'],
-  ['📱', 'Nový vzhled', '<b>Kam letět levně</b> jako velké karty s fotkou města (na telefonu posun prstem do strany), plovoucí spodní lišta, okna zespodu – zavřeš je stažením dolů.'],
-  ['⚙️', 'Výsledky hned nahoře', 'na mobilu jsou filtry, řazení a „Odkud se vyplatí letět“ pod tlačítkem ⚙️ Filtry; formulář se po hledání sbalí (✎ Upravit).'],
-  ['📌', 'Odložené nabídky', '„📌 Odložit“ u nabídky nebo v ⋯ na kartě – pak <b>Porovnat</b> vedle sebe a 📤 poslat k výběru.'],
-  ['🔎', 'Co tam je', 'na kartě výsledku a pod ⓘ v <b>Kam letět levně</b>: místa s fotkou, cesta z letiště do města, počasí, vstup.'],
-  ['⭐', 'Moje cíle / 🙈 Nezajímá mě', 'v ⋯ na kartě; oblíbené s cenami v pruhu níž na Přehledu.'],
-  ['🚆', 'Vlak a bus podle skutečných jízdenek', '„běžně ~X Kč (od ~Y)“; vlastní cenu cesty na letiště zadáš v Letech → Cestující, zavazadla a další → ✏️ Jezdíš levněji? Uprav cenu.'],
-  ['🕘', 'Stáří cen', '„ceny z 14:32“ nad výsledky, po hodině upozornění a ↻ Hledat znovu; v průvodci „cena z …“.'],
+  ['💬', 'Řekni mi, co ti vadí', 'Letsi je zatím testovací verze. Pod <b>Další</b> (na počítači vlevo dole) najdeš <b>Napiš, co ti vadí</b> a na <b>Přehledu</b> se občas zeptám na jednu krátkou otázku – nejvýš jednou denně a jde ji zavřít <b>Teď ne</b>.', '2026-11-27a'],
+  ['✨', 'ATLAS je teď Letsi', 'nový vzhled, kukátko, které hledá s tebou, nové ikony a adresa letsi.cz. Cesty a nastavení z dřívější adresy se sem samy nepřenesou – zálohu ze souboru obnovíš přes <b>Další</b> → <b>Záloha do souboru</b> (na počítači vlevo dole v <b>O aplikaci a soukromí</b>).', '2026-11-26c'],
+  ['🤝', 'Pomáhat se zlepšováním', 'když chceš, zapni pod <b>Další</b> → <b>Pomáhat se zlepšováním</b> (na počítači vlevo dole v <b>O aplikaci a soukromí</b>). Aplikace pak posílá, které obrazovky otevíráš a jaké hlavní akce děláš – nikdy co píšeš, kam jedeš, ceny ani nic o tobě. Záznam se smaže do 31 dnů a vypneš to tamtéž. Ve výchozím stavu je to vypnuté.', '2026-11-26b'],
+  ['⭐', 'Letsi Plus', 'podívej se, co zůstane zdarma a co chystáme navíc – a řekni nám, kolik by ti stálo za to. Najdeš ho pod <b>Další</b> → <b>Letsi Plus</b> (na počítači vlevo dole).', '2026-11-26a'],
+  ['✈️', 'Letenku už máš?', 'na <b>Přehledu</b> doplníš zbytek cesty – trasu, ubytování i program.', '2026-11-26a'],
+  ['🔒', 'Soukromí', 'počítám jen souhrnné denní počty, žádné sledování jednotlivců, pokud sám nezapneš Pomáhat se zlepšováním. Podrobnosti pod <b>Další</b> (na počítači vlevo dole) → <b>O aplikaci a soukromí</b>.', '2026-11-25a'],
 ];
 // Úplně nový uživatel (nic uloženého): místo seznamu novinek krátké „Vítej“ ve 3 krocích – novinky by ho jen zahltily.
 // Uvítání vydrží celou první návštěvu, dokud ho uživatel neskryje: atlas_wn = WN_ID + WN_NEW. Bez toho by po výběru
-// domova nebo prvním hledání (už „není nový“) místo uvítání vyskočilo 50 novinek – pro někoho, kdo aplikaci otevřel
+// domova nebo prvním hledání (už „není nový“) místo uvítání vyskočily novinky – pro někoho, kdo aplikaci otevřel
 // před minutou, nic nového. Novinky pak uvidí až s další sadou (jiné WN_ID). Při dalším otevření se skryje samo
 // (wnAtStart), když už uživatel hledal.
 const WN_NEW = '+vitej';
@@ -1153,10 +1075,11 @@ const wnDoneNow = (mode, s) => mode === 'welcome' && ((s.watch || []).length > 0
 /** Kam „Začít hledat“ v uvítání dá kurzor: Přehled se ptá na domov (askHome – čipy pod Odkud) a Odkud je prázdné → 'from', jinak 'to' (Kam). */
 const wcGoTo = (askHome, fromCount) => (askHome && !fromCount ? 'from' : 'to');
 let wnFirst = false; // v tomhle otevření se ukázalo uvítání: 💡 tipy až příště (renderDashTip) – dvě rady naráz zahltí
-const WN_TOP = 4; // v celém seznamu nejnovější novinky hned, starší pod „Starší novinky“
+// novinka se ukazuje nejvýš 14 dní od vydání (id = datum), pak už nikomu – kdo ji neviděl, dostane jen čerstvé (majitel 27. 11.)
+const WN_DAYS = 14;
 // „~350 Kč“, „~3 h 25“ v textu novinek s pevnou mezerou – na úzkém telefonu se jednotka neodtrhne od čísla
 const wnUnit = s => s.replace(/(\d) (?=(Kč|km|h|min|°C)(?![\p{L}]))/gu, '$1\u00a0').replace(/(\d\u00a0h) (?=\d)/g, '$1\u00a0');
-const wnLi = x => `<li><span class="wn-ic" aria-hidden="true">${x[0]}</span><div><b>${esc(x[1])}</b> – ${wnUnit(x[2])}</div></li>`;
+const wnLi = ([ic, title, text]) => `<li><span class="wn-ic" aria-hidden="true">${ic}</span><div><b>${esc(title)}</b> – ${wnUnit(text)}</div></li>`;
 /** Karta na Přehledu už jen pro nováčka (uvítání); novinky ukazuje lišta (whatsNewPop) a menu (whatsNewOpen). */
 function renderWhatsNew() {
   const el = $('#whatsNew'); if (!el) return;
@@ -1222,40 +1145,45 @@ function helpCard(el) {
   // rovnou k přepínači – v okně je až dole pod zdroji a daty
   $('#helpMore', el).onclick = () => { if (!window.About) return; About.open(); const b = $('#abHelp'); if (b) b.scrollIntoView({ block: 'center' }); };
 }
-/* Lišta „Co je nového“ po aktualizaci: novinky od posledního otevření, jednou – atlas_wn_top = „WN_ID\nnázev“
-   nejnovější novinky, kterou už uživatel viděl. Při startu se ukážou jen novější (nejvýš WN_POP, zbytek „a 2 další ›“)
-   a zapamatují se, jakmile je lišta vidět: další otevření je už neukáže, ani když ji zavře bez čtení – nic se
+/* Lišta „Co je nového“ po aktualizaci: novinky od posledního otevření, jednou – atlas_wn_top = id (WN_ID) nejnovější
+   novinky, kterou už uživatel viděl. Při startu se ukážou jen novější (nejvýš WN_POP, zbytek „a 2 další ›“) a
+   zapamatují se, jakmile je lišta vidět: další otevření je už neukáže, ani když ji zavře bez čtení – nic se
    nehromadí jako dřív karta. */
 const WN_TOP_LS = 'atlas_wn_top';
 const WN_POP = 3;
-/** atlas_wn_top → { id: sada WN_ID, title } (dřívější zápis jen s názvem: id ''; nic: title null). */
-const wnTopParse = raw => {
-  if (raw == null) return { id: '', title: null };
-  const s = String(raw), i = s.indexOf('\n');
-  return i < 0 ? { id: '', title: s } : { id: s.slice(0, i), title: s.slice(i + 1) };
-};
 /**
- * Které novinky ukázat v liště: top = atlas_wn_top, seen = atlas_wn (uvítání, dřívější „Rozumím“ u karty). → { show,
- * more } – show nejnovější nové (nejvýš WN_POP), more = kolik dalších nových se nevešlo.
+ * Id poslední viděné novinky: top = atlas_wn_top, seen = atlas_wn (uvítání, dřívější „Rozumím“ u karty). Nové jsou
+ * položky s větším id (wnNew).
  * - nováček (uvítání) nic – novinky o funkcích, které nezná, by ho zahltily;
  * - dřívější uživatel bez atlas_wn_top: kartu s aktuální sadou skryl (seen = id) → nic, jinak jen nejnovější;
- * - název, který v seznamu už není (přejmenovaná novinka) → nic.
+ * - dřívější zápis „WN_ID\nnázev“ → WN_ID (i když novinka s tím názvem už je smazaná – kdo má staré WN_ID, dostane
+ *   jen to, co v poli zůstalo); nejstarší zápis jen s názvem → id té novinky, neznámý název → nic.
  */
-function wnFresh(top, seen, list = WHATS_NEW, id = WN_ID) {
-  if (wnMode(seen, id) === 'welcome') return { show: [], more: 0 };
-  let n = top == null ? (seen === id ? 0 : 1) : list.findIndex(x => x[1] === top);
-  if (n < 0) n = 0;
-  return { show: list.slice(0, Math.min(n, WN_POP)), more: Math.max(0, n - WN_POP) };
+function wnSeenId(top, seen, list = WHATS_NEW, id = WN_ID) {
+  if (wnMode(seen, id) === 'welcome') return id;
+  if (top == null) return seen === id || !list[1] ? id : list[1][3];
+  const s = String(top), d = s.split('\n')[0];
+  if (/^\d{4}-\d\d-\d\d/.test(d)) return d;
+  const x = list.find(n => n[1] === s);
+  return x ? x[3] : id;
 }
+/** Novinky, které uživatel ještě neviděl (id je datum, porovnává se jako text) a nejsou starší než WN_DAYS. */
+const wnNew = (since, list = WHATS_NEW, now = Date.now()) => list.filter(x => x[3] > since && Date.parse(x[3].slice(0, 10)) >= now - WN_DAYS * 864e5);
+// id poslední viděné novinky při startu (null: localStorage nejde) – okno pak ukáže tytéž novinky jako lišta, i když
+// je lišta mezitím zapsala za viděné
+let wnSinceMem;
+function wnSince() {
+  if (wnSinceMem === undefined) try { wnSinceMem = wnSeenId(localStorage.getItem(WN_TOP_LS), localStorage.getItem('atlas_wn')); } catch (e) { wnSinceMem = null; }
+  return wnSinceMem;
+}
+// starší verze stránky (z mezipaměti, než se načte nová) nic nepřepíše – nová verze by pak tutéž novinku ukázala znovu
+const wnMark = () => { if (wnSince() != null && wnSince() <= WN_ID) try { localStorage.setItem(WN_TOP_LS, WN_ID); } catch (e) { /* nevadí */ } };
 function whatsNewPop() {
-  let top, seen;
-  try { top = wnTopParse(localStorage.getItem(WN_TOP_LS)); seen = localStorage.getItem('atlas_wn'); } catch (e) { return; /* soukromé okno: bez paměti by lišta vyskočila při každém otevření */ }
-  // starší verze stránky (z mezipaměti, než se načte nová): nic neukázat ani nepřepsat – nová verze by pak tutéž
-  // novinku ukázala znovu (WN_ID je datum, porovnává se jako text)
-  if (top.id && top.id > WN_ID) return;
-  const f = wnFresh(top.title, seen);
-  const mark = () => { try { localStorage.setItem(WN_TOP_LS, `${WN_ID}\n${WHATS_NEW[0][1]}`); } catch (e) { /* nevadí */ } };
-  if (!f.show.length) return mark();
+  const since = wnSince();
+  // soukromé okno: bez paměti by lišta vyskočila při každém otevření; starší verze stránky nic neukáže
+  if (since == null || since > WN_ID) return;
+  const fresh = wnNew(since), f = { show: fresh.slice(0, WN_POP), more: Math.max(0, fresh.length - WN_POP) };
+  if (!f.show.length) return wnMark();
   const bar = document.createElement('div');
   bar.className = 'wn-pop';
   bar.setAttribute('role', 'region');
@@ -1264,7 +1192,7 @@ function whatsNewPop() {
   const n = f.show.length + f.more;
   bar.innerHTML = `<div class="wn-pop-h"><b>${ikona('novinky')} ${n > 1 ? 'Novinky' : 'Novinka'} od minula</b><button type="button" class="pwa-x" aria-label="Zavřít">×</button></div>
     <ul class="wn-list">${f.show.map(wnLi).join('')}</ul>
-    <div class="wn-pop-f"><button type="button" class="linkbtn" data-wn-all>${f.more ? `a ${f.more} ${f.more < 5 ? 'další' : 'dalších'} ›` : 'Všechny novinky ›'}</button><button type="button" class="btn sm primary" data-wn-ok>OK</button></div>`;
+    <div class="wn-pop-f"><button type="button" class="linkbtn" data-wn-all>${f.more ? `a ${f.more} ${f.more < 5 ? 'další' : 'dalších'} ›` : 'Celé znění ›'}</button><button type="button" class="btn sm primary" data-wn-ok>OK</button></div>`;
   // Esc zavře lištu odkudkoli (fokus bývá na stránce pod ní – v liště je až na konci pořadí Tabu); zachytává se dřív
   // než Esc pro okno (app.js init), jinak by po zavření okna zavřel i lištu, která za ním byla schovaná
   const onEsc = e => { if (e.key === 'Escape' && shown()) close(); };
@@ -1284,15 +1212,20 @@ function whatsNewPop() {
   // viděno, až je lišta opravdu vidět – schovaná za lištou nové verze by se po „Obnovit“ ztratila (nová verze už by ji
   // měla za viděnou), za oknem by ji uživatel nespatřil
   const shown = () => getComputedStyle(bar).display !== 'none';
-  if (shown()) return mark();
-  const t = setInterval(() => { if (!bar.isConnected) clearInterval(t); else if (shown()) { clearInterval(t); mark(); } }, 1000);
+  if (shown()) return wnMark();
+  const t = setInterval(() => { if (!bar.isConnected) clearInterval(t); else if (shown()) { clearInterval(t); wnMark(); } }, 1000);
 }
-/** Celý seznam novinek v okně (menu ☰ → Co je nového, postranní panel na počítači, „Všechny novinky ›“ v liště). */
+/**
+ * Okno Co je nového (Další → Co je nového, postranní panel na počítači, „a 2 další ›“ v liště): jen novinky od
+ * minulého otevření (nejvýš 14 dní staré); když nic nového, jen to krátce řekne. Otevřením jsou viděné (wnMark).
+ */
 function whatsNewOpen() {
-  const more = WHATS_NEW.slice(WN_TOP);
-  modalOpen(`<div class="modal-body"><h3>${ikona('novinky')} Co je nového</h3><p class="faint" style="margin:0 0 4px">Novinky posledních verzí a kde je v aplikaci najdeš.</p>
-    <ul class="wn-list">${WHATS_NEW.slice(0, WN_TOP).map(wnLi).join('')}</ul>
-    ${more.length ? `<details class="wn-more"><summary>Starší novinky (${more.length})</summary><ul class="wn-list">${more.map(wnLi).join('')}</ul></details>` : ''}
+  const fresh = wnNew(wnSince() ?? WN_ID);
+  wnMark();
+  modalOpen(`<div class="modal-body"><h3>${ikona('novinky')} Co je nového</h3>${fresh.length
+    ? `<p class="faint" style="margin:0 0 4px">Co přibylo od minula a kde to v aplikaci najdeš.</p>
+    <ul class="wn-list">${fresh.map(wnLi).join('')}</ul>`
+    : '<p style="margin:0 0 10px">Od minula nic nového.</p>'}
     <button type="button" class="btn ghost" data-close>Zavřít</button></div>`, { x: true });
   $$('#modal [data-close]').forEach(b => { b.onclick = () => modalClose(); });
 }

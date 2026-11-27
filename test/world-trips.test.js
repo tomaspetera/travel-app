@@ -64,10 +64,6 @@ test('pod mapou: poznámka s klepnutím na zemi → navštívená; bez chybějí
   assert.match(readFileSync(new URL('../public/css/atlas.css', import.meta.url), 'utf8'), /\.map-trips\[hidden\]\{display:none\}/, '.note má display:flex');
 });
 
-test('Co je nového: Země na mapu napsáním a Svět zná tvoje cesty (nová sada novinek)', () => {
-  assert.match(app, /const WHATS_NEW = \[[\s\S]*?\['🔎', 'Země na mapu napsáním',[^\n]*\],\s*\['🗺️', 'Svět zná tvoje cesty',/);
-});
-
 const countries = JSON.parse(readFileSync(new URL('../data/countries.json', import.meta.url), 'utf8'));
 function hits(q) {
   const ctx = { COUNTRIES: countries, norm: (x) => (x || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim() };
@@ -131,6 +127,8 @@ test('detail země Česko: bez „Najít lety sem“ (domov), hlavní je 🌍 Ob
   assert.match(app, /\$\$\('#modal \[data-cm\]'\)\.forEach\(b => \{ b\.onclick = \(\) => cmActs\[b\.dataset\.cm\]\(\); \}\);/, 'obsluha jen existujících tlačítek');
 });
 
-test('Co je nového: nahoře Letsi Plus a Mám letenku, pod nimi soukromí, aktualizace plánu od kamaráda, úprava cesty a hledání větou', () => {
-  assert.match(app, /const WN_ID = '2026-11-27a';\s*const WHATS_NEW = \[\s*\['💬', 'Řekni mi, co ti vadí',[^\n]*\],\s*\['✨', 'ATLAS je teď Letsi',[^\n]*\],\s*\['🤝', 'Pomáhat se zlepšováním',[^\n]*\],\s*\['⭐', 'Letsi Plus', 'podívej se, co zůstane zdarma a co chystáme navíc – a řekni nám, kolik by ti stálo za to\.[^\n]*\],\s*\['✈️', 'Letenku už máš\?',[^\n]*\],\s*\['🔒', 'Soukromí', 'počítám jen souhrnné denní počty, žádné sledování jednotlivců, pokud sám nezapneš Pomáhat se zlepšováním\.[^\n]*\],\s*\['🔄', 'Upravený plán od kamaráda bez kopií',[^\n]*🔄 Aktualizovat moji cestu[^\n]*\],\s*\['✏️', 'Cestu upravíš i po uložení',[^\n]*✏️ Upravit<\/b> – přejmenuješ ji; u vlastní cesty[^\n]*\],\s*\['✨', 'Hledání větou rozumí víc',[^\n]*Vánoce a Silvestr[^\n]*Den boje za svobodu[^\n]*s dětmi 5 a 8 let[^\n]*\],\s*\['🔎', 'Země na mapu napsáním',/);
+test('Co je nového: Letsi Plus a soukromí (starší novinky po 14 dnech mizí – app.js WN_DAYS)', () => {
+  // pořadí a nejnovější nahoře hlídá test/novinky-jen-nove.test.js – tady jen znění (staré novinky se z pole mažou)
+  assert.match(app, /\['⭐', 'Letsi Plus', 'podívej se, co zůstane zdarma a co chystáme navíc – a řekni nám, kolik by ti stálo za to\./);
+  assert.match(app, /\['🔒', 'Soukromí', 'počítám jen souhrnné denní počty, žádné sledování jednotlivců, pokud sám nezapneš Pomáhat se zlepšováním\./);
 });
