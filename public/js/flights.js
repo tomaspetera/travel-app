@@ -6160,8 +6160,9 @@
       bar.className = 'wake-bar';
       bar.setAttribute('role', 'status');
       bar.innerHTML = `<div class="wake-track" aria-hidden="true"><svg class="wake-jet" viewBox="0 0 100 100"><path fill="currentColor" d="${JET}"/></svg></div><span><b>Probouzím server, chvilku to trvá…</b> Po delší pauze usíná a probouzí se do minuty. Uložené cesty fungují hned.</span>`;
-      const demo = $('#demoBanner'), main = $('.main');
-      if (demo) demo.after(bar); else if (main) main.prepend(bar);
+      // plovoucí karta (flights.css .wake-bar), ne v toku stránky: vložená nad obsah posunula celý Přehled o ~70 px dolů
+      // a po probuzení zpátky – uživatel klepl vedle
+      document.body.append(bar);
       return;
     }
     if (!bar) return;
