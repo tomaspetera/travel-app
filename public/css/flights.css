@@ -421,6 +421,8 @@ button.b:hover{filter:brightness(1.18);text-decoration:underline}
 .empty-res h2{margin:8px 0}
 .empty-res ul{padding-left:18px}
 .warm-retry{justify-content:center;gap:6px;margin-top:12px}
+/* čistý režim: Hledat na Aviasales / Kamkoliv pod textem prázdného výsledku (flights.js cleanEmpty) */
+.clean-next{justify-content:center;gap:6px;margin-top:12px}
 
 /* výpadek Kiwi.com, aktivní filtry */
 .kiwi-note{align-items:center;margin-bottom:14px}

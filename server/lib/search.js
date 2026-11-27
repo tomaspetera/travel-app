@@ -21,6 +21,7 @@ export { referencePrice, refOf };
 import { attachGround } from './ground.js';
 import { bookingUrl as ryanairUrl } from '../providers/ryanair.js';
 import { bookingUrl as wizzairUrl } from '../providers/wizzair.js';
+import { bookingUrl as aviasalesUrl } from '../providers/travelpayouts.js';
 
 export class UserError extends Error {
   constructor(msg) {
@@ -105,6 +106,19 @@ export function paxQuery(raw = {}) {
 // Cestující do dotazu na zdroj letů: každý zdroj si z nich vezme, co umí (Wizz Air sedadla, odkazy Ryanairu a Wizz Air
 // i děti a miminka, ostatní jen dospělé).
 const pax = (q) => ({ adults: q.adults, children: q.children, infants: q.infants });
+
+/**
+ * Čistý režim (jediný zdroj = mezipaměť Aviasales) a konkrétní trasa bez nabídky: mezipaměť ji za posledních 48 h
+ * nemá, let ale existovat může – odkaz na hledání téže trasy přímo na Aviasales (přesná data, nebo první den pružného
+ * termínu s nejkratším pobytem; data si uživatel upraví tam). Jen odkaz, žádné další dotazy na ceny. → { url, from, to } | null
+ */
+export function emptyTpSearch(q, providerIds, from, to) {
+  if (!from || !to || !providerIds.length || providerIds.some((id) => id !== 'travelpayouts')) return null;
+  // přesná data: zadaný den (bez ± dnů), pružný termín: jeho první den
+  const out = q.exact?.out || q.dateFrom;
+  const back = q.trip === 'return' ? q.exact?.back || addDays(out, Math.max(1, q.nightsMin || 0)) : null;
+  return { url: aviasalesUrl(null, { from, to, dateOut: out, dateIn: back, adults: q.adults }), from, to };
+}
 
 /**
  * Zpáteční cesta složená ze dvou letů jedné aerolinky (Ryanair, Wizz Air) tam a zpět stejnou trasou → odkaz na obojí
@@ -1275,6 +1289,7 @@ export async function search(raw, emit = () => {}, opts = {}) {
       const kept = new Set(groups.map((g) => g.dest.key));
       addBests(byOrigin, originBests(cellSent.filter((t) => kept.has(t.destKey))));
     }
+    const tpSearch = final && routeMode && !groups.length ? emptyTpSearch(q, status.map((s) => s.id), origins.airports[0]?.iata, destAirports[0]) : null;
     const res = {
       ...(final ? {} : { partial: true }),
       query: q,
@@ -1304,6 +1319,8 @@ export async function search(raw, emit = () => {}, opts = {}) {
       nearby: final && routeMode && q.exact ? nearbyOf({ out: nearLegs.out.filter((l) => !departedSoon(l, { cache: soonTz })), back: nearLegs.back, q, nearOut, nearBack, groundOf: rankGround, extra: constraints.extra, park: park ? () => 0 : null }) : null,
       // Aktivní uživatelské filtry (UI je ukáže a nabídne zrušit) a kolik nabídek kvůli nim zmizelo.
       filters: { maxPrice: q.maxPrice, directOnly: q.directOnly, active: Boolean(q.maxPrice || q.directOnly), hidden },
+      // prázdná trasa v čistém režimu: odkaz na hledání na Aviasales (flights.js cleanEmpty)
+      ...(tpSearch ? { tpSearch } : {}),
       // Za teplem: kolik nabídek filtr vyřadil (a nejvyšší průměrné maximum mezi nimi) – pro prázdný výsledek.
       warm,
       providers: provs,
