@@ -59,10 +59,11 @@ test('počasí v okně země, jiná chyba (zdroj neodpovídá): tlačítko Zkusi
   const w = weather(new Error('bez počasí'));
   await w.run();
   assert.match(w.st.html, /Počasí se teď nepodařilo načíst\./);
-  assert.match(w.st.html, /<button type="button" class="linkbtn" id="wxRetry">↻ Zkusit znovu<\/button>/);
+  assert.match(w.st.html, /<button type="button" class="linkbtn" id="wxRetry"[^>]*>↻ Zkusit znovu<\/button>/);
   assert.doesNotMatch(w.st.html, /Aktualizovat|Jsi offline/);
   assert.equal(w.st.queue.size, 0);
   w.st.retry.onclick();
+  assert.match(w.st.html, /Načítám počasí…/, 'po klepnutí hned vidět, že se načítá');
   await new Promise((r) => setImmediate(r));
   assert.equal(w.st.fetches, 2, 'klepnutí načte počasí znovu');
 });

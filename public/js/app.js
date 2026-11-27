@@ -2008,8 +2008,9 @@ async function loadWeather(c) {
     // Aktualizovat neradit – tlačítko je pod ztmavením okna. Offline se počasí načte samo po připojení (jako mapa, jen
     // když je okno té země pořád otevřené), jinak nový pokus tlačítkem přímo v okně
     const b = box(), off = !!(e && e.offline) || navigator.onLine === false; if (!b) return;
-    b.innerHTML = `<div class="wico">🌐</div><div class="muted" style="font-size:13px">${wxFailTxt(off)}${off ? '' : '<br><button type="button" class="linkbtn" id="wxRetry">↻ Zkusit znovu</button>'}</div>`;
-    if (!off) $('#wxRetry').onclick = () => loadWeather(c);
+    // tlačítko s okrajem nahoře a dole (cíl pro prst aspoň 24 px); po klepnutí hned „Načítám“ – zdroj může mlčet až 8 s
+    b.innerHTML = `<div class="wico">🌐</div><div class="muted" style="font-size:13px">${wxFailTxt(off)}${off ? '' : '<br><button type="button" class="linkbtn" id="wxRetry" style="padding:6px 0">↻ Zkusit znovu</button>'}</div>`;
+    if (!off) $('#wxRetry').onclick = () => { b.innerHTML = '<div class="wico">⏳</div><div class="muted" style="font-size:12px">Načítám počasí…</div>'; loadWeather(c); };
     else if (window.Pwa && Pwa.whenOnline) Pwa.whenOnline('wx', () => { if (box()) loadWeather(c); });
   }
 }
