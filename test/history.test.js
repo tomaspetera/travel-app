@@ -25,7 +25,8 @@ const plain = (x) => JSON.parse(JSON.stringify(x));
 function app() {
   const H = { list: [{ url: '', state: null }], i: 0, pending: [], exits: 0 };
   const el = () => { const c = new Set(); return { innerHTML: '', scrollTop: 0, contains: () => false, setAttribute() {}, removeAttribute() {}, classList: { add: (k) => c.add(k), remove: (k) => c.delete(k), contains: (k) => c.has(k), toggle: (k, on) => (on ? c.add(k) : c.delete(k)) } }; };
-  const els = { '#modalBg': el(), '#modal': el(), '#toast': el() };
+  // #tripStep: průvodce je vykreslený (Zpět vrací jeho kroky jen tehdy – histPop)
+  const els = { '#modalBg': el(), '#modal': el(), '#toast': el(), '#tripStep': el() };
   const copy = (s) => (s == null ? null : structuredClone(s));
   const ctx = {
     console, structuredClone, setTimeout: () => 0, clearTimeout: () => {}, Number, Math, Boolean,
