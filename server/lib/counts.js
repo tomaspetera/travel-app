@@ -20,7 +20,7 @@ export const EVENTS = [
   'search_done', 'search_anywhere', 'verify_click', 'buy_click',
   'trip_started', 'trip_auto', 'trip_summary', 'trip_saved', 'share', 'calendar_export', 'have_ticket_start',
   'limit_shown', 'limit_plus', 'limit_download', 'limit_replace',
-  'plus_page', 'plus_offer_shown', 'plus_offer_click', 'sesit_shown', 'sesit_click',
+  'plus_page', 'plus_offer_shown', 'plus_offer_click', 'sesit_shown', 'sesit_click', 'sesit_country_shown', 'sesit_country_click',
   'price_0', 'price_199', 'price_399', 'price_599', 'price_799', 'look_letsi',
   ...SERVER_EVENTS,
   // odpovědi na krátké otázky (public/js/count.js Count.ask) – jen klepnutá volba, zobrazení otázky se nepočítá

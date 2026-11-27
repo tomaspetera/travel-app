@@ -827,6 +827,7 @@ html:has(#modalBg.show) body{overflow:hidden} /* na body, ne na html: přejde na
 .cm-acts{margin-bottom:16px;gap:8px}
 .cm-trip{margin-bottom:12px} /* 🧳 Tvoje cesta do země (openCountry) */
 .cm-trip .linkbtn{font-size:inherit}
+.cm-sesit{margin:12px 0 0}.cm-sesit .linkbtn{font-size:13.5px;display:inline-flex;align-items:center;gap:6px;padding:4px 0} /* Uložit do Sešitu · Plus (openCountry) – nenápadně, ne jako tlačítko; flex: podtržení až pod textem, ne pod mezerou za ikonou; padding: cíl prstu aspoň 24 px */
 /* detail země: fotka hlavního města v hlavičce, název a krátký popis na ní */
 .modal-hero.mh-photo{min-height:230px;display:flex;flex-direction:column;justify-content:flex-end}
 .modal-hero.mh-photo.ph{background:#0b1226 var(--ph) center/cover no-repeat}

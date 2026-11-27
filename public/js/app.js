@@ -1959,6 +1959,7 @@ function openCountry(iso) {
      <div style="margin-top:14px"><div class="k" style="font-size:11px;color:var(--muted);text-transform:uppercase;font-weight:700;letter-spacing:.04em">Nejlepší období${c.months ? '' : ' — orientačně'}</div>${monthsStrip(c.months)}</div>
      <div id="climBox" style="margin-top:12px" title="Dlouhodobý průměr – není to předpověď"><div class="k clim-k">Průměrná denní maxima <span id="climWhere" class="faint"></span></div>${climStrip(null)}</div>
      ${c.tags ? `<div class="tags" style="margin-top:16px">${c.tags.map(t => `<span class="chip accent">${t}</span>`).join('')}</div>` : ''}
+     ${window.Plus ? `<p class="cm-sesit"><button type="button" class="linkbtn" id="cmSesit">${ikona('stahnout')} Uložit do Sešitu · Plus</button></p>` : ''}
      <div class="note info" style="margin-top:16px">${ico('M12 16v-4M12 8h.01M12 2a10 10 0 100 20 10 10 0 000-20z')}<div>Bezpečnostní a geopolitická situace se mění. Před cestou si vždy ověř aktuální doporučení na <a href="${mzv}" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">MZV ČR</a>.</div></div>
    </div>`);
   // tlačítka okna (data-cm) – obsluha tady, ne atributem onclick v HTML (CSP)
@@ -1967,6 +1968,9 @@ function openCountry(iso) {
   // cesta z průvodce do průvodce (Shrnutí), vlastní cesta do svého okna – jako klepnutí na kartu v Mých cestách
   const ct = $('#cmTrip');
   if (ct) ct.onclick = () => { const t = S.trips[mine.i]; modalClose(); if (!t) return; if (t.wizard) withMod('trip', () => Trip.openSaved(t.wizard, t.tripId)); else openTrip(mine.i); };
+  // ⭐ Plus jako falešné dveře (plus.js): průvodce zemí do Sešitu offline – zatím jen měří zájem a ukáže Zdarma × Plus
+  const cs = $('#cmSesit');
+  if (cs) { Plus.countryShown(iso, cs); cs.onclick = () => Plus.fromCountry(); }
   Photos.paint($('#modal')); // fotka hlavního města v hlavičce
   loadWeather(c);
   loadFx(c);
