@@ -90,6 +90,8 @@
 :root[data-brand="letsi"] .btn.primary{background:var(--letsi-tlacitko);color:var(--letsi-tlacitko-text);border-color:transparent;box-shadow:none}
 :root[data-brand="letsi"] .btn.primary:hover{box-shadow:none}
 :root[data-brand="letsi"] .btn.warm{background:var(--letsi-tlacitko);color:var(--letsi-tlacitko-text)}
+/* nákup u nabídky letu: plné tlačítko Noc (tmavý režim Pistácie s Nocí) místo barvy prodejce – hlavní akce karty */
+:root[data-brand="letsi"] .btn.book{background:var(--letsi-tlacitko);color:var(--letsi-tlacitko-text)}
 /* čipy: Pistáciová pěna s Nocí (v tmavém #2A2E3A s Vápnem) */
 :root[data-brand="letsi"] .chip.accent,:root[data-brand="letsi"] .app-chip{background:var(--surface-2);color:var(--text);border-color:var(--border)}
 /* odkaz = text barvou písma s podtržením (ne modrá) */

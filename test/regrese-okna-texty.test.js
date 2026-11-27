@@ -66,7 +66,8 @@ test('Pomáhat se zlepšováním a návod pro iPhone: ikony Letsi místo barevn�
 
 test('nad Kam letět levně: cena za osobu, ne „ceny pro 2 osoby“', () => {
   const fl = read('public/js/flights.js');
-  const what = fl.match(/<div class="faint radar-what">(\$\{q\.payload[^\n]*?'Cena za osobu'\})/)[1];
+  // věta je od ux2 pod ⓘ řádku původu ceny (radarMore)
+  const what = fl.match(/const radarMore = `(Cena za osobu\$\{q\.payload[^\n]*?: ''\})/)[1];
   assert.doesNotMatch(fl, /ceny pro \$\{plural\(q\.payload\.adults/);
   const txt = (adults) => new Function('q', `return \`${what}\`;`)({ payload: { adults } });
   assert.equal(txt(1), 'Cena za osobu');
