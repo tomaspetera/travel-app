@@ -950,6 +950,10 @@ html:has(#modalBg.show) body{overflow:hidden} /* na body, ne na html: přejde na
 .plus-opts .btn{flex:1 1 calc(50% - 6px);justify-content:center;white-space:normal}
 .plus-opts .btn:first-child{flex-basis:100%}
 .plus-thanks{font-weight:600}
+.plus-time{margin-top:12px}
+.plus-time .plus-opts .btn:first-child{flex-basis:calc(50% - 6px)} /* šest rovnocenných voleb po dvou – první na celou šířku je jen „Nic, stačí mi zdarma“ u ceny */
+.plus-soon{display:block;min-height:32px;font-size:12.5px;text-align:left} /* · Plus u věci (plus.js soonBtn) – nenápadně jako „Program, balení a poznámky“, cíl prstu 32 px */
+.pt-soon{margin:6px 0 0}
 .plus-table{width:100%;border-collapse:collapse;margin:12px 0 4px;font-size:13.5px}
 .plus-table th,.plus-table td{padding:8px 6px;border-bottom:1px solid var(--border);text-align:center;vertical-align:top}
 .plus-table th[scope="row"],.plus-table thead th:first-child{text-align:left;font-weight:500}

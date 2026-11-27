@@ -169,7 +169,8 @@ nebo vypršel, a přijaté hlášení chyby aplikace (bod 3.3).
 - **Krátké otázky:** na pár místech se aplikace zeptá jednou krátkou otázkou. Odpověď je dobrovolná a pošle se, jen
   když sám klepneš na některou možnost; ✕ otázku zavře a nic se nepošle. Počítá se jen zvolená možnost (jako jiné
   události výš) a v zařízení se nic neukládá – jen nabídka Letsi Plus si pamatuje den, kdy se naposledy zeptala na
-  cenu (`atlas_price_q`, bod 4), aby se znovu zeptala nejdřív za 30 dní.
+  cenu (`atlas_price_q`, bod 4) a na to, co by ušetřilo nejvíc času (`atlas_time_q`, bod 4), aby se znovu zeptala
+  nejdřív za 30 dní.
 - **Právní základ:** souhrnné počty nejsou osobní údaje – nevztahují se k určené ani určitelné osobě. Samotné
   přijetí požadavku (IP adresa) viz bod 3.1. [ověřit – viz Otázky, bod 13]
 
@@ -226,6 +227,7 @@ se neposílají (kromě případů v bodě 3, kdy je sám odešleš). **Nejsou t
 | `atlas_nowwx` | předpověď pro kartu Dnes na cestě (i bez signálu) |
 | `atlas_wn`, `atlas_wn_top`, `atlas_since`, `atlas_tip`, `atlas_flags` | co už jsi viděl v Novinkách a tipech, technické příznaky zobrazení |
 | `atlas_price_q` | den, kdy se nabídka Letsi Plus naposledy zeptala na cenu (za 30 dní se zeptá znovu) |
+| `atlas_time_q` | den, kdy se nabídka Letsi Plus naposledy zeptala, co by ti ušetřilo nejvíc času (za 30 dní se zeptá znovu) |
 | `atlas_sesit_card` | karty Sešitu, které jsi skryl |
 | `atlas_look` | volba vzhledu (`atlas` po otevření adresy s `?vzhled=atlas`, `?vzhled=letsi` ji smaže) |
 | `atlas_help` | tvoje volba u Pomáhat se zlepšováním (`1` zapnuto, `0` vypnuto) – zapíše se až po klepnutí, nic dalšího (číslo návštěvy ne) |

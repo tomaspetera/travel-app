@@ -21,10 +21,11 @@ function load() {
   return { P: ctx.window.Plus, log, modals };
 }
 
-test('tabulka Zdarma × Plus: Průvodce zemí do Sešitu (offline PDF) – Zdarma –, Plus ✓; informace o zemích zdarma', () => {
+test('tabulka Zdarma × Plus: Sešit cesty s průvodcem zemí (PDF bez signálu) – Zdarma –, Plus ✓; informace o zemích zdarma', () => {
   const { P } = load();
   const html = P.pageHtml();
-  const row = html.match(/<tr><th scope="row">Průvodce zemí do Sešitu \(offline PDF\)<\/th>(.*?)<\/tr>/);
+  // průvodce zemí je od testu zájmu (test/plus-test-zajmu.test.js) součástí řádku Sešitu, ne samostatný řádek
+  const row = html.match(/<tr><th scope="row">Sešit cesty s průvodcem zemí \(PDF bez signálu\)<\/th>(.*?)<\/tr>/);
   assert.ok(row, 'řádek v tabulce');
   assert.equal(row[1], '<td><span aria-hidden="true">–</span><span class="sr-only">ne</span></td><td><span aria-hidden="true">✓</span><span class="sr-only">ano</span></td>');
   assert.match(html, /<th scope="row">Informace o zemích a Objevuj<\/th><td><span aria-hidden="true">✓/, 'informace o zemi zůstávají zdarma');
@@ -39,7 +40,7 @@ test('odkaz z okna země: zobrazení jednou za zemi, klepnutí započítá záje
   P.fromCountry();
   assert.deepEqual([...log], ['sesit_country_click', 'plus_page', 'plus_offer_shown']);
   assert.equal(modals.length, 1);
-  assert.match(modals[0], /Průvodce zemí do Sešitu/);
+  assert.match(modals[0], /Sešit cesty s průvodcem zemí/);
   assert.doesNotMatch(modals[0], /Kč/);
 });
 

@@ -46,6 +46,10 @@ export const EVENTS = [
   'ex_open_sug', 'ex_open_smart', 'ex_open_enter', 'ex_open_other', 'place_none_explore', 'ex_smart_ok', 'ex_smart_miss',
   'ex_empty_list', 'ex_empty_plan', 'ex_empty_trips', 'ex_empty_country', 'ex_fix', 'ex_save', 'ex_fly',
   'lazy_fail',
+  // test zájmu o Plus (public/js/plus.js): anketa „Co by ti ušetřilo nejvíc času?“ po Chci Plus (jen klepnutá volba)
+  // a malá tlačítka „· Plus“ u věci – zobrazení (až na obrazovce) a klepnutí
+  'plus_q_similar', 'plus_q_sesit', 'plus_q_pack', 'plus_q_nav', 'plus_q_variants', 'plus_q_split',
+  'plus_similar_shown', 'plus_similar_click', 'plus_pack_shown', 'plus_pack_click',
 ];
 // Strop seznamu: s každým názvem roste nejhorší počet zápisů do Upstash (rozpočet v test/pocitadla.test.js)
 export const MAX_EVENTS = 150;

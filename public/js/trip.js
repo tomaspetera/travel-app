@@ -4108,6 +4108,7 @@ let calOut = false; // jedna obsluha klepnutí mimo nabídku „Do kalendáře �
       Plus.sesitShown(t.created);
       ses.onclick = () => Plus.sesit(entryOf(t) || { dest: tripName(t), iso: t.dest.cc, start: outLeg(t).date, end: backLeg(t) ? backLeg(t).date : '', tripId: t.created, days: {} });
     }
+    if (window.Plus && Plus.watchSoon) Plus.watchSoon(host); // „Uložit jako šablonu · Plus“ v Co sbalit (pretrip.js)
     // vstupní podmínky dorazily až po vykreslení → shrnutí znovu (jen když je pořád otevřené)
     if (window.Entry && !Entry.ready()) Entry.whenReady(() => { if ($('#tripEntry') && T() && T().step === 'summary') summaryStep(); });
   }
