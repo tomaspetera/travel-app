@@ -320,7 +320,8 @@
    */
   function fromCountry(iso) {
     hit('sesit_country_click');
-    const y = q('#modal').scrollTop;
+    // posun okna: na telefonu jede celé okno, na počítači jen tělo vedle fotky (desktop-explore.css)
+    const box = () => [q('#modal'), q('#modal>.modal-body')], y = box().map(e => (e ? e.scrollTop : 0));
     open();
     const page = q('#modal .plus-page'), bg = q('#modalBg');
     if (!iso || !page || typeof MutationObserver === 'undefined' || typeof openCountry !== 'function') return;
@@ -329,7 +330,7 @@
       if (bg.classList.contains('show')) return;
       obs.disconnect();
       openCountry(iso);
-      q('#modal').scrollTop = y;
+      box().forEach((e, i) => { if (e) e.scrollTop = y[i]; });
     });
     obs.observe(bg, { attributes: true, attributeFilter: ['class'], childList: true, subtree: true });
   }

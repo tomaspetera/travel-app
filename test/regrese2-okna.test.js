@@ -59,9 +59,9 @@ function load({ active } = {}) {
     return b;
   };
   const after = box('<button id="plusWant">Chci Plus</button>');
-  const want = node(after), modal = { scrollTop: 0 }, page = { isConnected: true };
+  const want = node(after), modal = { scrollTop: 0 }, body = { scrollTop: 0 }, page = { isConnected: true };
   const bg = { classList: { on: true, contains: (k) => k === 'show' && bg.classList.on } };
-  const els = { '#plusAfter': after, '#plusWant': want, '#modal': modal, '#modalBg': bg, '#modal .plus-page': page };
+  const els = { '#plusAfter': after, '#plusWant': want, '#modal': modal, '#modal>.modal-body': body, '#modalBg': bg, '#modal .plus-page': page };
   const ctx = {
     window: { Count: { hit: (e) => log.push(e) } },
     document: Object.assign(doc, { querySelector: (s) => (s === '#themeToggle' ? null : els[s] || null) }),
@@ -70,7 +70,7 @@ function load({ active } = {}) {
     MutationObserver: class { constructor(cb) { this.cb = cb; observers.push(this); } observe(el, o) { this.el = el; this.o = o; } disconnect() { this.off = true; } },
   };
   vm.runInNewContext(read('public/js/plus.js'), ctx);
-  return { P: ctx.window.Plus, doc, after, want, modal, page, bg, focused, scrolled, log, opened, observers };
+  return { P: ctx.window.Plus, doc, after, want, modal, body, page, bg, focused, scrolled, log, opened, observers };
 }
 
 test('Letsi Plus: po „Chci Plus“ fokus na otázku na cenu a okno se k ní posune; zpráva je role="status"', () => {
@@ -119,7 +119,8 @@ test('Letsi Plus: okno „· Plus“ s otázkou hned od otevření fokus neukrad
 
 test('Uložit do Sešitu · Plus: po zavření okna Plus se vrátí okno země na stejné místo; nahrazené jiným oknem ne', () => {
   const t = load();
-  t.modal.scrollTop = 840; // odkaz je v okně země dole
+  t.modal.scrollTop = 840; // odkaz je v okně země dole (telefon: jede celé okno)
+  t.body.scrollTop = 402; // počítač: jede jen tělo vedle fotky
   t.P.fromCountry('PT');
   assert.deepEqual([...t.log], ['sesit_country_click', 'plus_page', 'plus_offer_shown']);
   assert.equal(t.opened.length, 1);
@@ -128,10 +129,11 @@ test('Uložit do Sešitu · Plus: po zavření okna Plus se vrátí okno země n
   o.cb(); // změna uvnitř otevřeného okna („Chci Plus“) – nic
   assert.equal(t.opened.length, 1);
   t.bg.classList.on = false; // ✕, Escape, klepnutí vedle i Zpět telefonu (histPop → modalShow(false))
-  t.modal.scrollTop = 0;
+  t.modal.scrollTop = 0; t.body.scrollTop = 0;
   o.cb();
   assert.equal(t.opened.at(-1), 'země PT');
   assert.equal(t.modal.scrollTop, 840);
+  assert.equal(t.body.scrollTop, 402, 'na počítači tělo okna na stejném místě');
   assert.ok(o.off, 'jen jednou');
 
   const r = load();
