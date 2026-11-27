@@ -1479,46 +1479,44 @@ test('homeOf: čip „Odkud letíš?“ v uvítání → domov radaru jako z nas
   assert.deepEqual(plain(H.homeOf(ped)), { from: [ped], radius: 150, adults: 2 });
 });
 
-test('„Odkud letíš?“ se nový uživatel ptá jedno místo: uvítání (čipy + pole), radar jen odkáže, čip domova dá kurzor do pole', () => {
+test('„Odkud letíš?“ se nový uživatel ptá jedno místo: Odkud nahoře s čipy měst, uvítání ani radar ne, čip domova dá kurzor do pole', () => {
   const app = readFileSync(new URL('../public/js/app.js', import.meta.url), 'utf8');
   const fl = readFileSync(new URL('../public/js/flights.js', import.meta.url), 'utf8');
-  // uvítání: otázka, čipy měst a pole pro jiné město (výběr = domov jako z čipu)
-  assert.match(app, /<b id="wcHomeL">Odkud letíš\?<\/b><div class="wc-chips">.*<div class="place-input wc-from" id="wcFrom"><\/div>/);
-  assert.match(app, /new Flights\.PlaceInput\(wf, \{ origin: true, max: 1, [^}]*onChange: \(\) => \{ if \(pi\.items\.length\) setHome\(pi\.items\[0\]\); \} \}\)/);
-  // radar se mezitím neptá podruhé (jen věta) a po skrytí uvítání se zeptá on
-  assert.match(fl, /if \(!edit && \$\('#whatsNew:not\(\[hidden\]\) \.wc-home'\)\) \{\n\s+host\.innerHTML = '<div class="card radar-setup radar-wait">/);
-  assert.doesNotMatch(fl.match(/radar-wait">([^']*)'/)[1], /\?/, 'věta bez otázky');
-  assert.match(app, /if \(asked && window\.Flights && !S\.home\?\.from\?\.length\) Flights\.renderRadar\(\);/);
+  // uvítání se už neptá (druhé pole Odkud pod hledáním nováčka mátlo)
+  assert.doesNotMatch(app, /wcFrom|wc-home|Jiné město nebo letiště/);
+  // Kam letět levně se do výběru domova neptá a schová se celé (ne prázdný řádek „Až nahoře v uvítání…“)
+  assert.match(fl, /const wait = !edit && \$\('#heroHomeAsk'\);\n\s+\$\('#radarHead'\)\.hidden = Boolean\(wait\);\n\s+if \(wait\) \{ paintHomeAsk\(\); host\.innerHTML = ''; return; \}/);
+  assert.doesNotMatch(fl, /radar-wait|Až nahoře v uvítání/);
+  assert.match(fl, /return radarSetup\(\);\n\s+\$\('#radarHead'\)\.hidden = false;/);
   // čip domova bez domova není další otázka a vede do pole (posun + kurzor), změna domova klávesnici neotvírá
   assert.match(fl, /: ikona\('domov'\) \+ ' Nastavit domov';/);
   assert.doesNotMatch(fl, /'📍 Odkud létáš\?'/);
   assert.match(fl, /chip\.onclick = \(\) => \{ go\('dashboard'\); setTimeout\(\(\) => homeAsk\(Boolean\(h\)\), 60\); \};/);
   const ask = fl.slice(fl.indexOf('function homeAsk(edit)'), fl.indexOf('function homeAsk(edit)') + 600);
-  assert.match(ask, /const wc = !edit && \$\('#whatsNew:not\(\[hidden\]\) \.wc-home \.pi-input'\);/);
+  assert.match(ask, /const wc = !edit && \$\('#heroHomeAsk:not\(\[hidden\]\)'\) && \$\('#heroFrom \.pi-input'\);/);
   assert.match(ask, /const inp = wc \|\| \(!edit && \$\('#radarFrom \.pi-input'\)\);/);
   assert.match(ask, /inp\.scrollIntoView\(\{ behavior: 'smooth', block: 'center' \}\);\n\s+inp\.focus\(\{ preventScroll: true \}\);/);
 });
 
-test('nováček vyplní Odkud v hledání na Přehledu → domov jako z uvítání, „Odkud letíš?“ se už neptá podruhé', () => {
+test('nováček vyplní Odkud v hledání na Přehledu → domov jako z čipu, čipy pod Odkud zmizí', () => {
   const fl = readFileSync(new URL('../public/js/flights.js', import.meta.url), 'utf8');
-  // skutečná funkce z flights.js (celý soubor potřebuje DOM) s napodobeným uvítáním a domovem
+  // skutečná funkce z flights.js (celý soubor potřebuje DOM) s napodobenými čipy pod Odkud a domovem
   const src = fl.match(/^ {2}function heroHome\(items\) \{\n[\s\S]*?^ {2}\}$/m)[0];
   const run = (home, items, { asking = true } = {}) => {
-    const st = { removed: 0, applied: [] };
-    const ask = asking ? { remove: () => { st.removed++; } } : null;
-    const c = vm.createContext({ S: { home }, SearchHelp: H, $: (sel) => (sel === '#whatsNew:not([hidden]) .wc-home' ? ask : null), applyHome: (h) => st.applied.push(plain(h)) });
+    const st = { applied: [] };
+    const c = vm.createContext({ S: { home }, SearchHelp: H, $: (sel) => (sel === '#heroHomeAsk:not([hidden])' && asking ? {} : null), applyHome: (h) => st.applied.push(plain(h)) });
     vm.runInContext(`${src}; heroHome(${JSON.stringify(items)});`, c);
     return st;
   };
   const prg = { id: 'geo:50.0880,14.4208|Praha', type: 'city', label: 'Praha', flag: '🇨🇿', cc: 'CZ', lat: 50.088, lon: 14.4208 };
-  // první místo v Odkud, uvítání se ptá → domov jako čip uvítání (150 km, 2 osoby), otázka pryč
-  assert.deepEqual(run(null, [prg]), { removed: 1, applied: [{ from: [prg], radius: 150, adults: 2 }] });
+  // první místo v Odkud, čipy se ptají → domov jako z čipu (150 km, 2 osoby); čipy schová applyHome (paintHomeAsk)
+  assert.deepEqual(run(null, [prg]), { applied: [{ from: [prg], radius: 150, adults: 2 }] });
   assert.deepEqual(run({ from: [] }, [prg]).applied.length, 1, 'prázdný domov = bez domova');
-  // s domovem, bez otázky v uvítání (skryté, „Rozumím“), druhé místo nebo smazání: nic – hledání odjinud domov nemění
-  assert.deepEqual(run({ from: [prg] }, [prg]), { removed: 0, applied: [] });
-  assert.deepEqual(run(null, [prg], { asking: false }), { removed: 0, applied: [] });
-  assert.deepEqual(run(null, [prg, { id: 'ap:BRQ', label: 'Brno' }]), { removed: 0, applied: [] });
-  assert.deepEqual(run(null, []), { removed: 0, applied: [] });
+  // s domovem, bez čipů, druhé místo nebo smazání: nic – hledání odjinud domov nemění
+  assert.deepEqual(run({ from: [prg] }, [prg]), { applied: [] });
+  assert.deepEqual(run(null, [prg], { asking: false }), { applied: [] });
+  assert.deepEqual(run(null, [prg, { id: 'ap:BRQ', label: 'Brno' }]), { applied: [] });
+  assert.deepEqual(run(null, []), { applied: [] });
   // napojené na pole Odkud na Přehledu; applyHome ho pak nastaví potichu (bez další změny = bez smyčky)
   assert.match(fl, /heroFrom = new PlaceInput\(\$\('#heroFrom'\), \{ [^}]*max: 3, onChange: heroHome \}\);/);
   assert.match(fl, /renderRadar\(true\); heroFrom && heroFrom\.set\(home\.from, true\);/);

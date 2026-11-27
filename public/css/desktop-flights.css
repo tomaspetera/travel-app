@@ -13,6 +13,8 @@
   .hero-search2 .pi-input{min-width:60px;text-overflow:ellipsis}
   /* náhled věty pod Kam: na menším notebooku je sloupec jen ~260 px – náhled se lámal do 10 řádků přes „Zkus napsat“ */
   .hero-search2 .hs-field:nth-child(2) .pi-dd{right:auto;width:max(100%,400px)}
+  /* čipy měst pod Odkud (bez domova): tlačítko ve výšce polí, ne natažené přes oba řádky čipů */
+  .hero-search2:has(.hs-home:not([hidden])) .btn{align-self:start;min-height:64px}
   /* „Naposledy“ a „Od minula“ s odstupem pod fotkou (ne nalepené na její spodní hranu) */
   .resume{margin:18px 0 0}
   .news-line{margin:14px 2px 0}
@@ -21,9 +23,11 @@
   .fav-strip{grid-template-columns:repeat(auto-fill,minmax(var(--card-min),1fr));gap:12px}
   .fav-i{padding:12px 14px}
   /* 👋 Uvítání: tři kroky vedle sebe (pod sebou zabraly půl výšky okna a vpravo zelo prázdno – radar až pod ohybem),
-     čipy „Odkud letíš?“ reagují na myš jako ostatní tlačítka */
+     čipy měst pod Odkud reagují na myš jako ostatní tlačítka */
   .wc-steps{grid-template-columns:repeat(3,minmax(0,1fr));gap:12px 20px}
   .wc-chips .fchip:hover:not(:disabled){border-color:var(--accent);color:var(--text)}
+  /* karta souhlasu s měřením: řádek přes celou šířku (200+ znaků) se špatně čte */
+  #whatsNew .help-t{max-width:68ch}
   /* 🔔 Hlídané ceny: karta aspoň tak široká jako na telefonu – ve třetině obsahu se trasa („Praha → Mi…“) i termín
      ořízly vedle ceny */
   .watch-grid{grid-template-columns:repeat(auto-fill,minmax(340px,1fr))}

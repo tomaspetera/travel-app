@@ -1478,14 +1478,29 @@
     chip.innerHTML = f.length ? `${ikona('domov')} ${esc(f.map(x => x.label).join(', '))} <span>+${r} km</span>` : ikona('domov') + ' Nastavit domov';
     // domov radaru se mění v radaru na Přehledu (hledání odjinud ho nemění)
     chip.onclick = () => { go('dashboard'); setTimeout(() => homeAsk(Boolean(h)), 60); };
+    paintHomeAsk();
   }
   /**
-   * Čip domova nahoře → místo, kde se Přehled ptá, odkud uživatel létá: bez domova pole „Odkud letíš?“ v uvítání
-   * (nového uživatele), jinak nastavení domova radaru. Posune k poli a dá do něj kurzor – dřív jen sjel k radaru
+   * Bez domova čipy měst (a 📍 Moje poloha) přímo pod Odkud v hledání na Přehledu – jediné místo, kde se Přehled ptá,
+   * odkud uživatel létá. Dřív se ptalo i uvítání druhým polem a nováček nevěděl, které vyplnit. Klepnutí nastaví domov
+   * a Kam letět levně začne hledat (homeFromChip); s domovem se čipy schovají (applyHome → updateHomeChip).
+   */
+  function paintHomeAsk() {
+    const el = $('#heroHomeAsk'); if (!el) return;
+    el.hidden = Boolean(S.home?.from?.length);
+    if (el.hidden || el.firstChild) return;
+    el.innerHTML = [...SearchHelp.HOME_CITIES.map(c => c[0]), 'geo'].map(c => `<button type="button" class="fchip" data-hh="${esc(c)}">${c === 'geo' ? '📍 Moje poloha' : esc(c)}</button>`).join('');
+    const all = on => $$('[data-hh]', el).forEach(x => { x.disabled = !on; });
+    // bez polohy čipy zůstanou na výběr; s domovem je schová paintHomeAsk
+    $$('[data-hh]', el).forEach(b => b.onclick = () => { all(false); homeFromChip(b.dataset.hh, () => all(true)); });
+  }
+  /**
+   * Čip domova nahoře → místo, kde se Přehled ptá, odkud uživatel létá: bez domova Odkud v hledání na Přehledu
+   * (s čipy měst pod ním – paintHomeAsk), jinak nastavení domova radaru. Posune k poli a dá do něj kurzor – dřív jen sjel k radaru
    * a pole muselo dostat ještě jedno klepnutí. Změna domova (edit) jen ukáže předvyplněné nastavení, klávesnici neotvírá.
    */
   function homeAsk(edit) {
-    const wc = !edit && $('#whatsNew:not([hidden]) .wc-home .pi-input');
+    const wc = !edit && $('#heroHomeAsk:not([hidden])') && $('#heroFrom .pi-input');
     if (!wc) radarSetup(edit);
     const inp = wc || (!edit && $('#radarFrom .pi-input'));
     if (!inp) return $('#radar').scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -4935,6 +4950,7 @@
     const host = $('#radar'), modes = $('#radarModes');
     radarLast = null;
     if (!S.home || !S.home.from?.length) return radarSetup();
+    $('#radarHead').hidden = false;
     const q = SearchHelp.radarQuery(S.radarMode, radarHome(), today(), S.radarHoliday), key = radarKey(q);
     radarWant = key;
     modes.hidden = false;
@@ -5005,12 +5021,11 @@
     $('#radarModes').hidden = true; $('#radarLw').hidden = true;
     $('#radarSub').textContent = '';
     $('#radarReload').style.visibility = S.home?.from?.length ? '' : 'hidden'; // bez domova není co obnovit
-    // nový uživatel: „Odkud letíš?“ je nahoře v uvítání (app.js) – radar se neptá podruhé, jen řekne, co tu bude
-    // (po skrytí uvítání se překreslí s nastavením)
-    if (!edit && $('#whatsNew:not([hidden]) .wc-home')) {
-      host.innerHTML = '<div class="card radar-setup radar-wait"><div class="muted" style="font-size:13px">📍 Až nahoře v uvítání vybereš, odkud letíš, ukážu tu levné lety z okolí na příštích 6 týdnů.</div></div>';
-      return;
-    }
+    // bez domova se ptají čipy pod Odkud nahoře (paintHomeAsk) – Kam letět levně se neptá podruhé a do výběru domova
+    // se schová celé (prázdný oddíl s nadpisem by jen odsouval obsah); změna domova (edit) nastavení ukáže
+    const wait = !edit && $('#heroHomeAsk');
+    $('#radarHead').hidden = Boolean(wait);
+    if (wait) { paintHomeAsk(); host.innerHTML = ''; return; }
     const rad = +(S.home?.radius ?? 200);
     host.innerHTML = `<div class="card radar-setup"><div><b>Odkud obvykle létáš?</b><div class="muted" style="font-size:13px">${edit ? 'Tady se ukazují levné lety z okolí tohoto místa. Jiná hledání ho nemění.' : 'Nastav výchozí místo a ukážu ti tu nejlevnější lety z okolí na příštích 6 týdnů.'}</div></div><div class="rs-where"><div class="place-input" id="radarFrom"></div><label class="rs-radius faint">+ letiště do <select id="radarRadius">${[...new Set([0, 50, 100, 150, 200, 300, 400, 500, rad])].sort((a, b) => a - b).map(k => `<option value="${k}"${k === rad ? ' selected' : ''}>${k ? k + ' km' : '0 km (jen tohle)'}</option>`).join('')}</select></label><label class="rs-radius faint">ceny pro <select id="radarAdults">${[1, 2, 3, 4, 5, 6].map(n => `<option value="${n}"${n === Math.min(6, radarAdults()) ? ' selected' : ''}>${n} ${n === 1 ? 'osobu' : n < 5 ? 'osoby' : 'osob'}</option>`).join('')}</select></label></div><div class="row" style="gap:8px"><button class="btn primary" id="radarGo">${edit ? 'Uložit' : 'Nastavit'}</button>${edit ? '<button class="btn ghost" id="radarCancel">Zrušit</button>' : ''}</div></div>`;
     const pi = new PlaceInput($('#radarFrom'), { origin: true, placeholder: 'Např. Brno, Praha, Vídeň…' });
@@ -5029,25 +5044,23 @@
     renderRadar(true); heroFrom && heroFrom.set(home.from, true);
   }
   /**
-   * Nováček bez domova vyplnil Odkud v hledání na Přehledu: to je odpověď i na „Odkud letíš?“ v uvítání hned pod ním –
-   * domov jako z čipu uvítání (SearchHelp.homeOf, applyHome), řádek s otázkou zmizí a radar začne hledat. Dřív se
-   * uvítání ptalo podruhé, čip nahoře dál nabízel „Nastavit domov“ a radar čekal na odpověď. Bez posunu stránky (píše
-   * se dál do Kam); s domovem nebo bez otázky v uvítání nic – hledání odjinud domov nemění.
+   * Nováček bez domova vyplnil Odkud v hledání na Přehledu: to je odpověď i na čipy měst pod ním (paintHomeAsk) –
+   * domov jako z čipu (SearchHelp.homeOf, applyHome), čipy zmizí a Kam letět levně začne hledat. Dřív čip nahoře dál
+   * nabízel „Nastavit domov“ a radar čekal na odpověď. Bez posunu stránky (píše se dál do Kam); s domovem nebo bez
+   * čipů nic – hledání odjinud domov nemění.
    */
   function heroHome(items) {
-    const ask = $('#whatsNew:not([hidden]) .wc-home');
-    if (!ask || S.home?.from?.length || items.length !== 1) return;
+    if (!$('#heroHomeAsk:not([hidden])') || S.home?.from?.length || items.length !== 1) return;
     const h = SearchHelp.homeOf(items[0]); if (!h) return;
-    ask.remove();
     applyHome(h);
   }
   /**
-   * Domov z uvítání („Odkud letíš?“): čip města (SearchHelp.HOME_CITIES) nebo 'geo' = 📍 Moje poloha. Radar pak hned
-   * hledá a stránka na něj plynule sjede. done(true) po nastavení, done(false) bez polohy (hláška, čipy zůstanou).
+   * Domov z čipu pod Odkud na Přehledu: město (SearchHelp.HOME_CITIES) nebo 'geo' = 📍 Moje poloha. Kam letět levně
+   * pak hned hledá – bez posunu stránky (dřív skok o ~900 px dolů nováčka ztratil). done(true) po nastavení,
+   * done(false) bez polohy (hláška, čipy zůstanou).
    */
   function homeFromChip(chip, done = () => { }) {
-    // done před posunem: uvítání schová čipy dřív, než se změřený cíl posunu pod ním zvedne
-    const set = home => { applyHome(home); done(true); $('#radarHead').scrollIntoView({ behavior: 'smooth', block: 'start' }); };
+    const set = home => { applyHome(home); done(true); };
     if (chip !== 'geo') { const h = SearchHelp.homeOf(chip); return h ? set(h) : done(false); }
     useMyLocation(p => set(SearchHelp.homeOf(p)), msg => { toast(msg + ' – vyber město', 'err'); done(false); });
   }
@@ -5447,11 +5460,7 @@
       // víc měst jednou větou – z domova (bez něj by věta neměla odkud)
       ...(home ? [`${home} → Řím → Barcelona → ${home}`] : [])];
   }
-  // 🧳 karta „Naplánuj celou dovolenou“ na Přehledu (app.js renderPlanCard): věty, ze kterých se k letu poskládá celá
-  // cesta – prodloužený víkend, týden na jednom místě a dvě města s přejezdem (tam do Lisabonu, zpět z Porta – mezi nimi
-  // průvodce navrhne vlak; dřív let Lisabon → Porto, který low-cost aerolinky nelétají). Bez domova – věta platí odkudkoli.
-  const planExamples = () => ['Řím na prodloužený víkend', 'Barcelona na týden', 'Lisabon a zpět z Porta na týden'];
-  /** Věta z příkladu (✨ Zkus napsat, 🧳 karta na Přehledu) jako napsaná do Kam: hledání podle ní z Odkud na Přehledu. */
+  /** Věta z příkladu (✨ Zkus napsat) jako napsaná do Kam: hledání podle ní z Odkud na Přehledu. */
   async function trySentence(text, b) {
     if (!window.Smart) return;
     const sm = Smart.parse(text, smartOpts()), hit = { sm, to: [], from: [], miss: [] };
@@ -6110,7 +6119,7 @@
 
   // běží hledání (uživatel, radar, kontrola hlídané ceny)? – PWA se pak po návratu sama neobnoví (zrušila by ho)
   const busy = () => busySearches > 0 || [...wState.values()].includes('run');
-  window.Flights = { init, warm, busy, ageCheck, lastPick, renderQuick, renderResume, resumeTrip, renderWatch, showWatch, renderRadar, renderNews, radarNow, renderFav, planExamples, trySentence, refreshPrefs: prefsPaint, homeChanged, homeFromChip,renderPins, refreshPins: pinsPaint, openOffer, searchTo, searchLegs, repaintMap: () => { if (view.mode === 'map' && lastResult) rerender(true); }, PlaceInput, smartRun, smartTips, runSearch, watchStatTxt, priceCheck: openPriceCheck, priceTag, watchKey, updateHomeChip,
+  window.Flights = { init, warm, busy, ageCheck, lastPick, renderQuick, renderResume, resumeTrip, renderWatch, showWatch, renderRadar, renderNews, radarNow, renderFav, trySentence, refreshPrefs: prefsPaint, homeChanged, homeFromChip,renderPins, refreshPins: pinsPaint, openOffer, searchTo, searchLegs, repaintMap: () => { if (view.mode === 'map' && lastResult) rerender(true); }, PlaceInput, smartRun, smartTips, runSearch, watchStatTxt, priceCheck: openPriceCheck, priceTag, watchKey, updateHomeChip,
     // navštívené země se změnily (mapa, země, 💾 obnova) → 🆕 a „jen nové země“ ve výsledcích hned podle nich
     refreshVisited: () => { if (lastResult && lastResult.mode !== 'multi' && !running && $('#results') && $('#results').children.length) rerender(true); },
     // 🏠 vlastní ceny na letiště se změnily (💾 obnova) → náhled letišť a seznam cen ve formuláři znovu

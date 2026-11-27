@@ -77,7 +77,8 @@ test('TIPS: krátké české texty s tlačítkem', () => {
 
 // renderDashTip (skutečné řádky z app.js) nad zástupným DOM: $ vrací stálé objekty podle selektoru, ✕ = zavolání onclick.
 // store: null = localStorage hází (soukromé okno, zablokované úložiště), { readOnly } = čtení jde, zápis hází.
-// first: v tomhle otevření se ukázalo uvítání nováčka (wnFirst v app.js u renderWhatsNew).
+// first: v tomhle otevření se ukázalo uvítání nováčka (wnFirst v app.js u renderWhatsNew); #whatsNew skrytý (bez karty
+// souhlasu). S domovem je na Přehledu Kam letět levně – první tip je proto Hlídání ceny, ne 🌍 Kamkoliv.
 function dash(store, first = false) {
   const c = APP.indexOf('function renderDash()');
   assert.ok(c > b, 'app.js: renderDashTip před renderDash');
@@ -86,7 +87,7 @@ function dash(store, first = false) {
     getItem(k) { if (!store) throw new Error('SecurityError'); return k in data ? data[k] : null; },
     setItem(k, v) { if (!store || store.readOnly) throw new Error('QuotaExceededError'); data[k] = String(v); },
   };
-  const els = {};
+  const els = { '#whatsNew': { hidden: true, innerHTML: '' } };
   const $ = (s) => (els[s] ||= { hidden: false, innerHTML: '' });
   const x = vm.createContext({ localStorage, S: base(), esc: (s) => String(s), todayLocal: () => TODAY, $, wnFirst: first });
   vm.runInContext(APP.slice(a, c) + '\nthis.renderDashTip = renderDashTip;', x, { filename: 'app-tips-dom.js' });
@@ -98,7 +99,7 @@ test('renderDashTip: ✕ tip skryje i bez localStorage (soukromé okno) – při
     const d = dash(store), what = store ? 'zápis do úložiště hází' : 'úložiště hází';
     d.render();
     assert.equal(d.el.hidden, false, what);
-    assert.match(d.el.innerHTML, /💡 Věděl jsi\? Kamkoliv/, what);
+    assert.match(d.el.innerHTML, /💡 Věděl jsi\? Hlídání ceny/, what);
     d.close();
     assert.equal(d.el.hidden, true, what);
     d.render(); // další vykreslení Přehledu (návrat z jiné obrazovky)
@@ -109,7 +110,7 @@ test('renderDashTip: ✕ tip skryje i bez localStorage (soukromé okno) – při
   const d = dash({});
   d.render();
   d.close();
-  assert.deepEqual(JSON.parse(d.data.atlas_tip), { day: TODAY, id: null, hid: ['any'] });
+  assert.deepEqual(JSON.parse(d.data.atlas_tip), { day: TODAY, id: null, hid: ['watch'] });
   d.render();
   assert.equal(d.el.hidden, true);
 });
@@ -122,5 +123,5 @@ test('renderDashTip: při první návštěvě (uvítání) žádný 💡 tip –
   assert.equal(d.data.atlas_tip, undefined, 'dnešní tip se nezapsal – příště začne od prvního');
   const next = dash({});
   next.render();
-  assert.match(next.el.innerHTML, /💡 Věděl jsi\? Kamkoliv/);
+  assert.match(next.el.innerHTML, /💡 Věděl jsi\? Hlídání ceny/);
 });

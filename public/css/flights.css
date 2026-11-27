@@ -19,6 +19,7 @@
 .hero-search2{margin-top:22px;display:grid;grid-template-columns:1fr 1fr auto;gap:10px;max-width:860px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.22);padding:8px;border-radius:16px;-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
 .hs-field{display:flex;flex-direction:column;padding:4px 8px;min-width:0}
 .hs-lab{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;font-weight:800;color:rgba(255,255,255,.7)}
+.hs-home{margin:6px 0 4px}
 .hero-search2 .btn{align-self:stretch;padding:0 22px}
 
 /* ---------- PlaceInput ---------- */
@@ -781,7 +782,6 @@ button.b:hover{filter:brightness(1.18);text-decoration:underline}
 .skel{background:linear-gradient(90deg,var(--surface) 0%,var(--surface-2) 50%,var(--surface) 100%);background-size:200% 100%;animation:skel 1.2s ease-in-out infinite}
 @keyframes skel{0%{background-position:100% 0}100%{background-position:-100% 0}}
 .radar-setup{padding:16px 18px;display:grid;grid-template-columns:1.2fr 1.4fr auto;gap:14px;align-items:center}
-.radar-setup.radar-wait{display:block} /* jen věta (na „Odkud letíš?“ se ptá uvítání) */
 .radar-modes{margin:-2px 0 14px}
 /* termíny radaru jako kapsle: vybraná plná (jako cestovní aplikace), ostatní obrys */
 .seg.radar-modes{display:flex;flex-wrap:wrap;gap:8px;padding:0;background:none;border:none;border-radius:0} /* větší písmo v systému: třetí volba na další řádek, ne za okraj */
