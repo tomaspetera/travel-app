@@ -30,6 +30,7 @@
   let stayView = { sort: 'value', minRating: 0, maxNight: null, type: '', free: false };
   let staysData = null;
   let carsData = null;
+let calOut = false; // jedna obsluha klepnutí mimo nabídku „Do kalendáře ▾“ (Shrnutí se překresluje)
   // pořadí dotazů api/cars: po rychlé změně polí (i po novém vykreslení kroku Auto) smí srovnávače vykreslit jen
   // odpověď na poslední – starší by ukázala odkazy s jinými časy
   let carSeq = 0;
@@ -1107,8 +1108,8 @@
     if (root.dataset) root.dataset.step = t.step; // rozvržení kroku na počítači (desktop-trip.css)
     if (!autoT && autoOk(t) && !entryOf(t)) autoSoon(); // rozpracovaná z doby před samoukládáním → do Mých cest
     root.innerHTML = `
-      ${window.myTrips ? `<div class="mt-back"><button type="button" class="linkbtn" id="tripMine">‹ Moje cesty</button></div>` : ''}
-      <div class="trip-head card" data-photo="${esc(t.dest.label)}" style="--h:${window.ccHue ? ccHue(t.dest.cc) : 210}">
+      ${window.myTrips ? `<div class="mt-back"><button type="button" class="linkbtn" id="tripMine">‹ Moje cesty</button>${savedTxt(t) ? `<span class="mt-saved" title="Cesta se do Mých cest ukládá sama">${savedTxt(t)} ${ikona('hotovo')}</span>` : ''}</div>` : ''}
+      <div class="trip-head card${miniHead(t) ? ' th-mini' : ''}" data-photo="${esc(t.dest.label)}" style="--h:${window.ccHue ? ccHue(t.dest.cc) : 210}">
         <span class="th-flag">${flag(t.dest.cc)}</span>
         <button type="button" class="th-reset" id="tripRestart" title="Zahodit tuhle cestu a začít znovu výběrem letu" aria-label="Začít znovu">↺<span class="th-rl"> Začít znovu</span></button>
         <div class="th-total" id="thTotal">${headTotal(t)}</div>
@@ -1228,13 +1229,17 @@
     return done.length > 0;
   }
 
+  // Hlavička jako jeden pruh (th-mini, jen telefon a tablet – trip.css) na krocích mezi Letem a Shrnutím: velká fotka
+  // tam brala 43–53 % obrazovky a obsah kroku začínal až v půlce; Let a Shrnutí ji mají celou
+  const miniHead = t => t.step !== 'flight' && t.step !== 'summary';
   // Hlavička cesty: termín, trasa přes víc míst, cena celkem (při úpravě trasy se přepíše jen ona).
   function headSub(t) {
     const { checkin, checkout, nights } = stayDates(t);
     const route = isMulti(t) ? t.route.bases.map(b => `${b.name} (${b.nights})`).join(' → ') : '';
     // trasa přes víc zemí (Řím → Barcelona): všechny země, ne jen první
     const cs = [...new Set([t.dest.country, ...(isMulti(t) ? t.route.bases.map(b => b.country) : [])].filter(Boolean))];
-    return `${esc(cs.slice(0, 3).join(', ') + (cs.length > 3 ? '…' : ''))} · ${fmtDate(checkin)}–${fmtDate(checkout)} · ${backLeg(t) ? nightsTxt(nights) : 'jen tam'} · ${paxTxt(t)}${ovOn(t) ? ' · 🚆 vlakem/busem' : ''}${route ? `<div class="th-route">🧭 ${esc(route)}</div>` : ''}`;
+    // země a noci v <span>: hlavička jako pruh (th-mini, telefon) je schová – vejde se „13.3.–20.3. · 2 os.“
+    return `<span class="th-cc">${esc(cs.slice(0, 3).join(', ') + (cs.length > 3 ? '…' : ''))} · </span>${fmtDate(checkin)}–${fmtDate(checkout)} · <span class="th-nn">${backLeg(t) ? nightsTxt(nights) : 'jen tam'} · </span>${paxTxt(t)}${ovOn(t) ? ' · 🚆 vlakem/busem' : ''}${route ? `<div class="th-route">🧭 ${esc(route)}</div>` : ''}`;
   }
   // součet bez jediné známé ceny (vlastní let bez ceny, ubytování „cena na webu“) – „0 Kč“ by vypadalo, že je cesta zadarmo
   const noCost = c => !(c.total > 0);
@@ -4043,18 +4048,19 @@
           : !ov && f.back && f.back.provider !== f.out.provider ? '<div class="note warn" style="margin-top:10px">⚠️ <div>Lety tam a zpět jsou dvě samostatné letenky – při zpoždění prvního letu druhá aerolinka nečeká.</div></div>' : ''}
       ${onTrip || past ? '</details>' : ''}</div></div>
       <div class="row wrap sum-acts" style="gap:8px;margin:0 0 14px">
-        <button class="btn primary" id="sumSave">${savedOnPurpose(t) ? ikona('hotovo') + ' Uloženo v Mých cestách' : '💾 Uložit do Mých cest'}</button>
-        <button class="btn" id="sumShare">${ikona('sdilet')} Sdílet cestu</button>
-        <button class="btn" id="sumIcs">${ikona('kalendar')} Do kalendáře</button>
+        <button class="btn primary" id="sumShare">${ikona('sdilet')} Sdílet cestu</button>
+        <details class="sum-cal"><summary class="btn" id="sumCal">${ikona('kalendar')} Do kalendáře <span aria-hidden="true">▾</span></summary><div class="sum-cal-m">
+          <a class="btn sm ghost" id="sumGcal" href="${esc(safeUrl(Ics.gcalUrl(tripEvent(t))))}" target="_blank" rel="noopener">Google Kalendář ↗</a>
+          <button type="button" class="btn sm ghost" id="sumIcs">Soubor .ics (Apple, Outlook…)</button></div></details>
         ${window.Plus && !t.shared && !past ? '<button class="btn" id="sumSesit">📒 Sešit cesty · Plus</button>' : ''}
-        <a class="btn ghost" href="${esc(safeUrl(Ics.gcalUrl(tripEvent(t))))}" target="_blank" rel="noopener">Přidat do Google Kalendáře ↗</a>
-        <button class="btn ghost" id="sumNew">Začít novou cestu</button>
+        <button class="btn" id="sumSave">${sumSaveLbl(t)}</button>
       </div>
       <p class="faint sum-support" id="sumSupport" hidden></p></div>
       ${carLegs.length && !ov && (!t.car || t.car.mode === 'skip') ? `<div class="note warn" style="margin-bottom:14px">🚗 <div>${carLegs.length < legsAll.length ? `Část přejezdů trasy (${esc(carLegs.map(l => legName(t, l)).join(', '))}) počítám <b>autem</b>` : 'Přejezdy mezi místy trasy počítám <b>autem</b>'}, ale auto nemáš vybrané – vyber ho v kroku <b>Auto</b>, nebo tam zvol <b>Bez auta – mezi místy vlakem a busem</b>.</div></div>` : ''}
       ${multi && nightsLeft(t) !== 0 ? '<div class="note warn" style="margin-bottom:14px">⚠️ <div>Noci v trase nesedí s délkou pobytu – uprav je v kroku <b>Trasa</b>, jinak termíny ubytování nebudou navazovat na lety.</div></div>' : ''}
       ${past ? '' : window.Entry && Entry.ready() ? Entry.checklistHtml(isos, { ret: returnDate(t), pax: paxN(t) + (+t.infants || 0), via }) : '<div id="tripEntry"></div>'}
       ${window.PreTrip && !past && !onTrip ? PreTrip.html(t, { isos, via, ret: returnDate(t) }) : ''}
+      <p class="sum-new"><button type="button" class="linkbtn" id="sumNew">Začít novou cestu</button></p>
 `;
     // zkrácený průběh (jen telefon, CSS) → celý; řádek ubytování bez ceny / nevybraného → krok Ubytování (první místo bez něj)
     const ta = $('#tlAll'); if (ta) ta.onclick = () => { const w = $('#sumTl'); if (w && w.classList) w.classList.remove('tl-cut'); if (ta.remove) ta.remove(); };
@@ -4083,7 +4089,12 @@
     $('#sumShare').onclick = () => (window.Count && Count.hit('share'), window.ShareCard ? ShareCard.open(cardData(t), { send: share, prime: () => ShareLink.short('trip', linkJson(t)) }) : share());
     // odkaz se zkomprimuje hned, aby ho kliknutí jen zkopírovalo (Safari dovolí zápis do schránky jen v obsluze kliknutí)
     if (window.ShareLink) ShareLink.prepare('trip', linkJson(t));
-    $('#sumIcs').onclick = () => (window.Count && Count.hit('calendar_export'), icsDownload(`letsi-${t.dest.label}-${checkin}`, calendarEvents(t), { name: `Cesta: ${t.dest.label}` }));
+    // volba v nabídce „Do kalendáře ▾“ ji zavře (jinak by visela přes tlačítka pod ní)
+    const calShut = () => { const d = $('#sumCal').parentNode; if (d) d.open = false; };
+    $('#sumGcal').onclick = calShut;
+    // klepnutí mimo otevřenou nabídku ji zavře (jinak na telefonu visí přes „Hotovo“)
+    if (!calOut && typeof document !== 'undefined') { calOut = true; document.addEventListener('click', e => { const d = document.querySelector('.sum-cal[open]'); if (d && !d.contains(e.target)) d.open = false; }); }
+    $('#sumIcs').onclick = () => (calShut(), window.Count && Count.hit('calendar_export'), icsDownload(`letsi-${t.dest.label}-${checkin}`, calendarEvents(t), { name: `Cesta: ${t.dest.label}` }));
     $('#sumNew').onclick = () => newAfterPast(); // hotová cesta zůstane v Mých cestách
     // 📒 Sešit cesty (plus.js, zatím falešné dveře): náhled z uložené cesty, jinak z průvodce
     const ses = window.Plus && $('#sumSesit');
@@ -4311,8 +4322,11 @@
   if (typeof document === 'object' && document && document.addEventListener) document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && autoT) autoSave(); });
   /** Záznam cesty z průvodce v Mých cestách (stejné id), jinak null. */
   const entryOf = t => (t && Array.isArray(S.trips) && S.trips.find(x => x && x.tripId && x.tripId === t.created)) || null;
-  // uložená na přání (ne sdílená, ne jen sama uložená – auto: true ji ↺ Začít znovu z Mých cest zase smaže)
-  const savedOnPurpose = t => { const e = !t.shared && entryOf(t); return Boolean(e && !e.auto); };
+  // Shrnutí: cesta je v Mých cestách sama (autoSave) – tlačítko ji jen uloží na přání (↺ Začít znovu ji pak nechá)
+  // a vrátí do seznamu; „Uložit“ by budilo dojem, že se bez něj ztratí. Sdílenou (cizí) teprve uloží.
+  const sumSaveLbl = t => (t.shared ? '💾 Uložit do Mých cest' : 'Hotovo – zpět na Moje cesty');
+  // „Uloženo ✓“ (ikona hotovo) u ‹ Moje cesty: v seznamu už je, nebo se tam uloží (autoOk – do 1,2 s, při zavření aplikace hned)
+  const savedTxt = t => (!t.shared && (entryOf(t) || autoOk(t)) ? 'Uloženo' : '');
   /**
    * Rozpracovaná cesta se nahrazuje jinou (nový let, uložená cesta): uložená v Mých cestách tam zůstane bez ptaní (jen
    * prohlédnutá – bez trasy, hotelu, auta… – zmizí, ať seznam nezaplní), neuložená s něčím rozpracovaným → zeptat se
@@ -4886,5 +4900,7 @@
 
   window.Trip = { noCost, stayPriced, staySorts, staySortOf, start, ownFlightTrip, haveTicket, progSpan, liveOn, stayPricesOn, flightCached, stepDone, stayGap, totalLbl, tlDays, printNote, noPriceCand, cardData, pastHtml, flyOk, finalStats, statsGiveUp, openSaved, saveToPlanner, unsavedNow, stepTo, render: safeRender, mine, ageRefresh, importFromHash, costs, budgetGroups, budgetLeft, budgetMissing, sanitizeTrip, calendarEvents, leaveBy, baseDates, baseProgram, legBrief, stayDates, tripEvent, tripCountries, tripVia, groundLines, groundApps, timeline, placeOn, placePt, rideLegs, legBack,
     // doprava po úsecích trasy a auto jen na některé dny, tlačítko kroku nad spodní lištou (testy)
-    routeLegs, carRuns, suggestModes, setLegModes, rangeModes, carDays, carRange, carStart, transferParts, phoneNext, splitDoneTxt, stepEvent };
+    routeLegs, carRuns, suggestModes, setLegModes, rangeModes, carDays, carRange, carStart, transferParts, phoneNext, splitDoneTxt, stepEvent,
+    // hlavička jako pruh, „Uloženo ✓“ a tlačítko Hotovo ve Shrnutí (testy)
+    miniHead, savedTxt, sumSaveLbl };
 })();

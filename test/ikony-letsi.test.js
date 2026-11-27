@@ -65,7 +65,7 @@ test('ovládací prvky bez emoji: Přehled, Lety, Další a Shrnutí cesty mají
     assert.ok(html.includes(`${ico(n)} ${t}`), t);
   }
   for (const [n, id] of [['stahnout', 'moreBk'], ['novinky', 'moreWn'], ['motiv', 'moreTheme']]) assert.ok(app.includes(`id="${id}">\${ikona('${n}')} `), id);
-  for (const [n, id] of [['sdilet', 'sumShare'], ['kalendar', 'sumIcs']]) assert.ok(trip.includes(`id="${id}">\${ikona('${n}')} `), id);
+  for (const [n, id] of [['sdilet', 'sumShare'], ['kalendar', 'sumCal']]) assert.ok(trip.includes(`id="${id}">\${ikona('${n}')} `), id);
   // hlídání ceny je srdce, nikdy zvonek (README sady: Nikdy – zvonek); Upozorňovat = Cena klesla
   assert.doesNotMatch(html, /🔔/);
   assert.match(read('js/flights.js'), /' \+ ikona\('cena-klesla'\) \+ ' Upozorňovat/);
