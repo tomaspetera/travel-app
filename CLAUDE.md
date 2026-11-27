@@ -11,6 +11,7 @@ po sloučení do `main`). Hlavní uživatel ji používá na telefonu (~412 px, 
 - `npm test` musí projít. K opravě logiky přidej test. Demo bez sítě: `npm run demo` (vymyšlená data).
 - Texty v aplikaci, komentáře v kódu, commity a popisy PR **česky**, ve stylu okolního kódu (komentáře vysvětlují proč).
 - Desktop CSS jen v `public/css/desktop*.css` uvnitř `@media (min-width:1024px…)`; telefon se tím nesmí změnit.
+- Emoji nikdy v nadpisu ani v tlačítku – ikony Letsi (`public/vendor/letsi/ikony`); vlajky zemí smí.
 - Novinku viditelnou pro uživatele přidej do `WHATS_NEW` v `public/js/app.js` a zvyš `WN_ID` – jen u nových funkcí.
 
 ## Pravidla

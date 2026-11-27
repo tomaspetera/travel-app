@@ -73,7 +73,7 @@ test('U16: „Uloženo ✓“ od kroku za výběrem letu (cesta se ukládá sama
 test('U16: Shrnutí „Hotovo – zpět na Moje cesty“, sdílená „💾 Uložit do Mých cest“', () => {
   const { sumSaveLbl } = loadTrip().window.Trip;
   assert.equal(sumSaveLbl(lisbon()), 'Hotovo – zpět na Moje cesty');
-  assert.equal(sumSaveLbl(lisbon({ shared: { on: '2026-10-01' } })), '💾 Uložit do Mých cest');
+  assert.equal(sumSaveLbl(lisbon({ shared: { on: '2026-10-01' } })), 'Uložit do Mých cest');
 });
 
 test('U17: jedno „Do kalendáře ▾“ (Google i .ics), Sdílet hlavní, „Začít novou cestu“ odkazem pod vším', () => {

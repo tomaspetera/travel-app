@@ -171,7 +171,7 @@
   }
   function pageHtml(health) {
     return `<div class="modal-body plus-page">
-      <h3>⭐ ${h(NAME)}</h3>
+      <h3>${h(NAME)}</h3>
       <p>Co zůstane zdarma a co chystáme navíc.</p>
       <table class="plus-table"><thead><tr><th scope="col">Co</th><th scope="col">Zdarma</th><th scope="col">Plus <small>${SOON}</small></th></tr></thead>
         <tbody>${FREE.map(([what, a, b]) => `<tr><th scope="row">${h(what)}</th><td>${cell(a)}</td><td>${cell(b)}</td></tr>`).join('')}</tbody></table>
@@ -187,7 +187,7 @@
     const dayHtml = days.length ? days.map((d, i) => `<div class="ss-day"><b>Den ${dayNo(t, d, i)} · ${dm(d)}</b><ul>${t.days[d].slice(0, 4).map(x => `<li>${h(x)}</li>`).join('')}</ul></div>`).join('')
       : '<p class="faint">Program po dnech doplní průvodce cestou.</p>';
     return `<div class="modal-body plus-page">
-      <h3>📒 Sešit cesty</h3>
+      <h3>Sešit cesty</h3>
       <div class="ss-prev" aria-label="Náhled sešitu"><div class="ss-title">${h(placeOf(t))}</div><div class="faint ss-term">${h(termTxt(t))}</div>${dayHtml}</div>
       <p>${h(line)}</p>
       <div id="plusAfter"><button type="button" class="btn primary block" id="sesitWant">Chci sešit</button></div>

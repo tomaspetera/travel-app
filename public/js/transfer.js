@@ -101,7 +101,7 @@
     addEventListener('popstate', close);
   }
 
-  const PASTE = `<details class="tf-paste"><summary>📥 Mám odkaz z jiného zařízení</summary>
+  const PASTE = `<details class="tf-paste"><summary>Mám odkaz z jiného zařízení</summary>
       <div class="row"><input class="input" id="tfIn" type="url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="Vlož odkaz s #sync=…" aria-label="Odkaz na přenos z jiného zařízení"><button type="button" class="btn" id="tfLoad">Načíst</button></div>
       <p class="faint">Hodí se pro Letsi na ploše iPhonu: odkaz z fotoaparátu se otevře v Safari, které má svoje úložiště – zkopíruj ho a vlož sem.</p></details>`;
   function wirePaste() {
@@ -128,9 +128,9 @@
     const c = Backup.countsNow();
     if (Backup.isEmpty(c)) {
       modalOpen(`<div class="modal-body tf-modal">
-        <h3>📲 Přenést do jiného zařízení</h3>
+        <h3>Přenést do jiného zařízení</h3>
         <p class="muted tf-lead">${emptyLead(desk())}</p>
-        <div class="bk-actions"><button type="button" class="btn" id="tfFile">📂 Obnovit ze souboru zálohy</button></div>
+        <div class="bk-actions"><button type="button" class="btn" id="tfFile">Obnovit ze souboru zálohy</button></div>
         ${PASTE}</div>`, { x: true });
       $('details.tf-paste').open = true;
       // na počítači je 💾 Přenos a záloha jen v Mých cestách, které prázdné zařízení neukáže – obnova ze souboru tudy
@@ -142,11 +142,11 @@
     // typická cesta z průvodce se do QR nevejde ani štíhle a odkazem pak jde celá, i s popisy a fotkami programu
     const full = Backup.snapshot(), slim = Backup.snapshot({ slim: true }), my = ++token, send = native() ? '📤 Poslat odkaz' : '🔗 Kopírovat odkaz';
     modalOpen(`<div class="modal-body tf-modal">
-      <h3>📲 Přenést do jiného zařízení</h3>
+      <h3>Přenést do jiného zařízení</h3>
       <p class="muted tf-lead" id="tfLead">Pošli si odkaz do druhého zařízení – AirDropem, Quick Share, e-mailem nebo do chatu sám sobě – a otevři ho tam. Letsi ukáže, co přibude, a nabídne <b>Sloučit</b> nebo <b>Nahradit</b>. Bez účtu, data jdou jen v odkazu (na server ne).</p>
       <div class="tf-qr-box" id="tfBox"></div>
       <p class="tf-sum"><b>Přenese se:</b> ${h(Backup.countsTxt(c))}</p>
-      <div class="bk-actions"><button type="button" class="btn primary" id="tfSend">${send}</button><button type="button" class="btn" id="tfFile">💾 Soubor zálohy</button></div>
+      <div class="bk-actions"><button type="button" class="btn primary" id="tfSend">${send}</button><button type="button" class="btn" id="tfFile">Soubor zálohy</button></div>
       <p class="faint tf-note">Odkaz nese tvoje cesty i kódy rezervací – posílej ho jen sobě. Je to stav z této chvíle: co pak změníš, přeneseš novým odkazem.</p>
       ${PASTE}</div>`, { x: true });
     // připravený odkaz (komprese je asynchronní) – klepnutí na Kopírovat pak zapíše do schránky hned (Safari)

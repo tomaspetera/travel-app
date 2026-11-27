@@ -330,7 +330,7 @@ test('prázdné zařízení: 📲 Přenést nabídne i obnovu ze souboru zálohy
   B.open = () => opened++;
   try {
     T.open();
-    assert.match(html[0], /id="tfFile">📂 Obnovit ze souboru zálohy</);
+    assert.match(html[0], /id="tfFile">Obnovit ze souboru zálohy</);
     assert.equal(els['details.tf-paste'].open, true, 'vložení odkazu zůstává');
     els['#tfFile'].onclick();
     assert.equal(opened, 1, 'otevře 💾 Přenos a záloha s 📂 Obnovit ze zálohy');

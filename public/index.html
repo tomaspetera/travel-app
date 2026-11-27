@@ -394,9 +394,9 @@ if (!(navigator.serviceWorker && navigator.serviceWorker.controller)) ['data/cou
           <div class="sf-grid sf-when">
             <div class="field">
               <label class="sf-ref">Cesta</label>
-              <div class="seg wrap sf-ref" id="tripType" role="group" aria-label="Cesta"><button type="button" class="on" data-v="return">Tam i zpět</button><button type="button" data-v="oneway">Jen tam</button><button type="button" data-v="multi" title="Víc měst v jedné cestě, návrat z jiného místa">🗺️ Víc měst</button></div>
+              <div class="seg wrap sf-ref" id="tripType" role="group" aria-label="Cesta"><button type="button" class="on" data-v="return">Tam i zpět</button><button type="button" data-v="oneway">Jen tam</button><button type="button" data-v="multi" title="Víc měst v jedné cestě, návrat z jiného místa">Víc měst</button></div>
               <label style="margin-top:12px" id="dateModeLbl">Termín</label>
-              <div class="seg" id="dateMode" role="group" aria-label="Termín"><button type="button" data-v="exact">📅 Přesná data</button><button type="button" class="on" data-v="flex">🔀 Flexibilně</button></div>
+              <div class="seg" id="dateMode" role="group" aria-label="Termín"><button type="button" data-v="exact">Přesná data</button><button type="button" class="on" data-v="flex">Flexibilně</button></div>
             </div>
             <div class="field" id="multiField" hidden>
               <label>Lety <span class="lab-hint">2–4 lety jedním směrem · každý je samostatná letenka</span></label>
@@ -425,7 +425,7 @@ if (!(navigator.serviceWorker && navigator.serviceWorker.controller)) ['data/cou
                 <button type="button" data-v="long">Prodl. víkend</button>
                 <button type="button" class="on" data-v="week">Týden</button>
                 <button type="button" data-v="2weeks">2 týdny</button>
-                <button type="button" data-v="holiday" title="Prodloužený víkend kolem českého svátku – vyber který">🎉 Svátky</button>
+                <button type="button" data-v="holiday" title="Prodloužený víkend kolem českého svátku – vyber který">Svátky</button>
                 <button type="button" data-v="custom">Vlastní</button>
               </div>
               <div class="len-lw" id="lenLw" role="group" aria-label="Prodloužený víkend" hidden></div>
@@ -481,7 +481,7 @@ if (!(navigator.serviceWorker && navigator.serviceWorker.controller)) ['data/cou
               <div class="field gm-field" style="grid-column:1/-1"><label>Doprava na letiště a z letiště <span class="lab-hint">jen pro představu u nabídky – do ceny letenky se nepočítá</span></label>
                 <label class="check-inline gm-on"><input type="checkbox" id="groundOn" checked> ukázat cestu na letiště</label>
                 <div class="gm-row">
-                  <div class="seg" id="groundMode" role="group" aria-label="Na letiště"><button type="button" data-g="transit" class="on" aria-pressed="true">🚌 veřejnou dopravou</button><button type="button" data-g="car" aria-pressed="false">🚗 autem</button></div>
+                  <div class="seg" id="groundMode" role="group" aria-label="Na letiště"><button type="button" data-g="transit" class="on" aria-pressed="true"><span class="ico i-autobus" aria-hidden="true"></span> veřejnou dopravou</button><button type="button" data-g="car" aria-pressed="false"><span class="ico i-auto" aria-hidden="true"></span> autem</button></div>
                 </div>
                 <!-- jízdné: poloviční (státní sleva) jedním zaškrtnutím; jiný násobek ze starších uložených hledání ukáže pole „jízdné ×“ -->
                 <div class="gm-opt" id="gmTransit">
@@ -492,7 +492,7 @@ if (!(navigator.serviceWorker && navigator.serviceWorker.controller)) ['data/cou
                     <div class="gm-own-list" id="gmOwnList"></div></details></div>
                 <div class="gm-opt gm-car" id="gmCar" hidden>
                   <div class="gm-line">
-                    <div class="seg" id="gmFuel" role="group" aria-label="Pohon auta"><button type="button" data-f="diesel" class="on" aria-pressed="true">⛽ nafta</button><button type="button" data-f="petrol" aria-pressed="false">⛽ benzín</button><button type="button" data-f="ev" aria-pressed="false">⚡ elektro</button></div>
+                    <div class="seg" id="gmFuel" role="group" aria-label="Pohon auta"><button type="button" data-f="diesel" class="on" aria-pressed="true">nafta</button><button type="button" data-f="petrol" aria-pressed="false">benzín</button><button type="button" data-f="ev" aria-pressed="false">elektro</button></div>
                     <label class="gm-in">Spotřeba <input class="input xs" type="number" id="gmCons" value="6" step="0.1" min="2" max="30" inputmode="decimal"> <span id="gmConsUnit">l/100 km</span></label>
                     <span class="gm-km" id="gmKm" title="Kč za kilometr = spotřeba / 100 × cena (palivo jedním směrem = silniční km × Kč/km)"></span>
                   </div>

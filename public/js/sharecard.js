@@ -512,7 +512,7 @@
         <div class="card jed-term" id="jedWx" hidden></div>
         ${past ? '<div class="note warn">⚠️ <div><b>Tenhle termín už proběhl.</b> Lety do stejného místa najdeš i na jiný termín.</div></div>'
           : on ? `<div class="note info">🧳 <div><b>Cesta už začala.</b> ${join ? 'Můžeš se přidat – hledám lety od zítřka do návratu.' : 'Lety do stejného místa najdeš i na jiný termín.'}</div></div>` : ''}
-        ${d.id ? `<button type="button" class="btn primary jed-go" id="jedGo">✈️ ${past || (on && !join) ? 'Najít lety – ' + esc(d.dest) : join ? 'Najít lety – přidat se' : long ? 'Najít lety tam (pobyt přes 45 nocí – zpět hledej zvlášť)' : 'Najít lety na tenhle termín'}</button>
+        ${d.id ? `<button type="button" class="btn primary jed-go" id="jedGo"><span class="ico i-let" aria-hidden="true"></span> ${past || (on && !join) ? 'Najít lety – ' + esc(d.dest) : join ? 'Najít lety – přidat se' : long ? 'Najít lety tam (pobyt přes 45 nocí – zpět hledej zvlášť)' : 'Najít lety na tenhle termín'}</button>
         <div class="faint jed-home">${home ? `Hledám z tvého letiště: <b>${esc(home.label)}</b> – můžeš ho změnit ve formuláři.` : 'Zeptám se, odkud letíš – Praha, Brno, Vídeň…'}</div>` : ''}
         <div class="note info jed-dm">💬 <div><b>Chceš jet?</b> Napiš kamarádovi tam, kde jsi to viděl – do komentářů nebo do zpráv.</div></div>
         <div class="faint jed-foot">Letsi – levné letenky a plánování cest. Zdarma, bez registrace. Odkaz nese jen cíl a termín.</div>

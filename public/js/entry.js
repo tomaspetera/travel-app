@@ -371,10 +371,10 @@
       return `<div class="pc-country"><div class="pc-h">${typeof flag === 'function' ? flag(iso) + ' ' : ''}<b>${esc(name(iso))}</b>${tr ? ' <span class="faint">– jen přestup</span>' : ''} ${ended ? '<span class="ec ec-visa">⏳ ověř vstup</span>' : `<span class="ec ec-${k.cls}">${k.icon ? k.icon + ' ' : ''}${esc(k.label + q(r))}</span>`}</div>
         <ul class="pc-list">${li.join('')}</ul><div class="faint pc-src">${link(r.source, srcTxt(r))}</div></div>`;
     }).join('');
-    return `<div class="card step-card entry-card"><h3>🛂 Před cestou</h3>${rows}<div class="note warn" style="margin-top:10px">⚠️ <div>${disclaimer()}</div></div></div>`;
+    return `<div class="card step-card entry-card"><h3>Před cestou</h3>${rows}<div class="note warn" style="margin-top:10px">⚠️ <div>${disclaimer()}</div></div></div>`;
   }
 
-  /** Sekce „🛂 Vstup pro občany ČR“ v detailu země. */
+  /** Sekce „Vstup pro občany ČR“ v detailu země. */
   function detailHtml(iso) {
     const r = get(iso), k = kind(r);
     if (!k) return '';
@@ -383,7 +383,7 @@
     const reg = r.etaName ? `<div class="ed-reg">${esc(r.etaName)}${r.etaCostEur != null ? ` · <b>${esc(priceTxt(r.etaCostEur))}</b>${k.need ? ' na osobu' : ''}` : ''}${r.etaUrl ? ` · ${link(r.etaUrl, 'oficiální web ↗')}` : ''}${r.transitEta ? `<div class="ed-transit">${esc(tr)}</div>` : ''}</div>` : '';
     const f = form(iso);
     return `<div class="entry-detail">
-      <h3>🛂 Vstup pro občany ČR</h3>
+      <h3>Vstup pro občany ČR</h3>
       <div class="ed-regime ec-${k.cls}">${k.icon ? k.icon + ' ' : ''}${esc(k.text)}</div>
       ${reg}
       ${f ? `<div class="ed-form">${formHtml(f)}</div>` : ''}

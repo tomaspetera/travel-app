@@ -30,7 +30,7 @@ test('menu a záloha neslibují QR kód napevno – nabídne se, jen když se da
   assert.match(menu, /Přenést do jiného zařízení <span class="faint">odkaz nebo soubor<\/span>/);
   const open = fnBody(bk, 'open', '  ');
   assert.doesNotMatch(open, /QR kód/);
-  assert.match(open, /📲 Přenést odkazem<\/button>/);
+  assert.match(open, />Přenést odkazem<\/button>/);
   assert.doesNotMatch(ab, /odkazem s QR kódem/);
   assert.match(ab, /odkazem \(📲 Přenést do jiného zařízení\)/);
 });

@@ -659,18 +659,18 @@ test('karta: oddíly, zaškrtávátka, aktivity, podnebí a zdroje; odškrtnuté
   c.window.PreTrip.setDone(c.window.PreTrip.tripKey(t), 'pack:doc-pass', true);
   const h = sp(c.window.PreTrip.html(t, { isos: ['JP'], climate: [at('NRT', 'Tokio')] }));
   assert.match(h, /^<div class="card step-card pt-card" id="preTrip" data-ptkey="1767225600000:2027-03-12:JP">/);
-  assert.match(h, /<h3>🧭 Co zařídit a co sbalit<\/h3><div class="muted pt-sub">Japonsko · 12\. 3\. – 21\. 3\. 2027 · 10 dní · let jen s malým zavazadlem · auto na místě<\/div>/);
-  assert.match(h, /<h4>📋 Co zařídit<\/h4>/);
-  assert.match(h, /<h4>🎒 Co sbalit<\/h4>/);
+  assert.match(h, /<h3>Co zařídit a co sbalit<\/h3><div class="muted pt-sub">Japonsko · 12\. 3\. – 21\. 3\. 2027 · 10 dní · let jen s malým zavazadlem · auto na místě<\/div>/);
+  assert.match(h, /<h4>Co zařídit<\/h4>/);
+  assert.match(h, /<h4>Co sbalit<\/h4>/);
   assert.match(h, /<input type="checkbox" data-ptk="todo:ins" >/);
   assert.match(h, /<input type="checkbox" data-ptk="pack:doc-pass" checked>/);
   assert.match(h, /<li class="done"><label class="pt-row"><input type="checkbox" data-ptk="pack:doc-pass" checked><span>Cestovní pas <span class="faint">– občanský průkaz nestačí<\/span><\/span><\/label><\/li>/);
-  assert.match(h, /<button type="button" class="fchip on" data-pt-act="city" aria-pressed="true">🏙️ Města a památky<\/button>/);
+  assert.match(h, /<button type="button" class="fchip on" data-pt-act="city" aria-pressed="true">Města a památky<\/button>/);
   assert.match(h, /<button type="button" class="fchip" data-pt-act="beach" aria-pressed="false">/);
   assert.match(h, /🌡️ <b>Tokio<\/b>: přes den ~13 °C, v noci ~6 °C, srážky do ~106 mm za měsíc/);
   // °C a mm s pevnou mezerou (h je bez nich) – na telefonu se jednotka neodtrhne od čísla
   assert.match(c.window.PreTrip.html(t, { isos: ['JP'], climate: [at('NRT', 'Tokio')] }), /přes den ~13\u00a0°C, v noci ~6\u00a0°C, srážky do ~106\u00a0mm za měsíc/);
-  assert.match(h, /data-pt-print>🖨️ Vytisknout<\/button>/);
+  assert.match(h, /data-pt-print>Vytisknout<\/button>/);
   assert.match(h, /✔ 1\/\d+/);
   assert.match(h, /Informativní přehled \(stav 10\/2026\)/);
   // informace bez úkolu (měna) bez zaškrtávátka
@@ -697,7 +697,7 @@ test('karta: data se nepodařilo načíst → upozornění a žádné další po
   // podaří se → karta
   c.fetch = async () => ({ ok: true, json: async () => JSON.parse(JSON.stringify(PT)) });
   await c.window.PreTrip.load();
-  assert.match(c.window.PreTrip.html(trip(), { isos: ['ES'], climate: [] }), /<h4>📋 Co zařídit<\/h4>/);
+  assert.match(c.window.PreTrip.html(trip(), { isos: ['ES'], climate: [] }), /<h4>Co zařídit<\/h4>/);
 });
 
 test('karta: texty z dat, cesty i sdíleného odkazu escapované, odkazy jen http(s)', () => {
@@ -736,7 +736,7 @@ test('průvodce: shrnutí má kartu „Co zařídit a co sbalit“, kalendář p
   c.S.trip = t;
   c.window.Trip.render();
   const h = sp(host.innerHTML);
-  const i = h.indexOf('<h3>🛂 Před cestou</h3>'), j = h.indexOf('id="preTrip"'), k = h.indexOf('<span class="ico i-kalendar" aria-hidden="true"></span> Průběh cesty');
+  const i = h.indexOf('<h3>Před cestou</h3>'), j = h.indexOf('id="preTrip"'), k = h.indexOf('<span class="ico i-kalendar" aria-hidden="true"></span> Průběh cesty');
   // průběh cesty je první karta Shrnutí, „Před cestou“ pod vstupními podmínkami
   assert.ok(k > 0 && i > k && j > i, 'průběh cesty první, „Před cestou“ pod vstupními podmínkami');
   assert.match(h, /Vyřiď mezinárodní řidičský průkaz \(vzor 1949\)/);
@@ -1025,7 +1025,7 @@ test('sdílená cesta (#trip=): den sdílení v odkazu, u příjemce poznámka o
   b.Trip.render();
   const h = sp(b.c.__root.innerHTML);
   assert.match(h, new RegExp(`<b>Sdílená cesta</b> – ceny jsou z doby sdílení \\(${dm(today).replace(/\./g, '\\.')}\\)\\. Před nákupem je ověř\\.`));
-  assert.match(h, /id="tripSharedSave">💾 Uložit si ji</);
+  assert.match(h, /id="tripSharedSave">Uložit si ji</);
   // 💾 Uložit si ji = uložení do plánovače (stejná cesta jako ve Shrnutí); pak vlastní cesta bez poznámky
   b.els['#tripSharedSave'].onclick();
   assert.equal(b.c.S.trips.length, 1);
@@ -1187,7 +1187,7 @@ test('vlastní položky: přidat, pročistit, nejvýš 30, smazat i s odškrtnut
   P2.setDone(key, 'pack:my-1', true);
   t.pretrip.custom[0] = { id: 'my-1', text: '<img src=x onerror=alert(1)> & "x"' };
   const h = sp(P2.html(t, { isos: ['JP'], climate: [] }));
-  assert.match(h, /<h5>✏️ Vlastní položky<\/h5>/);
+  assert.match(h, /<h5>Vlastní položky<\/h5>/);
   assert.match(h, /<li class="pt-own done"><label class="pt-row"><input type="checkbox" data-ptk="pack:my-1" checked><span>img src=x onerror=alert\(1\) &amp; x<\/span><\/label><button type="button" class="pt-del" data-pt-del="my-1" title="Smazat položku" aria-label="Smazat položku img src=x onerror=alert\(1\) &amp; x">✕<\/button><\/li>/);
   assert.match(h, /<\/div><form class="pt-add" data-pt-add><input class="input" maxlength="80" placeholder="Přidat vlastní položku…" aria-label="Přidat vlastní položku do seznamu věcí"[^>]*><button type="submit" class="btn sm">\+ Přidat<\/button><\/form><\/section>/);
   assert.ok(!/<img|<b>hodinky/.test(h));
@@ -1350,5 +1350,5 @@ test('souhrn „🎒 Seznam věcí … · sbaleno N“ se přepočítá při od�
   assert.match(tj, /const past = Boolean\(pastHtml\(t\)\), onTrip = !past && !t\.shared && outLeg\(t\)\.date < fmtYMD\(new Date\(\)\);/);
   assert.match(tj, /\$\{window\.PreTrip && !past && !onTrip \? PreTrip\.html\(/);
   assert.match(tj, /\$\{past \? '' : window\.Entry && Entry\.ready\(\) \? Entry\.checklistHtml\(/);
-  assert.match(tj, /\$\{onTrip \|\| past \? '<details class="sum-booked"><summary><b>✅ Co zarezervovat<\/b>/, 'sbalené na cestě i po ní');
+  assert.match(tj, /\$\{onTrip \|\| past \? `<details class="sum-booked"><summary><b>\$\{ikona\('hotovo'\)\} Co zarezervovat<\/b>/, 'sbalené na cestě i po ní');
 });

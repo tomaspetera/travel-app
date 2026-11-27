@@ -101,7 +101,7 @@
 :root[data-brand="letsi"] :is(.trip-live .live-h,.day-now,.nw-d,.nw-rows .nw-day){color:var(--text)}
 /* plochy --grad a --accent (aktivní krok, den v týdnu, pořadí, skóre, kroky uvítání): text v protibarvě, bez barevné záře;
    bílé písmo by v tmavém na Vápně (--accent) zmizelo */
-:root[data-brand="letsi"] :is(.pill.on,.score-pill,.dow button.on,.ml-n,.dp-n,.stepbar .st.on span,.tf-n,.poi-acts a.go,.wc-steps .wc-n){color:var(--letsi-na-grad);box-shadow:none}
+:root[data-brand="letsi"] :is(.pill.on,.score-pill,.dow button.on,.ml-n,.dp-n,.stepbar .st.on>span,.tf-n,.poi-acts a.go,.wc-steps .wc-n){color:var(--letsi-na-grad);box-shadow:none}
 /* skóre na fotce cíle má z atlas.css bílé pozadí – protibarva z pravidla výš (ve světlém Vápno) by na něm zmizela;
    proto vlastní plocha Pistácie s Nocí v obou režimech */
 :root[data-brand="letsi"] .dest[data-photo] .score-pill{background:#D6DE82;color:#14161F}
@@ -109,7 +109,9 @@
    cíle by barva textu ve světlém (Noc) zmizela → Pistácie */
 :root[data-brand="letsi"] .dots.warm i.f{background:var(--text)}
 :root[data-brand="letsi"] .dest-panel .dots.warm i.f{background:#D6DE82}
-:root[data-brand="letsi"] .stepbar .st.on span{background:var(--grad)}
+/* aktivní krok průvodce jako aktivní položka spodní lišty: ikona Nocí na Pistácii (v obou režimech); od hotových kroků
+   (taky Pistácie, ale s ✓) ho odliší obrys barvou textu */
+:root[data-brand="letsi"] .stepbar .st.on>span{background:#D6DE82;color:#14161F;outline:2px solid var(--text);outline-offset:2px}
 :root[data-brand="letsi"] .brand-logo{box-shadow:none}
 :root[data-brand="letsi"] .brand-logo path{fill:var(--letsi-na-grad)}
 /* tenké ukazatele průběhu: v tmavém by Pistácie byla tenká limetková linka → barvou textu */
@@ -280,7 +282,7 @@
 :root[data-brand="letsi"] .jed-go2{background:var(--letsi-tlacitko);color:var(--letsi-tlacitko-text)}
 :root[data-brand="letsi"] .jed-hero:not(.ph)::after{display:none}
 /* hotové kroky průvodce: Pistácie s Nocí místo zelené (zelená v paletě Letsi není) */
-:root[data-brand="letsi"] .stepbar .st.done span{background:#D6DE82;color:#14161F}
+:root[data-brand="letsi"] .stepbar .st.done>span{background:#D6DE82;color:#14161F}
 /* spojnice hotových kroků: tenká čára barvou textu (zelená mimo paletu; tenká Pistácie by na Noci byla neonová limetka) */
 :root[data-brand="letsi"] .stepbar i.done{background:var(--text)}
 /* značka aerolinky: barva poskytovatele se píše do style (modrá Demo Air, fialové a modré aerolinky) → Noc s Vápnem;

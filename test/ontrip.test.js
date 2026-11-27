@@ -366,7 +366,7 @@ test('nowParts + nowCard: dnešní řádky z průvodce, zítřek, ubytování s 
   assert.match(h, /🗺️ trasa pěšky: <a href="https:\/\/www\.google\.com\/maps\/dir\/\?api=1&amp;origin=Hotel\+Lisboa\+Centro[^"]*travelmode=walking"[^>]*>Google Maps ↗<\/a> · <a href="https:\/\/mapy\.com\/fnc\/v1\/route\?[^"]*routeType=foot_fast/);
   assert.ok(h.includes('<li class="nw-next"><span class="nw-i">📍</span><span><span class="nw-d">zítra</span>volný den</span></li>'));
   assert.ok(h.includes('<code>ABC123</code><button type="button" class="nw-copy" data-copy="ABC123" aria-label="Zkopírovat kód ABC123">Kopírovat</button><span class="faint">Ryanair, 2 os.</span>'));
-  assert.ok(h.includes('data-nw-plan="0">📋 Celý plán →'));
+  assert.ok(h.includes('data-nw-plan="0">Celý plán →'));
   assert.ok(!h.includes('nw-todo'), 'během cesty bez „Sbaleno“');
   // bez schránky jen kód (dá se označit), bez tlačítka
   assert.ok(!load().nowCard(x, p).includes('nw-copy'));
