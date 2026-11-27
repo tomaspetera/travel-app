@@ -68,6 +68,8 @@
 /* nadpisy a ceny (dřív Sora) → Unbounded; je široké, proto o kousek užší prostrkání a menší stupeň níž */
 :root[data-brand="letsi"] :is(h1,h2,h3,.brand-name,.stat .val,.nw-h,.dest[data-photo] .cname,.map-chip b,.weather-now .temp,.mh-name,.sc-h,.pp,.lr-p b,.w-p,.cmp-price b,.radar-card .rc-city,.radar-card .rc-price,.ml-n,.mc-cp b,.gb-col b,.fav-p b,.drop-price,.fl-hero h1,.res-top-c .rt-price,.jed-top h3,.jed-hero h2,.st-rate-inline b,.st-rating .rt,.st-price .pp,table.cost tr.tot td,.alt-p,.ov-sum b,.th-total .tt,.th-dest h2,.tl-route b,.pp-guess,.pt-sec h4){font-family:var(--letsi-pismo-titulky);letter-spacing:-.03em}
 /* h3 a nadpisy karet v Unbounded 600 (800 by se vysázelo jako 700 a v kartách těžklo) */
+/* karta souhlasu s měřením: nadpis v Onest jako text karty (Unbounded ji dělal největší věcí na Přehledu) */
+:root[data-brand="letsi"] #whatsNew .help-h{font-family:var(--letsi-pismo-text);letter-spacing:normal;font-weight:700}
 :root[data-brand="letsi"] :is(h3,.sc-h,.nw-h,.mh-name,.jed-top h3,.pt-sec h4){font-weight:600}
 /* ceny: tabulkové číslice, aby částky v seznamu stály pod sebou */
 :root[data-brand="letsi"] :is(.pp,.lr-p b,.w-p,.cmp-price b,.radar-card .rc-price,.mc-cp b,.gb-col b,.fav-p b,.drop-price,.res-top-c .rt-price,.st-price .pp,table.cost tr.tot td,.alt-p,.ov-sum b,.th-total .tt,.pp-guess,.stat .val){font-variant-numeric:tabular-nums}

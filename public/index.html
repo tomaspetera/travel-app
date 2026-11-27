@@ -258,7 +258,9 @@ if (!(navigator.serviceWorker && navigator.serviceWorker.controller)) ['data/cou
             <p class="hero-short">Levné letenky ze všech letišť v okolí. Zdarma.</p>
             <form class="hero-search2" id="heroSearch" autocomplete="off">
               <!-- třídy pi pi-dark (jinak je přidá až PlaceInput): pole mají výšku už před načtením skriptů – bez poskočení -->
-              <div class="hs-field"><span class="hs-lab">Odkud</span><div class="place-input pi pi-dark" id="heroFrom"></div></div>
+              <div class="hs-field"><span class="hs-lab">Odkud</span><div class="place-input pi pi-dark" id="heroFrom"></div>
+                <!-- bez domova čipy měst: jediné místo, kde se Přehled ptá, odkud uživatel létá (flights.js paintHomeAsk) -->
+                <div class="wc-chips hs-home" id="heroHomeAsk" role="group" aria-label="Odkud letíš – rychlá volba" hidden></div></div>
               <div class="hs-field"><span class="hs-lab">Kam</span><div class="place-input pi pi-dark" id="heroTo"></div></div>
               <button class="btn primary" type="submit">Najít lety</button>
             </form>
@@ -286,9 +288,6 @@ if (!(navigator.serviceWorker && navigator.serviceWorker.controller)) ['data/cou
         <div class="seg radar-modes" id="radarModes" role="group" aria-label="Termíny radaru" hidden><button type="button" data-m="all">Kdykoliv</button><button type="button" data-m="weekend">Víkendy</button><button type="button" data-m="holiday" title="Nejbližší prodloužený víkend kolem českého svátku">Svátky</button></div>
         <div class="radar-lw" id="radarLw" hidden></div>
         <div id="radar"></div>
-        <!-- 🧳 Naplánuj celou dovolenou: co průvodce cestou umí a příklady vět, dokud ho uživatel nepoužil nebo kartu neskryl
-             (app.js renderPlanCard) -->
-        <div class="card plan-card" id="planCard" hidden></div>
         <!-- ⭐ Moje cíle: nejnižší viděná cena z paměti cen, Hledat moje cíle (flights.js renderFav) -->
         <div class="fav-sec" id="favSec" hidden></div>
         <!-- 📌 Odložené nabídky: dlaždice a Porovnat (flights.js renderPins) -->

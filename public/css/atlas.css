@@ -872,20 +872,6 @@ html:has(#modalBg.show) body{overflow:hidden} /* na body, ne na html: přejde na
 .dt-x{flex:none;border:none;background:none;color:var(--muted);font-size:15px;line-height:1;cursor:pointer;padding:6px 8px;border-radius:7px;position:relative}
 .dt-x::after{content:"";position:absolute;inset:-8px} /* ✕ 29 × 27 px – plocha pro prst kolem 44 px, vzhled stejný */
 .dt-x:hover,.dt-x:focus-visible{color:var(--text);background:var(--surface-2)}
-/* 🧳 Naplánuj celou dovolenou (Přehled pod radarem, app.js renderPlanCard): co průvodce poskládá, příklady vět, Začít */
-/* sloupec minmax(0,1fr): dlouhý příklad věty („Lisabon a zpět z Porta…“) kartu nerozšíří – stránka by jinak na telefonu
-   ujížděla do strany */
-.plan-card{display:grid;grid-template-columns:minmax(0,1fr);gap:10px;margin:18px 0;padding:14px 10px 14px 14px;font-size:13.5px;line-height:1.45}
-.plan-card[hidden]{display:none}
-.plc-top{display:flex;gap:10px;align-items:flex-start}
-.plc-top b{font-size:15px}
-.plc-top p{margin:4px 0 0}
-.plc-steps{font-size:12.5px}
-.plc-steps span{white-space:nowrap} /* ikona kroku se neodtrhne od názvu */
-.plc-try{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
-.plc-try .faint{font-size:12.5px;font-weight:700}
-.plc-try .recent-chip{white-space:normal;text-align:left} /* věta se zalomí, neuřízne */
-.plan-card>.btn{justify-self:start}
 /* 🕘 Od minula (Přehled nahoře po návratu jiný den, app.js renderSince): nejvýš 3 řádky, celý řádek je tlačítko
    (na telefonu dost velký cíl pro prst), dlouhý název se zalomí */
 .since-wrap{margin-bottom:16px}
@@ -913,15 +899,17 @@ html:has(#modalBg.show) body{overflow:hidden} /* na body, ne na html: přejde na
 .wc-steps .wc-n{flex:none;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-weight:700;font-size:13px;background:var(--accent);color:#fff}
 .wc-steps div{display:flex;flex-direction:column;gap:2px;font-size:14px}
 .wc-steps small{color:var(--muted);font-size:12.5px;line-height:1.4}
-/* „Odkud letíš?“ – čipy jako filtry (.fchip), na telefonu větší na prst; zalomí se do dvou řádků */
-.wc-home{margin:0 0 14px;font-size:14px}
+/* čipy měst pod Odkud na Přehledu (bez domova) i u hledání bez Odkud – jako filtry (.fchip), na telefonu větší na prst;
+   zalomí se do dvou řádků */
 .wc-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:7px}
 .wc-chips .fchip{padding:8px 12px;font-size:13px;color:var(--text);background:var(--btn-bg,var(--surface));box-shadow:var(--btn-sh,none)}
 .wc-chips .fchip:disabled{opacity:.55;cursor:default}
-.wc-from{margin-top:8px}
-/* našeptávač pole „Jiné město“ přes karty pod uvítáním (karty s backdrop-filter by ho jinak překryly) */
-.whats-new:has(.pi-dd:not([hidden])){position:relative;z-index:30}
-#radarHead{scroll-margin-top:90px} /* posun z uvítání: nadpis radaru pod lepicí hlavičkou */
+.wc-chips[hidden]{display:none}
+#radarHead{scroll-margin-top:90px} /* posun k radaru (Od minula): nadpis pod lepicí hlavičkou */
+/* karta souhlasu s měřením (app.js helpCard): nadpis jako text karty, ne jako nadpis oddílu – žádost o laskavost
+   nemá být největší věc na Přehledu */
+#whatsNew .help-h{margin:0 0 6px;font-size:16px;line-height:1.35;font-weight:700}
+#whatsNew .help-t{font-size:13.5px;margin:0 0 12px}
 /* úzký telefon (≤ 340 px): přepínače (seg) se vejdou – menší odsazení tlačítek, nikdy širší než řádek */
 @media (max-width:340px){
   .seg{max-width:100%}
