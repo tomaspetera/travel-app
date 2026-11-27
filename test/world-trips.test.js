@@ -131,6 +131,11 @@ test('detail země Česko: bez „Najít lety sem“ (domov), hlavní je 🌍 Ob
   assert.match(app, /\$\$\('#modal \[data-cm\]'\)\.forEach\(b => \{ b\.onclick = \(\) => cmActs\[b\.dataset\.cm\]\(\); \}\);/, 'obsluha jen existujících tlačítek');
 });
 
-test('Co je nového: nahoře Letsi Plus a Mám letenku, pod nimi soukromí, aktualizace plánu od kamaráda, úprava cesty a hledání větou', () => {
-  assert.match(app, /const WN_ID = '2026-11-27a';\s*const WHATS_NEW = \[\s*\['💬', 'Řekni mi, co ti vadí',[^\n]*\],\s*\['✨', 'ATLAS je teď Letsi',[^\n]*\],\s*\['🤝', 'Pomáhat se zlepšováním',[^\n]*\],\s*\['⭐', 'Letsi Plus', 'podívej se, co zůstane zdarma a co chystáme navíc – a řekni nám, kolik by ti stálo za to\.[^\n]*\],\s*\['✈️', 'Letenku už máš\?',[^\n]*\],\s*\['🔒', 'Soukromí', 'počítám jen souhrnné denní počty, žádné sledování jednotlivců, pokud sám nezapneš Pomáhat se zlepšováním\.[^\n]*\],\s*\['🔄', 'Upravený plán od kamaráda bez kopií',[^\n]*🔄 Aktualizovat moji cestu[^\n]*\],\s*\['✏️', 'Cestu upravíš i po uložení',[^\n]*✏️ Upravit<\/b> – přejmenuješ ji; u vlastní cesty[^\n]*\],\s*\['✨', 'Hledání větou rozumí víc',[^\n]*Vánoce a Silvestr[^\n]*Den boje za svobodu[^\n]*s dětmi 5 a 8 let[^\n]*\],\s*\['🔎', 'Země na mapu napsáním',/);
+test('Co je nového: Letsi Plus, soukromí, aktualizace plánu od kamaráda, úprava cesty a hledání větou', () => {
+  // pořadí a nejnovější nahoře hlídá test/novinky-jen-nove.test.js – tady jen znění (staré novinky se z pole mažou)
+  assert.match(app, /\['⭐', 'Letsi Plus', 'podívej se, co zůstane zdarma a co chystáme navíc – a řekni nám, kolik by ti stálo za to\./);
+  assert.match(app, /\['🔒', 'Soukromí', 'počítám jen souhrnné denní počty, žádné sledování jednotlivců, pokud sám nezapneš Pomáhat se zlepšováním\./);
+  assert.match(app, /\['🔄', 'Upravený plán od kamaráda bez kopií',[^\n]*🔄 Aktualizovat moji cestu/);
+  assert.match(app, /\['✏️', 'Cestu upravíš i po uložení',[^\n]*✏️ Upravit<\/b> – přejmenuješ ji; u vlastní cesty/);
+  assert.match(app, /\['✨', 'Hledání větou rozumí víc',[^\n]*Vánoce a Silvestr[^\n]*Den boje za svobodu[^\n]*s dětmi 5 a 8 let/);
 });
