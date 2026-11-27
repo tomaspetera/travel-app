@@ -17,13 +17,13 @@
   const QS = [
     // po hledání (S.recent – dokončené hledání), při další návštěvě Přehledu
     { id: 'found', q: 'Našel jsi, co jsi hledal?',
-      opts: [['mq_found_yes', 'Ano'], ['mq_found_almost', 'Skoro – chyběl termín nebo letiště'], ['mq_found_no', 'Ne'], ['mq_found_price', 'Nerozumím cenám'], ['mq_found_other', 'Jiné – napiš']] },
+      opts: [['mq_found_yes', 'Ano'], ['mq_found_almost', 'Skoro – chyběl termín nebo letiště'], ['mq_found_no', 'Ne'], ['mq_found_price', 'Nerozumím cenám'], ['jine_found_other', 'Jiné – napiš']] },
     // po naplánované cestě (průvodce došel do Shrnutí, nebo cestu z průvodce sám uložil)
     { id: 'miss', q: 'Co ti v průvodci nejvíc chybělo?',
-      opts: [['mq_miss_stay', 'Ceny ubytování'], ['mq_miss_prog', 'Víc tipů na program'], ['mq_miss_ground', 'Doprava na místě'], ['mq_miss_none', 'Nic, bylo to dobré'], ['mq_miss_other', 'Jiné – napiš']] },
+      opts: [['mq_miss_stay', 'Ceny ubytování'], ['mq_miss_prog', 'Víc tipů na program'], ['mq_miss_ground', 'Doprava na místě'], ['mq_miss_none', 'Nic, bylo to dobré'], ['jine_miss_other', 'Jiné – napiš']] },
     // od 3. dne s návštěvou
     { id: 'back', q: 'Co tě sem vrací?',
-      opts: [['mq_back_cheap', 'Levné letenky'], ['mq_back_plan', 'Plánuju konkrétní cestu'], ['mq_back_idea', 'Hledám, kam vyrazit'], ['mq_back_try', 'Jen zkouším'], ['mq_back_other', 'Jiné – napiš']] },
+      opts: [['mq_back_cheap', 'Levné letenky'], ['mq_back_plan', 'Plánuju konkrétní cestu'], ['mq_back_idea', 'Hledám, kam vyrazit'], ['mq_back_try', 'Jen zkouším'], ['jine_back_other', 'Jiné – napiš']] },
   ];
   const isOther = e => /_other$/.test(e);
   const h = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -130,7 +130,7 @@
       el.hidden = false;
       el.querySelectorAll('[data-ask]').forEach(b => b.onclick = () => {
         const e = b.dataset.ask, label = b.textContent;
-        if (window.Count) Count.hit(e);
+        if (window.Count && !isOther(e)) Count.hit(e); // „Jiné“ se nepočítá – strop událostí (counts.js), text chodí e-mailem
         store.set(answer(store.get() || st, id));
         // díky a nabídka dopsat víc e-mailem (u „Jiné“ hlavní věc); fokus na poděkování, tlačítko s ním zmizelo
         const href = to && mailto(to, 'krátká otázka', mailBody(q.q, isOther(e) ? 'Jiné' : label));

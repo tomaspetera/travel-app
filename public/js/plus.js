@@ -325,7 +325,7 @@
   /** Okno po klepnutí na „· Plus“: co to bude dělat, že to chystáme na jaro, a otázka na cenu (priceNote až po odpovědi). */
   function soon(kind) {
     const [, title, text] = SOON_KIND[kind];
-    modalOpen(`<div class="modal-body plus-page"><h3>⭐ ${h(title)}</h3><p>${h(text)}</p><div id="plusAfter"></div></div>`, { x: true });
+    modalOpen(`<div class="modal-body plus-page"><h3>${h(title)}</h3><p>${h(text)}</p><div id="plusAfter"></div></div>`, { x: true });
     after(q('#plusAfter'), `Chystáme na jaro do ${NAME} – dáme vědět tady v aplikaci.`);
   }
 

@@ -155,7 +155,7 @@ test('tlačítka · Plus: zobrazení až na obrazovce a jednou za věc, klepnut�
   b.onclick({ stopPropagation: () => { stopped = true; } });
   assert.ok(stopped, 'karta cesty se klepnutím na tlačítko neotevře');
   assert.equal(log.at(-1), 'plus_similar_click');
-  assert.match(modals.at(-1), /<h3>⭐ Naplánuj podobnou<\/h3>/);
+  assert.match(modals.at(-1), /<h3>Naplánuj podobnou<\/h3>/);
   assert.match(els['#plusAfter'].innerHTML, /Chystáme na jaro do Letsi Plus/);
   assert.match(els['#plusAfter'].innerHTML, /Kolik by ti Plus stálo za rok/, 'otázka na cenu jako u Sešitu');
   assert.doesNotMatch(modals.at(-1) + els['#plusAfter'].innerHTML, /Plánujeme kolem/, 'plánovaná cena až po odpovědi (priceNote)');

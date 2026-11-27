@@ -63,8 +63,8 @@ test('karta: volby A–D, „Jiné – napiš“ jen s FEEDBACK_EMAIL, Teď ne, 
     assert.match(html, /role="group" aria-labelledby="askQ"/);
     assert.doesNotMatch(html, /<input|<textarea|contenteditable/, 'volný text se v aplikaci nepíše');
   }
-  assert.doesNotMatch(bare, /mq_found_other|Jiné/);
-  assert.match(mail, /data-ask="mq_found_other">Jiné – napiš</);
+  assert.doesNotMatch(bare, /found_other|Jiné/);
+  assert.match(mail, /data-ask="jine_found_other">Jiné – napiš</);
   assert.equal(O.cardHtml('nic', 'a@b.cz'), '');
   // každá otázka má 4 volby + Jiné
   for (const q of O.QS) assert.deepEqual([q.opts.length, q.opts.at(-1)[1]], [5, 'Jiné – napiš'], q.id);
@@ -88,7 +88,7 @@ test('zapojení: karta na Přehledu (ne při uvítání a vedle souhlasu), tip p
   assert.match(src, /busy: busy \|\| typing \|\| searching/);
   assert.match(src, /matches\('input, textarea, select, \[contenteditable\]'\)/);
   // odpověď stejnou cestou jako průzkum ceny: jen Count.hit s pevným názvem, žádný vlastní požadavek na server
-  assert.match(src, /if \(window\.Count\) Count\.hit\(e\);/);
+  assert.match(src, /if \(window\.Count && !isOther\(e\)\) Count\.hit\(e\);/, "„Jiné“ se nepočítá (strop událostí)");
   assert.doesNotMatch(src, /fetch\(|sendBeacon|XMLHttpRequest/);
   // výzva „Napiš, co ti vadí“ je skrytá, dokud nepřijde platná adresa
   assert.match(src, /<a class="test-fb" id="\$\{id\}" hidden>Napiš, co ti vadí<\/a>/);

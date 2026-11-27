@@ -173,14 +173,14 @@ const ANSWERS = {
   'public/js/flights.js': ['mq_empty_place', 'mq_empty_dates', 'mq_empty_lost', 'mq_empty_try', 'mq_price_same', 'mq_price_higher', 'mq_price_gone'],
   'public/js/trip.js': ['mq_restart_date', 'mq_restart_price', 'mq_restart_lost', 'mq_restart_try', 'mq_trip_good', 'mq_trip_missing', 'mq_trip_lost'],
   'public/js/places.js': ['mq_ex_city', 'mq_ex_nature', 'mq_ex_region', 'mq_ex_other'],
-  'public/js/otazky.js': ['mq_found_yes', 'mq_found_almost', 'mq_found_no', 'mq_found_price', 'mq_found_other',
-    'mq_miss_stay', 'mq_miss_prog', 'mq_miss_ground', 'mq_miss_none', 'mq_miss_other',
-    'mq_back_cheap', 'mq_back_plan', 'mq_back_idea', 'mq_back_try', 'mq_back_other'],
+  'public/js/otazky.js': ['mq_found_yes', 'mq_found_almost', 'mq_found_no', 'mq_found_price',
+    'mq_miss_stay', 'mq_miss_prog', 'mq_miss_ground', 'mq_miss_none',
+    'mq_back_cheap', 'mq_back_plan', 'mq_back_idea', 'mq_back_try'],
 };
 const ALL = Object.values(ANSWERS).flat();
 
 test('názvy mq_*: v EVENTS serveru, každý doslova na právě jednom místě aplikace a na stránce Statistiky; žádné _shown', () => {
-  assert.equal(ALL.length, 33);
+  assert.equal(ALL.length, 30);
   assert.deepEqual(ALL.filter((e) => !EVENTS.includes(e)), []);
   assert.deepEqual(EVENTS.filter((e) => e.startsWith('mq_')), ALL, 'v EVENTS jen odpovědi, ve stejném pořadí');
   const stats = read('public/js/statistiky.js');
