@@ -5037,7 +5037,7 @@
   function radarEmptyTxt(q, clean, longer = '') {
     if (!clean || q.none) return q.empty;
     const when = q.mode === 'holiday' ? 'nejbližší prodloužený víkend' : q.mode === 'weekend' ? 'víkendy v příštích 6 týdnech' : 'příštích 6 týdnů';
-    return `Orientační ceny beru z toho, co jiní cestující za posledních 48 hodin hledali na Aviasales – na ${when} z okolí zatím nic. Zkus větší okruh${longer ? `, nebo Kamkoliv až do ${longer}` : q.mode !== 'all' ? ' nebo Kdykoliv' : ''}.`.replace(/\.\.$/, '.'); // datum „27. 3.“ už tečku má
+    return `Orientační ceny beru z toho, co jiní cestující za posledních 48 hodin hledali na Aviasales – na ${when} z okolí zatím nic. Zkus větší okruh${longer ? ` nebo Kamkoliv až do ${longer}` : q.mode !== 'all' ? ' nebo Kdykoliv' : ''}.`.replace(/\.\.$/, '.'); // datum „27. 3.“ už tečku má
   }
   /** Prázdný radar: hláška (větší okruh, Kdykoliv, Víkendy) i s tlačítky, ať se nemusí hledat, kde to změnit. */
   function radarEmpty(q, icon) {

@@ -80,8 +80,8 @@ test('radarEmptyTxt: čistý režim – proč nic a Kamkoliv na delší termín;
   const q = (mode, extra = {}) => ({ mode, empty: `původní ${mode}`, ...extra });
   assert.equal(radarEmptyTxt(q('all'), false, '27. 3.'), 'původní all', 'živý režim beze změny');
   assert.equal(radarEmptyTxt(q('holiday', { none: true }), true), 'původní holiday', 'žádný prodloužený víkend – mezipaměť za to nemůže');
-  assert.equal(radarEmptyTxt(q('all'), true, '27. 3.'), 'Orientační ceny beru z toho, co jiní cestující za posledních 48 hodin hledali na Aviasales – na příštích 6 týdnů z okolí zatím nic. Zkus větší okruh, nebo Kamkoliv až do 27. 3.');
-  assert.match(radarEmptyTxt(q('weekend'), true, '27. 3.'), /na víkendy v příštích 6 týdnech z okolí zatím nic\. Zkus větší okruh, nebo Kamkoliv až do 27\. 3\.$/);
+  assert.equal(radarEmptyTxt(q('all'), true, '27. 3.'), 'Orientační ceny beru z toho, co jiní cestující za posledních 48 hodin hledali na Aviasales – na příštích 6 týdnů z okolí zatím nic. Zkus větší okruh nebo Kamkoliv až do 27. 3.');
+  assert.match(radarEmptyTxt(q('weekend'), true, '27. 3.'), /na víkendy v příštích 6 týdnech z okolí zatím nic\. Zkus větší okruh nebo Kamkoliv až do 27\. 3\.$/);
   assert.match(radarEmptyTxt(q('holiday'), true, ''), /na nejbližší prodloužený víkend z okolí zatím nic\. Zkus větší okruh nebo Kdykoliv\.$/);
   assert.match(radarEmptyTxt(q('all'), true, ''), /Zkus větší okruh\.$/);
   // tlačítko Kamkoliv do … jen v čistém režimu, ne u svátků
