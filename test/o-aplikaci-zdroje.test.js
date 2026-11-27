@@ -83,7 +83,7 @@ test('Jak to funguje a z čeho žiju: nad zdroji, věta o provizi podle affiliat
 });
 
 test('uvítání nového uživatele: pod úvodní větou řádek o tom, kde se kupuje', () => {
-  assert.match(read('public/js/app.js'), /<h3 class="wc-h">👋 Vítej! Najdu levné letenky a poskládám z nich celou cestu\.<\/h3>\n\s*<p class="faint wc-how" style="font-size:12\.5px;[^"]*">Ceny porovnávám, letenku koupíš u aerolinky nebo prodejce\. Zdarma, bez placených pozic\.<\/p>/);
+  assert.match(read('public/js/app.js'), /<h3 class="wc-h">👋 Vítej! Najdu levné letenky a poskládám z nich celou cestu\.<\/h3>\n\s*<p class="faint wc-how" style="font-size:12\.5px;[^"]*">\$\{wcHow\(null\)\}<\/p>/); // text podle zdrojů – test/ux-texty-pravda.test.js
   // výsledky se ve výchozím stavu řadí „👍 Doporučené“ (rank.js: cena i s cestou na letiště, přestupy, časy), ne od nejlevnější
   assert.match(read('public/js/flights.js'), /let view = \{ mode: 'list', sort: 'best',/);
   assert.match(read('public/js/app.js'), /<b>Vyber let<\/b><small>nahoře jsou nejvýhodnější podle ceny a časů, cestu na letiště ukážu zvlášť<\/small>/);

@@ -20,7 +20,7 @@ function cut(from, to) {
 }
 // zdroje podle /api/health a štítky orientační ceny – čisté funkce z flights.js
 const src = cut('  // Uživatel čte „orientační“', '  /* ---------- živé ověření cen z mezipaměti');
-const F = new Function('health', 'esc', 'SearchHelp', `${src}; return { liveOn, liveFoot, srcOkHtml, cacheMark, cacheNote, radarOrient, cacheTag, CACHE_NOTE };`);
+const F = new Function('health', 'esc', 'SearchHelp', `${src}; return { liveOn, liveFoot, srcOkHtml, cacheMark, priceSrc, radarOrient, cacheTag, CACHE_NOTE };`);
 const mod = (health = null) => F(health, esc, SearchHelp);
 const hp = on => ({ providers: ['ryanair', 'wizzair', 'kiwi', 'travelpayouts'].map(id => ({ id, enabled: on.includes(id) })) });
 const CLEAN = hp(['travelpayouts']), ALL = hp(['ryanair', 'wizzair', 'kiwi', 'travelpayouts']);
@@ -57,8 +57,8 @@ test('„orientační“ místo „z cache“: štítek, malé označení pod ce
   assert.equal(m.cacheTag(leg(true)), '', 'živá cena bez štítku');
   assert.match(m.cacheMark(true), /^<div class="cache-mark" title="[^"]+">orientační<\/div>$/);
   assert.equal(m.cacheMark(false), '');
-  assert.equal(m.cacheNote(false), '', 'bez ceny z mezipaměti žádná věta');
-  assert.equal(m.cacheNote(true), '<div class="faint cache-note">Orientační nejnižší ceny za 1 dospělého. Našli je jiní cestující v posledních 48 hodinách – cena se mohla změnit.</div>');
+  // řádek původu ceny nad výsledky (priceSrc – podrobně test/ux-lety-nakup.test.js): 48 h až pod ⓘ
+  assert.match(m.priceSrc({ orient: true, trip: 'return' }), /<summary>Orientační ceny z Aviasales · za 1 osobu, zpáteční [\s\S]*<div class="cn-more">Našli je jiní cestující na Aviasales v posledních 48 hodinách – cena se mohla změnit\. Před nákupem ji ověř\.<\/div><\/details>$/);
   // na telefonu (412 px, ~11,5px písmo ≈ 60 znaků na řádek) nejvýš tři řádky
   assert.ok(m.CACHE_NOTE.length <= 3 * 55, `věta má ${m.CACHE_NOTE.length} znaků`);
   // karta radaru: nový příznak oc, starší uložená karta podle zdroje letu tam
@@ -77,9 +77,9 @@ test('označení pod částkou: karta nabídky, řádek výpisu i karta radaru; 
   assert.match(fl, /let cls = 'faint', txt = 'orientační', title = CACHE_TIP;/);
   assert.match(fl, /<div class="rc-price">\$\{czk\(x\.czk\)\}<small>\/os\.<\/small>\$\{cacheMark\(radarOrient\(x\)\)\}<\/div>/, 'karta radaru');
   assert.match(fl, /prov: t\.out\.provider, \.\.\.\(SearchHelp\.isCached\(t\) \? \{ oc: 1 \} : \{\}\)/, 'radar si příznak uloží');
-  assert.match(fl, /\$\{cacheNote\(shown\.some\(\(\{ x \}\) => radarOrient\(x\)\)\)\}\$\{stale\}<div class="radar-grid/, 'věta nad radarem');
+  assert.match(fl, /\$\{priceSrc\(\{ orient: shown\.some\(\(\{ x \}\) => radarOrient\(x\)\), trip: 'return', more: radarMore \}\)\}\$\{stale\}<div class="radar-grid/, 'řádek nad radarem');
   // nad výpisem i kalendářem (u konkrétního cíle i ceny dnů kalendáře)
-  const m = fl.match(/host\.innerHTML = summary \+ cacheNote\((\(isRoute \? [^\n]+?\))\.some\(t => SearchHelp\.isCached\(t\)\)\) \+ body/);
+  const m = fl.match(/host\.innerHTML = summary \+ \((\(isRoute \? [^\n]+?\))\.some\(t => SearchHelp\.isCached\(t\)\) \? priceSrc\(\{ orient: true, trip: res\.query\.trip \}\) : ''\) \+ body/);
   assert.ok(m, 'věta mezi hlavičkou a výpisem');
   const pick = new Function('isRoute', 'view', 'flat', 'base', 'all', `return ${m[1]};`);
   assert.deepEqual(pick(true, { mode: 'list' }, [live], [cached], []).some(SearchHelp.isCached), false, 'výpis bez ceny z mezipaměti');

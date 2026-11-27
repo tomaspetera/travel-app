@@ -80,7 +80,7 @@ test('ostatní háčky průvodce: ⚡ výsledek, způsob výběru ubytování, f
   assert.equal(TRIP.split("stayPick('manual')").length - 1, 2, 'vlastní cena u jednoho místa i místa trasy');
   assert.equal(TRIP.split("stayPick('links')").length - 1, 2);
   assert.match(TRIP, /const doPick = h => \{ pickSeq\+\+; stayPick\('offer'\);/);
-  assert.match(TRIP, /\$\('#staySkip'\)\.onclick = \(\) => \{ pickSeq\+\+; stayPick\('skip'\);/);
+  assert.match(TRIP, /const skip = \(\) => \{ pickSeq\+\+; stayPick\('skip'\);/);
   assert.match(body(TRIP, 'function renderStays() {'), /if \(!items\.length\) deep\('stay_empty_filter', d\.key\);/);
   assert.match(body(TRIP, 'function summaryStep() {'), /\[data-goto\]', host\)\.forEach\(b => b\.onclick = \(\) => \{ deep\('trip_gap'\);/);
 });

@@ -37,14 +37,17 @@ test('menu a záloha neslibují QR kód napevno – nabídne se, jen když se da
 
 test('Letsi Plus: provize jen při zapnutých partnerských odkazech, bez znalosti stavu neutrálně', () => {
   const ctx = { window: {} };
+  ctx.window.window = ctx.window;
+  vm.runInNewContext(read('public/js/about.js'), ctx);
+  ctx.About = ctx.window.About;
   vm.runInNewContext(read('public/js/plus.js'), ctx);
   const P = ctx.window.Plus;
   for (const hl of [undefined, null, {}, { affiliate: false }, { affiliate: 'ano' }]) {
     const t = P.livesTxt(hl);
     assert.doesNotMatch(t, /provizí/, JSON.stringify(hl));
-    assert.equal(t, 'Z čeho Letsi žije: z dobrovolných příspěvků, později i z předplatného Plus. Pořadí výsledků si nikdo nekoupí.');
+    assert.equal(t, 'Letsi je zatím zdarma a pořadí výsledků si nikdo nekoupí.');
   }
-  assert.match(P.livesTxt({ affiliate: true }), /^Z čeho Letsi žije: z provizí partnerů \(takové odkazy jsou označené reklama\) a z dobrovolných příspěvků/);
+  assert.equal(P.livesTxt({ affiliate: true }), 'Z čeho Letsi žije: z provizí partnerů (takové odkazy jsou označené reklama), později i z předplatného Plus. Pořadí výsledků si nikdo nekoupí.');
   assert.doesNotMatch(P.pageHtml(), /provizí/, 'okno se otevře dřív, než server odpoví');
   assert.match(P.pageHtml({ affiliate: true }), /<p class="faint plus-small" id="plusLives">Z čeho Letsi žije: z provizí partnerů/);
   // po odpovědi /api/health se překreslí jen věta (odpověď na „Chci Plus“ pod ní zůstane)
@@ -66,7 +69,8 @@ test('Pomáhat se zlepšováním a návod pro iPhone: ikony Letsi místo barevn�
 
 test('nad Kam letět levně: cena za osobu, ne „ceny pro 2 osoby“', () => {
   const fl = read('public/js/flights.js');
-  const what = fl.match(/<div class="faint radar-what">(\$\{q\.payload[^\n]*?'Cena za osobu'\})/)[1];
+  // věta je od ux2 pod ⓘ řádku původu ceny (radarMore)
+  const what = fl.match(/const radarMore = `(Cena za osobu\$\{q\.payload[^\n]*?: ''\})/)[1];
   assert.doesNotMatch(fl, /ceny pro \$\{plural\(q\.payload\.adults/);
   const txt = (adults) => new Function('q', `return \`${what}\`;`)({ payload: { adults } });
   assert.equal(txt(1), 'Cena za osobu');

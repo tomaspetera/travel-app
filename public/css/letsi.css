@@ -68,6 +68,8 @@
 /* nadpisy a ceny (dřív Sora) → Unbounded; je široké, proto o kousek užší prostrkání a menší stupeň níž */
 :root[data-brand="letsi"] :is(h1,h2,h3,.brand-name,.stat .val,.nw-h,.dest[data-photo] .cname,.map-chip b,.weather-now .temp,.mh-name,.sc-h,.pp,.lr-p b,.w-p,.cmp-price b,.radar-card .rc-city,.radar-card .rc-price,.ml-n,.mc-cp b,.gb-col b,.fav-p b,.drop-price,.fl-hero h1,.res-top-c .rt-price,.jed-top h3,.jed-hero h2,.st-rate-inline b,.st-rating .rt,.st-price .pp,table.cost tr.tot td,.alt-p,.ov-sum b,.th-total .tt,.th-dest h2,.tl-route b,.pp-guess,.pt-sec h4){font-family:var(--letsi-pismo-titulky);letter-spacing:-.03em}
 /* h3 a nadpisy karet v Unbounded 600 (800 by se vysázelo jako 700 a v kartách těžklo) */
+/* karta souhlasu s měřením: nadpis v Onest jako text karty (Unbounded ji dělal největší věcí na Přehledu) */
+:root[data-brand="letsi"] #whatsNew .help-h{font-family:var(--letsi-pismo-text);letter-spacing:normal;font-weight:700}
 :root[data-brand="letsi"] :is(h3,.sc-h,.nw-h,.mh-name,.jed-top h3,.pt-sec h4){font-weight:600}
 /* ceny: tabulkové číslice, aby částky v seznamu stály pod sebou */
 :root[data-brand="letsi"] :is(.pp,.lr-p b,.w-p,.cmp-price b,.radar-card .rc-price,.mc-cp b,.gb-col b,.fav-p b,.drop-price,.res-top-c .rt-price,.st-price .pp,table.cost tr.tot td,.alt-p,.ov-sum b,.th-total .tt,.pp-guess,.stat .val){font-variant-numeric:tabular-nums}
@@ -90,6 +92,8 @@
 :root[data-brand="letsi"] .btn.primary{background:var(--letsi-tlacitko);color:var(--letsi-tlacitko-text);border-color:transparent;box-shadow:none}
 :root[data-brand="letsi"] .btn.primary:hover{box-shadow:none}
 :root[data-brand="letsi"] .btn.warm{background:var(--letsi-tlacitko);color:var(--letsi-tlacitko-text)}
+/* nákup u nabídky letu: plné tlačítko Noc (tmavý režim Pistácie s Nocí) místo barvy prodejce – hlavní akce karty */
+:root[data-brand="letsi"] .btn.book{background:var(--letsi-tlacitko);color:var(--letsi-tlacitko-text)}
 /* čipy: Pistáciová pěna s Nocí (v tmavém #2A2E3A s Vápnem) */
 :root[data-brand="letsi"] .chip.accent,:root[data-brand="letsi"] .app-chip{background:var(--surface-2);color:var(--text);border-color:var(--border)}
 /* odkaz = text barvou písma s podtržením (ne modrá) */
@@ -114,6 +118,8 @@
 :root[data-brand="letsi"] .nav-item.active::before{background:var(--text)}
 /* výběr (dřív průsvitná modrá): pěna, obrys barvou textu */
 :root[data-brand="letsi"] :is(.qd.on,.fchip.af,.fchip.tf-toggle.on,.fchip[data-int].on,.fchip[data-tint].on,.tf-parts button.on,.nb-d.on,.lrow.sel,.mc-combo.sel,.gc-row.sel:has(input:checked),.ex-cats button.on,.rc-opt.on,.scal-btn[aria-expanded="true"]){background:var(--surface-2);border-color:var(--text)}
+/* zapnuté hlídání ve sbaleném formuláři (dřív růžové – mimo paletu): pěna a obrys barvou textu jako výběr výš */
+:root[data-brand="letsi"] .search-sum #ssWatch.on{color:var(--text);background:var(--surface-2);border-color:var(--text)}
 :root[data-brand="letsi"] :is(.pi-chip,.w-tip.wait,.b.pin-b){background:var(--surface-2);border-color:var(--border);color:var(--text)}
 :root[data-brand="letsi"] .pi-smart,:root[data-brand="letsi"] .pi-smart.on,:root[data-brand="letsi"] .pi-smart:hover{background:var(--surface-2);border-color:var(--border)}
 :root[data-brand="letsi"] .rm-home{fill:var(--text)}
@@ -367,3 +373,16 @@
 /* Před cestou: lem položek z palety (varování, jinak šedá linka) místo jantarové a mátové */
 :root[data-brand="letsi"] .pt-item.lv-must{border-left-color:var(--letsi-varovani)}
 :root[data-brand="letsi"] .pt-item.lv-info{border-left-color:var(--border-2)}
+
+/* ============ UX KONTROLA: poslední sklo a smaragdová ATLASu ============ */
+/* Kam letět levně a hlavička cesty přes fotku: plná Noc místo skla – stejně jako panel karty cíle (.dest-panel), takže
+   karty radaru a Inspirace mají jeden styl a cena „Celkem zatím“ je čitelná na každé fotce; vlajka plné Vápno jako
+   .dest .flag. :is(…) má váhu nejsilnějšího selektoru, takže přebije i barevné štítky z flights.css (.b.hot, .b.info…) */
+:root[data-brand="letsi"] :is(.rc-panel,.radar-card .rc-badges .b,.radar-card>.dm-btn,.th-flag,.th-reset,.th-total){-webkit-backdrop-filter:none;backdrop-filter:none;border-color:transparent}
+:root[data-brand="letsi"] :is(.rc-panel,.radar-card .rc-badges .b,.radar-card>.dm-btn,.th-reset,.th-reset:hover,.th-total){background:#14161F;color:#F3F4F0}
+:root[data-brand="letsi"] .th-flag{background:#F3F4F0}
+/* štítek „proč“ a dobrá cena na kartě radaru: plná Pistácie s Nocí (jako .b.good jinde), nejlevnější pěna jako .b.hot */
+:root[data-brand="letsi"] .radar-card .rc-badges :is(.b.why,.b.good){background:#D6DE82;color:#14161F}
+:root[data-brand="letsi"] .radar-card .rc-badges .b.hot{background:#EDEFD6;color:#14161F}
+/* Shrnutí a Před cestou („stačí OP“, „✔ 0/23“, splněno): pěna s textem místo smaragdové #047857, kterou paleta nezná */
+:root[data-brand="letsi"] :is(.ec-ok,.b.ec-ok,.pt-prog,.pt-v-ok){background:var(--surface-2);color:var(--text)}

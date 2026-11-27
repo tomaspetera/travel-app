@@ -55,6 +55,20 @@
     ].filter(Boolean);
   }
 
+  /** Věta, odkud je cena a kde se letenka kupuje, podle zdrojů v /api/health (čistá funkce – test/ux-texty-pravda.test.js;
+      uvítání v app.js ji bere taky). Čistý režim (jen Travelpayouts, živé zdroje vypnuté) nesmí slibovat porovnávání
+      u aerolinek: cena je jedna orientační z hledání jiných na Aviasales a odkaz k nákupu vede tam. Bez health věta,
+      která platí v obou režimech. stay = i o ubytování (O aplikaci). */
+  function buyLine(health, stay = false) {
+    const list = health && Array.isArray(health.providers) ? health.providers : null;
+    const on = id => Boolean(list && list.some(p => p && p.id === id && p.enabled === true));
+    if (list && (health.demo === true || ['ryanair', 'wizzair', 'kiwi'].some(on))) {
+      return stay ? 'Ceny porovnávám, letenku i ubytování koupíš vždy přímo u aerolinky nebo prodejce.' : 'Ceny porovnávám, letenku koupíš u aerolinky nebo prodejce.';
+    }
+    if (on('travelpayouts')) return `Ceny letenek jsou orientační – co za posledních 48 h našli jiní na Aviasales. K nákupu tě pošlu tam.${stay ? ' Ubytování rezervuješ přímo u prodejce.' : ''}`;
+    return 'Ceny jsou orientační – před nákupem je ověř u prodejce.';
+  }
+
   /** Věta o provizi podle /api/health affiliate (partnerské odkazy Travelpayouts); bez health žádná. */
   function earnings(health) {
     if (!health || typeof health.affiliate !== 'boolean') return '';
@@ -95,7 +109,7 @@
       <p style="font-size:14px">Letsi najde levné letenky ze všech letišť ve tvém okolí a poskládá z nich celou cestu – ubytování, dopravu na letiště i na místě, program a shrnutí s odkazy k rezervaci. Je zdarma, bez účtu a bez registrace. Letenky ani hotely neprodává: rezervuješ vždy přímo u aerolinky nebo partnera.</p>
       ${legal(op, okEmail(email) ? email : '')}
       <h4 class="ab-h">Jak to funguje a z čeho žiju</h4>
-      <p style="font-size:14px">Ceny porovnávám, letenku i ubytování koupíš vždy přímo u aerolinky nebo prodejce. Hledání a plánování je zdarma a bez reklamních bannerů. <b>Žádná aerolinka ani partner si za lepší pozici neplatí.</b>${earn ? ` ${earn}` : ''}</p>
+      <p style="font-size:14px">${buyLine(health, true)} Hledání a plánování je zdarma a bez reklamních bannerů. <b>Žádná aerolinka ani partner si za lepší pozici neplatí.</b>${earn ? ` ${earn}` : ''}</p>
       <h4 class="ab-h">Odkud jsou data</h4>
       <ul class="ab-list">${sources(health).map(([i, t, d]) => `<li><span aria-hidden="true">${i}</span> <b>${h(t)}</b> – ${h(d)}</li>`).join('')}</ul>
       <p class="faint" style="font-size:12px">Předpověď <a href="https://www.met.no/en" target="_blank" rel="noopener">MET Norway</a> a seznam míst <a href="https://www.geonames.org/" target="_blank" rel="noopener">GeoNames</a> jsou pod licencí <a href="https://creativecommons.org/licenses/by/4.0/deed.cs" target="_blank" rel="noopener">CC BY 4.0</a>, v aplikaci upravené (denní souhrny, výběr míst). Stejně ceny paliva z <a href="https://data.csu.gov.cz/datastat/info/SADA/CENPHMT" target="_blank" rel="noopener">ČSÚ</a> a <a href="https://energy.ec.europa.eu/data-and-analysis/weekly-oil-bulletin_en" target="_blank" rel="noopener">Weekly Oil Bulletin</a> (© Evropská unie; upraveno – přepočet na Kč/l) a vlajky <a href="https://twitter.github.io/twemoji" target="_blank" rel="noopener">Twemoji</a>. Letiště obsahují data © <a href="https://openflights.org/data" target="_blank" rel="noopener">OpenFlights</a> pod licencí <a href="https://opendatacommons.org/licenses/odbl/1-0/" target="_blank" rel="noopener">ODbL</a>. Fotky měst dodávají <a href="https://www.pexels.com" target="_blank" rel="noopener">Pexels</a>, Unsplash a Wikimedia Commons – autor je u každé fotky pod ⓘ. Kurzy: <a href="https://www.exchangerate-api.com" target="_blank" rel="noopener">Rates By Exchange Rate API</a>.</p>
@@ -174,5 +188,5 @@
     }
   }
 
-  window.About = { open, html, legal, mailto, subject, addToMenu, okPay, SOURCES, sources, earnings };
+  window.About = { open, html, legal, mailto, subject, addToMenu, okPay, SOURCES, sources, earnings, buyLine };
 })();

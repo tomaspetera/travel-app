@@ -19,6 +19,7 @@
 .hero-search2{margin-top:22px;display:grid;grid-template-columns:1fr 1fr auto;gap:10px;max-width:860px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.22);padding:8px;border-radius:16px;-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
 .hs-field{display:flex;flex-direction:column;padding:4px 8px;min-width:0}
 .hs-lab{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;font-weight:800;color:rgba(255,255,255,.7)}
+.hs-home{margin:6px 0 4px}
 .hero-search2 .btn{align-self:stretch;padding:0 22px}
 
 /* ---------- PlaceInput ---------- */
@@ -391,6 +392,11 @@ button.b:hover{filter:brightness(1.18);text-decoration:underline}
 /* tmavý režim: drobná poznámka na světlejším podkladu (rámeček dopravy, zelený štítek vlaku) by měla jen 4,2 : 1 */
 [data-theme="dark"] .px-n,[data-theme="dark"] .gnd-chip.hot small{color:var(--muted)}
 .tr-act{display:flex;flex-direction:column;gap:6px;align-items:stretch}
+/* nákup hned pod cenou (flights.js buyBlock) – hlavní akce karty, tlačítko na prst aspoň 44 px; poznámky zarovnané
+   vlevo i ve sloupci ceny na počítači */
+.tr-buyw{display:flex;flex-direction:column;gap:6px;margin-top:8px;text-align:left}
+.tr-buyw .btn{min-height:44px}
+.buy-two{font-size:12.5px;font-weight:700;color:var(--text)}
 .btn.book{background:var(--pc,var(--accent));border-color:transparent;color:#fff;justify-content:center;white-space:normal;text-align:center;line-height:1.25}
 /* úzké tlačítko (Tam/Zpět vedle sebe): štítek „reklama“ pod text, ne text na tři řádky vedle štítku */
 .btn.book{flex-wrap:wrap;row-gap:4px}
@@ -404,7 +410,6 @@ button.b:hover{filter:brightness(1.18);text-decoration:underline}
 /* orientační cena: ověření jako vlastní řádek (na telefonu hned pod cenou) – tlačítko i odkaz vedle aspoň 44 px na prst */
 .tr-ver{grid-column:1/-1;min-width:0}
 .tv-acts{display:flex;flex-wrap:wrap;align-items:center;gap:0 16px}
-.tv-acts .btn{min-height:44px;white-space:normal;text-align:center;line-height:1.25}
 .tv-alt{display:inline-flex;align-items:center;min-height:44px;font-size:13px;font-weight:600;color:var(--accent-ink)}
 .tv-note{margin-top:4px;font-size:11.5px;color:var(--muted)}
 .linkbtn{background:none;border:none;color:var(--accent-ink);font:600 11.5px Inter,sans-serif;cursor:pointer;padding:0}
@@ -781,7 +786,6 @@ button.b:hover{filter:brightness(1.18);text-decoration:underline}
 .skel{background:linear-gradient(90deg,var(--surface) 0%,var(--surface-2) 50%,var(--surface) 100%);background-size:200% 100%;animation:skel 1.2s ease-in-out infinite}
 @keyframes skel{0%{background-position:100% 0}100%{background-position:-100% 0}}
 .radar-setup{padding:16px 18px;display:grid;grid-template-columns:1.2fr 1.4fr auto;gap:14px;align-items:center}
-.radar-setup.radar-wait{display:block} /* jen věta (na „Odkud letíš?“ se ptá uvítání) */
 .radar-modes{margin:-2px 0 14px}
 /* termíny radaru jako kapsle: vybraná plná (jako cestovní aplikace), ostatní obrys */
 .seg.radar-modes{display:flex;flex-wrap:wrap;gap:8px;padding:0;background:none;border:none;border-radius:0} /* větší písmo v systému: třetí volba na další řádek, ne za okraj */
@@ -812,8 +816,8 @@ button.b:hover{filter:brightness(1.18);text-decoration:underline}
 /* 320 px (a širší písmo, když se webová písma nenačtou): „Tam: …“ a „Zpět: …“ se vedle sebe nevejdou – druhé pod první
    přes celou šířku, místo aby celá karta nabídky přetekla doprava */
 @media(max-width:380px){
-  .tr-act .tr-buy{flex-wrap:wrap;min-width:0}
-  .tr-act .tr-buy .btn{flex:1 1 auto;max-width:100%;white-space:normal}
+  .tr-act .tr-buy,.pbox .tr-buy{flex-wrap:wrap;min-width:0}
+  .tr-act .tr-buy .btn,.pbox .tr-buy .btn{flex:1 1 auto;max-width:100%;white-space:normal}
 }
 @media(max-width:860px){
   .demo-banner{padding:8px 16px}
@@ -839,6 +843,10 @@ button.b:hover{filter:brightness(1.18);text-decoration:underline}
   /* cena nabídky nahoře, nad lety a časy – pod nimi byla na telefonu až mimo první obrazovku výsledků */
   .trip-row>.pbox{order:-1}
   .trip-row>.tr-ver{order:-1;margin-top:-8px}
+  /* nákup pod cenou přes celou šířku, Tam / Zpět vedle sebe */
+  .pbox .tr-buyw{flex-basis:100%}
+  .pbox .tr-buy{flex-direction:row}
+  .pbox .tr-buy .btn{flex:1 1 0;width:auto;min-width:0}
   .pbox .pr-row{flex-basis:100%;justify-content:flex-start}
   .ld{min-width:0}
   .search-card{padding:16px}
@@ -1081,7 +1089,6 @@ ol.guide code,.note code{background:var(--surface-2);padding:1px 6px;border-radi
 .news-line{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 6px;margin:-6px 2px 16px;font-size:13.5px}
 .news-line[hidden]{display:none}
 .news-line .linkbtn{font-size:13.5px;text-align:left}
-.radar-what{font-size:12px;margin:-4px 2px 8px}
 @media(max-width:360px){.radar-modes button{white-space:nowrap;padding-left:6px;padding-right:6px;font-size:12.5px}}
 .radar-lw{display:flex;flex-wrap:wrap;gap:6px;margin:-4px 2px 10px}
 .radar-lw[hidden]{display:none}
@@ -1640,6 +1647,11 @@ ol.guide code,.note code{background:var(--surface-2);padding:1px 6px;border-radi
 .cache-mark{font-size:11px;font-weight:600;line-height:1.3;color:var(--warn-ink)}
 .radar-card .rc-price .cache-mark{color:rgba(255,255,255,.88);font-family:Inter,sans-serif}
 .cache-note{font-size:11.5px;line-height:1.45;margin:0 2px 8px}
+/* řádek původu ceny: podrobnosti až po klepnutí na ⓘ (flights.js priceSrc); řádek aspoň 24 px na prst */
+.cache-note summary{list-style:none;cursor:pointer;min-height:24px;display:flex;align-items:center;flex-wrap:wrap;gap:0 4px}
+.cache-note summary::-webkit-details-marker{display:none}
+.cache-note .cn-i{font-size:14px;line-height:1;color:var(--accent-ink)}
+.cache-note .cn-more{margin-top:4px}
 /* „Koupeno?“ po návratu z webu prodejce: tichý řádek v kartě nabídky, žádné okno (flights.js boughtShow) */
 .tr-bought{margin-top:10px;padding:8px 12px;border-radius:10px;background:var(--surface-2);font-size:13.5px;color:var(--text)}
 .tr-bought .linkbtn{font-weight:700}

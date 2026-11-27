@@ -29,7 +29,7 @@ test('kratší cesta: dny za návratem se přidají k poslednímu dni, před odj
 });
 
 test('detail cesty má ✏️ Upravit; cesta z průvodce mění jen název (termín a cestující přepíše průvodce)', () => {
-  assert.match(src, /<button type="button" class="trip-edit" id="tripEdit">✏️ Upravit název a termín<\/button>/);
+  assert.match(src, /<button type="button" class="trip-edit" id="tripEdit">✏️ \$\{tripEditLbl\(t\)\}<\/button>/);
   assert.match(src, /\$\('#tripEdit'\)\.onclick = \(\) => editTrip\(i\);/);
   const ed = src.match(/function editTrip\(i\) \{[\s\S]*?\n\}/)[0];
   assert.match(ed, /const fixed = Boolean\(t\.wizard\);/);

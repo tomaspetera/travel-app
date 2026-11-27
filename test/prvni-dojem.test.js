@@ -19,8 +19,8 @@ test('Začít hledat: bez domova a bez Odkud kurzor do „Odkud letíš?“, jin
   assert.equal(wcGoTo(false, 0), 'to', 'domov nastavený (řádek Odkud letíš? zmizel)');
   // obsluha tlačítka se podle ní řídí a uvítání v tom případě neschová
   const go = APP.match(/\$\('#wcGo'\)\.onclick = \(\) => \{[\s\S]*?\n {2}\};/)[0];
-  assert.match(go, /wcGoTo\(Boolean\(\$\('\.wc-home', el\)\), \$\$\('#heroFrom \.pi-chip'\)\.length\) === 'from'/);
-  assert.ok(go.indexOf("$('#wcFrom input', el)") < go.indexOf('hide()'), 'fokus do Odkud dřív, než se uvítání schová');
+  assert.match(go, /wcGoTo\(Boolean\(\$\('#heroHomeAsk:not\(\[hidden\]\)'\)\), \$\$\('#heroFrom \.pi-chip'\)\.length\) === 'from'/);
+  assert.ok(go.indexOf("$('#heroFrom input')") < go.indexOf('hide()'), 'fokus do Odkud dřív, než se uvítání schová');
   assert.match(APP, /<b>Napiš, odkud a kam<\/b>/);
 });
 
@@ -60,6 +60,6 @@ test('nad kartami Kam letět levně tykání a číslovky ve správném tvaru (2
   const plural = new Function(`${fl.match(/^ {2}const plural = .*$/m)[0]}; return plural;`)();
   assert.equal(plural(2, 'osobu', 'osoby', 'osob'), '2 osoby');
   assert.equal(plural(5, 'osobu', 'osoby', 'osob'), '5 osob');
-  assert.match(fl, /\$\{q\.payload\?\.adults > 1 \? `Cena za osobu při \$\{q\.payload\.adults\} cestujících` : 'Cena za osobu'\}:/);
+  assert.match(fl, /Cena za osobu\$\{q\.payload\?\.adults > 1 \? ` při \$\{q\.payload\.adults\} cestujících` : ''\}, zpáteční letenka/);
   for (const f of ['app.js', 'flights.js', 'trip.js', 'places.js']) assert.doesNotMatch(read(f), /cestujete/, f);
 });

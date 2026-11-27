@@ -25,8 +25,9 @@ test('uvítání a Letsi Plus: bez „bez reklam.“ a bez příjmu z předplatn
   assert.doesNotMatch(app, /Zdarma a bez reklam\./);
   const plus = read('public/js/plus.js');
   assert.doesNotMatch(plus, /z předplatného Plus a|Reklamu neprodáváme/);
-  // provize jen při zapnutých partnerských odkazech (livesTxt, test/regrese-okna-texty.test.js)
-  assert.match(plus, /Z čeho Letsi žije: \$\{health && health\.affiliate === true \? 'z provizí partnerů \(takové odkazy jsou označené reklama\) a ' : ''\}z dobrovolných příspěvků, později i z předplatného Plus\./);
+  // provize a příspěvky jen podle /api/health (livesTxt, test/regrese-okna-texty.test.js a test/ux-texty-sliby.test.js)
+  assert.match(plus, /aff && 'z provizí partnerů \(takové odkazy jsou označené reklama\)', pay && 'z dobrovolných příspěvků/);
+  assert.match(plus, /return `Z čeho Letsi žije: \$\{from\}, později i z předplatného Plus\. Pořadí výsledků si nikdo nekoupí\.`;/);
   assert.match(plus, /\['Naplánované cesty \(i\\u00a0z\\u00a0⚡\\u00a0Poskládej\)', 'jedna', 'neomezeně'\]/);
 });
 

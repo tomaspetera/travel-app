@@ -17,7 +17,7 @@ test('tipy v Letech: každý nejvýš ~170 znaků – na 360 px 5 řádků, víc
   // řez na 5 řádků je jen na telefonu (pruh do strany) – kdyby se zvedl, tenhle limit by šel povolit
   assert.match(noComments(read('css/flights.css')), /#flightTips \.tip p\{display:-webkit-box;-webkit-line-clamp:5;/);
   const hlid = ctx.TIPS.find((x) => x[1] === 'Hlídej cenu')[2];
-  assert.match(hlid, /dokud máš aplikaci otevřenou/, 'podstatná výhrada zůstala');
+  assert.match(hlid, /zkontroluje, když aplikaci otevřeš/, 'podstatná výhrada zůstala (kontrola jen v otevřené aplikaci)');
 });
 
 test('patička výsledků Letů: vidět co cena je, zdroje odhadů, kurz a teplota až pod „Jak počítám“ (dřív 16–20 řádků)', () => {
@@ -96,7 +96,7 @@ test('hlídání ceny: posouvání termínu srozumitelně – u ♡ „Hlídat s
 test('krok Ubytování: „Ubytování neřeším →“ i nahoře (jako „Auto nepotřebuji →“) – dole je až pod hotely', () => {
   const js = read('js/trip.js');
   assert.match(js, /\$\{t\.stay \? '' : '<div class="car-quick"><span class="muted">Ubytování máš zařízené, nebo spíš u známých\?<\/span><button type="button" class="btn sm" id="staySkipTop">Ubytování neřeším →<\/button><\/div>'\}\s*<div id="stayBody">/);
-  assert.match(js, /const sq = \$\('#staySkipTop'\); if \(sq\) sq\.onclick = \$\('#staySkip'\)\.onclick;/);
+  assert.match(js, /const sq = \$\('#staySkipTop'\); if \(sq\) sq\.onclick = skip;/);
 });
 
 test('spodní lišta: popisek pod každou ikonou (dřív jen u aktivní sekce – kufr, špendlík a mřížku nováček nepoznal)', () => {

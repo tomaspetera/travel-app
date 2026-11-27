@@ -72,6 +72,9 @@
 }
 :root[data-brand="letsi"] .kuk-rada[hidden] { display: none; }
 :root[data-brand="letsi"] .kuk-hlas:empty { display: none; }
+/* bez bubliny zůstal kukátko sám na prázdném řádku (na počítači vypadal jako nenačtený obrázek) – pak zmizí celý
+   řádek; prohlížeč bez :has řádek nechá jako dřív */
+:root[data-brand="letsi"] .kuk-rada:has(.kuk-hlas:empty) { display: none; }
 /* štítek „Mám to“: plná Pistácie s Nocí (12,57 : 1), stejně ve světlém i tmavém režimu */
 :root[data-brand="letsi"] .kuk-hlas.kuk-mam {
   padding: 4px 10px; border-radius: 999px; background: var(--letsi-pistacie, #D6DE82); color: #14161F; font-weight: 600;

@@ -6,6 +6,7 @@
 (function () {
   // název placené verze na jednom místě – při přejmenování na Letsi se mění jen tady
   const NAME = 'Letsi Plus';
+  // plánovaná cena – ukáže ji jen priceNote po odpovědi na otázku o ceně, nikde dřív
   const YEAR_CZK = 399, MONTH_CZK = 149;
   const PRICES = [0, 199, 399, 599, 799];
   const ASK_DAYS = 30; // otázka na cenu nejvýš jednou za 30 dní
@@ -70,6 +71,11 @@
     }
     return best;
   }
+  /**
+   * Věta o plánované ceně Plus – až po odpovědi na „Kolik by ti Plus stálo za rok?“ (answer = data-price zvolené
+   * odpovědi). Cena ukázaná dřív by odpovědi stáhla k sobě (kotva) a průzkum by neměřil nic.
+   */
+  const priceNote = answer => (PRICES.map(String).includes(String(answer ?? '')) ? `Plánujeme kolem ${kc(YEAR_CZK)} na rok (nebo ${kc(MONTH_CZK)} na měsíc).` : '');
   const inDays = d => (d === 1 ? 'Zítra' : `Za ${d} ${d <= 4 ? 'dny' : 'dní'}`);
   /** Věta karty. gen = cíl ve 2. pádě (app.js doGen), když jde jistě vyskloňovat – jinak věta s cílem v 1. pádě. */
   function cardText(pick, gen) {
@@ -132,11 +138,10 @@
       <h3>${n > 1 ? 'Zdarma je místo pro jednu cestu' : 'Místo pro jednu cestu máš obsazené'}</h3>
       <p>${n > 1 ? `Teď tu máš ${uloz(n)}, nejbližší <b>${name}</b> ${h(term)}${dot}` : `Zdarma si tu držíš jednu cestu – teď <b>${name}</b> ${h(term)}${dot}`}</p>
       <div class="plus-acts">
-        <button type="button" class="btn primary" data-pl="plus">Nechat si ${n > 1 ? 'všechny' : 'obě'} · Plus ${kc(YEAR_CZK)} na rok</button>
+        <button type="button" class="btn primary" data-pl="plus">Nechat si ${n > 1 ? 'všechny' : 'obě'} · Plus</button>
         <button type="button" class="btn" data-pl="download">Stáhnout ${name} do souboru a začít novou</button>
         <button type="button" class="btn ghost" data-pl="replace">Nahradit ${name} novou cestou</button>
       </div>
-      <p class="faint plus-small">Nebo ${kc(MONTH_CZK)} na měsíc. Obnovení vypneš jedním klepnutím.</p>
     </div>`;
   }
   const priceHtml = () => `<div class="plus-price" id="plusPrice"><b>Kolik by ti Plus stálo za rok?</b>
@@ -154,16 +159,22 @@
   const cell = v => (v === 'ano' ? '<span aria-hidden="true">✓</span><span class="sr-only">ano</span>' : v === 'ne' ? '<span aria-hidden="true">–</span><span class="sr-only">ne</span>' : h(v));
   /**
    * Z čeho Letsi žije – provize jen při zapnutých partnerských odkazech (/api/health affiliate, stejně jako about.js
-   * earnings). Dokud stav serveru neznáme, bez provizí: okno nesmí tvrdit něco, co O aplikaci popírá.
+   * earnings), příspěvky jen s tlačítkem 💛 Podpořit Letsi v O aplikaci (support.url, About.okPay) – bez možnosti
+   * přispět by „žije z příspěvků“ byl slib naprázdno. Dokud stav serveru neznáme, jen neutrální věta.
    */
-  const livesTxt = health => `Z čeho Letsi žije: ${health && health.affiliate === true ? 'z provizí partnerů (takové odkazy jsou označené reklama) a ' : ''}z dobrovolných příspěvků, později i z předplatného Plus. Pořadí výsledků si nikdo nekoupí.`;
+  function livesTxt(health) {
+    const aff = Boolean(health && health.affiliate === true);
+    const pay = Boolean(health && health.support && window.About && About.okPay(health.support.url));
+    if (!aff && !pay) return 'Letsi je zatím zdarma a pořadí výsledků si nikdo nekoupí.';
+    const from = [aff && 'z provizí partnerů (takové odkazy jsou označené reklama)', pay && 'z dobrovolných příspěvků (💛 Podpořit Letsi v O aplikaci)'].filter(Boolean).join(' a ');
+    return `Z čeho Letsi žije: ${from}, později i z předplatného Plus. Pořadí výsledků si nikdo nekoupí.`;
+  }
   function pageHtml(health) {
     return `<div class="modal-body plus-page">
       <h3>⭐ ${h(NAME)}</h3>
       <p>Co zůstane zdarma a co chystáme navíc.</p>
       <table class="plus-table"><thead><tr><th scope="col">Co</th><th scope="col">Zdarma</th><th scope="col">Plus <small>${SOON}</small></th></tr></thead>
         <tbody>${FREE.map(([what, a, b]) => `<tr><th scope="row">${h(what)}</th><td>${cell(a)}</td><td>${cell(b)}</td></tr>`).join('')}</tbody></table>
-      <p class="plus-small">Plus: ${kc(YEAR_CZK)} na rok, nebo ${kc(MONTH_CZK)} na měsíc.</p>
       <p class="faint plus-small" id="plusLives">${h(livesTxt(health))}</p>
       <div id="plusAfter"><button type="button" class="btn primary block" id="plusWant">Chci Plus</button></div>
     </div>`;
@@ -202,7 +213,7 @@
     el.querySelectorAll('[data-price]').forEach(b => { b.onclick = () => {
       hit(`price_${b.dataset.price}`);
       const box = el.querySelector('#plusPrice');
-      if (box) box.innerHTML = '<p class="plus-thanks">Díky, pomůže nám to nastavit cenu férově.</p>';
+      if (box) box.innerHTML = `<p class="plus-thanks">Díky, pomůže nám to nastavit cenu férově. ${priceNote(b.dataset.price)}</p>`;
     }; });
   }
 
@@ -240,9 +251,8 @@
       proceed: asked => { if (obs) obs.disconnect(); proceed(asked); },
       show: html => { modalOpen(html); sheet = q('#modal .plus-sheet'); },
       hit,
-      // „Nebo 149 Kč na měsíc. Obnovení vypneš…“ pod odpovědí, že Plus ještě není, by sliboval předplatné, které neběží
       // nadpis „máš obsazené“ a počet cest by pod odpovědí „nech si je“ odporovaly – cesta se už uložila (proceed před thanks)
-      thanks: n => { if (sheet) { sheet.querySelector('.plus-small').hidden = true; sheet.querySelector('h3').textContent = 'Cesta se uložila'; sheet.querySelector('h3 + p').hidden = true; after(sheet.querySelector('.plus-acts'), `Plus chystáme na jaro. Do té doby si nech ${n > 1 ? 'všechny' : 'obě'} cesty zdarma – zůstanou ti.`); } },
+      thanks: n => { if (sheet) { sheet.querySelector('h3').textContent = 'Cesta se uložila'; sheet.querySelector('h3 + p').hidden = true; after(sheet.querySelector('.plus-acts'), `Plus chystáme na jaro. Do té doby si nech ${n > 1 ? 'všechny' : 'obě'} cesty zdarma – zůstanou ti.`); } },
       download: () => { if (window.Backup && Backup.download) { Backup.download(); toast('Záloha stažena – cesta v ní je'); } },
       close: () => modalClose(),
       confirm: msg => confirm(msg),
@@ -299,5 +309,5 @@
     }
   }
 
-  window.Plus = { NAME, YEAR_CZK, MONTH_CZK, PRICES, counts, countedTrips, needsGate, askDue, cardPick, cardText, termTxt, sesitLine, sesitHtml, pageHtml, livesTxt, gateFlow, tripKey, open, sesit, sesitShown, gateNewTrip, renderCard, addToMenu };
+  window.Plus = { NAME, YEAR_CZK, MONTH_CZK, PRICES, priceNote, counts, countedTrips, needsGate, askDue, cardPick, cardText, termTxt, sesitLine, sesitHtml, pageHtml, livesTxt, gateFlow, tripKey, open, sesit, sesitShown, gateNewTrip, renderCard, addToMenu };
 })();

@@ -58,7 +58,7 @@ test('během hledání: změněný formulář povolí tlačítko (nové hledán�
     return btn;
   };
   const key = JSON.stringify({ to: ['Řím'] });
-  assert.deepEqual(run({ key }, { to: ['Londýn'] }), { disabled: false, innerHTML: '🔎 Najít lety' });
+  assert.deepEqual(run({ key }, { to: ['Londýn'] }), { disabled: false, innerHTML: 'Najít lety' });
   // vrácený formulář = běžící hledání: opakované klepnutí by nic nového nespustilo (limit hledání z jedné adresy)
   assert.equal(run({ key }, { to: ['Řím'] }).disabled, true);
   assert.deepEqual(run(null, { to: ['Londýn'] }), { disabled: true, innerHTML: 'Hledám…' }, 'bez běžícího hledání nesahá');

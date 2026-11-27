@@ -33,7 +33,7 @@ test('✕ Zavřít: modalOpen přidá křížek jen oknům, která o něj požá
   // jen jako křížky v záhlaví ostatních oken (stejná ikona i jméno) a se společnou obsluhou [data-close]
   assert.match(pick('modalOpen'), /\$\('#modal'\)\.innerHTML = \(o\.x \? `<button type="button" class="modal-close mc-plain" data-close aria-label="Zavřít">\$\{ico\('M18 6L6 18M6 6l12 12'\)\}<\/button>` : ''\) \+ html;/);
   assert.match(appJs, /\$\('#modal'\)\.addEventListener\('click', e => \{ if \(e\.target\.closest && e\.target\.closest\('\[data-close\]'\)\) modalClose\(\); \}\);/);
-  assert.match(pick('openMore'), /<\/p><\/div>`, \{ x: true \}\);/);
+  assert.match(pick('openMore'), /<\/div><\/div>`, \{ x: true \}\);/);
   assert.match(read('public/js/about.js'), /modalOpen\(html\(\{[^\n]*\}\), \{ x: true \}\);/);
   assert.equal(read('public/js/transfer.js').match(/\$\{PASTE\}<\/div>`, \{ x: true \}\);/g).length, 2, 'Přenést prázdný i s daty');
   const plus = read('public/js/plus.js');
@@ -50,7 +50,7 @@ test('texty: Novinky, souhlas a O aplikaci ukazují cestu, která je i na počí
   const bad = wn.filter(([, , t]) => /<b>Další<\/b>/.test(t) && !/na (počítači|telefonu)/.test(t)).map(([, n]) => n).join(', ');
   assert.equal(bad, '', 'novinka s „Další“ musí říct, kde to je na počítači');
   const card = pick('helpCard');
-  assert.match(card, /Platí, dokud to nevypneš v Další nebo v O aplikaci a soukromí\./);
+  assert.match(card, /platí, dokud to nevypneš v Další nebo v O aplikaci a soukromí\./);
   assert.match(card, /toast\('Zapnuto\. Díky! Vypnout to jde kdykoli v Další nebo v O aplikaci a soukromí\.'\)/);
   assert.doesNotMatch(card, /v Další\.['<]/);
   assert.doesNotMatch(read('public/js/about.js'), /zapneš v Další/, 'přepínač je v okně O aplikaci, Další na počítači není');

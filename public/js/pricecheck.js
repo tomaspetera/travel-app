@@ -280,7 +280,7 @@
     }
     const dear = level === 'high' ? 'Cena je vyšší než obvykle. ' : '';
     if (days > 49) {
-      return { kind: 'watch', text: `${dear}Do odletu zbývá ${Math.floor(days / 7)} týdnů, takže je čas cenu sledovat: ulož hledání ♡ s cílovou cenou a Letsi se ozve, jestli zlevní (kontroluje, jen dokud máš stránku otevřenou). Zaručené to není – ceny můžou i stoupnout.` };
+      return { kind: 'watch', text: `${dear}Do odletu zbývá ${Math.floor(days / 7)} týdnů, takže je čas cenu sledovat: ulož hledání tlačítkem Hlídat cenu s cílovou cenou a Letsi ti po otevření ukáže, jestli zlevnilo. Zaručené to není – ceny můžou i stoupnout.` };
     }
     if (days >= 21) {
       return { kind: 'compare', text: `${dear}Do odletu zbývá pár týdnů. Čekání se už spíš nevyplatí – ceny u nízkonákladovek se před odletem obvykle zvedají. Ušetřit se dá spíš jiným dnem nebo letištěm (📅 kalendář, okolní letiště).` };

@@ -128,10 +128,9 @@ const ikona = n => `<span class="ico i-${n}" aria-hidden="true"></span>`;
 function buildNav() {
   // U přehledu odznak „zlevnilo“ z hlídaných cen (plní flights.js).
   $('#nav').innerHTML = NAV.map(n => `<div class="nav-item" data-view="${n[0]}">${ico(n[3])}<span>${n[1]}</span>${n[0] === 'map' ? '<span class="nav-badge" id="navBadge">0</span>' : n[0] === 'dashboard' ? '<span class="nav-badge drop" id="navDrops" title="Hlídané ceny, které od minule zlevnily" hidden></span>' : ''}</div>`).join('');
-  // Na mobilu dole pět míst: Přehled, 3 sekce, které uživatel otevírá nejčastěji (bez historie Lety, Cesta, Objevuj),
-  // a ⋯ Další – ostatní sekce jako dlaždice, záloha, vzhled, instalace. Výběr jen při spuštění (lišta se pod rukou
-  // nemění), sekce v liště v pevném pořadí; pět míst = stejná šířka jako dřív. Svět = mapa a země s přepínačem nahoře.
-  navBar = navSlots(S.navUse);
+  // Na mobilu dole pět pevných míst: Přehled, Lety, Cesty, Objevuj a ⋯ Další – ostatní sekce jako dlaždice, záloha,
+  // vzhled, instalace. Lišta je jediná pevná orientace (i v návodech), proto se podle používání nepřeskládá (dřív
+  // ji řadil počet otevření a Objevuj z ní mizel). Svět = mapa a země s přepínačem nahoře.
   // tlačítka (ne <div>): čtečka obrazovky je ohlásí jako tlačítka a jdou vybrat Tabem; jméno z popisku pod ikonou,
   // u Přehledu i tečka „zlevnilo“
   const mi = k => k === 'world'
@@ -152,18 +151,13 @@ function buildNav() {
   $('#moreNav').onclick = openMore;
   $('#menuBtn').onclick = openMore;
 }
-// sekce, které mohou být v liště (world = Mapa a Země); výchozí náskok, aby jedno otevření pořadí nepřehodilo
+// sekce s vlastním místem (world = Mapa a Země): první tři jsou v liště, ostatní dlaždice v ⋯ Další
 const NAV_PICK = ['flights', 'trip', 'explore', 'world', 'recommend'];
-const NAV_PRIOR = { flights: 6, trip: 4, explore: 3, world: 2, recommend: 0 };
 const NAV_INFO = { world: ['Svět', 'Mapa procestovaných zemí a průvodce zeměmi', 'countries'] };
-let navBar = ['flights', 'trip', 'explore'], navLast = null;
-/** 3 sekce do spodní lišty podle počtu otevření (+ výchozí náskok), v pevném pořadí NAV_PICK. */
-function navSlots(use) {
-  const sc = k => ((use && use[k]) || 0) + NAV_PRIOR[k];
-  return NAV_PICK.slice().sort((a, b) => sc(b) - sc(a) || NAV_PICK.indexOf(a) - NAV_PICK.indexOf(b)).slice(0, 3)
-    .sort((a, b) => NAV_PICK.indexOf(a) - NAV_PICK.indexOf(b));
-}
-/** Otevření sekce do počtů (staré se časem vytrácí – nad 200 otevření se vše vydělí dvěma). */
+const navBar = NAV_PICK.slice(0, 3);
+let navLast = null;
+/** Otevření sekce do počtů (staré se časem vytrácí – nad 200 otevření se vše vydělí dvěma). Lištu už neřadí –
+ *  slouží tipům na Přehledu (co uživatel ještě nezkusil). */
 function navCount(v) {
   const k = WORLD_VIEWS.includes(v) ? 'world' : v;
   if (k === navLast || !NAV_PICK.includes(k)) { navLast = k; return; }
@@ -173,17 +167,15 @@ function navCount(v) {
   if (Object.values(u).reduce((a, b) => a + b, 0) > 200) for (const x of Object.keys(u)) u[x] = Math.floor(u[x] / 2);
   S.navUse = u; save();
 }
-/** ⋯ Další: sekce, které nejsou v liště (dlaždice, nejpoužívanější první), a nastavení. */
+/** ⋯ Další: sekce, které nejsou v liště (dlaždice v pevném pořadí), a nastavení. */
 function openMore() {
-  const sc = k => ((S.navUse && S.navUse[k]) || 0) + NAV_PRIOR[k];
-  const rest = NAV_PICK.filter(k => !navBar.includes(k)).sort((a, b) => sc(b) - sc(a) || NAV_PICK.indexOf(a) - NAV_PICK.indexOf(b));
+  const rest = NAV_PICK.filter(k => !navBar.includes(k));
   const tile = k => {
     const n = NAV.find(x => x[0] === k), [lbl, sub, icoKey] = NAV_INFO[k] || [n[1], n[2], k];
     return `<button type="button" class="more-tile" data-mv="${k === 'world' ? lastWorld : k}"><span class="mt-ico">${ico(NAV.find(x => x[0] === icoKey)[3])}</span><b>${lbl}</b><small>${sub}</small></button>`;
   };
   modalOpen(`<div class="modal-body more-sheet"><h3>Další</h3><div class="mn-grid">${rest.map(tile).join('')}</div>
-    <div class="more-h">Nastavení</div><div class="more-nav"></div>
-    <p class="faint more-tip">Dole v liště jsou sekce, které otevíráš nejčastěji – podle toho se při dalším spuštění samy seřadí.</p></div>`, { x: true });
+    <div class="more-h">Nastavení</div><div class="more-nav"></div></div>`, { x: true });
   $$('[data-mv]', $('#modal')).forEach(b => b.onclick = () => { modalClose(); go(b.dataset.mv); });
   const list = $('.more-nav', $('#modal'));
   if (window.Transfer) Transfer.addToMenu(list); // 📲 Přenést do jiného zařízení – odkaz nebo soubor (transfer.js)
@@ -1000,7 +992,7 @@ const WHATS_NEW = [
   ['✈️', 'Letenku už máš?', 'na <b>Přehledu</b> doplníš zbytek cesty – trasu, ubytování i program.'],
   ['🔒', 'Soukromí', 'počítám jen souhrnné denní počty, žádné sledování jednotlivců, pokud sám nezapneš Pomáhat se zlepšováním. Podrobnosti pod <b>Další</b> (na počítači vlevo dole) → <b>O aplikaci a soukromí</b>.'],
   ['🔄', 'Upravený plán od kamaráda bez kopií', 'když ti kamarád pošle novější verzi plánu, který už máš, nabídnu <b>🔄 Aktualizovat moji cestu</b> – převezmeš termín, let a program, tvoje odškrtnuté „Sbaleno“, kódy rezervací a vlastní aktivity zůstanou. Dřív vznikla druhá kopie.'],
-  ['✏️', 'Cestu upravíš i po uložení', 'v <b>Cesty</b> → Moje cesty otevři cestu a klepni na <b>✏️ Upravit název a termín</b> – přejmenuješ ji, posuneš termín (program dnů se posune s ním) nebo změníš počet cestujících. Dřív to šlo jen smazat a založit znovu.'],
+  ['✏️', 'Cestu upravíš i po uložení', 'v <b>Cesty</b> → Moje cesty otevři cestu a klepni na <b>✏️ Upravit</b> – přejmenuješ ji; u vlastní cesty (ne z průvodce Cestou) posuneš i termín (program dnů se posune s ním) nebo změníš počet cestujících. Dřív to šlo jen smazat a založit znovu.'],
   ['✨', 'Hledání větou rozumí víc', 'napiš třeba <b>„Kanáry přes Vánoce a Silvestr“</b>, <b>„Londýn na Den boje za svobodu“</b>, <b>„Řím s dětmi 5 a 8 let“</b> nebo <b>„Vídeň 4.–6. 12. nebo 11.–13. 12.“</b> – termín, délku i počet lidí nastavím za tebe. Funguje v <b>Letech</b> i v <b>Objevuj</b>.'],
   ['🔎', 'Země na mapu napsáním', 'pod mapou ve <b>Světě</b> napiš začátek názvu („ital“, „usa“) a klepni – malé země už nemusíš trefovat v mapě.'],
   ['🗺️', 'Svět zná tvoje cesty', 'pod mapou jsou země z proběhlých cest, které na ní ještě chybí – klepnutím je přidáš. V detailu země (<b>Svět → Země</b>, <b>Doporučení</b>) je nahoře tvoje nadcházející cesta tam – klepnutím ji otevřeš.'],
@@ -1050,7 +1042,7 @@ const WHATS_NEW = [
   ['💰', 'Cena = letenka', 'u nabídek, v <b>Kam letět levně</b> i v kalendáři je teď jen cena letenky (se zavazadly, když je vybereš). Doprava na letiště a z letiště do města je pod cenou zvlášť – jen pro představu, kolik zhruba stojí. Řazení „i s cestou na letiště“ je ve Filtrech.'],
   ['💱', 'Odkazy v korunách', 'Kiwi.com se otevře česky v Kč; u Ryanairu a Wizz Air uvidíš předem, v jaké měně web ukáže let zpět (účtují v měně země odletu).'],
   ['👀', 'Zaujalo tě', 'cíle, které sis po hledání Kamkoliv rozbalil, nabídne prázdné pole <b>Kam</b> – jedním klepnutím lety jen tam ve stejném termínu.'],
-  ['🧭', 'Lišta podle tebe', 'na telefonu jsou dole Přehled a 3 sekce, které otevíráš nejčastěji; zbytek, záloha a vzhled jsou pod <b>Další</b>. Karty v Kam letět levně mají štítek počasí vždy – do 15 dní předpověď, dál dlouhodobý průměr 🌡️.'],
+  ['🧭', 'Přehledná lišta', 'na telefonu jsou dole Přehled, Lety, Cesty a Objevuj; zbytek, záloha a vzhled jsou pod <b>Další</b>. Karty v Kam letět levně mají štítek počasí vždy – do 15 dní předpověď, dál dlouhodobý průměr 🌡️.'],
   ['🗣️', 'Hledání rozumí ještě víc', '„příští pátek“, „pozítří“, „mám 5000“, „do 80 €“, „z Kutné Hory“, „do Nového Zélandu“, „Slunečné pobřeží“ – a kdo hledá hlavně víkendy, tomu <b>Kam letět levně</b> na Přehledu nabídne <b>Víkendy</b>.'],
   ['🔤', 'Překlep nevadí', '„Barcleona“, „Lodnýn“ nebo „Krakv na 2 dny“ – našeptávač nabídne „Překlep? Asi myslíš:“ se správným místem, v Letech i v Objevuj.'],
   ['🔎', 'Stačí napsat a klepnout na Najít lety', 'našeptávač rozumí i „do Barcelony“, „levně do Paříže“, „z Brna“ nebo „Praha Londýn“; napsaný text tlačítko <b>Najít lety</b> použije, i když nic nevybereš z nabídky.'],
@@ -1104,8 +1096,10 @@ const wnAtStart = (seen, hash, id = WN_ID) => (!/^#sync=/.test(String(hash || ''
  * nad radarem jen odsouval jeho hlídanou cenu a rozpracovanou cestu. → true = skrýt jako „Rozumím“.
  * Mizí jen při vykreslení Přehledu (návrat z Letů, Cest), ne pod rukama; při dalším startu rozhoduje wnAtStart.
  */
+// uvítání: odkud jsou ceny a kde se kupuje (About.buyLine – podle /api/health) + že je to zdarma
+const wcHow = h => `${window.About && About.buyLine ? About.buyLine(h) : ''} Zdarma, bez placených pozic.`.trim();
 const wnDoneNow = (mode, s) => mode === 'welcome' && ((s.watch || []).length > 0 || (s.trips || []).length > 0);
-/** Kam „Začít hledat“ v uvítání dá kurzor: uvítání se ptá na domov (askHome) a Odkud na Přehledu je prázdné → 'from', jinak 'to' (Kam). */
+/** Kam „Začít hledat“ v uvítání dá kurzor: Přehled se ptá na domov (askHome – čipy pod Odkud) a Odkud je prázdné → 'from', jinak 'to' (Kam). */
 const wcGoTo = (askHome, fromCount) => (askHome && !fromCount ? 'from' : 'to');
 let wnFirst = false; // v tomhle otevření se ukázalo uvítání: 💡 tipy až příště (renderDashTip) – dvě rady naráz zahltí
 const WN_TOP = 4; // v celém seznamu nejnovější novinky hned, starší pod „Starší novinky“
@@ -1125,49 +1119,31 @@ function renderWhatsNew() {
   if (mode === 'welcome' && seen !== WN_ID + WN_NEW) try { localStorage.setItem('atlas_wn', WN_ID + WN_NEW); } catch (e) { /* soukromé okno */ }
   const hide = () => {
     try { localStorage.setItem('atlas_wn', WN_ID); } catch (e) { /* nevadí */ }
-    const asked = Boolean($('.wc-home', el));
     el.hidden = true;
-    // uvítání se ptalo „Odkud letíš?“ místo radaru – bez domova se teď ptá radar (radarSetup ve flights.js)
-    if (asked && window.Flights && !S.home?.from?.length) Flights.renderRadar();
   };
   el.classList.add('welcome');
-  // „Odkud letíš?“ hned nahoře: jedno klepnutí nastaví domov a radar níž začne ukazovat lety (bez domova je prázdný
-  // a jeho „Odkud obvykle létáš?“ je až pod přehybem). Jediné místo, kde se Přehled ptá – radar pod ním mezitím jen
-  // odkáže sem (radarSetup ve flights.js) a čip domova nahoře sem dá kurzor; jiné město než na čipech napíše do pole.
-  const homeRow = window.Flights && Flights.homeFromChip && Flights.PlaceInput && !S.home?.from?.length
-    ? `<div class="wc-home"><b id="wcHomeL">Odkud letíš?</b><div class="wc-chips">${SearchHelp.HOME_CITIES.map(c => `<button type="button" class="fchip" data-wch="${esc(c[0])}">${esc(c[0])}</button>`).join('')}<button type="button" class="fchip" data-wch="geo">📍 Moje poloha</button></div><div class="place-input wc-from" id="wcFrom"></div></div>` : '';
+  // na domov se uvítání neptá – čipy měst jsou přímo pod Odkud v hledání nahoře (flights.js paintHomeAsk); dvě pole
+  // Odkud nad sebou nováčka mátla, které vyplnit
   el.innerHTML = `<h3 class="wc-h">👋 Vítej! Najdu levné letenky a poskládám z nich celou cestu.</h3>
-    <p class="faint wc-how" style="font-size:12.5px;margin:-6px 0 12px">Ceny porovnávám, letenku koupíš u aerolinky nebo prodejce. Zdarma, bez placených pozic.</p>
-    ${homeRow}
+    <p class="faint wc-how" style="font-size:12.5px;margin:-6px 0 12px">${wcHow(null)}</p>
     <ol class="wc-steps">
       <li><span class="wc-n">1</span><div><b>Napiš, odkud a kam</b><small>město, „kamkoliv“, nebo celou větu – třeba „k moři v květnu do 5000“</small></div></li>
       <li><span class="wc-n">2</span><div><b>Vyber let</b><small>nahoře jsou nejvýhodnější podle ceny a časů, cestu na letiště ukážu zvlášť</small></div></li>
       <li><span class="wc-n">3</span><div><b>Poskládej cestu</b><small>ubytování, auto, program a shrnutí s odkazy k rezervaci</small></div></li>
     </ol>
     <div class="row wrap" style="gap:8px"><button type="button" class="btn primary" id="wcGo">Začít hledat</button><button type="button" class="btn ghost" id="wnHide">Rozumím</button></div>`;
+  // věta o cenách podle zdrojů na serveru (čistý režim: orientační z Aviasales, ne porovnání u aerolinek) – do odpovědi
+  // /api/health věta, která platí v obou režimech
+  if (window.Flights && Flights.warm) Promise.resolve(Flights.warm()).then(h => { const p = $('.wc-how', el); if (p) p.textContent = wcHow(h); }, () => {});
   $('#wcGo').onclick = () => {
     // bez domova i bez Odkud by první hledání skončilo „Zadej, odkud letíš“ – uvítání zůstane a kurzor jde do Odkud
-    if (wcGoTo(Boolean($('.wc-home', el)), $$('#heroFrom .pi-chip').length) === 'from') {
-      const fi = $('#wcFrom input', el); if (fi) { fi.scrollIntoView({ block: 'center', behavior: 'smooth' }); fi.focus({ preventScroll: true }); }
+    if (wcGoTo(Boolean($('#heroHomeAsk:not([hidden])')), $$('#heroFrom .pi-chip').length) === 'from') {
+      const fi = $('#heroFrom input'); if (fi) { fi.scrollIntoView({ block: 'center', behavior: 'smooth' }); fi.focus({ preventScroll: true }); }
       return;
     }
     hide();
     const inp = $('#heroTo input'); if (inp) { inp.scrollIntoView({ block: 'center', behavior: 'smooth' }); inp.focus({ preventScroll: true }); }
   };
-  // domov nastavený → řádek zmizí (uvítání zůstane); bez polohy čipy zůstanou na výběr
-  const setHome = chip => {
-    $$('[data-wch]', el).forEach(x => { x.disabled = true; });
-    Flights.homeFromChip(chip, ok => {
-      if (ok) { const r = $('.wc-home', el); if (r) r.remove(); } else $$('[data-wch]', el).forEach(x => { x.disabled = false; });
-    });
-  };
-  $$('[data-wch]', el).forEach(b => b.onclick = () => setHome(b.dataset.wch));
-  // jiné město nebo letiště z našeptávače = domov jako z čipu (letiště do 150 km, 2 osoby – SearchHelp.homeOf)
-  const wf = $('#wcFrom', el);
-  if (wf) {
-    const pi = new Flights.PlaceInput(wf, { origin: true, max: 1, placeholder: 'Jiné město nebo letiště…', onChange: () => { if (pi.items.length) setHome(pi.items[0]); } });
-    pi.input.setAttribute('aria-labelledby', 'wcHomeL');
-  }
   $('#wnHide').onclick = hide;
 }
 /**
@@ -1181,8 +1157,9 @@ function helpCard(el) {
   if (chosen || wnFirst || !window.Count || !Count.consent) return;
   el.classList.remove('welcome');
   el.hidden = false;
-  el.innerHTML = `<h3 style="margin:0 0 6px">Pomůžeš mi aplikaci vylepšit?</h3>
-    <p style="font-size:13.5px;margin:0 0 12px">Když to zapneš, budu při každé návštěvě zaznamenávat, které obrazovky otevíráš a jaké hlavní akce děláš (třeba hledání, krok průvodce nebo opakované klepnutí, když něco nereaguje). Nikdy co píšeš, kam jedeš, ceny ani nic o tobě. Záznam nese jen náhodné číslo návštěvy, žádné jméno ani IP adresu, a smaže se nejpozději do 31 dnů. Platí, dokud to nevypneš v Další nebo v O aplikaci a soukromí.</p>
+  // krátce (dlouhý odstavec byl největší věc na Přehledu a působil podezřele); plné znění pod Podrobnosti v O aplikaci
+  el.innerHTML = `<h3 class="help-h">Pomůžeš mi aplikaci vylepšit?</h3>
+    <p class="help-t">Zaznamenám jen, které obrazovky otevíráš a jaké hlavní akce děláš – nikdy co píšeš, kam jedeš, ceny ani jméno či IP adresu. Smaže se do 31 dnů a platí, dokud to nevypneš v Další nebo v O aplikaci a soukromí.</p>
     <div class="row wrap" style="gap:8px;align-items:center"><button type="button" class="btn" data-help="1">Zapnout</button><button type="button" class="btn" data-help="0">Ne, díky</button><button type="button" class="linkbtn" id="helpMore">Podrobnosti</button></div>`;
   $$('[data-help]', el).forEach(b => b.onclick = () => {
     const on = b.dataset.help === '1';
@@ -1353,7 +1330,7 @@ const tipNext = (s, today) => (s.trips || []).map((t, i) => ({ t, i })).filter(y
 const DASH_TIPS = [
   { id: 'any', ico: '🌍', h: 'Kamkoliv', t: 'nech pole Kam prázdné a ukážu levné cíle z tvých letišť; v 📅 Kalendáři uvidíš nejlevnější den.', btn: 'Hledat kamkoliv',
     used: s => (s.recent || []).some(e => e && e.form && Array.isArray(e.form.to) && !e.form.to.length && e.form.trip !== 'multi'), run: () => (window.Flights ? Flights.searchTo([]) : go('flights')) },
-  { id: 'watch', ico: '♡', h: 'Hlídání ceny', t: 'nad výsledky hledání klepni na ♡ Hlídat cenu – tady na Přehledu pak uvidíš, kdy cesta zlevní.', btn: 'Otevřít Lety',
+  { id: 'watch', ico: '♡', h: 'Hlídání ceny', t: 'nad výsledky hledání klepni na Hlídat – tady na Přehledu pak uvidíš, kdy cesta zlevní.', btn: 'Otevřít Lety',
     used: s => (s.watch || []).length > 0, run: () => go('flights') },
   { id: 'pin', ico: '📌', h: 'Odložené nabídky', t: '📌 Odložit u nabídky ji schová na později – pak je porovnáš vedle sebe a pošleš k výběru.', btn: 'Otevřít Lety',
     used: s => (s.pins || []).length > 0, run: () => go('flights') },
@@ -1365,15 +1342,12 @@ const DASH_TIPS = [
     ok: (s, today) => Boolean(tipNext(s, today)), used: s => (s.trips || []).some(t => t && Array.isArray(t.refs) && t.refs.length),
     run: () => { const n = tipNext(S, todayLocal()); if (n) openTrip(n.i); } },
 ];
-/** 🧳 Karta „Naplánuj celou dovolenou“ na Přehledu: dokud uživatel průvodce cestou nepoužil (rozpracovaná ani uložená
- *  cesta z průvodce) a kartu neskryl (off). Lidi průvodce jinak nenašli – do něj vedlo jen tlačítko u letu (dřív „Vybrat a pokračovat“). */
-const planCardOn = (s, off) => !off && !s.trip && !(s.trips || []).some(t => t && t.wizard);
 /** Dnešní tip → položka DASH_TIPS nebo null. Týž den týž tip (po skrytí už žádný), další den další nepoužitý v pořadí.
- *  x.plan = karta 🧳 Naplánuj celou dovolenou je vidět – tip ⚡ Hotová cesta by říkal totéž. */
+ *  x.radar = na Přehledu je vidět Kam letět levně – levné cíle odevšad už ukazuje, tip 🌍 Kamkoliv by říkal totéž. */
 function tipPick(s, x, mem, today) {
   if (!s.home || !s.home.from || !s.home.from.length || !(s.recent || []).length) return null;
   const m = mem && typeof mem === 'object' ? mem : {}, hid = Array.isArray(m.hid) ? m.hid : [];
-  const ok = DASH_TIPS.filter(t => !hid.includes(t.id) && !(x.plan && t.id === 'auto') && (!t.ok || t.ok(s, today)) && !t.used(s, x));
+  const ok = DASH_TIPS.filter(t => !hid.includes(t.id) && !(x.radar && t.id === 'any') && (!t.ok || t.ok(s, today)) && !t.used(s, x));
   if (m.day === today) return ok.find(t => t.id === m.id) || null;
   const k = DASH_TIPS.findIndex(t => t.id === m.id);
   return ok.find(t => DASH_TIPS.indexOf(t) > k) || ok[0] || null;
@@ -1385,10 +1359,12 @@ let tipMem = null;
 function renderDashTip() {
   const el = $('#dashTip'); if (!el) return;
   if (wnFirst) { el.hidden = true; el.innerHTML = ''; return; } // první návštěva: stačí uvítání (renderWhatsNew)
+  // karta souhlasu s měřením (helpCard v #whatsNew) je vidět: dvě prosby naráz ne – tip až po volbě
+  const wn = $('#whatsNew'); if (wn && !wn.hidden) { el.hidden = true; el.innerHTML = ''; return; }
   let mem = null, explore = false;
   try { mem = JSON.parse(localStorage.getItem('atlas_tip')); explore = localStorage.getItem('atlas_explore_v1') != null; } catch (e) { /* soukromé okno, poškozený zápis */ }
   if (tipMem) mem = tipMem;
-  const today = todayLocal(), tip = tipPick(S, { explore, plan: planCardOn(S, planOff()) }, mem, today), hid = mem && Array.isArray(mem.hid) ? mem.hid : [];
+  const today = todayLocal(), tip = tipPick(S, { explore, radar: Boolean(S.home?.from?.length) }, mem, today), hid = mem && Array.isArray(mem.hid) ? mem.hid : [];
   const put = m => { tipMem = m; try { localStorage.setItem('atlas_tip', JSON.stringify(m)); } catch (e) { /* nevadí – platí kopie v paměti */ } };
   el.hidden = !tip;
   if (!tip) { el.innerHTML = ''; return; }
@@ -1397,35 +1373,6 @@ function renderDashTip() {
     <div><button type="button" class="btn sm" id="dtGo">${esc(tip.btn)}</button></div></div><button type="button" class="dt-x" id="dtX" title="Skrýt tip" aria-label="Skrýt tip">✕</button>`;
   $('#dtGo').onclick = () => tip.run();
   $('#dtX').onclick = () => { put({ day: today, id: null, hid: [...hid, tip.id] }); el.hidden = true; };
-}
-// Karta 🧳 Naplánuj celou dovolenou už ne: atlas_plancard = 'off' (✕) nebo 'used' (průvodce použitý – zapíše i trip.js
-// start; karta se pak nevrátí ani po ↺ Začít znovu nebo smazání všech cest). Kopie v paměti, když úložiště nejde zapsat.
-let planMem = '';
-const planOff = () => { if (planMem) return true; try { return /^(off|used)$/.test(localStorage.getItem('atlas_plancard') || ''); } catch (e) { return false; } };
-const planMark = v => { planMem = v; try { localStorage.setItem('atlas_plancard', v); } catch (e) { /* platí kopie v paměti */ } };
-/** 🧳 Karta na Přehledu: co průvodce cestou poskládá, příklady vět (Flights.planExamples – hledání jako ✨ Zkus napsat;
- *  u nabídky pak Naplánovat celou cestu) a Začít plánovat (záložka Cesty s polem Kam chceš jet?). */
-function renderPlanCard() {
-  const el = $('#planCard'); if (!el) return;
-  // průvodce už použitý (rozpracovaná nebo uložená cesta z něj – i z doby před kartou): zapamatovat napořád
-  if (!planCardOn(S, false) && !planOff()) planMark('used');
-  const on = planCardOn(S, planOff());
-  el.hidden = !on;
-  if (!on) { el.innerHTML = ''; return; }
-  const ex = window.Flights && Flights.planExamples ? Flights.planExamples() : [];
-  el.innerHTML = `<div class="plc-top"><span class="dt-ic" aria-hidden="true">🧳</span><div class="dt-b"><b>Naplánuj celou dovolenou</b>
-    <p>Vyber let a průvodce k němu poskládá ubytování, auto, program po dnech a cenu celkem – klidně i trasu přes víc měst.</p>
-    <p class="plc-steps faint">${['✈️ Let', '🏨 Ubytování', '🚗 Auto', '🗺️ Program', '✅ Cena celkem'].map(x => `<span>${x}</span>`).join(' → ')}</p></div>
-    <button type="button" class="dt-x" id="planCardX" title="Skrýt" aria-label="Skrýt kartu Naplánuj celou dovolenou">✕</button></div>
-    ${ex.length ? `<div class="plc-try"><span class="faint">Zkus:</span>${ex.map((x, i) => `<button type="button" class="recent-chip" data-pex="${i}">${esc(x)}</button>`).join('')}</div>` : ''}
-    <button type="button" class="btn sm primary" id="planCardGo">Začít plánovat →</button>`;
-  $('#planCardGo').onclick = () => go('trip');
-  $$('[data-pex]', el).forEach(b => b.onclick = () => Flights.trySentence(ex[+b.dataset.pex], b));
-  $('#planCardX').onclick = () => {
-    planMark('off');
-    el.hidden = true;
-    renderDashTip(); // ⚡ Hotová cesta se teď může ukázat jako tip
-  };
 }
 /** Přehled v otevřené aplikaci: každou minutu karta Dnes na cestě, nový den (půlnoc, návrat z pozadí ráno) celý Přehled. */
 function dashTick() {
@@ -1442,7 +1389,6 @@ function renderDash() {
   renderDashStats();
   renderWhatsNew();
   renderDashTip();
-  renderPlanCard();
   if (window.Plus) Plus.renderCard($('#plusCard'), wnFirst); // 📒 sešit 14 dní před odletem (plus.js)
   const hp = $('#heroPlan'); if (hp) hp.onclick = () => go('trip');
   // ✈️ letenka koupená jinde: průvodce bez hledání letu (formulář v trip.js, modul se načítá až na požádání)
@@ -1450,24 +1396,20 @@ function renderDash() {
   $$('.link[data-go]').forEach(l => { l.onclick = () => go(l.dataset.go); kbClick(l); });
   if (window.Flights) { Flights.renderResume(); Flights.renderQuick(); Flights.renderWatch(); Flights.renderRadar(); Flights.renderFav(); Flights.renderPins(); }
 }
-// Dlaždice „Tip na listopad“: k názvu země teplota přes den z Doporučení („Egypt · 🏖️ ~28 °C“) – samotná vlajka
-// a název neříkaly, proč zrovna tam; bez údaje o počasí (žádné letiště s podnebím) jen název.
-const tipDeg = r => { const w = (r.why || []).find(x => /°C/.test(x.t || '')), d = w && (w.t.match(/~-?\d+\s?°C/) || [])[0]; return d ? ` · ${w.ic} ${d}` : ''; };
 /** Dlaždice a „Kam vyrazit“ na přehledu (po změně navštívených zemí nebo cest – bez radaru a hlídaných cen). */
 function renderDashStats() {
   renderNow();
   // tipy na měsíc, na který se teď plánuje (od 20. dne už příští), bez navštívených zemí; s počasím, až dorazí
   const st = stats(), m = Recs.defaultMonth();
   const season = seasonOf(m, 'dash', () => { if (activeView === 'dashboard') renderDashStats(); });
-  const recs = recsFor(m, { season, skip: visited, n: 4 }).list, topRec = recs[0];
+  const recs = recsFor(m, { season, skip: visited, n: 4 }).list;
   const w = (S.watch || []).length;
-  // jen dlaždice, ve kterých něco je (nový uživatel neuvidí řadu nul); bez nich ani tip měsíce – ten je níž v Tipech
+  // jen dlaždice, ve kterých něco je (nový uživatel neuvidí řadu nul); tip měsíce ne – je níž v Tipech na …
   const tiles = [
     st.count ? ['Navštívené země', `${st.count}<small> / ${TOT}</small>`, `${st.pct} % světa`, `<div class="progress"><span style="width:${st.pct}%"></span></div>`] : null,
     w ? ['Hlídané ceny', `<span id="watchStatVal">${w}</span>`, `<span id="watchStatSub">${window.Flights ? Flights.watchStatTxt() : ''}</span>`, ''] : null,
     S.trips.length ? nextTripStat() : null,
   ].filter(Boolean);
-  if (tiles.length) tiles.push(['Tip na ' + MNS_FULL[m - 1], topRec ? `${flag(topRec.c.iso2)}` : '—', topRec ? topRec.c.cs + tipDeg(topRec) : '', topRec ? `<button type="button" class="linkbtn nt-open" data-tipiso="${topRec.c.iso2}">Proč tam →</button>` : '']);
   $('#statGrid').hidden = !tiles.length;
   $('#statGrid').innerHTML = tiles.map(s => `<div class="card stat"><div class="lab">${s[0]}</div><div class="val">${s[1]}</div><div class="sub">${s[2]}</div>${s[3] || ''}</div>`).join('');
   paintHero();
@@ -1477,7 +1419,6 @@ function renderDashStats() {
   Photos.paint($('#dashRecs'));
   $$('[data-nt]').forEach(b => b.onclick = () => { go('planner'); setTimeout(() => openTrip(+b.dataset.nt), 250); });
   $$('[data-gop]').forEach(b => b.onclick = () => go('planner'));
-  $$('[data-tipiso]').forEach(b => b.onclick = () => openCountry(b.dataset.tipiso));
 }
 
 /* ================= DEST CARD ================= */
@@ -2404,6 +2345,8 @@ function shiftEnd(oldStart, end, start) {
   if (okYmd(oldStart) && okYmd(end) && okYmd(start)) return new Date(Date.parse(end) + Date.parse(start) - Date.parse(oldStart)).toISOString().slice(0, 10);
   return end && okYmd(start) && end < start ? start : end;
 }
+/** Popisek odkazu do editTrip: cestě z průvodce (t.wizard) jde změnit jen název – termín a cestující jsou podle letu. */
+const tripEditLbl = t => (t && t.wizard ? 'Upravit název' : 'Upravit název a termín');
 /**
  * ✏️ Upravit v detailu cesty: název, termín a počet cestujících (dřív jen při vytvoření – překlep nebo posunutá cesta
  * znamenaly smazat a založit znovu). Cesta z průvodce má termín a cestující podle letu – ty se mění v průvodci (při
@@ -2451,8 +2394,10 @@ function openTrip(i) {
   flushRide(); // rozepsané pole vlaku (rideSoon) napřed uložit – překreslené okno ho ukáže
   const t = S.trips[i]; if (!t) return; tripShown = t; const c = t.iso ? byIso[t.iso] : null; const city = c && c.cap ? c.cap : t.dest;
   const local = localTrip(t) && !t.flight && !t.wizard, home = t.iso === 'CZ' && !t.flight && !t.wizard;
-  // výlet z Objevuj uložený dřív s cestovním seznamem (pas, adaptér…), nic neodškrtnuté → seznam na den venku
-  if (local && Array.isArray(t.checklist) && t.checklist.length === PACK.length && t.checklist.every((x, k) => x && x.t === PACK[k] && !x.done)) { t.checklist = packFor(t.src).map(x => ({ t: x, done: false })); save(); }
+  // neupravený seznam uložený dřív: výlet z Objevuj s cestovním seznamem → seznam na den venku, jiná cesta se starým
+  // obecným (adaptér, hotovost v místní měně – odporovaly radám podle země) → dnešní PACK; průvodce si seznam skládá sám
+  const fresh = !t.wizard && packFresh(t, local);
+  if (fresh) { t.checklist = fresh; save(); }
   const days = dateRange(t.start, t.end), live = tripLive(t), rides = tripRides(t);
   const dayHtml = (d, di) => { const acts = t.days[d] || [], now = live && live.today === d; return `<div class="day-block${now ? ' today' : ''}" data-day="${d}"><h4>Den ${di + 1} <span class="faint" style="font-weight:600">· ${fmtDate(d)}</span>${now ? '<span class="day-now">dnes</span>' : ''}</h4>${rides.filter(r => r.date === d).map(rideEd).join('')}${acts.map((a, ai) => `<div class="act"><span>${esc(a)}</span><button data-delact="${ai}" aria-label="Smazat aktivitu">${ico('M18 6L6 18M6 6l12 12')}</button></div>`).join('')}<div class="row" style="gap:8px;margin-top:8px"><input class="input" id="act-${i}-${d}" data-addact placeholder="Přidej aktivitu…" aria-label="Nová aktivita – den ${di + 1}"><button class="btn sm" data-addact>Přidat</button></div></div>`; };
   const part = {
@@ -2475,7 +2420,7 @@ function openTrip(i) {
       <div><h3 style="font-size:16px;margin-bottom:10px">💰 Rozpočet</h3><div class="field"><label for="bud-${i}">Celkový rozpočet (Kč)</label><input class="input" type="number" id="bud-${i}" value="${esc(t.budget || '')}"></div>${t.budget ? `<div class="muted" style="font-size:13px;margin-top:10px">Na osobu: <b style="color:var(--text)">${Math.round(t.budget / (t.pax || 1)).toLocaleString('cs')} Kč</b></div>` : ''}<div class="field" style="margin-top:14px"><label for="notes-${i}">Poznámky</label><textarea id="notes-${i}" rows="3" placeholder="Cokoliv k cestě…">${esc(t.notes || '')}</textarea></div></div>
     </div>`,
   };
-  modalOpen(`<div class="modal-hero"><div class="mh-bg ${c && c.cost >= 4 ? 'warm' : ''}"></div><button class="modal-close" data-close aria-label="Zavřít">${ico('M18 6L6 18M6 6l12 12')}</button><div class="modal-hero-inner"><div style="font-size:40px;line-height:1">${c ? flag(t.iso) : '🧳'}</div><h2 style="font-size:25px;margin-top:4px;overflow-wrap:anywhere">${esc(t.name)}</h2><div style="font-size:13px">${esc(t.dest)}${t.start ? ' · ' + dateSpan(t.start, t.end, ' – ') : ''} · ${t.pax} os.</div><button type="button" class="trip-edit" id="tripEdit">✏️ Upravit název a termín</button></div></div>
+  modalOpen(`<div class="modal-hero"><div class="mh-bg ${c && c.cost >= 4 ? 'warm' : ''}"></div><button class="modal-close" data-close aria-label="Zavřít">${ico('M18 6L6 18M6 6l12 12')}</button><div class="modal-hero-inner"><div style="font-size:40px;line-height:1">${c ? flag(t.iso) : '🧳'}</div><h2 style="font-size:25px;margin-top:4px;overflow-wrap:anywhere">${esc(t.name)}</h2><div style="font-size:13px">${esc(t.dest)}${t.start ? ' · ' + dateSpan(t.start, t.end, ' – ') : ''} · ${t.pax} os.</div><button type="button" class="trip-edit" id="tripEdit">✏️ ${tripEditLbl(t)}</button></div></div>
   <div class="modal-body">
     ${tripOrder(live).map(k => part[k]).join('\n    ')}
     <div class="divider"></div>

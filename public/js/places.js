@@ -2327,6 +2327,16 @@
     if (!t.iso && e.iso) t.iso = e.iso;
     return added;
   }
+  /** Řádky programu, které proti kopii před mergeInto (was) přibyly – za každý jeho den. Počítá se z rozdílu, ne z čísla
+      mergeInto: to nezapočte místo, které uživatel v itineráři smazal a uložení ho vrátilo (hláška by tvrdila „už máš“). */
+  const newLines = (was, now) => Object.keys(now || {}).flatMap(d => (Array.isArray(now[d]) ? now[d].filter(x => !(Array.isArray(was && was[d]) ? was[d] : []).includes(x)).map(() => d) : []));
+  /** Dny, do kterých přibyl řádek, který tam předtím nebyl, seřazené. */
+  const newDays = (was, now) => [...new Set(newLines(was, now))].sort();
+  /** Hláška po „Přidat k cestě“ podle toho, co mergeInto opravdu přidal (čistá funkce – test/ux-texty-pravda.test.js):
+      dřív „Přidáno k cestě“, i když všechna místa v programu už byla a nic nepřibylo – vypadalo to, že se ztratila. */
+  const addMsg = (name, added, days = []) => (added > 0
+    ? `K cestě ${name} přidáno: ${placesTxt(added)}${days.length ? ` (${days.length > 3 ? `${dayLbl(days[0])} – ${dayLbl(days.at(-1))}` : days.map(dayLbl).join(', ')})` : ''}`
+    : `Všechna tahle místa už v programu cesty ${name} máš`);
   const shortName = s => (s.length > 32 ? `${s.slice(0, 30).trim()}…` : s);
   const saveHtml = (i, trips) => (i >= 0
     ? `<button class="btn" id="exSave" title="${esc(`Přidat k cestě ${trips[i].name} (stejné místo v jejím termínu)`)}">💾 Přidat k cestě ${esc(shortName(trips[i].name))}</button><button type="button" class="linkbtn ex-savenew" id="exSaveNew">uložit jako novou</button>`
@@ -3120,8 +3130,10 @@
       const i = asNew ? -1 : findTripFor(S.trips, entry);
       let t = S.trips[i];
       const busy = t ? busyDays(t, entry) : [];
+      const was = t ? JSON.parse(JSON.stringify(t.days || {})) : null;
       if (t) mergeInto(t, entry);
-      else S.trips.push(t = { ...entry, explore: { [entry.src]: entry.days }, exploreNotes: { [entry.src]: entry.notes }, genName: entry.name, pax: '2', budget: '', checklist: packFor(entry.src).map(x => ({ t: x, done: false })) });
+      const added = t ? newLines(was, t.days).length : 0, days = t ? newDays(was, t.days) : [];
+      if (!t) S.trips.push(t = { ...entry, explore: { [entry.src]: entry.days }, exploreNotes: { [entry.src]: entry.notes }, genName: entry.name, pax: '2', budget: '', checklist: packFor(entry.src).map(x => ({ t: x, done: false })) });
       save();
       $$('#exSave, #exSaveNew', body).forEach(b => { b.disabled = true; });
       const sv = $('#exSave', body);
@@ -3130,9 +3142,10 @@
       // celodenní výlet / túra / kolo do dne, který už má program (město z průvodce nebo z Objevuj): říct to – oboje
       // ten den nestihneš (dřív tiše výlet i celý program města v jednom dni)
       const warn = busy.length ? ` · pozor, ${busy.map(dayLbl).join(', ')} už ${busy.length > 1 ? 'mají' : 'má'} program – uprav ho v Mých cestách` : '';
-      actToast(i >= 0 ? `Přidáno k cestě ${t.name}${warn}` : 'Uloženo do Mých cest', 'Otevřít v Mých cestách', () => {
+      actToast(i >= 0 ? `${addMsg(t.name, added, days)}${warn}` : 'Uloženo do Mých cest', 'Otevřít v Mých cestách', () => {
         go('planner');
-        setTimeout(() => { const j = S.trips.indexOf(t); if (j >= 0 && typeof openTrip === 'function') openTrip(j); }, 250);
+        // rovnou na první den, kam něco přibylo (dřív okno nahoře a nová místa hledej v itineráři)
+        setTimeout(() => { const j = S.trips.indexOf(t); if (j >= 0 && typeof openTrip === 'function') { openTrip(j); if (days.length) $(`#modal .day-block[data-day="${days[0]}"]`)?.scrollIntoView({ block: 'start' }); } }, 250);
       });
     };
     on('#exSave', 'onclick', () => store(false));
@@ -3184,7 +3197,7 @@
     renderExplore, renderPlanner, retheme, routeMap, dayRoute, gmDir, openAt, preview, previewHtml, openCountryView, makeHikePlan,
     dayCol, dayInk, // barvy a čísla míst trasy (trip.js)
     // jen pro testy (test/places-ui.test.js)
-    _t: { recolor, hikesAt, wxAvgWhy, tripDropUndo, tripPlaces, ownPlaces, savedPlaces, tripDatesFor, inspSub, searchedPlaces, plural, placesTxt, mustTxt, inRadius, needsFetch, outsideIds, planIds, withPlanStops, enterAction, missNext, sugHtml, waitHtml, errLead, errHtml, httpErr, mustBtn, poiCard,
+    _t: { newLines, newDays, addMsg, recolor, hikesAt, wxAvgWhy, tripDropUndo, tripPlaces, ownPlaces, savedPlaces, tripDatesFor, inspSub, searchedPlaces, plural, placesTxt, mustTxt, inRadius, needsFetch, outsideIds, planIds, withPlanStops, enterAction, missNext, sugHtml, waitHtml, errLead, errHtml, httpErr, mustBtn, poiCard,
       uiSnapshot, uiRestore, okStart, pushRecent, samePlace, cleanPlace, getJson, firstSentence, descHtml, inclHtml, gq, poiQ, centerQ, gmDir, dayLbl, slug, gpxOf, SLOW_MS, UI_LS,
       countryCs, ccAliasHits, stopQ, mapyDir, dayLinks, planHtml, tripHtml, MAPY_WP, emptyHtml, planEmptyHtml, variantTxt, routeHtml, ROUTE_VARIANTS, blankHtml, looksEnglish, surfaceRows, surfaceHtml,
       afterDark, routeBack, sunSlot, sunHtml, fillSun, toHm, modeBtns, previewPick, previewCard, moreTxt, poiUrl, pvFor, PREVIEW_KM, ex, loadExplore,
