@@ -33,6 +33,7 @@ Navigační mapa repozitáře: kde co je a jak to spolu souvisí, aby se kód da
 - ✨ Hledání větou → `public/js/smart.js`: `parse()`, `rule()`, `seaFor()`; `public/js/flights.js`: `smartResolve()`, `smartRun()`, `smartTips()`
 - ♡ Hlídání cen a jeho kontrola → `public/js/flights.js`: `addWatch()`, `checkOne()`, `startAutoCheck()`, `renderWatch()`; `public/js/alerts.js`: `scheduler()`, `applyCheck()`, `shouldNotify()`
 - Radar na Přehledu → `public/js/flights.js`: `renderRadar()`, `radarSearch()`, `paintRadar()`; `public/js/searchhelp.js`: `radarQuery()`, `radarPick()`, `radarEntry()`
+- Prázdný výsledek v čistém režimu (proč nic, Kamkoliv, hledání trasy na Aviasales) → `public/js/flights.js`: `cleanEmpty()` v `emptyState()`, radar `radarEmptyTxt()` v `radarEmpty()`; odkaz ze serveru `res.tpSearch` → `server/lib/search.js`: `emptyTpSearch()`
 - ⭐ Moje cíle, 🙈 Nezajímá mě, 📌 Odložené → `public/js/flights.js`: `destMenu()`, `searchFavs()`, `openPins()`; `public/js/searchhelp.js`: `destPrefSet()`; `public/js/pins.js`: `toggle()`, `refresh()`, `rank()`
 - ⚡ Živé ověření ceny → `public/js/flights.js`: `verifyOne()`, `autoVerify()`; `server/providers/kiwi.js`: `kiwi.exact()`
 - Odkazy na rezervaci → `server/providers/ryanair.js`, `server/providers/wizzair.js`, `server/providers/travelpayouts.js`: `bookingUrl()`; `server/lib/search.js`: `roundTripUrl()`
@@ -124,6 +125,7 @@ Navigační mapa repozitáře: kde co je a jak to spolu souvisí, aby se kód da
 - 📲 Přenos do jiného zařízení → `public/js/transfer.js`: `open()`, `fromHash()`, `receive()`; `public/js/qr.js`: `encode()`, `svg()`
 - Service worker, offline: co obsluhuje (`route()`: API, /c/, /j/ ne), kdy ukládá (`networkFirst()`, `remember()`) → `public/sw.js`; co předem uloží (PRECACHE = `shellAssets()` ze stránky + `RUNTIME_ASSETS` + `cssAssets()` = písma a obrázky z url() ve stylech bez Interu a Sory – `OLD_FONTS`), BUILD a otisky souborů → `server/lib/pwa.js`: `serviceWorker()`, `contentVersion()`
 - Nová verze, offline pruh, instalace, české chyby sítě → `public/js/pwa.js`: `checkVersion()`, `install()`, `httpError()`, `netError()`, `whenOnline()`
+- Probouzení uspaného serveru (pruh „Probouzím server…“, když dotaz na API přes 4 s visí) → `public/js/pwa.js`: `wakeDue()`, `wakeWatch()` v obalu fetch, `Pwa.onWake`; pruh `wakeBar()` v `public/js/flights.js`
 - Odložené moduly a knihovny map → `public/js/lazy.js`: `need()`, `run()`, `soon()`, `url()`
 - Navigace, Zpět, okno, hlášky, stav S, motiv → `public/js/app.js`: `go()`, `buildNav()`, `histPop()`, `histSub()` (krok uvnitř sekce: Zpět z 🔎 Prozkoumat na přehled země), `modalOpen()`, `modalClose()`, `toast()`, `save()`, `applyTheme()`
 - ✨ Co je nového → `public/js/app.js`: `WHATS_NEW`, `WN_ID`, `whatsNewPop()`, `whatsNewOpen()`
@@ -407,6 +409,7 @@ Skripty (vše `node scripts/…`; README ## Data a licence má příkazy pro akt
 - Sdílení, záloha, přenos: `test/sharelink.test.js`, `test/sharecard.test.js`, `test/offershare.test.js`, `test/sdileni-bezpecnost.test.js` (odkazy ve sdílené cestě), `test/share-codes.test.js`, `test/backup.test.js`, `test/transfer.test.js`, `test/qr.test.js`
 - ⭐ Plus (falešné dveře, počítání cest, otázka na cenu, karta sešitu): `test/plus.test.js`; měření Plus a souhlasu (list u víc cest, zobrazení karty sešitu, Moje cesty × průvodce, popisky Cest návštěv): `test/mereni-plus.test.js`
 - Klávesnice na počítači (pořadí Tabu v úvodu Přehledu, Přeskočit na obsah): `test/klavesnice.test.js`
+- Prázdné a pomalé stavy čistého režimu (prázdné hledání a radar, probouzení serveru): `test/ux-prazdne-stavy.test.js`
 - Karta nabídky a nákup (nákup pod cenou, věta o dvou letenkách, partnerský odkaz, řádek původu ceny s ⓘ): `test/ux-lety-nakup.test.js`
 - „Mám letenku“, „Koupeno?“ a zapojení počítadel (každá událost na jednom místě): `test/mam-letenku.test.js`
 - Vzhled, přístupnost, telefon a počítač: `test/a11y.test.js`, `test/css-ph.test.js`, `test/dark-visual.test.js`, `test/vzhled-letsi.test.js` (výchozí vzhled Letsi a nouzová cesta ?vzhled=atlas, manifest, offline sada, pravidla letsi.css), `test/ikony-letsi.test.js` (ikony rozhraní Letsi místo emoji: `ikona()`, `.ico` v atlas.css, soubory z balíku, aria-hidden), `test/kukatko.test.js` (kukátko: stavy z DOM, jedno slunce, omezený pohyb, usínání ve tmě), `test/desktop.test.js`, `test/desktop-trip.test.js`, `test/modal-scroll.test.js`, `test/phone-text.test.js`, `test/phone-visual.test.js`, `test/theme.test.js`, `test/history.test.js`, `test/newcomer.test.js`

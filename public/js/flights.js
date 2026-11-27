@@ -2318,6 +2318,7 @@
       emptyAsk(res);
       if (window.Count && Count.ask) Count.ask($('.empty-res .smart-help', host), { ...EMPTY_ASK, rate: 0 }); // překreslení: už položená otázka zpět, nová ne
       $$('[data-mt]', host).forEach(b => b.onclick = () => { fixHit('warm'); setMinTemp(b.dataset.mt); startSearch({ noScroll: true }); });
+      $$('[data-anyw]', host).forEach(b => b.onclick = () => { fixHit('anywhere'); rerun({ to: [] }); }); // čistý režim: Kamkoliv z téhož letiště
       wireHelp(host);
       if (view.gndOpen) showGround(true, false);
       return;
@@ -2420,6 +2421,25 @@
     return `vč. odhadu příplatku za ${bags === 'cabin' ? 'kabinový kufr do 10 kg' : 'kufr k odbavení 20–23 kg (kabinový kufr se nepočítá)'} – typická cena u dopravce při nákupu s letenkou, přesnou ukáže až rezervace`;
   }
 
+  /**
+   * Prázdný výsledek v čistém režimu (jediný zdroj = mezipaměť Aviasales, bez chyby, bez skrývajícího filtru a „za
+   * teplem“): let nejspíš existuje, jen ho za posledních 48 h nikdo nehledal – neříkat „nic jsem nenašel“, ale proč a
+   * kudy dál (Kamkoliv z téhož letiště, hledání trasy rovnou na Aviasales – odkaz ze serveru, res.tpSearch). Jinak null.
+   * → { title, msg, anywhere: z jakého letiště nabídnout Kamkoliv | '', link: { url, from, to } | null }
+   */
+  function cleanEmpty(res) {
+    const ps = res.providers || [], hid = (res.filters && res.filters.hidden) || {};
+    if (!ps.length || ps.some(p => p.id !== 'travelpayouts' || p.error) || res.warm || hid.maxPrice || hid.directOnly) return null;
+    const ap = (res.origins || []).map(o => o.iata).join(', '), any = res.destination.kind === 'anywhere';
+    const link = !any && res.tpSearch && /^https:\/\//.test(res.tpSearch.url || '') ? res.tpSearch : null;
+    const next = [any ? 'jiný měsíc nebo delší termín' : 'jiný termín', any ? '' : `Kamkoliv z ${ap}`, link ? 'hledání rovnou na Aviasales' : ''].filter(Boolean);
+    return {
+      title: 'Na tohle zatím nemám cenu',
+      msg: `Orientační ceny beru z toho, co jiní cestující za posledních 48 hodin hledali na Aviasales – z ${ap}${any ? '' : ` do cíle ${res.destination.label}`} pro tyhle termíny zatím nikdo. Let přesto může existovat. Zkus ${next.length > 1 ? next.slice(0, -1).join(', ') + ' nebo ' + next[next.length - 1] : next[0]}.`,
+      anywhere: any ? '' : ap, link,
+    };
+  }
+
   function emptyState(res) {
     const errs = res.providers.filter(p => p.error).map(p => `<li><b>${esc(provName(p.id))}:</b> ${esc(p.error)}</li>`).join('');
     const notes = res.providers.filter(p => p.note).map(p => `<li><b>${esc(provName(p.id))}:</b> ${esc(p.note)}</li>`).join('');
@@ -2440,10 +2460,15 @@
       : w && w.destHi != null && w.destHi < w.minTemp
       ? `V cíli ${esc(res.destination.label)} bývá v měsících odletu přes den průměrně nejvýš ~${w.destHi} °C – na filtr „za teplem“ ≥ ${w.minTemp} °C to nestačí.`
       : `Z ${aps} jsem pro zadané termíny nenašel žádný let${res.destination.kind !== 'anywhere' ? ' do cíle ' + esc(res.destination.label) : ''}.${w ? ` Filtr „za teplem“ pouští jen cíle, kde bývá v měsíci odletu přes den aspoň ${w.minTemp} °C.` : ''}`;
-    return `${kiwiBanner(res)}${groundBanner(res)}${nearbyHtml(res, true)}<div class="card empty-res"><div class="ei">${w ? '🌡️' : '🧭'}</div><h2>${hid.length && !(w && w.dropped) ? 'Filtrům nic neodpovídá' : 'Nic jsem nenašel'}</h2>
-      <p class="muted">${msg}</p>
+    // čistý režim: proč nic (mezipaměť trasu nezná) a kudy dál; Kamkoliv jen jednou (nápověda ho u Evropy nabízí sama)
+    const cl = cleanEmpty(res), help = smartHelp(res, true);
+    const anyw = cl && cl.anywhere && !actReg.some(a => a.key === 'anywhere');
+    const next = cl && (cl.link || anyw) ? `<div class="row wrap clean-next">${cl.link ? `<a class="btn sm primary" href="${esc(safeUrl(cl.link.url))}" target="_blank" rel="${buyRel(cl.link.url)}">Hledat ${esc(cl.link.from)} → ${esc(cl.link.to)} na Aviasales ↗${adTag(cl.link.url)}</a>` : ''}${anyw ? `<button type="button" class="btn sm" data-anyw="1">🌍 Kamkoliv z ${esc(cl.anywhere)}</button>` : ''}</div>` : '';
+    return `${kiwiBanner(res)}${groundBanner(res)}${nearbyHtml(res, true)}<div class="card empty-res"><div class="ei">${w ? '🌡️' : '🧭'}</div><h2>${cl ? cl.title : hid.length && !(w && w.dropped) ? 'Filtrům nic neodpovídá' : 'Nic jsem nenašel'}</h2>
+      <p class="muted">${cl ? esc(cl.msg) : msg}</p>
+      ${next}
       ${w ? `<div class="row wrap warm-retry">${lower.map(x => `<button type="button" class="btn sm ${x === fits ? 'primary' : ''}" data-mt="${x}">Snížit na ≥ ${x} °C</button>`).join('')}<button type="button" class="btn sm ghost" data-mt="0">Hledat bez teplotního filtru</button></div>` : ''}
-      ${smartHelp(res, true)}
+      ${help}
       ${errs ? `<div class="note bad" style="text-align:left;margin-top:12px"><div><b>Chyby zdrojů:</b><ul>${errs}</ul></div></div>` : ''}
       ${notes ? `<div class="note info" style="text-align:left;margin-top:12px"><div><ul>${notes}</ul></div></div>` : ''}</div>`;
   }
@@ -5055,14 +5080,33 @@
     const b = $('#radarRetry', host);
     if (b) { retryTick(b); b.onclick = () => renderRadar(true); }
   }
+  /**
+   * Text prázdného radaru. V čistém režimu (clean: jen mezipaměť Aviasales) „nic jsem nenašel“ klame – lety jsou, jen
+   * je za posledních 48 h z okolí nikdo nehledal; longer = do kdy nabídnout Kamkoliv v Letech (holiday a q.none ne).
+   */
+  function radarEmptyTxt(q, clean, longer = '') {
+    if (!clean || q.none) return q.empty;
+    const when = q.mode === 'holiday' ? 'nejbližší prodloužený víkend' : q.mode === 'weekend' ? 'víkendy v příštích 6 týdnech' : 'příštích 6 týdnů';
+    return `Orientační ceny beru z toho, co jiní cestující za posledních 48 hodin hledali na Aviasales – na ${when} z okolí zatím nic. Zkus větší okruh${longer ? ` nebo Kamkoliv až do ${longer}` : q.mode !== 'all' ? ' nebo Kdykoliv' : ''}.`.replace(/\.\.$/, '.'); // datum „27. 3.“ už tečku má
+  }
   /** Prázdný radar: hláška (větší okruh, Kdykoliv, Víkendy) i s tlačítky, ať se nemusí hledat, kde to změnit. */
   function radarEmpty(q, icon) {
     const host = $('#radar');
     const modes = q.none ? ['all', 'weekend'] : q.mode !== 'all' ? ['all'] : [];
-    host.innerHTML = `<div class="note info kiwi-note">${icon} <div>${esc(q.empty)}</div>`
+    // čistý režim (živé zdroje vypnuté): na delší termín má mezipaměť víc – Kamkoliv z domova v Letech na 4 měsíce
+    const clean = provOn(health, 'travelpayouts') && !provOn(health, 'ryanair') && !provOn(health, 'wizzair') && !provOn(health, 'kiwi');
+    const dTo = clean && !q.none && q.mode !== 'holiday' ? SearchHelp.addDays(today(), 120) : '';
+    host.innerHTML = `<div class="note info kiwi-note">${icon} <div>${esc(radarEmptyTxt(q, clean, dTo ? SearchHelp.dm(dTo) : ''))}</div>`
       + (q.none ? '' : '<button type="button" class="btn sm" id="radarWider">Větší okruh</button>')
+      + (dTo ? `<button type="button" class="btn sm" id="radarLonger">🌍 Kamkoliv do ${SearchHelp.dm(dTo)}</button>` : '')
       + modes.map(m => `<button type="button" class="btn sm" data-rm="${m}">${m === 'all' ? 'Kdykoliv' : 'Víkendy'}</button>`).join('') + '</div>';
     const w = $('#radarWider', host); if (w) w.onclick = () => radarSetup(true);
+    const lg = $('#radarLonger', host);
+    if (lg) lg.onclick = () => {
+      go('flights');
+      setForm({ ...defaultForm(), ...prefsOf(S.form), from: S.home.from, to: [], ...q.form, dTo, ...radarPax(q.payload.adults), directOnly: false });
+      startSearch();
+    };
     $$('[data-rm]', host).forEach(b => b.onclick = () => { S.radarNudged = true; S.radarMode = b.dataset.rm; save(); renderRadar(); });
   }
   /** Nastavení domova radaru („Odkud obvykle létáš?“) – poprvé, nebo změna (edit: předvyplněné, se Zrušit). */
@@ -6055,7 +6099,8 @@
     el.innerHTML = `<b>Hlídej vstupní podmínky.</b> Do USA potřebuješ ${reg('US')}, do Kanady ${reg('CA')}, do Británie ${reg('GB')}. Vyřizuj je jen na oficiálních webech (zprostředkovatelé si účtují víc). Letsi je ukáže u výsledků (🛂) a podrobně v detailu země – zdroj MZV ČR, ověřeno ${esc(Entry.checkedTxt() + Entry.ageTxt())}.`;
   }
 
-  /* Pruh „Čekám na server“ s letadlem (uspaný server na Renderu zdarma): 'wait' ukázat, 'ok' doletět a zmizet, jinak zmizet. */
+  /* Pruh „Probouzím server“ s letadlem (uspaný server na Renderu zdarma; kdy – pwa.js wakeWatch přes Pwa.onWake, pro
+     každý dotaz na API): 'wait' ukázat, 'ok' doletět a zmizet, jinak zmizet. */
   const JET = 'M97 50C97 47 94 45.5 90 45.5H60L40 9H33L45 45.5H22L14 31H9L12 47L11 50L12 53L9 69H14L22 54.5H45L33 91H40L60 54.5H90C94 54.5 97 53 97 50Z';
   function wakeBar(state) {
     let bar = $('#wakeBar');
@@ -6065,7 +6110,7 @@
       bar.id = 'wakeBar';
       bar.className = 'wake-bar';
       bar.setAttribute('role', 'status');
-      bar.innerHTML = `<div class="wake-track" aria-hidden="true"><svg class="wake-jet" viewBox="0 0 100 100"><path fill="currentColor" d="${JET}"/></svg></div><span><b>Čekám na server Letsi…</b> Na bezplatném hostingu usíná, probudí se do půl minuty. Uložené cesty fungují hned.</span>`;
+      bar.innerHTML = `<div class="wake-track" aria-hidden="true"><svg class="wake-jet" viewBox="0 0 100 100"><path fill="currentColor" d="${JET}"/></svg></div><span><b>Probouzím server, chvilku to trvá…</b> Po delší pauze usíná a probouzí se do minuty. Uložené cesty fungují hned.</span>`;
       const demo = $('#demoBanner'), main = $('.main');
       if (demo) demo.after(bar); else if (main) main.prepend(bar);
       return;
@@ -6121,16 +6166,14 @@
       window.addEventListener('online', go);
       healthNow = go;
     };
+    // pruh s letadlem, když dotaz na API (stav serveru, radar, hledání…) přes 4 s visí – server se probouzí (pwa.js)
+    if (window.Pwa && Pwa.onWake) Pwa.onWake(wakeBar);
     try {
-      // Na stav serveru se při startu čeká nejvýš 1 s: uspaný server (Render zdarma) se probouzí až půl minuty –
-      // aplikace se zatím vykreslí bez něj a zdroje cen se doplní, až odpoví. Trvá-li to přes 2,5 s, nahoře je pruh
-      // s letadlem, dokud server neodpoví.
+      // Na stav serveru se při startu čeká nejvýš 1 s: uspaný server (Render zdarma) se probouzí až minutu –
+      // aplikace se zatím vykreslí bez něj a zdroje cen se doplní, až odpoví.
       const h = await Promise.race([warm(), new Promise(r => setTimeout(r, 1000, null))]);
       if (h) useHealth(h);
-      else {
-        const t = setTimeout(() => wakeBar('wait'), 1500);
-        warm().then(x => { clearTimeout(t); useHealth(x); renderSources(); wakeBar('ok'); }, e => { clearTimeout(t); wakeBar('fail'); down(e); retry(); });
-      }
+      else warm().then(x => { useHealth(x); renderSources(); }, e => { down(e); retry(); });
     } catch (e) {
       down(e); retry();
     }
