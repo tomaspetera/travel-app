@@ -109,6 +109,20 @@ test('retimeSaved: jen posun (stejná délka) nechá program platný; cesta otev
   assert.equal(T.retimeSaved({ ...c.S.trips[0], wizard: { ...c.S.trips[0].wizard, flight: { ...c.S.trips[0].wizard.flight, own: false } } }, { start: '2027-05-01', end: '', adults: '1' }), null);
 });
 
+test('retimeSaved: ručně zadané ubytování zůstane, při jiném počtu nocí hláška ať zkontroluje cenu; auto zadat znovu', () => {
+  const c = load(), T = c.window.Trip;
+  T.start({ ...T.ownFlightTrip({ dest: LIS, out: '2027-03-27', back: '2027-04-01', adults: 2 }), step: 'route' });
+  Object.assign(c.S.trip, { stay: { mode: 'manual', name: 'U kamaráda', totalCzk: 3000 }, car: { mode: 'pick', name: 'Fiat', from: '2027-03-27T10:00', to: '2027-04-01T10:00', totalCzk: 4000 } });
+  c.S.trips = [];
+  T.saveToPlanner({ quiet: true });
+  c.S.trip = null;
+  // stejná délka (5 nocí), jen posun: cena ubytování dál platí
+  assert.equal(T.retimeSaved(c.S.trips[0], { start: '2027-04-03', end: '2027-04-08', adults: '2' }), 'zadej znovu auto');
+  // 2 noci místo 5
+  assert.equal(T.retimeSaved(c.S.trips[0], { start: '2027-04-10', end: '2027-04-12', adults: '2' }), 'zkontroluj cenu ubytování');
+  assert.deepEqual(plain(c.S.trips[0].wizard.stay), { mode: 'manual', name: 'U kamaráda', totalCzk: 3000 });
+});
+
 test('↩ Jiný let: bez výsledků do téhož cíle otevře Lety s cílem a daty cesty (dřív prázdné hledání)', () => {
   const c = load(), T = c.window.Trip;
   T.start(T.ownFlightTrip({ dest: LIS, out: '2027-03-27', back: '2027-04-01' }));
@@ -140,6 +154,9 @@ test('tripFlights: cesta z průvodce s cílem městem hledá na letiště letu, 
   // vlastní cesta z Objevuj bez letiště: země jako dřív
   ctx.window.tripFlights({ iso: 'PT', start: '2027-05-01', end: '' });
   assert.deepEqual(plain(calls.pop()), ['to', [{ id: 'cc:PT', label: 'Portugalsko', flag: '[PT]' }], { xOut: '2027-05-01', xBack: '' }]);
+  // starší uložená cesta s letištěm bez názvu (a bez průvodce): hledá dál, nespadne
+  ctx.window.tripFlights({ place: { id: 'ap:LIS' }, start: '2027-05-01', end: '' });
+  assert.deepEqual(plain(calls.pop()), ['to', [{ id: 'ap:LIS', label: '', flag: '' }], { xOut: '2027-05-01', xBack: '' }]);
   assert.match(APP, /^window\.planSearch = i => tripFlights\(S\.trips\[i\]\);$/m);
 });
 

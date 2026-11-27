@@ -2297,7 +2297,7 @@ window.tripFlights = t => {
   const wd = t.wizard && t.wizard.dest, p = t.place || (wd && { id: wd.id, label: wd.label, flag: wd.cc ? flag(wd.cc) : '' });
   // cesta z průvodce s cílem městem („Lisabon“ z Letenku už mám): letiště, kam let vede – ne celá země
   const ap = p && /^(ap|metro):[A-Z]{3}$/.test(p.id || '') ? p.id : wf && wf.out && /^[A-Z]{3}$/.test(wf.out.to) ? 'ap:' + wf.out.to : '';
-  const to = ap ? [{ id: ap, label: String((p && p.label) || wf.out.to), flag: (p && p.flag) || (t.iso ? flag(t.iso) : '') }]
+  const to = ap ? [{ id: ap, label: String((p && p.label) || (wf && wf.out.to) || ''), flag: (p && p.flag) || (t.iso ? flag(t.iso) : '') }]
     : t.iso && byIso[t.iso] ? [{ id: 'cc:' + t.iso, label: byIso[t.iso].cs, flag: flag(t.iso) }] : null;
   if (!to) return go('flights');
   Flights.searchTo(to, { xOut: t.start, xBack: t.end });

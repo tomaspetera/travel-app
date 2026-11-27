@@ -4503,7 +4503,7 @@ let calOut = false; // jedna obsluha klepnutí mimo nabídku „Do kalendáře �
    */
   function retimeOwn(t, start, end, adults) {
     const sig = () => JSON.stringify([t.flight.out.date, t.flight.back && t.flight.back.date, t.flight.back ? 0 : t.nightsOneWay, +t.adults]);
-    const times = tripTimes(t), plan = tripPlan(t), was = sig();
+    const times = tripTimes(t), plan = tripPlan(t), was = sig(), nights = stayDates(t).nights;
     Object.assign(t, shiftYmd(t, daysBetween(t.flight.out.date, start)));
     const f = t.flight;
     // let jen tam: návrat v Mých cestách je konec pobytu (nocí), ne zpáteční let – ten si nikdo nezadal
@@ -4517,7 +4517,9 @@ let calOut = false; // jedna obsluha klepnutí mimo nabídku „Do kalendáře �
     // program platil pro původní termín: posunutý platí dál, kratší / delší se jen srovná do nových dnů (nic nezmizí)
     if (plan && t.plan && !tripPlan(t)) t.plan = fitPlan(t.plan, progSpan(t));
     const r = retime(t, times), car = r === 'car' || r === 'both';
-    return [hotel ? 'hotel vyber v průvodci znovu' : '', car ? 'zadej znovu auto' : ''].filter(Boolean).join(', ');
+    // ručně zadaná cena ubytování platila pro původní počet nocí – zůstane, ale upozornit (jako po změně nocí v průvodci)
+    const manual = t.stay && t.stay.mode === 'manual' && stayDates(t).nights !== nights;
+    return [hotel ? 'hotel vyber v průvodci znovu' : '', manual ? 'zkontroluj cenu ubytování' : '', car ? 'zadej znovu auto' : ''].filter(Boolean).join(', ');
   }
   /**
    * ✏️ Upravit v Mých cestách: uložená cesta s vlastním letem (e) na nový termín – průvodce i záznam v seznamu (název
