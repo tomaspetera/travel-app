@@ -1,6 +1,6 @@
 // Navazující drobnosti po kontrole přenosu a zálohy: vlastní let bez Odkud přežije zálohu i přenos (PlanShare.leg),
 // cena cesty z průvodce (totalCzk) se přenáší, odkaz vložený do otevřené stránky průvodce nevrátí o krok (app.js
-// histPop) a filtr zdrojů ve výsledcích letů se jmenuje Prodejce. Klasické skripty přes node:vm.
+// histPop – ani Zpět, které pak zavře náhled odkazu) a filtr zdrojů ve výsledcích letů se jmenuje Prodejce. Klasické skripty přes node:vm.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -81,6 +81,22 @@ test('odkaz (#sync=) vložený do otevřené stránky v průvodci průvodce nevr
   assert.equal(c.Trip.step, 'summary');
   H.i--; c.histPop();
   assert.equal(c.Trip.step, 'flight');
+});
+
+test('Zpět, které zavře náhled přenosu z odkazu, nevrátí skrytý průvodce o krok – uložená cesta se nezmění', () => {
+  const { c, H } = hist();
+  c.histTrip('flight', 'summary'); c.Trip.step = 'summary';
+  c.history.pushState(null, '', '#sync=z7VxNj9xGev4');
+  c.histPop();
+  // Transfer.fromHash: adresa → #dashboard, Přehled (go bez kroku historie) a nad ním okno náhledu
+  c.history.replaceState(null, '', '#dashboard');
+  vm.runInContext("activeView = 'dashboard'; hist.modal = true;", c);
+  c.history.pushState({ atlasM: 1 }, '', '#dashboard');
+  const n = H.list.length;
+  H.i--; c.histPop();
+  assert.equal(c.Trip.step, 'summary', 'průvodce na Přehledu není vidět – krok ani uložení');
+  assert.equal(H.list.length, n, 'žádný nový krok průvodce v historii');
+  assert.deepEqual(H.pending, []);
 });
 
 test('filtr zdrojů ve výsledcích letů: „Prodejce“ se jménem prodejce, ne „Aerolinky: Letenky (Aviasales)“', () => {

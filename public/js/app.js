@@ -308,8 +308,10 @@ function histPop() {
   // jinak couvl o krok a uložil se (autoSave) – zpětný přenos by změnil cestu, i když se nic neslučuje; odkaz zpracuje hashchange
   if (!st && /^#[a-z]+=/.test(location.hash)) return;
   // Zpět z kroku průvodce: předchozí krok, kterým uživatel prošel (krok, na kterém cesta už je, se přeskočí); krok
-  // průvodce se vrátí, dokud je kam couvat – nebylo-li kam, Zpět pokračuje o krok dál (výsledky, Přehled)
-  if (hist.step && !(st && st.atlasT)) {
+  // průvodce se vrátí, dokud je kam couvat – nebylo-li kam, Zpět pokračuje o krok dál (výsledky, Přehled). Jen když je
+  // průvodce vidět: odkaz (#sync=…) přepne jinam bez kroku historie a Zpět, které pak zavře jeho náhled, by skrytý
+  // průvodce vrátil o krok a uložil (autoSave) – cesta by se změnila, i když se nic neslučovalo
+  if (hist.step && activeView === 'trip' && !(st && st.atlasT)) {
     hist.step = false;
     let prev, moved = false;
     while (!moved && (prev = hist.trail.pop())) moved = Boolean(window.Trip && Trip.stepTo && Trip.stepTo(prev));
