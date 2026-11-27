@@ -19,7 +19,7 @@ function load({ clipboard = false } = {}) {
   const ctx = { URLSearchParams, TextEncoder, TextDecoder, btoa, atob, console, navigator: clipboard ? { clipboard: { writeText: async () => {} } } : {} };
   ctx.window = ctx;
   vm.createContext(ctx);
-  vm.runInContext(pick('esc', 'enc', 'flag', 'safeUrl', 'cssUrl', 'pad', 'fmtYMD', 'fmtDate', 'czk'), ctx, { filename: 'app-helpers.js' });
+  vm.runInContext(pick('esc', 'enc', 'flag', 'ikona', 'safeUrl', 'cssUrl', 'pad', 'fmtYMD', 'fmtDate', 'czk'), ctx, { filename: 'app-helpers.js' });
   vm.runInContext(`var S = { trips: [] }, __els = {}, __go = [], __toasts = [];
     var $ = (s) => (__els[s] ||= { innerHTML: '', value: '', remove() {} });
     var $$ = () => []; var go = (v) => { __go.push(v); }; var save = () => {}; var toast = (m) => { __toasts.push(m); }; var confirm = () => true;

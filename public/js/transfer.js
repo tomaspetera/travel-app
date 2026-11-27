@@ -140,7 +140,7 @@
     }
     // celá data, nebo štíhlá (Backup.packSlim) – ta jen tehdy, když se díky nim vejdou do QR kódu (nebo vůbec do odkazu);
     // typická cesta z průvodce se do QR nevejde ani štíhle a odkazem pak jde celá, i s popisy a fotkami programu
-    const full = Backup.snapshot(), slim = Backup.snapshot({ slim: true }), my = ++token, send = native() ? '📤 Poslat odkaz' : '🔗 Kopírovat odkaz';
+    const full = Backup.snapshot(), slim = Backup.snapshot({ slim: true }), my = ++token, send = native() ? '<span class="ico i-sdilet" aria-hidden="true"></span> Poslat odkaz' : 'Kopírovat odkaz';
     modalOpen(`<div class="modal-body tf-modal">
       <h3>Přenést do jiného zařízení</h3>
       <p class="muted tf-lead" id="tfLead">Pošli si odkaz do druhého zařízení – AirDropem, Quick Share, e-mailem nebo do chatu sám sobě – a otevři ho tam. Letsi ukáže, co přibude, a nabídne <b>Sloučit</b> nebo <b>Nahradit</b>. Bez účtu, data jdou jen v odkazu (na server ne).</p>

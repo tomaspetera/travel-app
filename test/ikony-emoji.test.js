@@ -14,11 +14,12 @@ export function emoji(s) {
   return String(s).match(/(?![\u{1F1E6}-\u{1F1FF}])(?:\p{Emoji_Presentation}|\p{Extended_Pictographic}️)/gu) || [];
 }
 
-/** Nadpisy a tlačítka ve zdroji (HTML i šablony v JS), které obsahují emoji: ['soubor:řádek: <tag>…'] */
+/** Nadpisy a tlačítka ve zdroji (HTML i šablony v JS), které obsahují emoji: ['soubor:řádek: <tag>…']; tlačítko je i odkaz
+ *  vzhledu tlačítka (class btn, app-chip – Podpořit Letsi, Spojení ↗, Navigovat ve Waze) */
 export function emojiVNadpisech(src, f = '') {
   const out = [];
-  for (const m of src.matchAll(/<(h[1-6]|button|summary)\b[^>]*>([\s\S]*?)<\/\1>/g)) {
-    if (emoji(m[2]).length) out.push(`${f}:${src.slice(0, m.index).split('\n').length}: ${m[0].replace(/\s+/g, ' ').slice(0, 120)}`);
+  for (const m of src.matchAll(/<(h[1-6]|button|summary)\b[^>]*>([\s\S]*?)<\/\1>|<a\b[^>]*class="[^"]*\b(?:btn|app-chip)\b[^"]*"[^>]*>([\s\S]*?)<\/a>/g)) {
+    if (emoji(m[2] ?? m[3]).length) out.push(`${f}:${src.slice(0, m.index).split('\n').length}: ${m[0].replace(/\s+/g, ' ').slice(0, 120)}`);
   }
   return out;
 }
@@ -38,8 +39,8 @@ test('emoji(): pozná emoji, vlajku a textové znaky nechá', () => {
 });
 
 test('emojiVNadpisech(): najde emoji v nadpisu, tlačítku a summary, vlajku ani ikonu ne', () => {
-  const src = '<h3>🧾 Cena</h3>\n<button>${flag(cc)} Řím</button><button type="button">${ikona(\'let\')} Let</button>\n<summary>📍 Místa</summary><h2>🇵🇹 Lisabon</h2>';
-  assert.deepEqual(emojiVNadpisech(src, 'x').map((x) => x.split(': ')[0]), ['x:1', 'x:3']);
+  const src = '<h3>🧾 Cena</h3>\n<button>${flag(cc)} Řím</button><button type="button">${ikona(\'let\')} Let</button>\n<summary>📍 Místa</summary><h2>🇵🇹 Lisabon</h2>\n<a class="btn sm ghost" href="x">🚆 Spojení ↗</a><a href="y">💛 v textu</a>';
+  assert.deepEqual(emojiVNadpisech(src, 'x').map((x) => x.split(': ')[0]), ['x:1', 'x:3', 'x:4']);
 });
 
 test('nadpisy a tlačítka bez emoji: průvodce, Shrnutí, Objevuj, okna a formulář (mimo flights.js)', () => {
@@ -61,6 +62,11 @@ test('tlačítka skládaná z popisků: krokovník, filtry a přepínače Objevu
     assert.deepEqual(emoji(pole(places, n)), [], n);
   }
   assert.deepEqual(emoji(pole(pretrip, 'ACTS')), [], 'ACTS');
+  // popisky dosazené do tlačítka až proměnnou: druh programu v průvodci (túry / po místech), čipy aplikací (Waze, PID),
+  // odeslání odkazu v Přenosu
+  assert.deepEqual(emoji(places.split('\n').find((l) => l.includes('tp-kinds'))), [], 'tp-kinds');
+  assert.deepEqual([...trip.matchAll(/appChip\([^,]+, ([^,]+),/g)].flatMap((m) => emoji(m[1])), [], 'appChip');
+  assert.deepEqual(emoji(read('js/transfer.js').split('\n').find((l) => l.includes('send = native()'))), [], 'tfSend');
   // filtr kategorií míst jen názvem (emoji kategorie zůstává na mapě a v kartě místa)
   assert.match(places, /data-cat="\$\{c\}" class="\$\{ex\.cat === c \? 'on' : ''\}">\$\{\(CAT\[c\] \|\| CAT\.sight\)\[1\]\}<\/button>/);
   // přepínač režimů na telefonu: krátký název bez emoji nad ním

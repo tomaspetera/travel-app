@@ -445,7 +445,7 @@ let calOut = false; // jedna obsluha klepnutí mimo nabídku „Do kalendáře �
     const car = t.groundMode === 'car', f = t.flight, g = t.ground || {}, SH = window.SearchHelp;
     return {
       out: car ? wazeChip('car', g.out && g.out.ap && { ...g.out.ap, name: `letiště ${f.out.from}` }) : pidChip(g.out),
-      back: !f.back ? '' : car ? (SH ? appChip(SH.WAZE_HOME, '🚗 Navigovat ve Waze', 'Navigace autem domů ve Waze (adresa Domov uložená ve Waze)') : '') : pidChip(g.back),
+      back: !f.back ? '' : car ? (SH ? appChip(SH.WAZE_HOME, ikona('auto') + ' Navigovat ve Waze', 'Navigace autem domů ve Waze (adresa Domov uložená ve Waze)') : '') : pidChip(g.back),
       fare: car ? '' : pidChip(g.out) || (f.back ? pidChip(g.back) : ''),
     };
   }
@@ -1868,8 +1868,8 @@ let calOut = false; // jedna obsluha klepnutí mimo nabídku „Do kalendáře �
   // Odkazy do aplikací v mobilu jako malé štítky vedle odkazu na trasu (SearchHelp): autem 🚗 Waze s navigací do cíle
   // úseku p ({ lat, lon }), MHD v Praze 🎫 PID Lítačka (jízdenka v aplikaci). Bez SearchHelp nebo polohy nic.
   const appChip = (url, label, title) => (url ? ` <a class="app-chip" href="${esc(safeUrl(url))}" target="_blank" rel="noopener" title="${esc(title)}">${label}</a>` : '');
-  const wazeChip = (tr, p) => (tr === 'car' && p && window.SearchHelp ? appChip(window.SearchHelp.wazeUrl({ lat: p.lat, lon: p.lon }), '🚗 Navigovat ve Waze', `Navigace autem ve Waze${p.name ? ` – ${p.name}` : ''} (otevře aplikaci, jinak web)`) : '');
-  const pidChip = g => (window.SearchHelp && window.SearchHelp.pidLeg(g) ? appChip(window.SearchHelp.PID_APP, '🎫 Jízdenka v PID Lítačka', 'Jízdenku PID (MHD v Praze a okolí) koupíš v mobilu v aplikaci PID Lítačka') : '');
+  const wazeChip = (tr, p) => (tr === 'car' && p && window.SearchHelp ? appChip(window.SearchHelp.wazeUrl({ lat: p.lat, lon: p.lon }), ikona('auto') + ' Navigovat ve Waze', `Navigace autem ve Waze${p.name ? ` – ${p.name}` : ''} (otevře aplikaci, jinak web)`) : '');
+  const pidChip = g => (window.SearchHelp && window.SearchHelp.pidLeg(g) ? appChip(window.SearchHelp.PID_APP, 'Jízdenka v PID Lítačka', 'Jízdenku PID (MHD v Praze a okolí) koupíš v mobilu v aplikaci PID Lítačka') : '');
   // Cena úseku k řádku přejezdu, jak jde do ceny cesty (legCzk): „ · ~1 340 Kč“, vlakem pro víc lidí „ · ~1 200 Kč za 2 os.“
   const legCostTxt = (t, l) => { const v = legCzk(t, l); return v > 0 ? ` · ~${czk(v)}${l.mode === 'transit' && paxN(t) > 1 ? ` za ${paxN(t)} os.` : ''}` : ''; };
   /** Malý přepínač dopravy úseku k (routeLegs): ikona auta / vlaku (autobusu, kde jezdí jen autobusy). */

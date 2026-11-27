@@ -121,7 +121,7 @@
         <li><b>Co se na server posílá</b> – jen to, co je potřeba k odpovědi: u hledání letů odkud, kam, termín, počet cestujících, zavazadla a cesta na letiště (i 🏠 vlastní ceny); u ubytování místo, termín a počet hostů; v Objevuj místo a volby plánu; polohu, jen když sám použiješ 📍 Moje poloha nebo Moje okolí. Server odpovědi chvíli drží v mezipaměti (bez vazby na tebe) a IP adresu si kvůli limitům požadavků pamatuje nejdéle hodinu od posledního požadavku (u hledání 10 minut), pak ji sám smaže.</li>
         <li><b>Přímo z prohlížeče</b> se načítají mapy (OpenFreeMap) a fotky (Unsplash, Pexels, Wikimedia) – tyhle služby vidí tvou IP adresu jako u každého webu. Počasí, kurzy a hledání míst jdou přes server Letsi, tvou adresu tedy nevidí.</li>
         <li><b>Krátký odkaz na sdílenou cestu</b> (letsi.cz/c/…): když klepneš na Poslat kamarádům nebo Sdílet plán, cesta se uloží na serveru na 400 dní, aby šel odkaz otevřít – bez jména a kódů rezervací, nic dalšího se k němu neukládá. Bez krátkého odkazu (i u odkazu 📲 přenosu) nese data část adresy za #, kterou prohlížeč na server neposílá. Po klepnutí na odkaz k rezervaci jsi na webu partnera a platí jeho pravidla.</li>
-        ${pay ? '<li><b>Příspěvek</b> (💛 Podpořit Letsi): platíš na stránce Stripe, která platbu zpracovává – aplikace ani server Letsi údaje o platbě a kartě nedostanou. Provozovatel ve Stripe uvidí jen údaje k přijaté platbě (jméno, e-mail, částku a poslední 4 číslice karty).</li>' : ''}
+        ${pay ? '<li><b>Příspěvek</b> (Podpořit Letsi): platíš na stránce Stripe, která platbu zpracovává – aplikace ani server Letsi údaje o platbě a kartě nedostanou. Provozovatel ve Stripe uvidí jen údaje k přijaté platbě (jméno, e-mail, částku a poslední 4 číslice karty).</li>' : ''}
       </ul>
       ${typeof help === 'boolean' ? `<button type="button" class="btn ghost" id="abHelp" role="switch" aria-checked="${help}"><span class="ico i-cestujici" aria-hidden="true"></span> Pomáhat se zlepšováním <span class="faint">${help ? 'zapnuto' : 'vypnuto'}</span></button>
       <p class="faint" style="font-size:12.5px">Záznam obrazovek a hlavních akcí při návštěvě s náhodným číslem návštěvy, bez textu, míst, cen, jména a IP adresy; smaže se do 31 dnů. Ve výchozím stavu vypnuto, vypnutím smažu i záznam právě probíhající návštěvy.</p>` : ''}
@@ -132,8 +132,8 @@
       <p style="font-size:14px">Aerolinky a hotely ceny mění i během minut a ceny označené jako orientační můžou být starší. Platí cena, kterou ukáže web prodejce před zaplacením – <b>vždy ji ověř u partnera</b>.</p>
       ${pay ? `<h4 class="ab-h">Podpoř Letsi</h4>
       <p style="font-size:14px">Letsi je zdarma a bez reklam v pořadí výsledků. Jestli ti to pomohlo, můžeš poslat dobrovolný příspěvek – částku si zvolíš, zaplatíš kartou na stránce Stripe.</p>
-      <a class="btn" id="abSupport" href="${h(pay)}" target="_blank" rel="noopener">💛 Podpořit Letsi ↗</a>` : ''}
-      ${mail ? `<a class="btn primary" id="abMail" href="${h(mail)}">💬 Napsat nám</a>` : ''}
+      <a class="btn" id="abSupport" href="${h(pay)}" target="_blank" rel="noopener">Podpořit Letsi ↗</a>` : ''}
+      ${mail ? `<a class="btn primary" id="abMail" href="${h(mail)}">Napsat nám</a>` : ''}
       <p class="faint" style="font-size:12.5px;margin-top:12px">Verze ${h(version || '?')}${build ? ` · sestavení ${h(build)}` : ''}</p>
     </div>`;
   }

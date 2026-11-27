@@ -966,7 +966,7 @@
     const showKind = on => {
       kindEl.hidden = !on;
       if (!on) return;
-      kindEl.innerHTML = `<div class="seg wrap tp-kinds">${[['hike', '🥾 Túra na každý den'], ['city', '🏙️ Program po místech']].map(([id, l]) => `<button type="button" data-tpk="${id}" class="${mode === id ? 'on' : ''}" aria-pressed="${mode === id}">${l}</button>`).join('')}</div>${
+      kindEl.innerHTML = `<div class="seg wrap tp-kinds">${[['hike', 'Túra na každý den'], ['city', 'Program po místech']].map(([id, l]) => `<button type="button" data-tpk="${id}" class="${mode === id ? 'on' : ''}" aria-pressed="${mode === id}">${l}</button>`).join('')}</div>${
         area ? `<div class="faint tp-area">⛰️ ${esc(area.cs)} – v horách je na každý den lepší túra než program po památkách.</div>` : ''}`;
       $$('[data-tpk]', kindEl).forEach(b => b.onclick = () => { if (mode !== b.dataset.tpk) { mode = b.dataset.tpk; go(); } });
     };
@@ -2149,7 +2149,7 @@
   // Výlet autem: navigace na zastávku ve Waze (otevře aplikaci v mobilu, jinak web; SearchHelp.wazeUrl)
   const wazeLink = s => {
     const u = window.SearchHelp && window.SearchHelp.wazeUrl({ lat: s.lat, lon: s.lon });
-    return u ? `<a class="app-chip" href="${esc(safeUrl(u))}" target="_blank" rel="noopener" title="${esc(`Navigace autem ve Waze – ${s.name || ''}`)}">🚗 Navigovat ve Waze</a>` : '';
+    return u ? `<a class="app-chip" href="${esc(safeUrl(u))}" target="_blank" rel="noopener" title="${esc(`Navigace autem ve Waze – ${s.name || ''}`)}">${ikona('auto')} Navigovat ve Waze</a>` : '';
   };
 
   function tripHtml(trip, center) {
@@ -2789,7 +2789,7 @@
     body.innerHTML = `${ex.demo ? '<div class="note warn" style="margin-bottom:12px">⚠️ <div><b>DEMO data</b> – místa jsou vymyšlená.</div></div>' : ''}
       <div class="section-head ex-head" style="margin-top:6px"><h2>${p.cc ? flag(p.cc) + ' ' : ''}${esc(p.label)} · ${placesTxt(cityN)} do ${cityKm(ex.radius)} km${far ? (tripN ? ` <span class="ex-head-more">+ ${placesTxt(tripN)} v okolí do ${ex.radius} km</span>` : '')
           : tripN ? ` <span class="ex-head-more">+ ${plural(tripN, 'výlet', 'výlety', 'výletů')}</span>` : ''}</h2>${
-        `<span class="ex-head-act">${window.Flights && flyTarget(p) ? '<button type="button" class="btn sm ghost" id="exFly">' + ikona('let') + ' Najít lety sem</button>' : idos ? `<a class="btn sm ghost" id="exIdos" href="${esc(safeUrl(idos))}" target="_blank" rel="noopener" title="Vlak a autobus sem – jízdní řády IDOS">🚆 Spojení ↗</a>` : ''}<button type="button" class="btn sm ghost" id="exReset" title="Zrušit místo, plán i výběr míst">↺ Začít znovu</button></span>`}</div>
+        `<span class="ex-head-act">${window.Flights && flyTarget(p) ? '<button type="button" class="btn sm ghost" id="exFly">' + ikona('let') + ' Najít lety sem</button>' : idos ? `<a class="btn sm ghost" id="exIdos" href="${esc(safeUrl(idos))}" target="_blank" rel="noopener" title="Vlak a autobus sem – jízdní řády IDOS">${ikona('vlak')} Spojení ↗</a>` : ''}<button type="button" class="btn sm ghost" id="exReset" title="Zrušit místo, plán i výběr míst">↺ Začít znovu</button></span>`}</div>
       <div class="ex-layout ex-main">
       <div class="card step-card ex-plan${ex.planOpen || out || bz || wait ? '' : ' shut'}" id="exPlanCard"><h3 class="ex-plan-h"><button type="button" class="ex-plan-tg" id="exPlanTg">${ikona('kalendar')} Naplánovat <span class="faint ex-plan-hint">– program, výlety, kolo, pěšky</span><span class="ex-plan-chev" aria-hidden="true">▾</span></button></h3>
         <div class="seg wrap" id="exMode" style="margin:4px 0 12px">${modeBtns(ex.mode)}</div>

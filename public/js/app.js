@@ -884,7 +884,7 @@ function nowCard(x, p) {
     p.ahead ? `<span>${p.ahead.l.ground ? rideAhead(p.ahead.l, x.today) : `✈️ Odlet ${esc(p.ahead.l.from)} → ${esc(p.ahead.l.to)} <b data-nw="cd"></b>${ck}`}</span>` : '',
     ...wx,
     p.shift && !x.home ? `<span>🕐 ${x.on ? 'Místní čas <b data-nw="clock"></b> – ' : 'V cíli je '}${shift}</span>` : '',
-    p.hotel ? `<span>🏨 ${esc(p.hotel.name)}${p.hotel.near ? ` <span class="faint">(${esc(p.hotel.near)})</span>` : ''}${window.Places && Places.gmDir ? ` · <a href="${esc(safeUrl(Places.gmDir('', [p.hotel.q], 'transit')))}" target="_blank" rel="noopener">navigovat ↗</a>` : ''}${p.hotel.car && window.SearchHelp ? ` <a class="app-chip" href="${esc(safeUrl(window.SearchHelp.wazeUrl({ q: p.hotel.q })))}" target="_blank" rel="noopener" title="Najít ubytování ve Waze a navigovat autem">🚗 Waze</a>` : ''}</span>` : '',
+    p.hotel ? `<span>🏨 ${esc(p.hotel.name)}${p.hotel.near ? ` <span class="faint">(${esc(p.hotel.near)})</span>` : ''}${window.Places && Places.gmDir ? ` · <a href="${esc(safeUrl(Places.gmDir('', [p.hotel.q], 'transit')))}" target="_blank" rel="noopener">navigovat ↗</a>` : ''}${p.hotel.car && window.SearchHelp ? ` <a class="app-chip" href="${esc(safeUrl(window.SearchHelp.wazeUrl({ q: p.hotel.q })))}" target="_blank" rel="noopener" title="Najít ubytování ve Waze a navigovat autem">${ikona('auto')} Waze</a>` : ''}</span>` : '',
   ].filter(Boolean);
   // před odjezdem řádky po dnech (dnes, zítra, den odjezdu)
   // dnešek ostatních probíhajících cest (výlet z plánovače či z Objevuj v den letu) – jedním řádkem s odkazem na plán

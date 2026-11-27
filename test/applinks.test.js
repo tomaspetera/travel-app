@@ -87,7 +87,7 @@ test('průvodce: autem na letiště Waze k letišti odletu a domů, MHD v Praze 
   const PRG = getAirport('PRG');
   const car = Trip.groundApps(tripOf('car'));
   assert.deepEqual(wazes(car.out).map((u) => u.href), [`https://waze.com/ul?ll=${Math.round(PRG.lat * 1e5) / 1e5},${Math.round(PRG.lon * 1e5) / 1e5}&navigate=yes`]);
-  assert.match(car.out, /🚗 Navigovat ve Waze/);
+  assert.match(car.out, /<span class="ico i-auto" aria-hidden="true"><\/span> Navigovat ve Waze/);
   assert.match(car.out, /title="Navigace autem ve Waze – letiště PRG/);
   assert.deepEqual(wazes(car.back).map((u) => u.href), ['https://waze.com/ul?favorite=home&navigate=yes']);
   assert.equal(car.fare, '', 'autem jízdenka PID ne');
@@ -101,7 +101,7 @@ test('průvodce: autem na letiště Waze k letišti odletu a domů, MHD v Praze 
   const mhd = Trip.groundApps(tripOf('transit'));
   for (const k of ['out', 'back', 'fare']) {
     assert.deepEqual(hrefs(mhd[k]).map((u) => u.href), ['https://app.pidlitacka.cz/'], k);
-    assert.match(mhd[k], /🎫 Jízdenka v PID Lítačka/);
+    assert.match(mhd[k], />Jízdenka v PID Lítačka</);
     assert.match(mhd[k], /class="app-chip"[^>]*target="_blank" rel="noopener"/);
   }
   assert.equal(wazes(mhd.out).length, 0);
