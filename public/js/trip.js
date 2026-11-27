@@ -1008,8 +1008,11 @@
   // posun vpřed jednou za cestu, i když se člověk na krok vrací
   const stepCount = (t, to) => { const e = stepEvent(t.step, to); deep(e, e === STEP_EV[to] ? t.created : undefined); };
   // po přechodu: fokus na nadpis kroku (klávesnice a čtečka jinak začínají znovu od hlavičky stránky) a čtečce název kroku
+  // krok Program se vykreslí až po čekání (progOpts): nadpis tu ještě není, zaměří ho programStep po vykreslení
+  let focusLate = false;
   function focusStep(step) {
     const h = $('#tripStep h3');
+    focusLate = !h;
     if (h && typeof h.focus === 'function') { h.tabIndex = -1; h.focus({ preventScroll: true }); }
     const name = step && (STEPS.find(s => s[0] === step) || [])[2];
     if (name && typeof say === 'function') say(`Krok: ${name}`);
@@ -3543,6 +3546,9 @@
       <div id="tripPlaces"></div>
       <div class="row wrap" style="gap:8px;margin-top:14px"><button class="btn primary" id="progNext">Pokračovat ke shrnutí →</button></div></div>`;
     $('#progNext').onclick = () => setStep('summary');
+    // po přechodu z jiného kroku (focusStep nenašel nadpis) – ne při otevření cesty, to by nadpis orámovalo bez důvodu;
+    // bez názvu kroku, ten už čtečka slyšela. Fokus jinde (pole mimo krok) nebrat.
+    if (focusLate && document.activeElement === document.body) focusStep();
     if (window.Places && opts) {
       Places.renderPlanner($('#tripPlaces'), { ...opts, plan: t.plan, onPlan: plan => { T().plan = plan; persist(); } });
     } else {
