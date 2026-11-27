@@ -116,7 +116,7 @@ test('U15: když je vidět karta souhlasu, tip 💡 Věděl jsi? se neukáže (d
   assert.equal(on.innerHTML, '');
   const off = dashTip(false);
   assert.equal(off.hidden, false);
-  assert.match(off.innerHTML, /💡 Věděl jsi\?/);
+  assert.match(off.innerHTML, /<b>Věděl jsi\?/);
 });
 
 test('U4: tip 🌍 Kamkoliv ne, když je na Přehledu vidět Kam letět levně (s domovem vždy)', () => {

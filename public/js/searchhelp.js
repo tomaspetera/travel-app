@@ -469,13 +469,13 @@
     const parts = list => DAYPARTS.filter(p => list.includes(p[0])).map(p => PART_TXT[p[0]]).join(', ');
     const out = [];
     const add = (key, label) => out.push({ key, label, hidden: hidden[key] || 0, time: true });
-    if ((tf.out || []).length) add('tOut', `🛫 odlet ${ret ? 'tam ' : ''}${parts(tf.out)}`);
-    if (ret && (tf.back || []).length) add('tBack', `🛬 odlet zpět ${parts(tf.back)}`);
+    if ((tf.out || []).length) add('tOut', `odlet ${ret ? 'tam ' : ''}${parts(tf.out)}`);
+    if (ret && (tf.back || []).length) add('tBack', `odlet zpět ${parts(tf.back)}`);
     if (tf.arrBy != null) add('arrBy', tf.arrBy >= 24 ? 'přílet před půlnocí' : `přílet do ${tf.arrBy}:00`);
     if (tf.stops != null) add('stops', tf.stops === 0 ? 'bez přestupu' : `max. ${tf.stops} přestup`);
-    if (tf.maxDur) add('maxDur', `⏱ cesta max. ${hm(tf.maxDur)}`);
-    if (tf.maxLay) add('maxLay', `⌛ přestup max. ${hm(tf.maxLay)}`);
-    if (tf.reach) add('reach', '🏠 jen dostupné z domova');
+    if (tf.maxDur) add('maxDur', `cesta max. ${hm(tf.maxDur)}`);
+    if (tf.maxLay) add('maxLay', `přestup max. ${hm(tf.maxLay)}`);
+    if (tf.reach) add('reach', 'jen dostupné z domova');
     return out;
   }
 
@@ -698,7 +698,7 @@
       const m = +f.xOut.slice(5, 7) - 1;
       add('month', `${m === 8 ? 'Celé' : 'Celý'} ${MONTHS[m]} flexibilně${txt}`, patch);
     }
-    if (europe) add('anywhere', '🌍 Kamkoliv – kam se dá letět', { to: [] });
+    if (europe) add('anywhere', 'Kamkoliv – kam se dá letět', { to: [] });
     // Za teplem a cíl v měsících odletu tak teplý nebývá: podnebí cíle nezmění letiště, dny, noci ani „jen tam“ –
     // pomůže jen širší cíl nebo delší termín (nižší limit teploty nabízí prázdný výsledek sám).
     const w = r.warm, cold = Boolean(w && !(r.groups || []).length && w.destHi != null && w.destHi < w.minTemp);

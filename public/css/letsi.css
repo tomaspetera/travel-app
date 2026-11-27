@@ -386,6 +386,8 @@
 :root[data-brand="letsi"] :is(.dest-panel,.dest[data-photo] .flag,.map-chip,.map-zoom){-webkit-backdrop-filter:none;backdrop-filter:none}
 :root[data-brand="letsi"] .dest-panel{background:#14161F;border-color:transparent}
 :root[data-brand="letsi"] .dest[data-photo] .flag{background:#F3F4F0;border-color:transparent}
+/* ikona Letsi v kroužku (Rychlé hledání) barvou textu karty by byla bílá na světlém kroužku – Nocí v obou režimech */
+:root[data-brand="letsi"] .dest[data-photo] .flag>.ico{color:#14161F}
 :root[data-brand="letsi"] :is(.map-chip,.map-zoom){background:var(--card);border-color:var(--border);color:var(--text);box-shadow:none}
 :root[data-brand="letsi"] .map-zoom button{color:var(--text)}
 :root[data-brand="letsi"] .map-zoom button:hover{background:var(--surface-2)}

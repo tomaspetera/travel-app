@@ -939,6 +939,11 @@ html:has(#modalBg.show) body{overflow:hidden} /* na body, ne na html: přejde na
 .wc-chips .fchip:disabled{opacity:.55;cursor:default}
 .wc-chips[hidden]{display:none}
 #radarHead{scroll-margin-top:90px} /* posun k radaru (Od minula): nadpis pod lepicí hlavičkou */
+/* telefon: posun k Hlídaným cenám (Hlídáš, Od minula) a po Najít lety ke sbalenému hledání – nadpis i karta celé pod
+   lepicí lištou (68 px); počítač má html{scroll-padding-top} v desktop.css */
+@media(max-width:1023px){#watchHead{scroll-margin-top:90px}#searchSum{scroll-margin-top:80px}}
+/* sbalené hledání (flights.css .search-sum) vedle Hlídat a Upravit: na úzkém telefonu cíl a termín zalomit, ne useknout */
+@media(max-width:700px){#searchSum .ss-txt>*{white-space:normal;overflow-wrap:anywhere}}
 /* karta souhlasu s měřením (app.js helpCard): nadpis jako text karty, ne jako nadpis oddílu – žádost o laskavost
    nemá být největší věc na Přehledu */
 #whatsNew .help-h{margin:0 0 6px;font-size:16px;line-height:1.35;font-weight:700}
