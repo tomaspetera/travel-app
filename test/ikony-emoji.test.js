@@ -152,3 +152,42 @@ test('přepínač výsledků: Mapa a Kalendář bez značky zůstanou na telefon
   assert.deepEqual([['map', 'Mapa'], ['cal', 'Kalendář'], ['list', '☰ Seznam']].map(phone), ['Mapa', 'Kalendář', 'Seznam']);
   assert.match(btn(['list', '☰ Seznam']), /<span class="vs-ic">☰ <\/span>Seznam<\/button>$/);
 });
+
+test('Lety po #499: prázdný výsledek, panel Čas a přestupy, čipy filtrů a nápovědy, hlídání, Naposledy, toast a tip bez emoji', () => {
+  // ikona nad nadpisem prázdného výsledku (dřív 🌡️ / 🧭)
+  assert.match(radek('return `${kiwiBanner(res)}'), /<div class="ei">\$\{ikona\(w \? 'filtr' : 'kompas'\)\}<\/div>/);
+  // popisky panelu Čas a přestupy a jeho nadpis
+  const tf = FL.slice(FL.indexOf('<div class="card tf-panel" id="tfPanel">'), FL.indexOf('<div class="tf-note faint">'));
+  const lbls = [...tf.matchAll(/field\(((?:ret \? )?(?:'[^']*'|`[^`]*`)(?: : '[^']*')?)/g)].map((m) => m[1]);
+  assert.equal(lbls.length, 7);
+  assert.deepEqual(lbls.flatMap(emoji), [], 'field()');
+  assert.ok(!lbls.join('').includes('⏱'), 'ani ⏱ bez obrázkové podoby');
+  assert.match(tf, /<div class="tf-head"><b>Čas a přestupy<\/b>/);
+  // čipy SearchHelp: nápověda u prázdného / řídkého výsledku (smartActions) a aktivní filtry času (timeChips) – obojí tlačítka
+  const SH = read('js/searchhelp.js');
+  const adds = [...SH.matchAll(/\badd\('\w+', ('[^']*'|`[^`]*`)/g)].map((m) => m[1]);
+  assert.ok(adds.some((s) => s.includes('Kamkoliv – kam se dá letět')) && adds.some((s) => s.includes('jen dostupné z domova')));
+  assert.deepEqual(adds.flatMap(emoji), [], 'add()');
+  // karta hlídání: tip a cílová cena; Přehled: Naposledy; toast po Odložit
+  assert.deepEqual(emoji(radek('return t ? `<div class="w-tip')), [], 'w-tip');
+  assert.deepEqual(emoji(radek(': `<label class="w-target">')), [], 'w-target');
+  assert.match(FL, /<span class="faint">\$\{ikona\('historie'\)\} Naposledy:<\/span>/);
+  assert.deepEqual(emoji(radek('toast(x.on ? `Odloženo:')), [], 'toast Odloženo');
+  // Přehled: tip Věděl jsi? (app.js dashTip) – emoji jen v kroužku tipu (dt-ic), ne v tučném nadpisu
+  const tip = read('js/app.js').split('\n').find((l) => l.includes('<div class="dt-b"><b>'));
+  assert.ok(tip);
+  assert.deepEqual(emoji(tip.match(/<b>([^<]*)<\/b>/)[1]), [], 'dashTip <b>');
+});
+
+test('Rychlé hledání (Přehled, Lety Nápady): dlaždice s ikonou Letsi místo emoji, Moje cíle taky', () => {
+  const qf = pole(FL, 'QF');
+  const ico = [...qf.matchAll(/^ {6}\['([^']+)', '/gm)].map((m) => m[1]);
+  assert.equal(ico.length, 7);
+  const ikony = new Set(readdirSync(new URL('../public/vendor/letsi/ikony/', import.meta.url)).map((f) => f.replace(/\.svg$/, '')));
+  assert.deepEqual(ico.filter((n) => !ikony.has(n)), [], 'názvy ikon ze sady Letsi');
+  assert.match(FL, /data-qf="\$\{i\}"[^`]*<div class="flag">\$\{ikona\(q\[0\]\)\}<\/div>/);
+  assert.match(FL, /data-qfav="1"[^`]*<div class="flag">\$\{ikona\('oblibene-plne'\)\}<\/div>/);
+  // CSS třídy i-… pro použité ikony (atlas.css)
+  const css = read('css/atlas.css');
+  for (const n of [...ico, 'oblibene-plne', 'filtr', 'kompas', 'historie']) assert.match(css, new RegExp(`\\.i-${n}\\{`), n);
+});

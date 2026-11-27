@@ -99,7 +99,7 @@ test('renderDashTip: ✕ tip skryje i bez localStorage (soukromé okno) – při
     const d = dash(store), what = store ? 'zápis do úložiště hází' : 'úložiště hází';
     d.render();
     assert.equal(d.el.hidden, false, what);
-    assert.match(d.el.innerHTML, /💡 Věděl jsi\? Hlídání ceny/, what);
+    assert.match(d.el.innerHTML, /<b>Věděl jsi\? Hlídání ceny/, what);
     d.close();
     assert.equal(d.el.hidden, true, what);
     d.render(); // další vykreslení Přehledu (návrat z jiné obrazovky)
@@ -123,5 +123,5 @@ test('renderDashTip: při první návštěvě (uvítání) žádný 💡 tip –
   assert.equal(d.data.atlas_tip, undefined, 'dnešní tip se nezapsal – příště začne od prvního');
   const next = dash({});
   next.render();
-  assert.match(next.el.innerHTML, /💡 Věděl jsi\? Hlídání ceny/);
+  assert.match(next.el.innerHTML, /<b>Věděl jsi\? Hlídání ceny/);
 });

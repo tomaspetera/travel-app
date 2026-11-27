@@ -67,9 +67,9 @@ test('U33: „orientační“ šedě, štítek „orientační – ověř“ bez
 
 test('U42: karta Kam letět levně má nejvýš jeden štítek s textem – ten nejdůležitější', () => {
   const radarBadge = new Function('esc', 'radarHot', 'radarChange', `${cut('  const WHY_TOP', '  /** Dny dovolené na kartě radaru')}; return radarBadge;`)(
-    esc, () => ['nejlevnější v hledání', 'T'], x => `<span class="b good">↓ ${x.was.czk - x.czk} Kč</span>`);
+    esc, () => ['pod běžnou cenou', 'T'], x => `<span class="b good">↓ ${x.was.czk - x.czk} Kč</span>`);
   const top = { why: 'i s cestou na letiště nejlevnější', whyT: 'proč', czk: 600, was: { czk: 700 } };
-  assert.equal(radarBadge(top, true), '<span class="b hot" title="T">nejlevnější v hledání</span>', 'nejvýhodnější vyhraje');
+  assert.equal(radarBadge(top, true), '<span class="b hot" title="T">pod běžnou cenou</span>', 'nejvýhodnější vyhraje');
   assert.equal(radarBadge(top, false), '<span class="b why" title="proč">✓ nejlevnější i s cestou</span>');
   assert.equal(radarBadge({ why: 'kratší cesta na letiště', czk: 600, was: { czk: 700 } }, false), '<span class="b good">↓ 100 Kč</span>', 'srovnání letišť jen v detailu');
   assert.equal(radarBadge({ why: 'levnější i s cestou na letiště', czk: 600 }, false), '');

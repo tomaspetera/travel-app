@@ -1355,7 +1355,7 @@ function renderDashTip() {
   el.hidden = !tip;
   if (!tip) { el.innerHTML = ''; return; }
   if (!mem || mem.day !== today || mem.id !== tip.id) put({ day: today, id: tip.id, hid });
-  el.innerHTML = `<span class="dt-ic" aria-hidden="true">${tip.ico}</span><div class="dt-b"><b>💡 Věděl jsi? ${esc(tip.h)}</b> – ${esc(tip.t)}
+  el.innerHTML = `<span class="dt-ic" aria-hidden="true">${tip.ico}</span><div class="dt-b"><b>Věděl jsi? ${esc(tip.h)}</b> – ${esc(tip.t)}
     <div><button type="button" class="btn sm" id="dtGo">${esc(tip.btn)}</button></div></div><button type="button" class="dt-x" id="dtX" title="Skrýt tip" aria-label="Skrýt tip">✕</button>`;
   $('#dtGo').onclick = () => tip.run();
   $('#dtX').onclick = () => { put({ day: today, id: null, hid: [...hid, tip.id] }); el.hidden = true; };
