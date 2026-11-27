@@ -2,7 +2,7 @@
 
 Původ: balík identity **Letsi 2.1** (master 2.1 ze 7. 11. 2026, ikony rozhraní z 10. 11. 2026). Identitu vytvořil
 majitel aplikace; soubory jsou zkopírované z balíku **beze změny** (žádné překreslení ani přebarvení) – kromě 4 ikon
-světadílů a slunce níž v tabulce.
+(slunce a tři světadíly) níž v tabulce.
 
 Používá je `public/css/letsi.css` (pravidla pod `<html data-brand="letsi">`, přepínač `?vzhled=letsi`) a úvodní
 skript v `public/index.html` (favicon). Bez přepínače se odsud nestáhne nic. Do sady pro instalaci (service worker)
