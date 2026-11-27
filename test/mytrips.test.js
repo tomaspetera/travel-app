@@ -43,11 +43,6 @@ test('myTrips: cesta z průvodce se otevře v průvodci (rozpracovaná zpět do 
   assert.match(app, /const bkWire = \(host = document\) => \{ const b = \$\('#bkOpen', host\);/);
 });
 
-test('Co je nového: Moje cesty, cesta se ukládá sama, Plánovač je v Mých cestách', () => {
-  const app = read('js/app.js');
-  assert.match(app, /const WHATS_NEW = \[[\s\S]*?\['🧳', 'Plánovač je teď v Mých cestách',[^\n]*\],\s*\['💾', 'Cesta se ukládá sama',[^\n]*\],\s*\['🧳', 'Moje cesty v záložce Cesty',/);
-});
-
 test('smazání cesty otevřené v průvodci ji zavře i v průvodci (jinak by se zase sama uložila); ↩ Vrátit vrátí obojí', () => {
   const app = read('js/app.js');
   assert.match(app, /const act = S\.trip && t\.tripId && S\.trip\.created === t\.tripId \? S\.trip : null;/);

@@ -1043,16 +1043,6 @@ const WHATS_NEW = [
   ['⭐', 'Letsi Plus', 'podívej se, co zůstane zdarma a co chystáme navíc – a řekni nám, kolik by ti stálo za to. Najdeš ho pod <b>Další</b> → <b>Letsi Plus</b> (na počítači vlevo dole).', '2026-11-26a'],
   ['✈️', 'Letenku už máš?', 'na <b>Přehledu</b> doplníš zbytek cesty – trasu, ubytování i program.', '2026-11-26a'],
   ['🔒', 'Soukromí', 'počítám jen souhrnné denní počty, žádné sledování jednotlivců, pokud sám nezapneš Pomáhat se zlepšováním. Podrobnosti pod <b>Další</b> (na počítači vlevo dole) → <b>O aplikaci a soukromí</b>.', '2026-11-25a'],
-  ['🔄', 'Upravený plán od kamaráda bez kopií', 'když ti kamarád pošle novější verzi plánu, který už máš, nabídnu <b>🔄 Aktualizovat moji cestu</b> – převezmeš termín, let a program, tvoje odškrtnuté „Sbaleno“, kódy rezervací a vlastní aktivity zůstanou. Dřív vznikla druhá kopie.', '2026-11-01c'],
-  ['✏️', 'Cestu upravíš i po uložení', 'v <b>Cesty</b> → Moje cesty otevři cestu a klepni na <b>✏️ Upravit</b> – přejmenuješ ji; u vlastní cesty (ne z průvodce Cestou) posuneš i termín (program dnů se posune s ním) nebo změníš počet cestujících. Dřív to šlo jen smazat a založit znovu.', '2026-11-01c'],
-  ['✨', 'Hledání větou rozumí víc', 'napiš třeba <b>„Kanáry přes Vánoce a Silvestr“</b>, <b>„Londýn na Den boje za svobodu“</b>, <b>„Řím s dětmi 5 a 8 let“</b> nebo <b>„Vídeň 4.–6. 12. nebo 11.–13. 12.“</b> – termín, délku i počet lidí nastavím za tebe. Funguje v <b>Letech</b> i v <b>Objevuj</b>.', '2026-11-01c'],
-  ['🔎', 'Země na mapu napsáním', 'pod mapou ve <b>Světě</b> napiš začátek názvu („ital“, „usa“) a klepni – malé země už nemusíš trefovat v mapě.', '2026-11-01c'],
-  ['🗺️', 'Svět zná tvoje cesty', 'pod mapou jsou země z proběhlých cest, které na ní ještě chybí – klepnutím je přidáš. V detailu země (<b>Svět → Země</b>, <b>Doporučení</b>) je nahoře tvoje nadcházející cesta tam – klepnutím ji otevřeš.', '2026-11-01c'],
-  ['🧳', 'Plánovač je teď v Mých cestách', 'už není zvlášť v menu – všechny cesty najdeš v záložce <b>Cesty</b> pod <b>🧳 Moje cesty</b>. Program, balení a poznámky cesty z průvodce otevřeš odkazem <b>Program, balení a poznámky ›</b> na její kartě, ostatní cesty klepnutím na kartu.', '2026-11-01c'],
-  ['💾', 'Cesta se ukládá sama', 'jakmile v průvodci pokročíš za výběr letu, cesta je sama v <b>Mých cestách</b> – nemusíš nic ukládat. Nová cesta tu rozpracovanou nezahodí, zůstane v seznamu. <b>↺ Začít znovu</b> ji odebere.', '2026-11-01c'],
-  ['🧳', 'Moje cesty v záložce Cesty', 'všechny tvoje cesty na jednom místě – rozpracovaná v průvodci i uložené. Klepnutím na kartu v ní pokračuješ, z průvodce se k seznamu vrátíš přes <b>‹ Moje cesty</b>.', '2026-11-01c'],
-  ['♡', 'Hlídání ceny jedním klepnutím', 'u karty v <b>Kam letět levně</b> na <b>Přehledu</b> i u cíle v <b>Kamkoliv</b> klepni na <b>⋯</b> → <b>♡ Hlídat cenu sem</b>: Letsi najde lety z tvého domova (termíny jako Kam letět levně) a cenu hlídá – když zlevní, uvidíš to na Přehledu. Bez vyplňování formuláře.', '2026-11-01c'],
-  ['🔗', 'Krátký odkaz na cestu', '<b>📤 Sdílet cestu</b> → <b>Poslat kamarádům</b> (i <b>🔗 Sdílet plán</b> v plánovači) teď pošle krátký odkaz <b>…/c/…</b> místo dlouhé stěny písmen – ve WhatsAppu a Messengeru s fotkou cíle a termínem. Kamarád po klepnutí uvidí celou cestu a může si ji uložit.', '2026-10-27a'],
 ];
 // Úplně nový uživatel (nic uloženého): místo seznamu novinek krátké „Vítej“ ve 3 krocích – novinky by ho jen zahltily.
 // Uvítání vydrží celou první návštěvu, dokud ho uživatel neskryje: atlas_wn = WN_ID + WN_NEW. Bez toho by po výběru
@@ -1085,7 +1075,8 @@ const wnDoneNow = (mode, s) => mode === 'welcome' && ((s.watch || []).length > 0
 /** Kam „Začít hledat“ v uvítání dá kurzor: Přehled se ptá na domov (askHome – čipy pod Odkud) a Odkud je prázdné → 'from', jinak 'to' (Kam). */
 const wcGoTo = (askHome, fromCount) => (askHome && !fromCount ? 'from' : 'to');
 let wnFirst = false; // v tomhle otevření se ukázalo uvítání: 💡 tipy až příště (renderDashTip) – dvě rady naráz zahltí
-const WN_TOP = 3; // „Naposledy přibylo“ v okně, když od minula nic nového – ať okno není prázdné a nováček ví, co aplikace umí
+// novinka se ukazuje nejvýš 14 dní od vydání (id = datum), pak už nikomu – kdo ji neviděl, dostane jen čerstvé (majitel 27. 11.)
+const WN_DAYS = 14;
 // „~350 Kč“, „~3 h 25“ v textu novinek s pevnou mezerou – na úzkém telefonu se jednotka neodtrhne od čísla
 const wnUnit = s => s.replace(/(\d) (?=(Kč|km|h|min|°C)(?![\p{L}]))/gu, '$1\u00a0').replace(/(\d\u00a0h) (?=\d)/g, '$1\u00a0');
 const wnLi = ([ic, title, text]) => `<li><span class="wn-ic" aria-hidden="true">${ic}</span><div><b>${esc(title)}</b> – ${wnUnit(text)}</div></li>`;
@@ -1176,8 +1167,8 @@ function wnSeenId(top, seen, list = WHATS_NEW, id = WN_ID) {
   const x = list.find(n => n[1] === s);
   return x ? x[3] : id;
 }
-/** Novinky, které uživatel ještě neviděl (id je datum, porovnává se jako text). */
-const wnNew = (since, list = WHATS_NEW) => list.filter(x => x[3] > since);
+/** Novinky, které uživatel ještě neviděl (id je datum, porovnává se jako text) a nejsou starší než WN_DAYS. */
+const wnNew = (since, list = WHATS_NEW, now = Date.now()) => list.filter(x => x[3] > since && Date.parse(x[3].slice(0, 10)) >= now - WN_DAYS * 864e5);
 // id poslední viděné novinky při startu (null: localStorage nejde) – okno pak ukáže tytéž novinky jako lišta, i když
 // je lišta mezitím zapsala za viděné
 let wnSinceMem;
@@ -1226,7 +1217,7 @@ function whatsNewPop() {
 }
 /**
  * Okno Co je nového (Další → Co je nového, postranní panel na počítači, „a 2 další ›“ v liště): jen novinky od
- * minulého otevření; když nic nového, krátce to řekne a ukáže pár posledních. Otevřením jsou viděné (wnMark).
+ * minulého otevření (nejvýš 14 dní staré); když nic nového, jen to krátce řekne. Otevřením jsou viděné (wnMark).
  */
 function whatsNewOpen() {
   const fresh = wnNew(wnSince() ?? WN_ID);
@@ -1234,8 +1225,7 @@ function whatsNewOpen() {
   modalOpen(`<div class="modal-body"><h3>${ikona('novinky')} Co je nového</h3>${fresh.length
     ? `<p class="faint" style="margin:0 0 4px">Co přibylo od minula a kde to v aplikaci najdeš.</p>
     <ul class="wn-list">${fresh.map(wnLi).join('')}</ul>`
-    : `<p style="margin:0 0 10px">Od minula nic nového.</p><p class="faint" style="margin:0 0 4px">Naposledy přibylo:</p>
-    <ul class="wn-list">${WHATS_NEW.slice(0, WN_TOP).map(wnLi).join('')}</ul>`}
+    : '<p style="margin:0 0 10px">Od minula nic nového.</p>'}
     <button type="button" class="btn ghost" data-close>Zavřít</button></div>`, { x: true });
   $$('#modal [data-close]').forEach(b => { b.onclick = () => modalClose(); });
 }

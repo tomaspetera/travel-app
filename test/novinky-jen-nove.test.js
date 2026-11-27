@@ -13,7 +13,7 @@ const pick = (...names) => names.map((n) => {
 }).join('\n');
 const fnBody = (n) => APP.slice(APP.indexOf(`function ${n}(`), APP.indexOf('\n}\n', APP.indexOf(`function ${n}(`)));
 
-const load = (S) => new Function('S', `${pick('WN_NEW', 'firstVisit', 'wnMode', 'wnSeenId', 'wnNew')}; return { wnSeenId, wnNew };`)(S);
+const load = (S) => new Function('S', `${pick('WN_NEW', 'firstVisit', 'wnMode', 'WN_DAYS', 'wnSeenId', 'wnNew')}; return { wnSeenId, wnNew };`)(S);
 const L = [['✨', 'E', 't', '2026-12-10a'], ['✨', 'D', 't', '2026-12-03b'], ['✨', 'C', 't', '2026-12-03a'], ['✨', 'B', 't', '2026-11-20a'], ['✨', 'A', 't', '2026-11-01c']];
 const ID = '2026-12-10a';
 const titles = (xs) => xs.map((x) => x[1]);
@@ -21,8 +21,9 @@ const titles = (xs) => xs.map((x) => x[1]);
 test('co je nové od minula: nový uživatel, nic nového, 2 nové, starý WN_ID', () => {
   const S = { home: null, trip: null, trips: [], recent: [], watch: [] };
   const { wnSeenId, wnNew } = load(S);
-  const fresh = (top, seen) => titles(wnNew(wnSeenId(top, seen, L, ID), L));
-  // nový uživatel (nic uloženého, uvítání) nedostane nic – v okně jen „Naposledy přibylo“
+  const NOW = Date.parse('2026-12-10T12:00:00Z'); // novinky starší než 14 dní (před 26. 11.) už nikomu
+  const fresh = (top, seen, now = NOW) => titles(wnNew(wnSeenId(top, seen, L, ID), L, now));
+  // nový uživatel (nic uloženého, uvítání) nedostane nic – dostane uvítání
   assert.deepEqual(fresh(null, null), [], 'úplně nový');
   S.home = { from: [{ id: 'city:PRG' }] }; S.recent = [{}];
   assert.deepEqual(fresh(null, ID + '+vitej'), [], 'během první návštěvy');
@@ -32,9 +33,11 @@ test('co je nové od minula: nový uživatel, nic nového, 2 nové, starý WN_ID
   assert.deepEqual(fresh('2026-12-03a', ID), ['E', 'D']);
   // starý zápis „WN_ID\nnázev“ – rozhoduje WN_ID, i když novinka s tím názvem už je z pole smazaná
   assert.deepEqual(fresh('2026-12-03a\nC', ID), ['E', 'D']);
-  assert.deepEqual(fresh('2026-11-01c\nDávno smazaná', ID), ['E', 'D', 'C', 'B'], 'jen co v poli zůstalo, ne celý archiv');
-  // dávný starý WN_ID: všechno, co v poli je (pole drží jen ~6 týdnů), nikdy víc
-  assert.equal(wnNew(wnSeenId('2025-01-01a\nX', ID, L, ID), L).length, L.length);
+  assert.deepEqual(fresh('2026-11-01c\nDávno smazaná', ID), ['E', 'D', 'C'], 'jen čerstvé (B je starší než 14 dní), ne celý archiv');
+  // dávný starý WN_ID: jen novinky z posledních 14 dní, nikdy víc
+  assert.equal(wnNew(wnSeenId('2025-01-01a\nX', ID, L, ID), L, NOW).length, 3);
+  // po 14 dnech zmizí novinka všem – i tomu, kdo ji neviděl
+  assert.deepEqual(fresh('2026-12-03a', ID, Date.parse('2027-01-15T12:00:00Z')), []);
   // nejstarší zápis jen s názvem
   assert.deepEqual(fresh('C', ID), ['E', 'D']);
   assert.deepEqual(fresh('neznámá', ID), [], 'neznámý název → nic místo všech');
@@ -45,7 +48,7 @@ test('co je nové od minula: nový uživatel, nic nového, 2 nové, starý WN_ID
   assert.deepEqual(fresh('2026-12-03b', '2026-12-03b+vitej'), ['E']);
 });
 
-test('pole novinek: nejnovější nahoře s id = WN_ID, id neklesají, jen posledních ~6 týdnů', () => {
+test('pole novinek: nejnovější nahoře s id = WN_ID, id neklesají, staré se mažou', () => {
   const WN_ID = APP.match(/^const WN_ID = '([^']+)';/m)[1];
   const wn = vm.runInNewContext(APP.match(/^const WHATS_NEW = (\[[\s\S]*?^\]);/m)[1]);
   assert.equal(wn[0][3], WN_ID, 'nová novinka nahoře nese aktuální WN_ID');
@@ -54,19 +57,18 @@ test('pole novinek: nejnovější nahoře s id = WN_ID, id neklesají, jen posle
     assert.match(x[3], /^\d{4}-\d\d-\d\d[a-z]$/, x[1]);
     if (i) assert.ok(x[3] <= wn[i - 1][3], `${x[1]}: id nesmí být větší než u novinky nad ní`);
   }
-  assert.ok(wn.length >= 5, 'aspoň 5 nejnovějších');
-  // archiv se nevede – staré mažeme (s rezervou: nejstarší nejvýš ~10 týdnů před nejnovější)
+  assert.ok(wn.length >= 1);
+  assert.match(APP, /^const WN_DAYS = 14;/m);
+  // archiv se nevede – novinky starší než 14 dní se nikomu neukážou, z pole je mažeme (s rezervou: rozpětí nejvýš 30 dní)
   const days = (id) => Date.parse(id.slice(0, 10)) / 864e5;
-  assert.ok(days(wn[0][3]) - days(wn[wn.length - 1][3]) <= 70, 'staré novinky z pole smazat');
+  assert.ok(days(wn[0][3]) - days(wn[wn.length - 1][3]) <= 30, 'staré novinky z pole smazat');
 });
 
-test('okno Co je nového: jen nové od minula, jinak „Od minula nic nového“ + 3 poslední, bez archivu; otevřením viděné', () => {
+test('okno Co je nového: jen nové od minula, jinak jen „Od minula nic nového“, bez archivu; otevřením viděné', () => {
   const open = fnBody('whatsNewOpen');
   assert.match(open, /const fresh = wnNew\(wnSince\(\) \?\? WN_ID\);\n  wnMark\(\);/);
   assert.match(open, /Od minula nic nového\./);
-  assert.match(open, /Naposledy přibylo/);
-  assert.match(open, /WHATS_NEW\.slice\(0, WN_TOP\)/);
-  assert.match(APP, /^const WN_TOP = 3;/m);
+  assert.doesNotMatch(open, /Naposledy přibylo|WHATS_NEW\.slice/, 'když nic nového, nic dalšího (majitel 27. 11.)');
   assert.doesNotMatch(APP, /Starší novinky|wn-more/);
   assert.doesNotMatch(readFileSync(new URL('../public/css/atlas.css', import.meta.url), 'utf8'), /\.wn-more/);
   // lišta i okno počítají od stejného „minula“ (zapamatovaného při startu); zapisuje se jen id, starší stránka nepřepíše
@@ -87,8 +89,11 @@ test('okno v prohlížeči: nové od minula, pak nic nového; lišta i okno stej
       S: { home: { from: [{}] }, trip: null, trips: [], recent: [{}], watch: [] }, localStorage: ls,
       ikona: () => '', esc: (s) => s, modalOpen: (h) => { html = h; }, modalClose: () => {}, $$: () => [],
     };
+    // „dnes“ = den po nejnovější novince, ať test nestárne s kalendářem (novinky mizí po WN_DAYS)
+    const newest = Date.parse(APP.match(/^const WN_ID = '(\d{4}-\d\d-\d\d)/m)[1]) + 864e5;
+    ctx.Date = class extends Date { static now() { return newest; } };
     const code = [APP.match(/^const WN_ID = [^\n]*/m)[0], APP.match(/^const WHATS_NEW = \[[\s\S]*?^\];/m)[0],
-      pick('WN_NEW', 'firstVisit', 'wnMode', 'WN_TOP', 'wnUnit', 'wnLi', 'WN_TOP_LS', 'wnSeenId', 'wnNew'),
+      pick('WN_NEW', 'firstVisit', 'wnMode', 'WN_DAYS', 'wnUnit', 'wnLi', 'WN_TOP_LS', 'wnSeenId', 'wnNew'),
       APP.match(/^let wnSinceMem;\nfunction wnSince\(\) \{[\s\S]*?^\}/m)[0], pick('wnMark'), pick('whatsNewOpen'),
       'this.open = whatsNewOpen; this.WHATS_NEW = WHATS_NEW; this.WN_ID = WN_ID;'].join('\n');
     vm.runInNewContext(code, ctx);
@@ -103,11 +108,13 @@ test('okno v prohlížeči: nové od minula, pak nic nového; lišta i okno stej
   assert.equal(first, second, 'týž start: okno ukáže totéž');
   assert.equal(store.atlas_wn_top, ctx.WN_ID, 'zapsané jen id');
   assert.doesNotMatch(first, /Od minula nic nového/);
-  // další start: nic nového → krátká věta a 3 poslední
+  // další start: nic nového → jen krátká věta
   const again = run(ctx.WN_ID).first;
   assert.match(again, /Od minula nic nového\./);
-  assert.equal((again.match(/<li>/g) || []).length, 3);
-  // starý zápis „WN_ID\nnázev“ s dávno smazanou novinkou: jen co v poli je
+  assert.equal((again.match(/<li>/g) || []).length, 0);
+  // starý zápis „WN_ID\nnázev“ s dávno smazanou novinkou: jen co v poli je a není starší než 14 dní
   const old = run('2026-10-01a\nPřenos do jiného zařízení').first;
-  assert.equal((old.match(/<li>/g) || []).length, ctx.WHATS_NEW.length);
+  const live = ctx.WHATS_NEW.filter((x) => Date.parse(x[3].slice(0, 10)) >= ctx.Date.now() - 14 * 864e5).length;
+  assert.ok(live >= 1);
+  assert.equal((old.match(/<li>/g) || []).length, live);
 });
