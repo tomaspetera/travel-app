@@ -66,7 +66,9 @@ test('průvodce: krok Program (vykreslí se až po čekání) vrátí ztracený 
   const body = src.slice(src.indexOf('async function programStep()'), src.indexOf('/* ---------- ⚡ Poskládej'));
   const at = (s) => { const i = body.indexOf(s); assert.ok(i > 0, s); return i; };
   assert.ok(at('await progOpts(t)') < at('host.innerHTML') && at('host.innerHTML') < at('focusStep()'));
-  assert.match(body, /if \(typeof document === 'object' && document\.activeElement === document\.body\) focusStep\(\);/);
+  assert.match(body, /if \(focusLate && document\.activeElement === document\.body\) focusStep\(\);/);
+  // jen po přechodu (focusStep nadpis nenašel), ne při otevření cesty na kroku Program – tam by nadpis dostal rámeček
+  assert.match(src, /function focusStep\(step\) \{\n    const h = \$\('#tripStep h3'\);\n    focusLate = !h;/);
 });
 
 test('nová cesta: toast „Cesta vytvořena“ jen bez otevřeného okna (list Plus s otázkou na cenu ho nemá pod sebou)', () => {
