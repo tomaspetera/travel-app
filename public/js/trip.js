@@ -830,14 +830,19 @@ let calOut = false; // jedna obsluha klepnutí mimo nabídku „Do kalendáře �
     const dest = g ? g.dest : { label: t.out.to, cc: '', country: '', lat: null, lon: null };
     const mem = memAgeMs(t);
     // Rozpracovaná cesta (vybraná trasa, ubytování, auto, program nebo odškrtnuté rezervace) se nezahodí – uložená zůstane
-    // v Mých cestách, neuložená jen po zeptání („↩ Vybrat jiný let“ i nový výběr z výsledků by ji jinak potichu přepsaly).
+    // v Mých cestách, neuložená jen po zeptání (nový výběr z výsledků by ji jinak potichu přepsal).
     const mine = S.trip;
-    // „Změnit let“ u uložené cesty (app.js editTrip → window.reflight = její tripId): let se vymění u ní – dřív vznikla
-    // druhá cesta se stejným názvem bez programu. Značka platí jen pro tento výběr (app.js go ji smaže i při odchodu z Letů).
-    const old = window.reflight && Array.isArray(S.trips) ? S.trips.find(x => x && x.tripId && x.tripId === window.reflight) : null, ow = old && old.wizard;
+    // „Změnit let“ (app.js editTrip) i „↩ Jiný let“ v průvodci (otherFlight) → window.reflight = id cesty: let se vymění
+    // u ní – dřív vznikla druhá cesta se stejným názvem bez programu. Značka platí jen pro tento výběr (app.js go ji smaže
+    // i při odchodu z Letů).
+    const rid = window.reflight;
     window.reflight = null;
+    const old = rid && Array.isArray(S.trips) ? S.trips.find(x => x && x.tripId && x.tripId === rid) : null;
+    // cesta z průvodce ještě neuložená v Mých cestách (jen prohlédnutý let, samoukládání nestihlo) se vymění na místě
+    const ow = old ? old.wizard : rid && mine && mine.created === rid ? mine : null;
     // let jinam (v Letech hledal jiný cíl) = nová cesta jako dřív – program a název starého cíle by k letu nepatřily
-    const re = ow && ow.flight && ow.flight.out && (ow.flight.out.to === t.out.to || (ow.dest && ow.dest.label === dest.label)) ? savedEdit(old) : null;
+    const same = Boolean(ow && ow.flight && ow.flight.out && (ow.flight.out.to === t.out.to || (ow.dest && ow.dest.label === dest.label)));
+    const re = same && old ? savedEdit(old) : null, here = same && !old ? mine : null;
     // stejný let tam i zpět znovu (z výsledků, z uložených výsledků) pro stejně lidí a zavazadla → pokračovat v rozpracované
     // cestě; za stejnou cenu z novějšího hledání platí cena k jeho času
     if (!re && mine && mine.flight && JSON.stringify([mine.flight.out, midLegs(mine), mine.flight.back || null]) === JSON.stringify([t.out, Array.isArray(t.mid) ? t.mid : [], t.back || null])
@@ -845,7 +850,7 @@ let calOut = false; // jedna obsluha klepnutí mimo nabídku „Do kalendáře �
       if (at > 0 && at - mem > (mine.flight.pricedAt || 0) && at <= Date.now() && mine.flight.flightCzk === t.flightCzk) { mine.flight.pricedAt = at - mem; persist(); }
       go('trip', { drill: true }); return;
     }
-    if (!(re && re.open) && !leaveTrip(mine, done => `Máš rozpracovanou cestu: ${mine.dest?.label || mine.flight.out.to} (${done.join(', ')}). Nahradit ji novou cestou s tímto letem?`)) return;
+    if (!(re && re.open) && !here && !leaveTrip(mine, done => `Máš rozpracovanou cestu: ${mine.dest?.label || mine.flight.out.to} (${done.join(', ')}). Nahradit ji novou cestou s tímto letem?`)) return;
     // Let z průběžných výsledků (pomalejší zdroje ještě hledaly): statistika cen i úroveň ceny letu jsou jen z části
     // zdrojů – neuložit, doplní je konečný výsledek téhož hledání (finalStats, statsWait = jeho dotaz). Statistika
     // průběžného výsledku čeká stranou (statsPreview) pro případ, že hledání konečný výsledek nepřinese (statsGiveUp).
@@ -895,6 +900,7 @@ let calOut = false; // jedna obsluha klepnutí mimo nabídku „Do kalendáře �
       saveRetimed(re.e, n, true, outLeg(n).date, backLeg(n) ? backLeg(n).date : stayDates(n).checkout);
       go('trip', { drill: true }); return;
     }
+    if (here) { S.trip = reflightTrip(here, trip); persist(); go('trip', { drill: true }); return; }
     S.trip = trip;
     persist();
     if (window.Count) Count.hit('trip_started'); // souhrnný počet (count.js) – nová cesta s letem, i vlastním
@@ -4492,8 +4498,10 @@ let calOut = false; // jedna obsluha klepnutí mimo nabídku „Do kalendáře �
   /**
    * „↩ Jiný let“: zpět k výsledkům hledání do téhož cíle (výpis, ze kterého let je, i s posunem), jinak Lety s cílem
    * a termínem cesty předvyplněnými (dřív prázdné hledání – cesta z Mých cest nebo Letenku už mám ztratila cíl i data).
+   * Vybraný let do téhož cíle se vymění u této cesty jako „Změnit let“ (start s window.reflight) – bez druhé cesty.
    */
   function otherFlight(t) {
+    window.reflight = Number.isFinite(t.created) ? t.created : null;
     const f = t.flight, d = t.dest || {}, ids = [d.id, 'ap:' + f.out.to, d.cc && 'cc:' + d.cc].filter(Boolean);
     const r = $('#results'), to = S.form && Array.isArray(S.form.to) ? S.form.to : null;
     if ((r && r.firstElementChild && to && (!to.length || to.some(x => x && ids.includes(x.id)))) || typeof tripFlights !== 'function') return go('flights');

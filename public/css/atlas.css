@@ -993,6 +993,9 @@ html:has(#modalBg.show) body{overflow:hidden} /* na body, ne na html: přejde na
 #geoBtn .ico{width:20px;height:20px;vertical-align:middle}
 /* Program je podle ikony.json čitelný nejméně ve 20 px (ve 16 px se slévá) */
 .ico.i-program{width:max(1.15em,20px);height:max(1.15em,20px);vertical-align:-.3em}
+.i-afrika{--ico:url(../vendor/letsi/ikony/afrika.svg)}
+.i-amerika{--ico:url(../vendor/letsi/ikony/amerika.svg)}
+.i-asie{--ico:url(../vendor/letsi/ikony/asie.svg)}
 .i-auto{--ico:url(../vendor/letsi/ikony/auto.svg)}
 .i-autobus{--ico:url(../vendor/letsi/ikony/autobus.svg)}
 .i-cas{--ico:url(../vendor/letsi/ikony/cas.svg)}
@@ -1024,6 +1027,7 @@ html:has(#modalBg.show) body{overflow:hidden} /* na body, ne na html: přejde na
 .i-program{--ico:url(../vendor/letsi/ikony/program.svg)}
 .i-sdilet{--ico:url(../vendor/letsi/ikony/sdilet.svg)}
 .i-skryt{--ico:url(../vendor/letsi/ikony/skryt.svg)}
+.i-slunce{--ico:url(../vendor/letsi/ikony/slunce.svg)}
 .i-smazat{--ico:url(../vendor/letsi/ikony/smazat.svg)}
 .i-stahnout{--ico:url(../vendor/letsi/ikony/stahnout.svg)}
 .i-super-cena{--ico:url(../vendor/letsi/ikony/super-cena.svg)}

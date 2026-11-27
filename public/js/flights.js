@@ -1929,14 +1929,14 @@
     toast(`Ceny jsou ${x.z} ${x.txt} – mohly se změnit. Pro nákup klepni znovu.`, 'err', 6000);
   }
   /**
-   * Na telefonu se po hledání formulář sbalí do řádku „Brno → kamkoliv · 17.10.–9.12. · 5–9 nocí · 2 os. [✎ Upravit] [♡]“,
+   * Na telefonu se po hledání formulář sbalí do řádku „Brno → kamkoliv · 17.10.–9.12. · 5–9 nocí · 2 os. [Upravit] [♡]“,
    * aby výsledky začínaly nahoře (formulář má na výšku přes obrazovku) – i na počítači.
    */
   function collapseForm(f) {
     const sum = $('#searchSum'); if (!sum || !f || !f.from?.length) return;
     const lw = f.len === 'holiday' && f.trip === 'return' && f.dateMode !== 'exact' && SearchHelp.holidayOf(f, today()); // „🎉 Vánoce 24.–27. 12.“ stačí
     const when = f.trip !== 'multi' && f.dateMode !== 'exact' && !lw ? `${fmtDate(f.dFrom)}–${fmtDate(f.dTo)} · ` : '';
-    sum.innerHTML = `<div class="ss-txt"><b>${esc(watchLabel(f))}</b><span class="faint">${esc(when + recentSub(f, !when))} · ${esc(SearchHelp.paxShort(f))}</span></div><button type="button" class="btn sm ghost" id="ssWatch" aria-label="Hlídat cenu">${ikona('hlidam')} Hlídat</button><button type="button" class="btn sm" id="ssEdit">✎ Upravit</button>`;
+    sum.innerHTML = `<div class="ss-txt"><b>${esc(watchLabel(f))}</b><span class="faint">${esc(when + recentSub(f, !when))} · ${esc(SearchHelp.paxShort(f))}</span></div><button type="button" class="btn sm ghost" id="ssWatch" aria-label="Hlídat cenu">${ikona('hlidam')} Hlídat</button><button type="button" class="btn sm" id="ssEdit">${ikona('upravit')} Upravit</button>`;
     sum.hidden = false;
     $('#searchForm').classList.add('collapsed');
     $('#ssEdit').onclick = () => { expandForm(); $('#searchForm').scrollIntoView({ behavior: 'smooth', block: 'start' }); };
@@ -1994,6 +1994,8 @@
   // part = pod průběhem už jsou průběžné výsledky → jen tenký pruh (co ještě hledá), řádky zdrojů po rozkliknutí
   function renderProgress(ev, starting, res, part = false) {
     const host = $('#progress');
+    // průběh je v základu sbalený; rozbalení, které si uživatel otevřel, překreslení nezavře (nové hledání začne sbalené)
+    const open = !starting && $('details.progress-card', host)?.open ? ' open' : '';
     const rows = (ev.providers || []).map(p => {
       const pct = p.calls ? Math.round(p.done / p.calls * 100) : (p.state === 'done' ? 100 : 0);
       const st = { pending: 'čeká', running: 'hledám…', done: 'hotovo', partial: 'částečně', error: 'chyba' }[p.state] || p.state;
@@ -2013,18 +2015,17 @@
     const ST = { pending: '⏳', running: '<span class="spin"></span>', done: '✓', error: '⚠️' };
     const legs = !res && ev.legs ? `<div class="ml-prog">${ev.legs.map((l, i) => `<span class="${esc(l.state)}">${ST[l.state] || ''} ${i + 1}. ${esc(l.label)}</span>`).join('')}</div>` : '';
     if (res) {
-      // Po dohledání jen jeden řádek (na mobilu by jinak průběh odsunul první nabídku pod okraj), podrobnosti po rozkliknutí;
-      // s chybou zdroje rozbalené.
+      // Po dohledání jen jeden řádek (na mobilu by jinak průběh odsunul první nabídku pod okraj), podrobnosti po rozkliknutí –
+      // i s chybou zdroje: tu vysvětlí karta pod průběhem (lowcostBanner, kiwiOnly).
       // pokrytí tras (Wizz Air: na hledání jen část tras, další přijdou na řadu příště) – „Wizz Air 40 (20/39 tras)“
       const cov = p => (p.coverage && p.coverage.skipped + p.coverage.memory > 0 ? ` (${p.coverage.total - p.coverage.skipped}/${p.coverage.total} tras)` : '');
       const found = (ev.providers || []).filter(p => p.found).map(p => `${esc(shopName(p.id))} ${p.found}${cov(p)}`).join(' · ');
-      const bad = (ev.providers || []).some(p => p.state === 'error');
       const more = (ev.providers || []).find(p => p.coverage && p.coverage.skipped > 0);
       // kdy hledání proběhlo („hledáno 14:32 · podrobnosti ▾“ vpravo – na telefonu i se širokým řádkem obchodů se tam
       // vejde a řádek nezvýší); po hodině ho nahradí poznámka 🕘 (ageCheck). Ne „ceny z 14:32“ – ceny z mezipaměti
       // můžou být starší než hledání.
       const age = SearchHelp.resultAge(lastResultAt, Date.now()), at = age ? `<span class="ps-at">hledáno ${esc(age.when)}</span>` : '';
-      host.innerHTML = `<details class="card progress-card done"${bad ? ' open' : ''}><summary class="ph">✓ ${head}${found ? `<span class="faint ps-found"> · ${found}</span>` : ''}<span class="ps-more faint">${at}<span class="ps-pd">${at ? ' · ' : ''}podrobnosti</span></span></summary>${rows}${disabled}</details>`
+      host.innerHTML = `<details class="card progress-card done"${open}><summary class="ph">✓ ${head}${found ? `<span class="faint ps-found"> · ${found}</span>` : ''}<span class="ps-more faint">${at}<span class="ps-pd">${at ? ' · ' : ''}podrobnosti</span></span></summary>${rows}${disabled}</details>`
         + (more ? `<div class="more-routes"><button type="button" class="btn sm" id="moreRoutes" title="Na jedno hledání smí Letsi na ${esc(shopName(more.id))} jen omezený počet dotazů – další hledání vezme nejdřív trasy, na které nedošlo">Prohledat zbylé trasy ${esc(shopName(more.id))} (${more.coverage.skipped})</button></div>` : '');
       const mr = $('#moreRoutes', host); if (mr) mr.onclick = () => rerun();
       return;
@@ -2039,10 +2040,22 @@
         sum.insertAdjacentHTML('afterend', rows + disabled);
         return;
       }
-      host.innerHTML = `<details class="card progress-card part"><summary class="ph"><span><span class="spin"></span> <span class="ph-txt">${esc(SearchHelp.partialHead(ev.providers, shopName))}</span></span><span class="ps-more faint">podrobnosti</span></summary>${rows}${disabled}</details>`;
+      host.innerHTML = `<details class="card progress-card part"${open}><summary class="ph"><span><span class="spin"></span> <span class="ph-txt">${esc(SearchHelp.partialHead(ev.providers, shopName))}</span></span><span class="ps-more faint">podrobnosti</span></summary>${rows}${disabled}</details>`;
       return;
     }
-    host.innerHTML = `<div class="card progress-card"><div class="ph">${head}</div>${legs}${rows}</div>`;
+    // Před prvními výsledky taky jen řádek se spinnerem, zdroje po rozkliknutí; postup letů cesty přes víc měst (legs) je
+    // v řádku – týká se uživatelových letů, ne zdrojů. Další průběh přepíše jen obsah, rozbalení zůstane (jako u part).
+    const d = !starting && $('details.progress-card.run', host), sum = d && $('summary', d);
+    if (sum) {
+      const t = $('.ph-txt', sum);
+      if (t.innerHTML !== head) t.innerHTML = head;
+      $('.ml-prog', sum)?.remove();
+      sum.insertAdjacentHTML('beforeend', legs);
+      while (sum.nextSibling) sum.nextSibling.remove();
+      sum.insertAdjacentHTML('afterend', rows);
+      return;
+    }
+    host.innerHTML = `<details class="card progress-card run"${open}><summary class="ph"><span class="ph-txt">${head}</span><span class="ps-more faint">podrobnosti</span>${legs}</summary>${rows}</details>`;
   }
 
   /* ---------- výsledky ---------- */
@@ -3741,7 +3754,7 @@
     // všechny vynechané po výpadku (Wizz Air po 429 až 10 min): nové hledání by je stejně přeskočilo – tlačítko po odpočtu
     const until = out.every(x => x.level === 'blocked' && x.retryAfter > 0) ? lastResultAt + Math.min(...out.map(x => x.retryAfter)) * 1000 : 0;
     const left = until ? Math.ceil((until - Date.now()) / 1000) : 0;
-    return `<div class="note ${down.length ? 'bad' : 'warn'} kiwi-note"><span>📡</span><div>${txt}</div><button type="button" class="btn sm" id="lcRetry"${left > 0 ? ` disabled data-until="${until}"` : ''}>↻ Zkusit znovu${left > 0 ? ` za ${left} s` : ''}</button></div>`;
+    return `<div class="note ${down.length ? 'bad' : 'warn'} kiwi-note">${ikona('info')}<div>${txt}</div><button type="button" class="btn sm" id="lcRetry"${left > 0 ? ` disabled data-until="${until}"` : ''}>↻ Zkusit znovu${left > 0 ? ` za ${left} s` : ''}</button></div>`;
   }
   function kiwiOnly(res) {
     const k = SearchHelp.kiwiOutage(res.providers);
@@ -3751,7 +3764,7 @@
     const txt = k.level === 'partial'
       ? `<b>Kiwi.com odpovědělo jen zčásti</b> – ${k.failed ? `${plural(k.failed, 'dotaz', 'dotazy', 'dotazů')} ${k.failed === 1 ? 'selhal' : k.failed <= 4 ? 'selhaly' : 'selhalo'}` : 'část dotazů nestihlo'}, takže některé lety (hlavně jiných aerolinek a s přestupem) můžou chybět.`
       : `<b>Kiwi.com teď neodpovědělo</b> – ${who ? (res.mode === 'route' ? `vidíš jen nejlevnější let dne od ${who}` : `vidíš jen nabídky ${who}`) : 'lety ostatních aerolinek (i dálkové) teď chybí'}.${k.level === 'blocked' ? ' Po výpadku ho Letsi na chvíli vynechává.' : ''}`;
-    return `<div class="note ${k.level === 'partial' ? 'warn' : 'bad'} kiwi-note"><span>📡</span><div>${txt}</div><button type="button" class="btn sm" id="kiwiRetry"${left > 0 ? ` disabled data-until="${lastResultAt + k.retryAfter * 1000}"` : ''}>↻ Zkusit znovu${left > 0 ? ` za ${left} s` : ''}</button></div>`;
+    return `<div class="note ${k.level === 'partial' ? 'warn' : 'bad'} kiwi-note">${ikona('info')}<div>${txt}</div><button type="button" class="btn sm" id="kiwiRetry"${left > 0 ? ` disabled data-until="${lastResultAt + k.retryAfter * 1000}"` : ''}>↻ Zkusit znovu${left > 0 ? ` za ${left} s` : ''}</button></div>`;
   }
   function filterChips(chips) {
     if (!chips.length) return '';
@@ -5385,13 +5398,13 @@
     // [ikona Letsi (dlaždice je tlačítko – ne emoji), název, popis, hledání, fotka]
     const QF = [
       ['kompas', 'Kamkoliv levně', 'Levné cíle z tvého okolí, příští 2 měsíce', { to: [] }, 'Lisabon'],
-      ['odlet', 'Za teplem', 'Kde bývá přes den 25 °C a víc · příští 2 měsíce', { to: [], minTemp: 25, trip: 'return', len: 'custom', nMin: 5, nMax: 10 }, 'Tenerife'],
+      ['slunce', 'Za teplem', 'Kde bývá přes den 25 °C a víc · příští 2 měsíce', { to: [], minTemp: 25, trip: 'return', len: 'custom', nMin: 5, nMax: 10 }, 'Tenerife'],
       ['kalendar', 'Víkend v Evropě', 'Čt/Pá–Ne/Po, příštích 6 týdnů', { to: [], len: 'weekend', dTo: addDays(today(), 45) }, 'Paříž'],
       // pole Kam pojme nejvýš 5 míst
       ['let', 'Dálky a exotika', 'Thajsko, Bali, Vietnam, Emiráty, Srí Lanka', { to: EXOTIC.slice(0, 5).map(cc => ({ id: 'cc:' + cc, label: byIso[cc]?.cs || cc, flag: flag(cc) })), len: 'custom', nMin: 7, nMax: 21, dTo: addDays(today(), 90) }, 'Bali'],
-      ['jazyk', 'Asie', 'Thajsko, Vietnam, Japonsko, Bali, Srí Lanka…', { to: [{ id: 'ct:asia', label: 'Asie', flag: '🌏' }], len: 'custom', nMin: 7, nMax: 21, dTo: addDays(today(), 60) }, 'Kjóto'],
-      ['jazyk', 'Afrika', 'Egypt, Maroko, Keňa, Zanzibar, Kapské Město…', { to: [{ id: 'ct:africa', label: 'Afrika', flag: '🌍' }], len: 'custom', nMin: 7, nMax: 16, dTo: addDays(today(), 60) }, 'Kapské Město'],
-      ['jazyk', 'Amerika', 'New York, Mexiko, Karibik, Kuba…', { to: [{ id: 'ct:namerica', label: 'Severní a Střední Amerika', flag: '🗽' }], len: 'custom', nMin: 7, nMax: 21, dTo: addDays(today(), 60) }, 'New York'],
+      ['asie', 'Asie', 'Thajsko, Vietnam, Japonsko, Bali, Srí Lanka…', { to: [{ id: 'ct:asia', label: 'Asie', flag: '🌏' }], len: 'custom', nMin: 7, nMax: 21, dTo: addDays(today(), 60) }, 'Kjóto'],
+      ['afrika', 'Afrika', 'Egypt, Maroko, Keňa, Zanzibar, Kapské Město…', { to: [{ id: 'ct:africa', label: 'Afrika', flag: '🌍' }], len: 'custom', nMin: 7, nMax: 16, dTo: addDays(today(), 60) }, 'Kapské Město'],
+      ['amerika', 'Amerika', 'New York, Mexiko, Karibik, Kuba…', { to: [{ id: 'ct:namerica', label: 'Severní a Střední Amerika', flag: '🗽' }], len: 'custom', nMin: 7, nMax: 21, dTo: addDays(today(), 60) }, 'New York'],
     ];
     // ⭐ Moje cíle: prvních 5 (pole Kam jich víc nepojme) v termínech radaru
     const fav = prefLists().fav;
@@ -6208,7 +6221,7 @@
           rerender(true);
           // řádek „✓ Prohledáno … · Demo Air 132“ po hledání: jména obchodů místo id (rozbalení zůstane)
           const pc = $('#progress details.progress-card');
-          if (pc && !restored && !running) { const open = pc.open; renderProgress({ providers: lastResult.providers }, false, lastResult); $('#progress details').open = open; }
+          if (pc && !restored && !running) renderProgress({ providers: lastResult.providers }, false, lastResult);
         }, retry);
       };
       // ±20 % náhodně: po výpadku nebo nasazení se všechny otevřené aplikace neptají znovu ve stejnou vteřinu

@@ -234,7 +234,7 @@ details.more #moreSummary{margin-left:10px;font-weight:500}
 /* ---------- průběh ---------- */
 #progress{scroll-margin-top:100px} /* odrolování na začátku hledání: průběh i tenký pruh pod přilepenou horní lištou */
 .progress-card{padding:16px 18px;margin-bottom:18px}
-.progress-card.done,.progress-card.part{padding:12px 18px}
+.progress-card.done,.progress-card.part,.progress-card.run{padding:12px 18px}
 /* průběžné výsledky: tenký pruh nad výpisem, dokud pomalejší zdroje hledají; v nadpisu konkrétního cíle „⏳ zatím…“ */
 .progress-card.part .spin{width:12px;height:12px;border-width:2px;margin-right:3px;vertical-align:-1px}
 .part-tag{font-size:13px;font-weight:700;color:var(--muted);white-space:nowrap}
@@ -962,6 +962,8 @@ ol.guide code,.note code{background:var(--surface-2);padding:1px 6px;border-radi
 .ml-prog .running{color:var(--text);font-weight:700}
 .ml-prog .error{color:var(--bad-ink)}
 .ml-prog .spin{width:11px;height:11px;border-width:2px}
+/* v řádku sbaleného průběhu (renderProgress): postup letů na vlastním řádku pod nadpisem, ne tučně */
+.progress-card summary .ml-prog{flex-basis:100%;margin:6px 0 0;font-weight:400}
 .mc-note{margin-bottom:14px}
 .ml-hint p{font-size:13px;color:var(--muted);line-height:1.55;margin:0 0 6px}
 .ml-hint p b{color:var(--text)}
