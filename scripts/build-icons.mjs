@@ -1,21 +1,22 @@
 #!/usr/bin/env node
 // Ikony aplikace na ploše (PWA) do public/icons/ – ikona Letsi: kukátko na dlaždici Pistácie (balík identity Letsi 2.1,
-// složka ikona/). Hotová PNG z balíku se do public/icons/ kopírují beze změny (MASTERS); chybějící velikosti tenhle
-// skript dopočítá zmenšením na polovinu a nakreslí úvodní obrazovky iOS. Bez závislostí: PNG čte i zapisuje přes node:zlib.
+// složka ikona/). Znak bere z ikony balíku (scripts/balik/icon-1024.png) a každou velikost z manifestu přepočítá jako
+// plný čtverec Pistácie se znakem na 60 % šířky; nakreslí i úvodní obrazovky iOS. Bez závislostí: PNG čte i zapisuje
+// přes node:zlib.
 //
 //   node scripts/build-icons.mjs        (= npm run build:icons)
 //
-//  icon-1024.png, icon-192.png    „any“ – z balíku (ikona s průhlednými rohy)
-//  icon-maskable-512.png          „maskable“ – z balíku (icon-512-maskable.png): Pistácie do krajů, znak v bezpečné zóně
-//  apple-touch-icon.png           180 × 180 pro iPhone a iPad – z balíku (apple-touch-icon-180.png), bez průhlednosti
-//  icon-512.png                   „any“ – icon-1024.png zmenšená na polovinu (průměr 2 × 2 pixelů)
-//  icon-96.png                    zkratky v manifestu a ikona u výsledku vyhledávání – icon-192.png zmenšená na polovinu
+//  icon-1024/512/192.png          „any“ – plný čtverec bez průhledných rohů: launchery (MIUI ap.) ikonu s průhledností
+//                                 zvětší, ořežou a zaoblí po svém, a pak znak naráží na okraje; plný čtverec jen zaoblí
+//  icon-maskable-512.png          „maskable“ – totéž; znak 60 % je celý i v kruhu 80 % (bezpečná zóna masky)
+//  icon-96.png                    zkratky v manifestu a ikona u výsledku vyhledávání – totéž v 96 px
+//  apple-touch-icon.png           180 × 180 pro iPhone a iPad – z balíku (apple-touch-icon-180.png), beze změny
 //  splash/<š>x<v>.png             úvodní obrazovky aplikace na ploše iPhonu a iPadu (apple-touch-startup-image, viz SPLASH)
 //  splash/<š>x<v>-tmava.png       totéž v tmavém režimu (Noc)
 //                                 + jejich odkazy v public/index.html mezi značkami <!-- ios-splash --> a <!-- /ios-splash -->
 //
 // Výpočet je deterministický – test/pwa.test.js ověřuje, že uložené PNG odpovídají tomuto skriptu. Nová ikona z balíku:
-// zkopírovat MASTERS do public/icons/ pod jejich názvy a skript spustit znovu.
+// icon-1024.png do scripts/balik/ (apple-touch-icon-180.png do public/icons/apple-touch-icon.png) a skript spustit znovu.
 import { writeFileSync, mkdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
@@ -29,9 +30,18 @@ export const BG = [0xf3, 0xf4, 0xf0];
 // Noc #14161F = pozadí aplikace v tmavém režimu (#launch v tmavém motivu) – tmavá úvodní obrazovka iOS
 export const BG_DARK = [0x14, 0x16, 0x1f];
 /** Hotové ikony z balíku Letsi (ikona/) → název v public/icons/. */
-export const MASTERS = { 'icon-1024.png': 'icon-1024.png', 'icon-192.png': 'icon-192.png', 'icon-512-maskable.png': 'icon-maskable-512.png', 'apple-touch-icon-180.png': 'apple-touch-icon.png' };
-/** Dopočítané ikony: soubor ← zdroj v public/icons/ zmenšený na polovinu. */
-export const DERIVED = [{ file: 'icon-512.png', from: 'icon-1024.png' }, { file: 'icon-96.png', from: 'icon-192.png' }];
+export const MASTERS = { 'apple-touch-icon-180.png': 'apple-touch-icon.png' };
+/** Ikona z balíku (s průhlednými rohy, znak ~70 % šířky) – zdroj znaku pro ICONS. */
+export const SOURCE = path.join(root, 'scripts', 'balik', 'icon-1024.png');
+// Pistácie #D6DE82 = dlaždice ikony
+export const TILE = [0xd6, 0xde, 0x82];
+/** Šířka znaku v ikoně: 60 % jako úvodní obrazovka (#launch .l-tile v index.html) – v kruhu i squircle s rezervou. */
+export const MARK = 0.6;
+/** Ikony z manifestu (any, maskable a zkratky): soubor a strana v pixelech. */
+export const ICONS = [
+  { file: 'icon-1024.png', size: 1024 }, { file: 'icon-512.png', size: 512 }, { file: 'icon-192.png', size: 192 },
+  { file: 'icon-maskable-512.png', size: 512 }, { file: 'icon-96.png', size: 96 },
+];
 
 /*
  * Úvodní obrazovka aplikace na ploše iPhonu a iPadu: iOS ji ukáže od klepnutí na ikonu do prvního vykreslení stránky –
@@ -175,41 +185,54 @@ export function decodePng(buf) {
   return { width, height, px };
 }
 
-/**
- * Zmenšení na polovinu: průměr bloku 2 × 2. Barva vážená krytím (jinak by průhledné pixely rohů, které mají barvu
- * černou, ztmavily okraj dlaždice).
- */
-export function halve({ width, height, px }) {
-  const w = width >> 1, h = height >> 1, out = new Uint8Array(w * h * 4);
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      let a = 0;
-      const c = [0, 0, 0];
-      for (const [dx, dy] of [[0, 0], [1, 0], [0, 1], [1, 1]]) {
-        const o = ((2 * y + dy) * width + 2 * x + dx) * 4;
-        a += px[o + 3];
-        for (let j = 0; j < 3; j++) c[j] += px[o + j] * px[o + 3];
-      }
-      const o = (y * w + x) * 4;
-      for (let j = 0; j < 3; j++) out[o + j] = a ? Math.round(c[j] / a) : 0;
-      out[o + 3] = Math.round(a / 4);
-    }
+/** Je pixel (RGBA) znak, ne dlaždice? Průhledné rohy ikony z balíku patří k dlaždici. */
+const isMark = (px, o) => px[o + 3] > 127 && Math.abs(px[o] - TILE[0]) + Math.abs(px[o + 1] - TILE[1]) + Math.abs(px[o + 2] - TILE[2]) > 24;
+
+/** Ohraničení znaku { x0, y0, x1, y1 } (x1, y1 za posledním pixelem). */
+export function markBox({ width, height, px }) {
+  let x0 = width, y0 = height, x1 = 0, y1 = 0;
+  for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) if (isMark(px, (y * width + x) * 4)) {
+    x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x + 1); y1 = Math.max(y1, y + 1);
   }
-  return { width: w, height: h, px: out };
+  return { x0, y0, x1, y1 };
 }
 
-/** Dopočítaná ikona z uložených souborů v dir → PNG. */
-export const derivedPng = ({ from }, dir = OUT_DIR) => {
-  const img = halve(decodePng(readFileSync(path.join(dir, from))));
-  return encodePng(img.px, img.width);
-};
+/**
+ * Ikona size × size: dlaždice zdroje zmenšená kolem středu tak, aby znak měl MARK šířky (svislé optické posazení znaku
+ * z balíku se zmenší s ním), všude kolem plná Pistácie. Zmenšení = průměr plochy, kterou pixel pokryje ve zdroji
+ * (váhy podle překryvu, zvlášť ve vodorovném a svislém směru); průhledné pixely zdroje počítá jako Pistácii.
+ */
+export function iconPng(size, src = decodePng(readFileSync(SOURCE))) {
+  const { width, height, px } = src, box = markBox(src), k = (box.x1 - box.x0) / (MARK * size);
+  // pro každý pixel výstupu seznam [index ve zdroji, váha]; mimo zdroj nic (doplní se Pistácie)
+  const weights = (n, len) => Array.from({ length: size }, (_, i) => {
+    const a = n / 2 + (i - size / 2) * k, b = a + k, out = [];
+    for (let j = Math.max(0, Math.floor(a)); j < Math.min(len, Math.ceil(b)); j++) out.push([j, (Math.min(b, j + 1) - Math.max(a, j)) / k]);
+    return out;
+  });
+  const wx = weights(width, width), wy = weights(height, height), rgba = new Uint8Array(size * size * 4);
+  for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
+    const c = [0, 0, 0];
+    let w = 0;
+    for (const [sy, vy] of wy[y]) for (const [sx, vx] of wx[x]) {
+      const o = (sy * width + sx) * 4, v = vy * vx, t = px[o + 3] / 255;
+      for (let j = 0; j < 3; j++) c[j] += v * (px[o + j] * t + TILE[j] * (1 - t));
+      w += v;
+    }
+    const o = (y * size + x) * 4;
+    for (let j = 0; j < 3; j++) rgba[o + j] = Math.round(c[j] + TILE[j] * (1 - w));
+    rgba[o + 3] = 255;
+  }
+  return encodePng(rgba, size);
+}
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   mkdirSync(OUT_DIR, { recursive: true });
-  for (const d of DERIVED) {
-    const png = derivedPng(d);
-    writeFileSync(path.join(OUT_DIR, d.file), png);
-    console.log(`${d.file} ← ${d.from}: ${(png.length / 1024).toFixed(1)} kB`);
+  const src = decodePng(readFileSync(SOURCE));
+  for (const { file, size } of ICONS) {
+    const png = iconPng(size, src);
+    writeFileSync(path.join(OUT_DIR, file), png);
+    console.log(`${file}: ${size} px, ${(png.length / 1024).toFixed(1)} kB`);
   }
   mkdirSync(path.join(OUT_DIR, 'splash'), { recursive: true });
   for (const s of splashImages()) writeFileSync(path.join(OUT_DIR, s.file), solidPng(s.width, s.height, s.bg));
