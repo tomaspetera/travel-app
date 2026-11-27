@@ -3956,6 +3956,8 @@
     const unpriced = multi ? r.bases.filter(b => !(b.stay && b.stay.mode === 'skip') && !stayCzk(b.stay)).map(b => b.name) : [];
     const fly = isFly(t), tp = transferParts(t), legsAll = routeLegs(t), carLegs = legsAll.filter(l => l.mode === 'car');
     // ubytování, které v součtu chybí: řádek to řekne a vede do kroku Ubytování, součet se podle toho jmenuje (stayGap)
+    // bez jediné ceny (noCost): „Doplnit cenu“ u „Zatím bez cen“ jen, když ho už nemá řádek ubytování (dvakrát pod sebou
+    // stejný odkaz), a bez „Celkem i se vstupními poplatky“ – ukázalo by jen poplatek jako cenu celé cesty
     const gap = stayGap(t), pickBtn = txt => `<span class="sum-go"> · <button type="button" class="linkbtn" data-goto="stay">${txt} →</button></span>`;
     const rows = [
       ov ? ['🚆', `Vlak / bus ${ov.back ? 'tam i zpět' : 'tam'} (${paxTxt(t)})${[ov.out, ov.back].some(g => g && g.source !== 'regiojet') ? ' – odhad' : [ov.out, ov.back].some(g => g && g.demo) ? ' – DEMO' : ''}`, c.overland]
@@ -4024,11 +4026,11 @@
     host.innerHTML = `${autoNoteHtml(t, 'summary')}${tlCard}<div class="sum-side"><div class="sum-grid">
       <div class="card step-card"><h3>🧾 Cena cesty</h3>
         <table class="cost">${rows.map(r => `<tr><td>${r[0]}</td><td>${esc(r[1])}${r[3] || ''}</td><td>${czk(r[2])}${r[4] || ''}</td></tr>`).join('')}
-        ${noCost(c) ? `<tr><td></td><td><b>Zatím bez cen</b> – doplň cenu letenky nebo ubytování${gap.gap ? pickBtn('Doplnit cenu') : ''}</td><td></td></tr>`
+        ${noCost(c) ? `<tr><td></td><td><b>Zatím bez cen</b> – doplň cenu letenky nebo ubytování${gap.gap && !rows.some(r => (r[3] || '').includes('data-goto="stay"')) ? pickBtn('Doplnit cenu') : ''}</td><td></td></tr>`
           : `<tr class="tot"><td></td><td>${totalLbl(gap)}</td><td>${czk(c.total)}</td></tr><tr><td></td><td class="faint">na osobu</td><td class="faint">${czk(c.perPerson)}</td></tr>`}
         ${fees.map(x => x.free ? `<tr class="entry-fee"><td>🛂</td><td>${esc(x.label)}</td><td>zdarma</td></tr>`
           : `<tr class="entry-fee"><td>🛂</td><td>${esc(x.label)} <span class="faint">– vstupní poplatek, orientačně</span></td><td>+ ${czk(x.czk)}</td></tr>`).join('')}
-        ${feeCzk > 0 ? `<tr class="entry-tot"><td></td><td>Celkem i se vstupními poplatky</td><td>${czk(c.total + feeCzk)}</td></tr>` : ''}</table>
+        ${feeCzk > 0 && !noCost(c) ? `<tr class="entry-tot"><td></td><td>Celkem i se vstupními poplatky</td><td>${czk(c.total + feeCzk)}</td></tr>` : ''}</table>
         <div class="faint" style="font-size:12px;margin-top:8px">${ov ? 'Vlak / bus: cena vybraného spoje RegioJetu, nebo odhad – jízdenky kup u dopravce.' : f.own ? (f.manual ? 'Vlastní let s cenou, kterou jsi zadal.' : 'Vlastní let bez ceny – do součtu se nepočítá.') : c.bags ? 'Zavazadla jsou odhad podle dopravce.' : t.bags && t.bags !== 'none' ? 'Zavazadlo je podle ceníku dopravce v ceně letenky.' : 'Letenky bez zavazadel.'} Ceny u partnerů ověř před zaplacením.</div>
         <div class="sum-print" id="sumPrint">${esc(printNote(Date.now()))}</div>
         ${budgetHtml(t, c)}

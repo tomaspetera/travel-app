@@ -134,3 +134,20 @@ test('cesta bez jediné ceny: hlavička „Cenu doplníš“, Shrnutí „Zatím
   assert.match(render(c, 'summary'), /<tr class="tot"><td><\/td><td>Celkem<\/td><td>5 000 Kč<\/td><\/tr>/);
   assert.match(sp(c.__els['#tripRoot'].innerHTML).match(/id="thTotal">(.*?)<\/div>\s*<\/div>/s)[1], /Celkem zatím<\/div><div class="tt">5 000 Kč/);
 });
+
+test('Shrnutí bez jediné ceny: „Doplnit cenu“ jen jednou a bez „Celkem i se vstupními poplatky“ (jen poplatek jako cena cesty)', () => {
+  const c = load();
+  const t = begin(c, 0);
+  // vybrané ubytování bez ceny (Vyber za mě v čistém režimu): „Doplnit cenu →“ už má řádek ubytování
+  t.stay = { mode: 'pick', id: 'a', name: 'Penzion a', totalCzk: 0, url: 'https://booking.example/a' };
+  const E = { ready: () => true, costs: () => [{ label: 'ESTA', czk: 1000 }], transitCcs: () => [], get: () => null, kind: () => null, over: () => false, checklistHtml: () => '', reminders: () => [], load() {}, whenReady() {} };
+  c.window.Entry = E; c.Entry = E;
+  const s = render(c, 'summary');
+  assert.match(s, /Zatím bez cen/);
+  assert.equal(s.split('Doplnit cenu →').length - 1, 1);
+  assert.match(s, /ESTA/, 'poplatek sám zůstane');
+  assert.doesNotMatch(s, /Celkem i se vstupními poplatky/);
+  // se známou cenou zase i součet s poplatky
+  t.stay = { mode: 'manual', name: 'U známých', totalCzk: 5000 };
+  assert.match(render(c, 'summary'), /Celkem i se vstupními poplatky<\/td><td>6 000 Kč/);
+});
