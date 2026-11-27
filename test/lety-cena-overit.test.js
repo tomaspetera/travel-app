@@ -81,7 +81,7 @@ test('řádek ověření: jen u orientační ceny (některý let má live === fa
   assert.equal(M.verifyRow(ow(true), 1), '');
   assert.equal(M.verifyRow({ id: 'x', out: { from: 'PRG', to: 'BCN', date: '2027-02-01' }, back: null }, 1), '', 'bez příznaku live = živá');
   const html = M.verifyRow(rt(false), 2);
-  assert.match(html, /^<div class="tr-ver"><div class="tv-acts"><a class="btn sm" href="https:\/\/www\.google\.com\/travel\/flights\?hl=cs&curr=CZK&q=Flights%20to%20BCN%20from%20PRG%20on%202027-02-01%20through%202027-02-05" target="_blank" rel="noopener">Ověřit cenu v Google Letech ↗<\/a>/);
+  assert.match(html, /^<div class="tr-ver"><div class="tv-acts"><a class="tv-alt" href="https:\/\/www\.google\.com\/travel\/flights\?hl=cs&curr=CZK&q=Flights%20to%20BCN%20from%20PRG%20on%202027-02-01%20through%202027-02-05" target="_blank" rel="noopener">Ověřit cenu v Google Letech ↗<\/a>/);
   assert.match(html, /<a class="tv-alt" href="https:\/\/www\.skyscanner\.cz\/transport\/flights\/prg\/bcn\/270201\/270205\/\?adults=2&rtn=1" target="_blank" rel="noopener">Skyscanner ↗<\/a><\/div>/);
   assert.match(html, /<div class="tv-note">Aktuální cenu a volná místa uvidíš až u prodejce\.<\/div><\/div>$/);
   // stačí jeden orientační let (tam živě, zpět z mezipaměti)
@@ -108,8 +108,7 @@ test('karta nabídky: řádek ověření pod cenou, u orientační ceny zbytek b
   assert.match(fl, /<div class="tr-more">\$\{SearchHelp\.isCached\(t\) \? more\.slice\(3\) : `<span class="faint">Ověřit:<\/span> \$\{verifyLinks\(t\)\}\$\{more\}`\}<\/div>\n\s+<\/div>\$\{verifyRow\(t, lastResult\.query\.adults\)\}<\/div>`;/);
   // „more“ začíná oddělovačem „ · “ (slice(3) ho u orientační ceny uřízne) a končí 📌 a 📤
   assert.match(fl, /const more = `\$\{SearchHelp\.isCached\(t\) && liveOn\(\) \? ` · <button[^\n]+ · <button type="button" class="linkbtn pin-l" data-pin="\$\{idx\}">[^\n]+📤 Sdílet<\/button>`;/);
-  // tlačítko aspoň 44 px; na telefonu hned pod cenou (cena i ověření před lety, tlačítka až za nimi)
-  assert.match(css, /\.tv-acts \.btn\{min-height:44px;/);
+  // odkazy aspoň 44 px (od ux2 oba textové – nákup je nad nimi); na telefonu hned pod cenou (cena i ověření před lety)
   assert.match(css, /\.tv-alt\{[^}]*min-height:44px;/);
   const phone = css.match(/@media\(max-width:560px\)\{\n  \.trip-row\{grid-template-columns:1fr\}[\s\S]*?\n\}/);
   assert.ok(phone, 'blok telefonu');
