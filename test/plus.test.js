@@ -160,8 +160,8 @@ test('každá událost z plus.js je v seznamu EVENTS serveru; název placené ve
   assert.deepEqual(all.filter((e) => !EVENTS.includes(e)), []);
   assert.match(SRC, /hit\(`price_\$\{b\.dataset\.price\}`\)/);
   assert.equal(SRC.match(/Letsi Plus/g).length, 1, 'jen const NAME');
-  // po „Nechat si obě“ (Plus chystáme) zmizí věta o měsíčním předplatném a obnovení – nic takového zatím neběží
-  assert.match(SRC, /thanks: n => \{ if \(sheet\) \{ sheet\.querySelector\('\.plus-small'\)\.hidden = true;/);
+  // po „Nechat si obě“ (Plus chystáme) se list přepíše na „Cesta se uložila“ – cesta se už uložila
+  assert.match(SRC, /thanks: n => \{ if \(sheet\) \{ sheet\.querySelector\('h3'\)\.textContent = 'Cesta se uložila';/);
   assert.equal(P.NAME, 'Letsi Plus');
 });
 
