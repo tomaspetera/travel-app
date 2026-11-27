@@ -64,7 +64,8 @@ test('prázdný Přenést: na počítači odkaz poslaný sem nebo vložený do p
   const pc = ctx.Transfer.emptyLead(true), phone = ctx.Transfer.emptyLead(false);
   assert.doesNotMatch(pc, /naskenuj|telefonu/);
   assert.match(pc, /pošli si odkaz sem \(e-mailem nebo do chatu sám sobě\) – otevři ho tady, nebo ho vlož do pole níž\. Máš soubor zálohy\? Obnovíš ho tady\.$/);
-  assert.match(phone, /QR kód naskenuj fotoaparátem tohohle telefonu – nebo si odtamtud pošli odkaz\. Máš soubor zálohy\? Obnovíš ho tady\.$/);
+  assert.match(phone, /pošli si odkaz sem \(AirDropem, Quick Share, e-mailem nebo do chatu sám sobě\) – otevři ho tady, nebo ho vlož do pole níž\. Máš soubor zálohy\? Obnovíš ho tady\.$/);
+  assert.doesNotMatch(phone, /QR|naskenuj/);
   // počítač = postranní panel místo lišty s ⋯ Další (atlas.css @media(max-width:860px) .sidebar{display:none})
   assert.match(read('public/js/transfer.js'), /window\.matchMedia\('\(min-width:861px\)'\)\.matches/);
   assert.match(read('public/css/atlas.css'), /@media\(max-width:860px\)\{\n {2}\.app\{grid-template-columns:1fr\}\n {2}\.sidebar\{display:none\}/);

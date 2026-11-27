@@ -32,7 +32,7 @@ test('menu a záloha neslibují QR kód napevno – nabídne se, jen když se da
   assert.doesNotMatch(open, /QR kód/);
   assert.match(open, /📲 Přenést odkazem<\/button>/);
   assert.doesNotMatch(ab, /odkazem s QR kódem/);
-  assert.match(ab, /odkazem \(📲 Přenést do jiného zařízení; když se data vejdou, i QR kódem\)/);
+  assert.match(ab, /odkazem \(📲 Přenést do jiného zařízení\)/);
 });
 
 test('Letsi Plus: provize jen při zapnutých partnerských odkazech, bez znalosti stavu neutrálně', () => {

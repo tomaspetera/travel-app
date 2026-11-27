@@ -12,7 +12,9 @@
    2 953 s L. Když se tam celá data nevejdou, zkusí se štíhle (Backup.packSlim: program bez popisů a „dalších míst“,
    nezměněné gen* jen jako 1 – druhé zařízení je doplní samo); typická cesta z průvodce se nevejde ani tak a jde celá
    odkazem. Větší data jen odkazem (sdílení, schránka; nejvýš
-   MAX_LINK znaků jako ShareLink) nebo souborem zálohy – QR kód se pak vůbec nenabízí. */
+   MAX_LINK znaků jako ShareLink) nebo souborem zálohy – QR kód se pak vůbec nenabízí.
+   QR kód je schovaný (rozhodnutí majitele 27. 11. 2026 – typická cesta z průvodce se do něj nevejde): index.html qr.js
+   nenačítá, fit() pak vrací qr: null a okno nabídne jen odkaz a soubor. Zpět stačí vrátit <script src="js/qr.js">. */
 (function () {
   const KIND = 'sync';
   const MAX_LINK = 200000; // ShareLink.unpack víc nepřijme
@@ -114,9 +116,9 @@
 
   // postranní panel místo lišty dole (atlas.css: lišta a ⋯ Další do 860 px) – tady není fotoaparát, kterým skenovat
   const desk = () => Boolean(window.matchMedia && window.matchMedia('(min-width:861px)').matches);
-  /** Úvod prázdného okna: na telefonu QR kód z druhého zařízení, na počítači odkaz poslaný sem (QR tu nemá čím skenovat). */
+  /** Úvod prázdného okna: odkaz poslaný sem (QR kód je schovaný); na telefonu jde poslat i AirDropem a Quick Share. */
   const emptyLead = d => 'V tomhle zařízení zatím nic uloženého není. Data sem přeneseš z druhého: otevři tam Letsi → <b>⋯ Další</b> (na počítači vlevo dole) → <b>📲 Přenést do jiného zařízení</b> a ' +
-    (d ? 'pošli si odkaz sem (e-mailem nebo do chatu sám sobě) – otevři ho tady, nebo ho vlož do pole níž.' : 'QR kód naskenuj fotoaparátem tohohle telefonu – nebo si odtamtud pošli odkaz.') +
+    (d ? 'pošli si odkaz sem (e-mailem nebo do chatu sám sobě) – otevři ho tady, nebo ho vlož do pole níž.' : 'pošli si odkaz sem (AirDropem, Quick Share, e-mailem nebo do chatu sám sobě) – otevři ho tady, nebo ho vlož do pole níž.') +
     ' Máš soubor zálohy? Obnovíš ho tady.';
 
   let token = 0;
@@ -141,8 +143,8 @@
     const full = Backup.snapshot(), slim = Backup.snapshot({ slim: true }), my = ++token, send = native() ? '📤 Poslat odkaz' : '🔗 Kopírovat odkaz';
     modalOpen(`<div class="modal-body tf-modal">
       <h3>📲 Přenést do jiného zařízení</h3>
-      <p class="muted tf-lead" id="tfLead">Naskenuj QR kód fotoaparátem druhého telefonu – Letsi se tam otevře, ukáže, co přibude, a nabídne <b>Sloučit</b> nebo <b>Nahradit</b>. Bez účtu, data jdou jen v odkazu (na server ne).</p>
-      <div class="tf-qr-box" id="tfBox"><div class="faint tf-wait">Připravuji QR kód…</div></div>
+      <p class="muted tf-lead" id="tfLead">Pošli si odkaz do druhého zařízení – AirDropem, Quick Share, e-mailem nebo do chatu sám sobě – a otevři ho tam. Letsi ukáže, co přibude, a nabídne <b>Sloučit</b> nebo <b>Nahradit</b>. Bez účtu, data jdou jen v odkazu (na server ne).</p>
+      <div class="tf-qr-box" id="tfBox"></div>
       <p class="tf-sum"><b>Přenese se:</b> ${h(Backup.countsTxt(c))}</p>
       <div class="bk-actions"><button type="button" class="btn primary" id="tfSend">${send}</button><button type="button" class="btn" id="tfFile">💾 Soubor zálohy</button></div>
       <p class="faint tf-note">Odkaz nese tvoje cesty i kódy rezervací – posílej ho jen sobě. Je to stav z této chvíle: co pak změníš, přeneseš novým odkazem.</p>
@@ -181,7 +183,7 @@
 
   /** Položka v ⋯ Další (app.js openMore). */
   function addToMenu(list) {
-    list.insertAdjacentHTML('beforeend', '<button type="button" class="btn ghost" id="moreXfer"><span class="ico i-qr" aria-hidden="true"></span> Přenést do jiného zařízení <span class="faint">odkaz nebo soubor</span></button>');
+    list.insertAdjacentHTML('beforeend', '<button type="button" class="btn ghost" id="moreXfer"><span class="ico i-sdilet" aria-hidden="true"></span> Přenést do jiného zařízení <span class="faint">odkaz nebo soubor</span></button>');
     list.querySelector('#moreXfer').onclick = () => open();
   }
   // Počítač a tablet nemají ⋯ Další: odkaz v postranním panelu pod přepínačem motivu (vzhled .side-about jako
@@ -189,7 +191,7 @@
   if (typeof document !== 'undefined') {
     const toggle = document.querySelector('#themeToggle');
     if (toggle && !document.querySelector('#sideXfer')) {
-      toggle.insertAdjacentHTML('afterend', '<button type="button" class="theme-toggle side-about" id="sideXfer"><span class="ico i-qr" aria-hidden="true"></span> Přenést do jiného zařízení</button>');
+      toggle.insertAdjacentHTML('afterend', '<button type="button" class="theme-toggle side-about" id="sideXfer"><span class="ico i-sdilet" aria-hidden="true"></span> Přenést do jiného zařízení</button>');
       document.querySelector('#sideXfer').onclick = () => open();
     }
   }

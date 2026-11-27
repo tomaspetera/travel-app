@@ -210,7 +210,7 @@
 
   /* 4) ➕ Přidat ATLAS na plochu – v postranním panelu (počítač, tablet) a v nabídce „Více“ (mobil). Chrome, Edge
         a Android: dialog prohlížeče (beforeinstallprompt); iPhone a iPad: krátký návod. Z plochy se nenabízí.
-        Ikona plus (sada Letsi, ne barevné emoji mezi čárovými ikonami nabídky), ne QR – ten patří k Přenést hned vedle. */
+        Ikona plus (sada Letsi, ne barevné emoji mezi čárovými ikonami nabídky), ne ikona sdílení – ta patří k Přenést hned vedle. */
   const LABEL = 'Přidat Letsi na plochu';
   const ICON = '<span class="ico i-plus" aria-hidden="true"></span> ';
   let promptEvent = null;

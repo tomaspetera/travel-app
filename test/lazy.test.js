@@ -53,7 +53,8 @@ test('service worker ukládá pro offline všechny skripty z public/js – i odl
   const { precache, html } = serviceWorker({ publicDir: path.join(ROOT, 'public'), dataDir: path.join(ROOT, 'data') });
   // statistiky.js patří k samostatné stránce pro majitele (public/statistiky.html), ne k aplikaci – offline ji nikdo nepotřebuje;
   // kukatko.js (vzhled Letsi za přepínačem) se bez přepínače nesmí stáhnout vůbec, ani do zásoby pro offline (test/kukatko.test.js)
-  const all = readdirSync(path.join(ROOT, 'public/js')).filter((f) => f.endsWith('.js') && f !== 'statistiky.js' && f !== 'kukatko.js').map((f) => `js/${f}`);
+  // qr.js: QR kód v 📲 Přenést je schovaný (rozhodnutí majitele), stránka ho nenačítá – do zásoby pro offline nepatří
+  const all = readdirSync(path.join(ROOT, 'public/js')).filter((f) => f.endsWith('.js') && f !== 'statistiky.js' && f !== 'kukatko.js' && f !== 'qr.js').map((f) => `js/${f}`);
   assert.ok(all.length >= 20);
   // pod adresou s otiskem obsahu, jakou má stránka od serveru (i v data-later) – ne pod holou adresou
   for (const u of all) {
