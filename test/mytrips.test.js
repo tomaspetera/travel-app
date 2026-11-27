@@ -9,7 +9,7 @@ const read = (f) => readFileSync(new URL(`../public/${f}`, import.meta.url), 'ut
 test('záložka Cesta: bez rozpracované cesty seznam Moje cesty (jsou-li cesty), jinak úvod; z průvodce „‹ Moje cesty“', () => {
   const js = read('js/trip.js');
   assert.match(js, /const mine = window\.myTrips && \(\(!t && Array\.isArray\(S\.trips\) && S\.trips\.some\(Boolean\)\) \|\| \(t && mineFor === t\.created\)\);\s*if \(mine\) return renderMine\(root, t\);/);
-  assert.match(js, /<div class="mt-back"><button type="button" class="linkbtn" id="tripMine">‹ Moje cesty<\/button><\/div>/);
+  assert.match(js, /<div class="mt-back"><button type="button" class="linkbtn" id="tripMine">‹ Moje cesty<\/button>\$\{savedTxt\(t\) \? `<span class="mt-saved"[^`]*`\s*: ''\}<\/div>/);
   // rozpracovaná zůstane: seznam je jen nad ní (mineFor), karta rozpracované vrátí zpět
   assert.match(js, /mb\.onclick = \(\) => showMine\(t\);/);
   assert.match(js, /function showMine\(t\) \{\s*if \(autoT \|\| !entryOf\(t\)\) autoSave\(\);\s*if \(!window\.myTrips\) return;\s*mineFor = t\.created; render\(\);/);

@@ -158,7 +158,7 @@ test('vlak/bus jen tam místo zpátečního letu: pobyt zůstane stejně dlouhý
   assert.equal(t.stay.name, 'Hostel Backpackers Vienna');
   assert.ok(!c.__toasts.some((x) => /ubytování/.test(x)), c.__toasts.join(' | '));
   render(c, t);
-  assert.match(c.__els['#tripRoot'].innerHTML, /id="thSub">Rakousko · 4\.11\.–11\.11\. · jen tam · 2 os\. · 🚆 vlakem\/busem</);
+  assert.match(c.__els['#tripRoot'].innerHTML, /id="thSub"><span class="th-cc">Rakousko · <\/span>4\.11\.–11\.11\. · <span class="th-nn">jen tam · <\/span>2 os\. · 🚆 vlakem\/busem</);
 });
 
 test('trasa přes víc míst zapnutá po změně termínu (vlak jindy, když byla vypnutá): hotel místa na staré dny se zahodí', () => {
@@ -351,15 +351,16 @@ test('🧳 znovu uložená cesta bez dat „Před cestou“ (ještě se načíta
   assert.deepEqual(plain(c.S.trips[0].checklist.map((x) => x.t)), ['Pas']);
 });
 
-test('🧳 Shrnutí: „💾 Uložit do Mých cest“ uloží hned (na přání), pak „Uloženo v Mých cestách“; sdílená „💾 Uložit do Mých cest“', () => {
+test('🧳 Shrnutí: „Hotovo – zpět na Moje cesty“ uloží hned (na přání) a ukáže Moje cesty; sdílená „💾 Uložit do Mých cest“', () => {
   const c = load();
   const h = render(c, vie({ step: 'summary' }));
-  // ještě neuložená (nebo jen sama uložená – ↺ Začít znovu ji smaže): tlačítko netvrdí, že je uložená
-  assert.match(h, /<button class="btn primary" id="sumSave">💾 Uložit do Mých cest<\/button>/);
+  // cesta se ukládá sama – tlačítko nevybízí k uložení (U16), hlavní akce je Sdílet (U17)
+  assert.match(h, /<button class="btn" id="sumSave">Hotovo – zpět na Moje cesty<\/button>/);
+  assert.match(h, /<button class="btn primary" id="sumShare">/);
   c.__els['#sumSave'].onclick();
   assert.deepEqual([c.S.trips.length, c.S.trips[0].auto, c.__go.length], [1, undefined, 0]);
   assert.deepEqual(plain(c.__toasts), ['Cesta uložena do Mých cest']);
-  assert.match(render(c, c.S.trip), /id="sumSave"><span class="ico i-hotovo" aria-hidden="true"><\/span> Uloženo v Mých cestách<\/button>/);
+  assert.match(render(c, c.S.trip), /id="sumSave">Hotovo – zpět na Moje cesty<\/button>/);
   c.__els['#sumSave'].onclick();
   assert.deepEqual(plain([c.S.trips.length, c.__toasts]), [1, ['Cesta je uložená v Mých cestách']]);
   assert.match(render(c, vie({ step: 'summary', shared: { on: '2026-10-01' } })), /id="sumSave">💾 Uložit do Mých cest<\/button>/);

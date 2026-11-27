@@ -2399,7 +2399,9 @@ function openTrip(i) {
   const fresh = !t.wizard && packFresh(t, local);
   if (fresh) { t.checklist = fresh; save(); }
   const days = dateRange(t.start, t.end), live = tripLive(t), rides = tripRides(t);
-  const dayHtml = (d, di) => { const acts = t.days[d] || [], now = live && live.today === d; return `<div class="day-block${now ? ' today' : ''}" data-day="${d}"><h4>Den ${di + 1} <span class="faint" style="font-weight:600">· ${fmtDate(d)}</span>${now ? '<span class="day-now">dnes</span>' : ''}</h4>${rides.filter(r => r.date === d).map(rideEd).join('')}${acts.map((a, ai) => `<div class="act"><span>${esc(a)}</span><button data-delact="${ai}" aria-label="Smazat aktivitu">${ico('M18 6L6 18M6 6l12 12')}</button></div>`).join('')}<div class="row" style="gap:8px;margin-top:8px"><input class="input" id="act-${i}-${d}" data-addact placeholder="Přidej aktivitu…" aria-label="Nová aktivita – den ${di + 1}"><button class="btn sm" data-addact>Přidat</button></div></div>`; };
+  // den bez aktivit a spojů jen řádkem „Den 3 · 15. 3. · zatím nic“ a „+ přidat“ (pole až po klepnutí) – osm prázdných
+  // polí „Přidej aktivitu…“ pod sebou dělalo z okna přes dvě obrazovky formulářů
+  const dayHtml = (d, di) => { const acts = t.days[d] || [], now = live && live.today === d, dr = rides.filter(r => r.date === d), bare = !acts.length && !dr.length; return `<div class="day-block${now ? ' today' : ''}${bare ? ' bare' : ''}" data-day="${d}"><h4>Den ${di + 1} <span class="faint" style="font-weight:600">· ${fmtDate(d)}${bare ? ' · zatím nic' : ''}</span>${now ? '<span class="day-now">dnes</span>' : ''}${bare ? `<button type="button" class="linkbtn day-add" data-addopen aria-label="Přidat aktivitu – den ${di + 1}">+ přidat</button>` : ''}</h4>${dr.map(rideEd).join('')}${acts.map((a, ai) => `<div class="act"><span>${esc(a)}</span><button data-delact="${ai}" aria-label="Smazat aktivitu">${ico('M18 6L6 18M6 6l12 12')}</button></div>`).join('')}<div class="row day-new" style="gap:8px;margin-top:8px"${bare ? ' hidden' : ''}><input class="input" id="act-${i}-${d}" data-addact placeholder="Přidej aktivitu…" aria-label="Nová aktivita – den ${di + 1}"><button class="btn sm" data-addact>Přidat</button></div></div>`; };
   const part = {
     // na cestě: dnešek a kódy rezervací nahoře (dnešní den v itineráři jen odkazem sem)
     live: live ? `<div class="trip-live"><div class="live-h">📍 Dnes na cestě · den ${live.day} z ${live.days}</div>${days.includes(live.today) ? dayHtml(live.today, days.indexOf(live.today)) : ''}${refsHtml(t, i)}</div><div class="divider"></div>` : '',
@@ -2438,6 +2440,7 @@ function openTrip(i) {
     $$('[data-delact]', b).forEach(x => { x.onclick = () => delAct(i, d, +x.dataset.delact); });
     $$('input[data-addact]', b).forEach(x => { x.onkeydown = enter(() => addAct(i, d)); });
     $$('button[data-addact]', b).forEach(x => { x.onclick = () => addAct(i, d); });
+    const ao = $('[data-addopen]', b); if (ao) ao.onclick = () => { const r = $('.day-new', b); r.hidden = false; ao.remove(); $('input', r).focus(); };
   });
   $$('[data-ride]', m).forEach(b => $$('[data-rf]', b).forEach(x => {
     x.onchange = () => setRide(i, b.dataset.ride, x.dataset.rf, x.value);
