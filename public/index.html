@@ -326,6 +326,8 @@ if (!(navigator.serviceWorker && navigator.serviceWorker.controller)) ['data/cou
         <div class="card whats-new" id="whatsNew" hidden></div>
         <!-- 💡 Věděl jsi?: nejvýš jeden tip denně na funkci, kterou uživatel ještě nepoužil (app.js renderDashTip) -->
         <div class="card dash-tip" id="dashTip" role="note" hidden></div>
+        <!-- krátká otázka testerům: nejvýš 1 denně, jde zavřít Teď ne (otazky.js render) -->
+        <div class="card dash-tip ask-card" id="askCard" hidden></div>
         <!-- 📒 Vezmi si cestu s sebou: 14 dní a méně před odletem uložené cesty, jde zavřít (plus.js renderCard) -->
         <div class="card dash-tip" id="plusCard" role="note" hidden></div>
         <div class="stat-grid" id="statGrid"></div>
@@ -677,6 +679,7 @@ if (!(navigator.serviceWorker && navigator.serviceWorker.controller)) ['data/cou
 <script src="js/about.js"></script>
 <script src="js/transfer.js"></script>
 <script src="js/plus.js"></script>
+<script src="js/otazky.js"></script>
 <!-- kukátko, živý průvodce (vzhled Letsi, krok 4: js/kukatko.js, ten si přidá css/kukatko.css) – jen s data-brand="letsi";
      ve vzhledu ATLASu (?vzhled=atlas) se nestáhne nic, proto ho nenačítá značka se src, ale tenhle skript -->
 <script>if (document.documentElement.getAttribute('data-brand') === 'letsi') document.body.appendChild(Object.assign(document.createElement('script'), { src: 'js/kukatko.js' }));</script>
