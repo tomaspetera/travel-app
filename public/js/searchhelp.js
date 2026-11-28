@@ -1297,12 +1297,42 @@
   const LW_DEP = '16:00';
   /**
    * Výsledek hledání radaru (radar: true): server posílá jen to, co radar čte (search.js radarResult), a nejlevnější
-   * nabídku cíle jen jednou – best = první z options. Výsledek bez zmenšení (starší server) zůstane, jak je. → res
+   * nabídku cíle jen jednou – best = první z options. Jména aerolinek posílá jednou (airlines: kód → jméno), lety jen
+   * kód – carrierName se jim tu doplní (let s vlastním jménem nebo carrierName: null ho nechá). Výsledek bez zmenšení
+   * (starší server) zůstane, jak je. → res
    */
   function radarRes(res) {
-    for (const g of (res && res.groups) || []) if (g && !g.best && Array.isArray(g.options)) g.best = g.options[0];
+    const names = res && res.airlines && typeof res.airlines === 'object' ? res.airlines : null;
+    const named = l => { if (l && l.carrier && l.carrierName === undefined && typeof names[l.carrier] === 'string') l.carrierName = names[l.carrier]; };
+    for (const g of (res && res.groups) || []) {
+      if (!g) continue;
+      if (names && Array.isArray(g.options)) for (const t of g.options) if (t) { named(t.out); named(t.back); }
+      if (!g.best && Array.isArray(g.options)) g.best = g.options[0];
+    }
     return res;
   }
+  /**
+   * Dopravce, přestupy a čas nálezu ceny na kartu radaru (pro tabulku ceníku) – jen co zdroj opravdu dává, jinak pole
+   * chybí (starší uložené karty je nemají vůbec): cr = jméno aerolinky (tam + zpět, když jiná), st = nejvíc přestupů
+   * na jedné cestě (0 = tam i zpět přímý), fa = kdy zdroj cenu našel (ms; Ryanair priceUpdated, u obou letů – starší).
+   * Aviasales u přestupů 0 hlásí i „neví“ (transfers chybí) – jako ve výpisu se z něj „přímý“ nedělá. → { cr?, st?, fa? }
+   */
+  function radarFacts(t) {
+    const legs = [t && t.out, t && t.back].filter(Boolean), x = {};
+    const who = [...new Set(legs.map(l => l.carrierName || l.carrier || '').filter(Boolean))].join(' + ');
+    if (who) x.cr = who.slice(0, 60);
+    const st = legs.map(l => (Number.isInteger(l.stops) && l.stops >= 0 && !(l.provider === 'travelpayouts' && !l.stops) ? l.stops : null));
+    const most = Math.max(0, ...st.filter(n => n != null));
+    if (legs.length && (most > 0 || st.every(n => n != null))) x.st = most;
+    const fa = legs.map(l => (typeof l.foundAt === 'number' ? l.foundAt : l.foundAt ? Date.parse(l.foundAt) : NaN));
+    if (legs.length && fa.every(n => n > 0)) x.fa = Math.min(...fa);
+    return x;
+  }
+  /**
+   * Kdy byla cena karty radaru nalezena (ms): fa od zdroje, jinak u živé ceny čas hledání radaru (at uloženého
+   * výsledku); orientační cena z mezipaměti (Aviasales) bez fa → null, její stáří neznáme.
+   */
+  const radarFoundAt = (x, at) => (x && x.fa > 0 ? x.fa : !x || x.oc || x.prov === 'travelpayouts' ? null : at > 0 ? at : null);
   /**
    * Letiště na kartě radaru: „BRQ → WAW“; nejlevnější cesta z Kamkoliv se může vracet jinam (bf/bt = let zpět, jen když
    * nejde z cíle do místa odletu) – „JCL → POZ ↩ PED“, zpět z jiného letiště v cíli „BRQ → WAW ↩ WMI → BRQ“ (návrat
@@ -2362,7 +2392,7 @@
     DAYPARTS, freshTime, dayPart, legMinutes, maxLayover, timeActive, timeFails, timeOk, fillLegs, fastPair, directHint, directNear, timeHidden, timeStats, timeChips, hm, multiPlan, multiWhy,
     REACH, reach, reachCtx, clockTxt, ve,
     radarQuery, radarStale, radarSame, radarDiff, radarEntry, radarOwnOk,
-    easter, czHolidays, longWeekend, longWeekends, radarPick, radarRes, radarRoute, placeGuess, isCached, liveKey, liveVerdict, livePick, holidayList, holidayDates, heroWhen, holidayOf, holidayHint, dmRange, dowList, dowBits, lwPrices, lwKeep,
+    easter, czHolidays, longWeekend, longWeekends, radarPick, radarRes, radarFacts, radarFoundAt, radarRoute, placeGuess, isCached, liveKey, liveVerdict, livePick, holidayList, holidayDates, heroWhen, holidayOf, holidayHint, dmRange, dowList, dowBits, lwPrices, lwKeep,
     leaveDays, leaveTxt, leaveWindows, spanCal, SPAN_DOW,
     lastPack, lastLoad, savedWhen, resultAge, shownAt, ageNote, recentAdd, viewedAdd, viewedPick, weekendHabit, recentForm, DRAFT_MAX_AGE, formSig, formKey, draftPack, draftLoad, dataAge, tripMinutes, fastKey, nightsTxt, gridModel, gridSummary, gridTrips, cellTrips, dayCal,
     partialHead, reusable, partialFail, keptNote, ideaClickOk, recentNotes, miniTwins, miniTimes,
