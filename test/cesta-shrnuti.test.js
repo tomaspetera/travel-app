@@ -236,6 +236,7 @@ test('čistý režim: klepnutí na „↻ Ověř cenu“ vykreslené dřív, ne�
   }
 });
 
+// „před 2 h“ těsně po půlnoci padne na včerejšek („hledáno včera 22:10“) – test nesmí záviset na hodině běhu
 test('orientační cena (let z mezipaměti, live === false): „orientační“ u částky v kroku Let i ve Shrnutí, „hledáno 15:15“ místo „cena z“, bez štítku „💚 Dobrá cena“', () => {
   const tag = (t, idx, pl) => `<span class="b ${pl.level === 'low' ? 'good">💚 Dobrá cena' : 'dear">🔺 Dráž než obvykle'}</span>`;
   const mk = (cached, level = 'low') => {
@@ -250,7 +251,7 @@ test('orientační cena (let z mezipaměti, live === false): „orientační“ 
   let s = render(c, 'flight');
   assert.match(s, /<span>Letenky<\/span><b>3 000 Kč<\/b>/);
   assert.match(s, /<div class="tf-price"><span class="b good">💚 Dobrá cena<\/span><span class="faint">o 20 % pod obvyklou cenou<\/span>/);
-  assert.match(s, /<div class="faint tf-age">hledáno \d{1,2}:\d\d \(před 2 h\)<\/div>/);
+  assert.match(s, /<div class="faint tf-age">hledáno (?:včera )?\d{1,2}:\d\d \(před 2 h\)<\/div>/);
   assert.doesNotMatch(s, /cena z |orientační/);
   assert.doesNotMatch(render(c, 'summary'), /orientační<\/small>/);
   // z mezipaměti
@@ -261,7 +262,7 @@ test('orientační cena (let z mezipaměti, live === false): „orientační“ 
   assert.match(s, /<div class="tf-price"><span class="faint">o 20 % pod obvyklou cenou<\/span>/, 'štítek pryč, důvod a „Je to dobrá cena?“ zůstávají');
   assert.doesNotMatch(s, /Dobrá cena<\/span>/);
   s = render(c, 'summary');
-  assert.match(s, /<td>✈️<\/td><td>Letenky \(2 os\.\)<div class="faint tf-age">hledáno \d{1,2}:\d\d \(před 2 h\)<\/div><\/td><td>6 000 Kč<small class="tf-ori">orientační<\/small><\/td>/);
+  assert.match(s, /<td>✈️<\/td><td>Letenky \(2 os\.\)<div class="faint tf-age">hledáno (?:včera )?\d{1,2}:\d\d \(před 2 h\)<\/div><\/td><td>6 000 Kč<small class="tf-ori">orientační<\/small><\/td>/);
   // „dráž než obvykle“ platí i u orientační ceny; stačí jeden let z mezipaměti
   ({ c, t } = mk(true, 'high'));
   assert.match(render(c, 'flight'), /<div class="tf-price"><span class="b dear">/);
