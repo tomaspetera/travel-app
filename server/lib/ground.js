@@ -448,8 +448,9 @@ export function links(a, b, date, adults = 1) {
 
 const RJ_API = 'https://brn-ybus-pubapi.sa.cz/restapi';
 const env = (k, d) => (process.env[k] != null && process.env[k] !== '' && Number.isFinite(Number(process.env[k])) ? Number(process.env[k]) : d);
-// Vypínač: REGIOJET_LIVE=0 → jen odhad a odkazy (čte se při každém dotazu).
-export const regiojetOn = () => process.env.REGIOJET_LIVE !== '0';
+// Vypínač: živé spoje jen s REGIOJET_LIVE=1 (až po smlouvě v partnerském programu RegioJetu – neveřejné rozhraní bez
+// souhlasu ne); bez proměnné jen odhad a odkazy (čte se při každém dotazu).
+export const regiojetOn = () => process.env.REGIOJET_LIVE === '1';
 const rjCache = new TTLCache(1000);
 const rjLimit = limiter(1);
 let rjLast = 0;

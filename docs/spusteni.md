@@ -14,7 +14,7 @@ Veřejná verze bere jen zdroje, jejichž podmínky komerční provoz dovolují:
 | Nákup letenky | u aerolinky, Kiwi.com nebo na Aviasales | odkaz na Aviasales (partnerský, se štítkem „reklama“) |
 | Ověření ceny živě | tlačítko „⚡ Ověřit cenu živě“ (Kiwi.com) | není – tlačítko se samo schová |
 | Ubytování | orientační ceny z TripAdvisoru (Xotelo) | bez cen: odkazy na Booking.com, Airbnb… a ubytování z OpenStreetMap |
-| Vlak a bus | živé spoje RegioJetu (`REGIOJET_LIVE`) | podle rozhodnutí majitele – jen odhad a odkazy, nebo živě |
+| Vlak a bus | odhad a odkazy (živé spoje RegioJetu jen s `REGIOJET_LIVE=1`) | odhad a odkazy; živě až po smlouvě s RegioJetem |
 
 Žádný přepínač „režim“ v kódu není – čistý režim je **kombinace proměnných prostředí** (`server/config.js`). Aplikace
 ho pozná sama z `/api/health` (`providers[].enabled`): když je ze zdrojů letů zapnutý jen `travelpayouts`, texty přepne
@@ -36,7 +36,7 @@ Restart smaže mezipaměť v RAM (první hledání a Objevuj pak chvíli čekaj�
 | `KIWI_ENABLED` | `0` | vypne Kiwi.com (hledání i „Ověřit cenu živě“) |
 | `XOTELO` | `off` | vypne ceny hotelů z TripAdvisoru přes Xotelo |
 | `LITEAPI_KEY` | smazat (nebo nechat `sand_…`) | testovací klíč `sand_…` nic neukazuje; ostrý klíč by zapnul ceny hotelů, které v čistém režimu nemají být |
-| `REGIOJET_LIVE` | rozhodnout: `0`, nebo nechat | živé spoje RegioJetu z neveřejného rozhraní; README radí před ostrým provozem napsat RegioJetu. Proměnné letů ani hotelů ho nevypnou. Stav ukazuje `/api/health` (`regiojet`) a O aplikaci (živě, nebo „jen jako odkazy“) |
+| `REGIOJET_LIVE` | nenastavovat (výchozí = vypnuto) | živé spoje RegioJetu jsou od 28. 11. 2026 ve výchozím stavu vypnuté; zapnout `1` až po smlouvě v partnerském programu RegioJetu. Stav ukazuje `/api/health` (`regiojet`) a O aplikaci (živě, nebo „jen jako odkazy“) |
 
 ### Musí být nastavené (už dnes zkontrolovat)
 
@@ -71,7 +71,10 @@ lehčí než dnes. Render zdarma po 15 min bez návštěvy usne (první načten�
       (`WN_DAYS`) – nic nedělat. K D případně nová novinka s vyšším `WN_ID` jen u skutečně nové funkce.
 - [ ] Partnerské odkazy: doplnit `TRAVELPAYOUTS_MARKER` a `TRAVELPAYOUTS_TRS` (app.travelpayouts.com → Profile →
       Sources), ověřit `affiliate: true` (níž).
-- [ ] Rozhodnout RegioJet (`REGIOJET_LIVE`).
+- [x] RegioJet: živé spoje vypnuté (výchozí stav v kódu, rozhodnutí 28. 11. 2026).
+- [ ] **RegioJet – přihláška do partnerského programu** (majitel): e-mail na partners@regiojet.cz (Letsi, letsi.cz,
+      chceme nabízet spoje a jízdenky RegioJetu za provizi přes jejich API). Napojení podle RegioJetu trvá asi 3–4 týdny.
+      Po smlouvě Claude napojí oficiální API a na Renderu se nastaví `REGIOJET_LIVE=1`.
 - [ ] Zkouška nanečisto (volitelně): na dva dny přepnout čistý režim, projít telefonem Přehled, Lety, průvodce
       cestou a O aplikaci, pak vrátit (Návrat zpět).
 
@@ -90,7 +93,7 @@ for (const p of h.providers) console.log(p.id.padEnd(14), p.enabled ? "zapnuto" 
 
    Správně: `demo false`, `affiliate true`, `shortLinks upstash`, `feedback true`, `operator true`;
    `ryanair`, `wizzair`, `kiwi`, `xotelo`, `liteapi` **vypnuto**, `travelpayouts` a `osm` **zapnuto**;
-   `regiojet` podle rozhodnutí (`REGIOJET_LIVE=0` → vypnuto).
+   `regiojet` **vypnuto** (do smlouvy s RegioJetem).
 3. `https://letsi.cz/healthz` → `ok`; `https://letsi.cz/api/places?q=praha` → seznam míst.
 4. Na telefonu (bez hledání na produkci z tohoto návodu – hledání spustí běžný uživatel, ne kontrola):
    - O aplikaci: „Ceny letenek jsou orientační – co za posledních 48 h našli jiní na Aviasales. K nákupu tě pošlu
@@ -117,6 +120,9 @@ for (const p of h.providers) console.log(p.id.padEnd(14), p.enabled ? "zapnuto" 
   (`public/js/flights.js` `defaultForm()`, tlačítko v `public/index.html`, `server/lib/search.js` `normalizeQuery()`,
   test `test/baggage.test.js`), stejně radar, hlídání a sdílené odkazy; staré uložené hledání bez `bags` nesmí
   ukázat falešné „zdražení“. Volba „bez kufru“ může zůstat jako dobrovolná.
+  Rozhodnutí majitele 28. 11. 2026: příplatek za kufr se k ceně přičte (odhad z tabulky aerolinek, označený jako
+  odhad). Do té doby aplikace upozorňuje u volby zavazadel (`public/index.html` `.bags-eu`) a v O aplikaci
+  (`public/js/about.js`) – po přepnutí obě upozornění odebrat nebo převést na „cena je včetně kabinového kufru“.
 
 ## Data testerů
 

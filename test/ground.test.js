@@ -366,6 +366,7 @@ const ENV = ['REGIOJET_LIVE', 'REGIOJET_GAP_MS', 'REGIOJET_MAX_PER_HOUR'];
 beforeEach(() => {
   G.resetRegiojet();
   for (const k of ENV) delete process.env[k];
+  process.env.REGIOJET_LIVE = '1'; // živé spoje jen se zapnutým vypínačem (bez něj odhad a odkazy)
   process.env.REGIOJET_GAP_MS = '0';
 });
 afterEach(() => {
@@ -441,7 +442,7 @@ test('regiojet: hodinový strop, vypínač REGIOJET_LIVE=0 a chyba → žádná 
   stub.restore();
 
   G.resetRegiojet();
-  delete process.env.REGIOJET_LIVE;
+  process.env.REGIOJET_LIVE = '1';
   delete process.env.REGIOJET_MAX_PER_HOUR;
   process.env.REGIOJET_GAP_MS = '120';
   const at = [];

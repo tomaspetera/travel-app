@@ -11,6 +11,7 @@ const { createServer } = await import('../server/index.js');
 let server;
 let base;
 before(async () => {
+  process.env.REGIOJET_LIVE = '1'; // (DEMO) spoje jen se zapnutým vypínačem – bez něj odhad a odkazy
   server = createServer();
   await new Promise((r) => server.listen(0, '127.0.0.1', r));
   base = `http://127.0.0.1:${server.address().port}`;
@@ -62,7 +63,7 @@ test('GET /api/ground: Praha → Vídeň = odhad, srovnání, odkazy a (DEMO) sp
   assert.equal((await get('from=ap:PRG&to=ap:VIE')).j.live, undefined);
   process.env.REGIOJET_LIVE = '0';
   const off = await get(`from=ap:PRG&to=ap:VIE&date=${date}`);
-  delete process.env.REGIOJET_LIVE;
+  process.env.REGIOJET_LIVE = '1';
   assert.equal(off.j.live.ok, false);
   assert.equal(off.j.live.off, true);
   assert.ok(off.j.est, 'odhad a odkazy platí dál');

@@ -110,6 +110,8 @@
 .exact-dates .xd .faint{font-size:12px;min-width:28px}
 .exact-on .dow-field{opacity:.45;pointer-events:none}
 .lab-hint{text-transform:none;letter-spacing:0;font-weight:500;color:var(--faint);margin-left:6px}
+/* upozornění na kabinový kufr od 10/2027 (nařízení EU) – drobná poznámka pod volbou, ne odstavec */
+.bags-eu{font-size:12.5px;line-height:1.35;margin-top:6px}
 .radius-row{display:flex;align-items:center;gap:10px;margin-top:10px;font-size:13px}
 .radius-row input{flex:1;min-width:0;accent-color:var(--accent)} /* posuvník se zúží – „200 km“ nevyteče z karty */
 .radius-row b{min-width:58px;text-align:right}

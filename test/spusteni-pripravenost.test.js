@@ -26,7 +26,8 @@ function status(live) {
 const rj = (live) => status(live).find((p) => p.id === 'regiojet');
 
 test('/api/health hlásí RegioJet podle REGIOJET_LIVE (kind ground) – čistý režim ho sám nevypne', () => {
-  assert.deepEqual([rj(undefined).enabled, rj('1').enabled, rj('0').enabled], [true, true, false]);
+  // bez proměnné vypnuto (živé spoje až po smlouvě s RegioJetem), zapne jen REGIOJET_LIVE=1
+  assert.deepEqual([rj(undefined).enabled, rj('1').enabled, rj('0').enabled], [false, true, false]);
   assert.equal(rj('0').kind, 'ground');
   assert.equal(rj('0').name, 'RegioJet');
 });
@@ -97,4 +98,10 @@ test('docs/spusteni.md: čistý režim, REGIOJET_LIVE a kontrola přes /api/heal
   assert.doesNotMatch(s, /^curl[^\n]*\/api\/search/m, 'návod nesmí volat drahé hledání na produkci');
   assert.match(read('README.md'), /Čistý režim \(veřejné spuštění\)[\s\S]{0,800}docs\/spusteni\.md/);
   assert.match(read('docs/mapa.md'), /docs\/spusteni\.md/);
+});
+
+test('kabinový kufr od 23. 10. 2027 (nařízení EU 2026/2202): upozornění u volby zavazadel a v O aplikaci', () => {
+  assert.match(read('public/index.html'), /id="bags"[^]*?<div class="faint bags-eu">Od 23\. 10\. 2027 bude podle nařízení EU výchozí cena včetně kabinového kufru\.<\/div>/);
+  assert.match(read('public/js/about.js'), /Od 23\. 10\. 2027 bude podle nařízení EU výchozí cena letenky včetně kabinového kufru/);
+  assert.match(read('docs/spusteni.md'), /bags-eu/, 'v plánu: po přepnutí upozornění odebrat');
 });
