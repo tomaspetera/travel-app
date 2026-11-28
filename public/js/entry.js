@@ -138,12 +138,12 @@
   }
 
   /* ---------- čipy ---------- */
-  /** Malý čip na kartu země (Česko bez čipu). */
-  function cardChip(iso) {
+  /** Malý čip na kartu země (Česko bez čipu); bare = štítek v okně nabídky bez emoji, jako flightChip vedle něj. */
+  function cardChip(iso, bare = false) {
     const r = get(iso), k = kind(r);
     if (!k || r.iso2 === 'CZ') return '';
-    if (!k.need && over(r)) return `<span class="ec ec-visa" title="${esc(`${name(iso)}: ${untilTxt(r)} ${srcTxt(r)}.`)}">⏳ ověř vstup</span>`;
-    return `<span class="ec ec-${k.cls}" title="${esc(tip(iso, r, k))}">${k.icon ? k.icon + ' ' : ''}${esc(k.label + q(r))}</span>`;
+    if (!k.need && over(r)) return `<span class="ec ec-visa" title="${esc(`${name(iso)}: ${untilTxt(r)} ${srcTxt(r)}.`)}">${bare ? '' : '⏳ '}ověř vstup</span>`;
+    return `<span class="ec ec-${k.cls}" title="${esc(tip(iso, r, k))}">${k.icon && !bare ? k.icon + ' ' : ''}${esc(k.label + q(r))}</span>`;
   }
   /**
    * Čip k letu – jen když je co vyřizovat (registrace, e-vízum, vízum na hranici, vízum, povinný online formulář

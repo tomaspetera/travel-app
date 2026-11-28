@@ -222,7 +222,8 @@ test('Cesta, Lety, Objevuj: popisek pole trasy, tlačítko Odkud v letech přes 
 });
 
 test('Kamkoliv: tlačítko vlakem/busem u cíle s ikonou vlak a štítky vstupu u nabídky (Entry.flightChip) bez emoji', () => {
-  assert.match(FL, /data-gchip="\$\{esc\(g\.dest\.key\)\}" title="\$\{esc\(tip\.trim\(\)\)\}">\$\{ikona\('vlak'\)\} \$\{esc\(Ground\.chipText\(x, ret\)\)\}/);
+  assert.match(FL, /data-gchip="\$\{esc\(g\.dest\.key\)\}" title="\$\{esc\(tip\.trim\(\)\)\}">\$\{ikona\('vlak'\)\}<span class="sr-only">Vlakem\/busem<\/span> \$\{esc\(Ground\.chipText\(x, ret\)\)\}/);
+  // ikona je aria-hidden – čtečka bez 🚆 jinak nepozná, že tlačítko je o vlaku a busu
   const gr = read('js/ground.js');
   assert.deepEqual(emoji(gr.slice(gr.indexOf('const chipText ='), gr.indexOf('};', gr.indexOf('const chipText =')))), [], 'chipText');
   const en = read('js/entry.js'), a = en.indexOf('  function flightChip(');
@@ -253,4 +254,14 @@ test('nadpisy karet bez h-tagu: Tipy v Letech (.tn) a Dnes na cestě (.nw-h) s i
   const nw = app.split('\n').filter((l) => /const head = x\.home|^ {4}: x\.on \? `|^ {4}: `\$\{ikona\('kalendar'\)\}|class="nw-h">(?!\$\{head\})/.test(l));
   assert.equal(nw.length, 5);
   for (const l of nw) assert.deepEqual(emoji(l.match(/class="nw-h">(.*?)<\/div>/)?.[1] ?? l), [], l.slice(0, 80));
+});
+
+test('okno nabídky: štítek vstupu bez emoji; tipy v Letech jen s ikonou ve významu z ikony.json', () => {
+  // dp-chips: když flightChip nic nevrátí (stačí OP, bez víza), cardChip bez emoji – jinak „🪪 stačí OP“ vedle štítků bez emoji
+  assert.match(FL, /Entry\.flightChip\(d\.cc, d\.d2 \|\| d\.d1\) \|\| Entry\.cardChip\(d\.cc, true\)/);
+  // super-cena jen pro štítek „Super cena“ (ikony.json: ikona v cizím významu nikdy) – ne u tipu o zavazadlech
+  const ctx = {};
+  vm.runInNewContext(read('js/data.js').match(/^const TIPS=.*$/m)[0].replace(/^const TIPS/, 'globalThis.TIPS'), ctx);
+  assert.equal(ctx.TIPS.find((t) => t[1] === 'Leť jen s příručním')[0], 'info');
+  assert.ok(!ctx.TIPS.some((t) => t[0] === 'super-cena'));
 });

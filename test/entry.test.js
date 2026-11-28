@@ -183,6 +183,9 @@ test('kind/čip země: stačí OP, registrace, e-vízum, vízum na hranici, víz
 
   assert.match(Entry.cardChip('US'), /^<span class="ec ec-reg" title="[^"<>]*">🛂 ESTA<\/span>$/);
   assert.match(Entry.cardChip('DE'), />🪪 stačí OP</);
+  // okno nabídky (dp-chips): štítek bez emoji jako flightChip vedle něj (CLAUDE.md, nález E1); karta země ho má dál
+  assert.match(Entry.cardChip('DE', true), /^<span class="ec ec-ok" title="[^"<>]*">stačí OP<\/span>$/);
+  assert.match(Entry.cardChip('US', true), />ESTA<\/span>$/);
   assert.match(Entry.cardChip('TH'), />bez víza</);
   assert.equal(Entry.cardChip('CZ'), '', 'domov bez čipu');
   assert.equal(Entry.cardChip('XX'), '');
