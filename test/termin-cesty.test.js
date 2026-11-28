@@ -147,7 +147,7 @@ test('tripFlights: cesta z průvodce s cílem městem hledá na letiště letu, 
   const ctx = { window: {}, S: {}, byIso: { PT: { cs: 'Portugalsko' } }, flag: (cc) => `[${cc}]`, go: (v) => calls.push(['go', v]) };
   ctx.window.Flights = ctx.Flights = { searchTo: (to, o) => calls.push(['to', to, o]), searchLegs: (l) => calls.push(['legs', l.length]) };
   vm.createContext(ctx);
-  vm.runInContext(APP.match(/^window\.tripFlights = t => \{[\s\S]*?\n\};/m)[0], ctx);
+  vm.runInContext(APP.match(/^window\.tripFlights = \(t, o = \{\}\) => \{[\s\S]*?\n\};/m)[0], ctx);
   const own = { wizard: { flight: { own: true, out: { from: '', to: 'LIS', date: '2027-03-27' } }, dest: { id: 'geo:38.72,-9.14|Lisabon', label: 'Lisabon', cc: 'PT' } }, iso: 'PT', start: '2027-03-27', end: '2027-04-01' };
   ctx.window.tripFlights(own);
   assert.deepEqual(plain(calls.pop()), ['to', [{ id: 'ap:LIS', label: 'Lisabon', flag: '[PT]' }], { xOut: '2027-03-27', xBack: '2027-04-01' }]);

@@ -37,9 +37,9 @@ const leg = (from, to, date, dep, arr) => ({ from, to, date, dep: `${date}T${dep
 const LIS = { key: 'LIS', id: 'ap:LIS', label: 'Lisabon', cc: 'PT', country: 'Portugalsko', lat: 38.72, lon: -9.14 };
 const ROM = { key: 'ROM', id: 'metro:ROM', label: 'Řím', cc: 'IT', country: 'Itálie', lat: 41.9, lon: 12.5 };
 // let z výsledků hledání (ne vlastní): tam od..do, back = false → jen tam
-function pick(c, { from = 0, to = 4, adults = 2, bags = 'none', dest = LIS, czk = 3000, back = true } = {}) {
+function pick(c, { from = 0, to = 4, adults = 2, bags = 'none', dest = LIS, czk = 3000, back = true, dep = '10:00', oe = {} } = {}) {
   const ap = dest === LIS ? 'LIS' : 'FCO';
-  const t = { id: 'x' + from, out: leg('PRG', ap, day(from + 40), '10:00', '12:30'), back: back ? leg(ap, 'PRG', day(to + 40), '13:30', '17:50') : null, flightCzk: czk, groundCzk: 0, bagCzk: 0, arrCzk: 0, perPersonCzk: czk, totalCzk: czk * adults, provider: 'demo-air', combined: false, bookUrl: null, deal: { level: 'normal' } };
+  const t = { id: 'x' + from, out: { ...leg('PRG', ap, day(from + 40), dep, '12:30'), ...oe }, back: back ? leg(ap, 'PRG', day(to + 40), '13:30', '17:50') : null, flightCzk: czk, groundCzk: 0, bagCzk: 0, arrCzk: 0, perPersonCzk: czk, totalCzk: czk * adults, provider: 'demo-air', combined: false, bookUrl: null, deal: { level: 'normal' } };
   c.window.Trip.start({ t, g: { dest }, result: { origins: [], query: { adults, bags }, home: null, arrivals: {} }, at: Date.now() - 6e4 });
   return c.S.trip;
 }
@@ -217,4 +217,107 @@ test('app.js: „Změnit let“ nastaví značku, odchod z Letů ji smaže; star
   vm.runInContext("activeView = 'flights'; S.trips = [{ tripId: 1 }];", ctx);
   ctx.hashView();
   assert.deepEqual(plain(calls.pop()), ['trip', { noHash: true, keepScroll: false }]);
+});
+
+// Regresní kontrola 3 – ↩ Jiný let / Změnit let: tentýž let znovu nesmí smazat hotel ani vrátit průvodce na krok Let
+// (dřív se u cesty se značkou vždy volal reflightTrip → dropPicked); jiný let řekne, co zmizelo; Lety jako odbočka
+// z průvodce (Zpět do Cesty, ne na Přehled – po něm vznikala druhá cesta).
+const FRESH = { foundAt: 1, czk: 2999, prevCzk: 3500, otherDeps: ['08:00'] }; // nabídka z jiného hledání: jiné vedlejší údaje
+
+test('↩ Jiný let → tentýž let (z jiného hledání): hotel i krok zůstanou, žádná kopie ani hláška', () => {
+  const c = load();
+  const e = saved(c), id = e.tripId;
+  jinyLet(c);
+  c.S.trip.step = 'program'; // krok, na kterém cesta byla (lišta kroků jen prohlíží)
+  pick(c, { oe: FRESH });
+  assert.equal(c.window.reflight, null);
+  assert.equal(c.S.trips.length, 1);
+  assert.equal(c.S.trip.created, id);
+  assert.equal(c.S.trip.step, 'program', 'krok se nezmění');
+  assert.equal(c.S.trip.stay.name, 'Hotel', 'hotel zůstane');
+  assert.equal(c.S.trips[0].wizard.stay.name, 'Hotel');
+  assert.deepEqual(plain(c.__toasts), []);
+  assert.equal(c.__go.at(-1), 'trip');
+});
+
+test('Změnit let → tentýž let u cesty jen v Mých cestách: otevře ji beze změny (hotel, Shrnutí)', () => {
+  const c = load();
+  const e = saved(c), id = e.tripId;
+  c.S.trip = null;
+  c.window.reflight = id;
+  pick(c, { oe: FRESH });
+  assert.equal(c.S.trips.length, 1);
+  assert.equal(c.S.trip.created, id);
+  assert.equal(c.S.trip.step, 'summary');
+  assert.equal(c.S.trip.stay.name, 'Hotel');
+  assert.equal(c.S.trips[0].wizard.stay.name, 'Hotel');
+});
+
+test('↩ Jiný let → jiný let: jiný čas téhož dne hotel nechá, jiné dny ho odeberou s hláškou proč', () => {
+  const c = load();
+  saved(c);
+  jinyLet(c);
+  pick(c, { dep: '07:00' });
+  assert.equal(c.S.trip.flight.out.dep.slice(11, 16), '07:00');
+  assert.equal(c.S.trip.stay.name, 'Hotel', 'stejné noci → hotel platí');
+  assert.deepEqual(plain(c.__toasts), []);
+  jinyLet(c);
+  pick(c, { from: 7, to: 11 });
+  assert.equal(c.S.trip.stay, null);
+  assert.equal(c.S.trips.length, 1);
+  assert.match(c.__toasts.at(-1), /^Let vyměněn – hotel platil pro původní let, vyber ho znovu/);
+});
+
+test('↩ Jiný let u sdílené cesty: po výměně letu už netvrdí „ceny z doby sdílení“, zůstane sdílená', () => {
+  const c = load(), T = c.window.Trip;
+  c.S.trips = [];
+  const t = pick(c);
+  t.shared = { on: '2026-11-20' };
+  t.flight.pricedAt -= 864e5; // cena ze dne sdílení
+  pick(c); // tentýž let z dnešního hledání: cesta beze změny, cena letu je ale teď dnešní
+  assert.equal(c.S.trip, t);
+  assert.deepEqual(plain(t.shared), {});
+  t.shared = { on: '2026-11-20' };
+  jinyLet(c);
+  pick(c, { from: 3, to: 6 });
+  assert.equal(c.S.trip.created, t.created);
+  assert.deepEqual(plain(c.S.trip.shared), {});
+  assert.equal(T.sanitizeTrip(plain(c.S.trip)).shared.on ?? null, null, 'po obnovení stránky taky bez dne');
+  c.S.trip.step = 'flight';
+  T.render();
+  assert.match(c.__els['#tripRoot'].innerHTML, /Sdílená cesta<\/b> – ceny se mohly změnit/);
+  assert.equal(c.S.trips.length, 0, 'sdílená se sama neuloží');
+});
+
+test('↩ Jiný let: Lety jako odbočka z průvodce (drill) – Zpět do Cesty; pak tentýž let bez značky kopii nezaloží', () => {
+  const c = load();
+  const e = saved(c), id = e.tripId, calls = [];
+  c.go = (v, o) => calls.push([v, o]);
+  c.tripFlights = (t, o) => calls.push(['tripFlights', o]);
+  c.S.trip.step = 'flight';
+  c.window.Trip.render();
+  c.__els['#tfBack'].onclick(); // bez výsledků → hledání do cíle cesty
+  assert.deepEqual(plain(calls.pop()), ['tripFlights', { drill: true }]);
+  c.__els['#results'] = { firstElementChild: {} };
+  c.S.form = { to: [{ id: 'ap:LIS' }] };
+  c.__els['#tfBack'].onclick(); // výsledky do téhož cíle na obrazovce
+  assert.deepEqual(plain(calls.pop()), ['flights', { drill: true }]);
+  // Zpět z Letů (app.js go: odchod z Letů značku zruší), pak Vpřed a tentýž let
+  c.window.reflight = null;
+  c.go = (v) => c.__go.push(v);
+  pick(c, { oe: FRESH });
+  assert.equal(c.S.trips.length, 1, 'žádná druhá cesta');
+  assert.equal(c.S.trip.created, id);
+  assert.equal(c.S.trip.stay.name, 'Hotel');
+  // app.js: tripFlights s drill napřed krok historie odbočky (Flights.searchTo pak už jen v Letech)
+  const got = [];
+  const ctx = { window: {}, S: {}, byIso: {}, flag: () => '', go: (v, o) => got.push([v, o]) };
+  ctx.window.Flights = ctx.Flights = { searchTo: () => got.push(['searchTo']) };
+  vm.createContext(ctx);
+  vm.runInContext(APP.match(/^window\.tripFlights = \(t, o = \{\}\) => \{[\s\S]*?\n\};/m)[0], ctx);
+  ctx.window.tripFlights({ place: { id: 'ap:LIS' }, start: day(40), end: '' }, { drill: true });
+  assert.deepEqual(plain(got), [['flights', { drill: true }], ['searchTo']]);
+  // historie: odbočka z Cesty je krok navíc nad ní – Zpět vrátí do průvodce
+  const vh = vm.runInContext(`${APP.match(/^const histDepth = .*$/m)[0]}\n${fnOf('viewHist')}\nviewHist`, vm.createContext({}));
+  assert.deepEqual(plain(vh('flights', { atlasV: 1 }, '#trip', true)), { back: 0, how: 'drill' });
 });
