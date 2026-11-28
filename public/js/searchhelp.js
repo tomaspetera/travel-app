@@ -219,6 +219,13 @@
     return (providers || []).filter(p => p && NAME[p.id] && ['down', 'blocked', 'partial'].includes(p.outage)).map(p => ({ id: p.id, name: NAME[p.id], level: p.outage, retryAfter: p.retryAfter || 0 }));
   }
 
+  /**
+   * Úplný výpadek: žádný zdroj neodpověděl (všechny skončily chybou, výpadkem 'down' nebo byly po výpadku vynechány
+   * 'blocked') – stejné pravidlo jako serverový searchEvent ('search_error'). Prázdný výsledek pak neznamená „nic není“,
+   * jen že se nic neprohledalo; 'partial' (část dotazů prošla) je obyčejný prázdný výsledek.
+   */
+  const allDown = providers => Array.isArray(providers) && providers.length > 0 && providers.every(s => s && (s.state === 'error' || s.outage === 'down' || s.outage === 'blocked'));
+
   /* ---------- filtry času a přestupů (ve výpisu, bez nového hledání) ---------- */
   // Části dne podle hodiny odletu (místní čas): [klíč, popisek, od, do).
   const DAYPARTS = [['morning', 'Ráno', 5, 12], ['afternoon', 'Odpoledne', 12, 18], ['evening', 'Večer', 18, 24], ['night', 'Noc', 0, 5]];
@@ -2341,7 +2348,7 @@
     ARRIVAL_WARN, arrivalFare, arrivalWarn, arrivalVia, arrivalLine, arrivalSource, arrivalChips, arrivalLegChips,
     groundForm, parkDays, parkStay, parkCzk, carTrip, accessLabel, originCompare, originDiffTxt, originFoot,
     CAR_FUELS, carOpts, carEnergy, carPayload, fuelCzk, fuelItem, fuelFormula, fuelLine, energyTxt, kmTxt, priceTxt, OWN_MAX, OWN_MAX_CZK, ownClean, ownQs, groundChanged, ownPrint, ownPrintFor,
-    legSig, returnFits, composeTrip, distinctLegs, sortLegs, pricedTimes, freeDeps, nearStrip, nearHeadline, kiwiOutage, lowcostOutage, nightsRange, nightsAround, activeFilters, isThin, nearHubs, smartActions, dm, addDays, diffDays,
+    legSig, returnFits, composeTrip, distinctLegs, sortLegs, pricedTimes, freeDeps, nearStrip, nearHeadline, kiwiOutage, lowcostOutage, allDown, nightsRange, nightsAround, activeFilters, isThin, nearHubs, smartActions, dm, addDays, diffDays,
     DAYPARTS, freshTime, dayPart, legMinutes, maxLayover, timeActive, timeFails, timeOk, fillLegs, fastPair, directHint, directNear, timeHidden, timeStats, timeChips, hm, multiPlan, multiWhy,
     REACH, reach, reachCtx, clockTxt, ve,
     radarQuery, radarStale, radarSame, radarDiff, radarEntry, radarOwnOk,
