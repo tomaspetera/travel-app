@@ -13,7 +13,9 @@
    - /api/*, jiné metody než GET a cizí weby (dlaždice map, písma, partneři): do těch se service worker neplete –
      jdou rovnou na server, nic se neukládá; offline selžou a aplikace ukáže svou hlášku. Stejně krátký odkaz na cestu
      /c/<id> (a pozvánka /j/<data>): je to stránka serveru s náhledem a přesměrováním do aplikace, ne stránka aplikace – uložená místo ní by
-     offline (i při pomalé síti) otevřela jen „Otevírám cestu…“ a přesměrovávala by pořád dokola.
+     offline (i při pomalé síti) otevřela jen „Otevírám cestu…“ a přesměrovávala by pořád dokola. Totéž obsahové
+     stránky serveru (/zeme, /zeme/<země>, /kam-v-<měsíc> a jejich soubory /obsah/…): nejsou to stránky aplikace –
+     uložená by se offline otevírala místo aplikace.
    - Verzi (BUILD = otisk obsahu souborů aplikace) a seznam souborů k uložení při instalaci dosadí server
      (server/lib/pwa.js). Nová verze na serveru = jiný sw.js → prohlížeč nainstaluje nový service worker, ten si uloží
      novou sadu souborů, převezme otevřené stránky a staré mezipaměti smaže. Skripty pak z uložené sady jednou uloží
@@ -46,8 +48,9 @@ let freshUntil = 0;
 /**
  * Kam s požadavkem (čistá funkce – test/pwa.test.js):
  *   null     nechat být: vyřídí ho prohlížeč sám a nic se neukládá (API, POST, cizí weby, sw.js, /healthz, Range,
- *            krátký odkaz /c/<id>, stránka statistiky.html se svým skriptem, právní texty /soukromi a /podminky – není
- *            to stránka aplikace: uložila by se místo ní pod adresu rozsahu a offline by se otevírala ona)
+ *            krátký odkaz /c/<id>, stránka statistiky.html se svým skriptem, právní texty /soukromi a /podminky,
+ *            obsahové stránky /zeme, /zeme/<země>, /kam-v-<měsíc> se soubory /obsah/… – není to stránka aplikace:
+ *            uložila by se místo ní pod adresu rozsahu a offline by se otevírala ona)
  *   'page'   navigace na stránku aplikace: síť, offline poslední uložená stránka
  *   'asset'  soubor aplikace: síť, offline uložená kopie
  * req = { method, url, mode, headers }, scope = adresa rozsahu service workeru (registration.scope).
@@ -63,7 +66,7 @@ function route(req, scope) {
   }
   if (url.origin !== base.origin || !url.pathname.startsWith(base.pathname)) return null;
   const rel = url.pathname.slice(base.pathname.length);
-  if (/^(?:api(?:\/|$)|[cj]\/|healthz$|sw\.js$|statistiky\.html$|soukromi$|podminky$|js\/statistiky\.js$)/.test(rel)) return null;
+  if (/^(?:api(?:\/|$)|[cj]\/|healthz$|sw\.js$|statistiky\.html$|soukromi$|podminky$|zeme(?:\/|$)|kam-v-|obsah\/|js\/statistiky\.js$)/.test(rel)) return null;
   if (req.headers && typeof req.headers.get === 'function' && req.headers.get('range')) return null;
   return req.mode === 'navigate' ? 'page' : 'asset';
 }
