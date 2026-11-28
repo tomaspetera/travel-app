@@ -57,7 +57,7 @@ function app() {
     }`, ctx);
   // hashView jde přes tabGo (Cesty se 2+ cestami = Moje cesty) – bez cest jako go
   vm.runInContext(`var S = { trip: null, trips: [] };\n${pick('tripCount', 'tabGo')}`, ctx);
-  vm.runInContext(pick('hist', 'histFlush', 'histBack', 'histDo', 'histDepth', 'viewHist', 'viewStep', 'trailNext', 'histTrip', 'tripEntry', 'histPop', 'isView', 'hashView', 'modalKb', 'kbSel', 'modalShow', 'modalName', 'modalOpen', 'modalClose'), ctx, { filename: 'app-hist.js' });
+  vm.runInContext(pick('hist', 'histFlush', 'histBack', 'histDo', 'histDepth', 'viewHist', 'viewStep', 'trailNext', 'histTrip', 'tripEntry', 'tripShow', 'histPop', 'isView', 'hashView', 'modalKb', 'kbSel', 'modalShow', 'modalName', 'modalOpen', 'modalClose'), ctx, { filename: 'app-hist.js' });
   // go() v app.js volá viewStep přes histDo – ověřit, že řádek ve stubu je opravdu ten z app.js
   assert.ok(APP.includes("if (!opts.noHash) histDo(() => viewStep(v, opts.drill, from === 'dashboard' || opts.drill ? y0 : null));"), 'go(): zápis do historie');
   // posun stránky se čte jen pro nový krok (čtení scrollY vynutí rozvržení – při startu zbytečně)
@@ -203,6 +203,59 @@ test('průvodce: návrat lištou kroků cestu zkrátí, odchod z Cesty ji zahod�
   assert.equal(c.trip.step, 'route');
   c.back();
   assert.equal(c.trip.step, 'flight');
+});
+
+// Regresní kontrola 4: ↩ Jiný let z průvodce = Lety jako krok navíc nad Cestou (drill), výběr letu pak trip.js start →
+// tripShow. Výměna u téže cesty se vrátí na krok Cesty pod Lety (dřív každá výměna přidala dva kroky: 3 výměny = 7× Zpět);
+// nová cesta (let jinam) krok navrch bez kroků průvodce té staré (dřív jí Zpět ukázal Shrnutí a přepnul ji na Program).
+test('↩ Jiný let: výměna u téže cesty historii nehromadí, nová cesta nedostane kroky průvodce té staré', () => {
+  const a = app();
+  a.tap('flights');
+  a.tap('trip', { drill: true }); // Vybrat a pokračovat
+  const step = (s) => { a.ctx.histTrip(a.trip.step, s); a.trip.step = s; a.tick(); };
+  step('stay'); step('summary');
+  const depth = a.H.i;
+  for (let k = 0; k < 3; k++) {
+    a.tap('flights', { drill: true }); // otherFlight
+    a.ctx.tripShow(true); a.tick(); // start(): vyměněno u téže cesty
+    assert.equal(a.view(), 'trip');
+    assert.equal(a.H.i, depth, `výměna ${k + 1}: zpátky na krok Cesty, ne krok navrch`);
+  }
+  assert.equal(a.H.list.length, depth + 2, 'po výměnách nad Cestou jen opuštěný krok Letů (Vpřed)');
+  a.back(); assert.equal(a.trip.step, 'stay', 'Zpět dál po krocích, kterými uživatel prošel');
+  a.back(); assert.equal(a.trip.step, 'flight');
+  a.back(); assert.equal(a.view(), 'flights', 'k výsledkům, ze kterých let je');
+  a.back(); assert.equal(a.view(), 'dashboard');
+  assert.equal(a.H.exits, 0);
+  // let jinam: nová cesta (Řím) na kroku Let – Zpět k Letům, krok průvodce staré cesty se přeskočí, nic se nepřepne
+  const b = app();
+  b.tap('flights');
+  b.tap('trip', { drill: true });
+  const st = (s) => { b.ctx.histTrip(b.trip.step, s); b.trip.step = s; b.tick(); };
+  st('program'); st('summary');
+  b.tap('flights', { drill: true });
+  b.ctx.tripShow(false); b.tick();
+  b.trip.step = 'flight'; // nová cesta
+  assert.deepEqual(plain(vm.runInContext('hist.trail', b.ctx)), []);
+  b.back();
+  assert.equal(b.view(), 'flights', 'první Zpět k Letům, ne Shrnutí nové cesty');
+  assert.equal(b.trip.step, 'flight');
+  b.back();
+  assert.equal(b.view(), 'trip', 'pod Lety Cesty (tabGo: se 2+ cestami seznam)');
+  assert.equal(b.trip.step, 'flight', 'krok nové cesty zůstane');
+  b.back(); b.back();
+  assert.equal(b.view(), 'dashboard');
+  assert.equal(b.trip.step, 'flight');
+  assert.equal(b.H.exits, 0);
+  // bez kroku Letů navrch (okno přes výsledky) výměna nic nevrací – krok Cesty navrch jako dřív
+  const c = app();
+  c.tap('trip');
+  c.tap('flights', { drill: true });
+  c.ctx.modalOpen('<p>Detail letu</p>');
+  const n = c.H.list.length;
+  c.ctx.tripShow(true); c.tick();
+  assert.equal(c.view(), 'trip');
+  assert.equal(c.H.list.length, n + 1);
 });
 
 test('Zpět po obnovení stránky (Shrnutí → Uložit do plánovače, telefon pak aplikaci na pozadí zavřel): krok průvodce bez cesty kroků se přeskočí', () => {

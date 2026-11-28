@@ -356,6 +356,19 @@ function histTop() {
     if (n && !hist.modal) histBack(n);
   });
 }
+/**
+ * Cesta po výběru letu (trip.js start). back = výběr dokončil odbočku z Cesty (↩ Jiný let, let vyměněný u téže cesty):
+ * zpátky na její krok pod Lety – nový krok navrch přidal po každé výměně dva (Lety a Cesta) a Zpět mezi nimi kroužilo.
+ * Jinak krok Cesty nad výsledky (Zpět vrátí k nim) bez kroků průvodce: patřily cestě před výběrem – nové cestě by Zpět
+ * ukázal kroky, kterými neprošla, a přepnul ji na ně (krok průvodce, který v historii zůstane, histPop přeskočí).
+ */
+function tripShow(back) {
+  const st = history.state;
+  // jen z kroku Letů (bez okna či náhledu navrch a rozběhnutého návratu) – jinak by návrat skončil jinde než v Cestě
+  if (back && location.hash === '#flights' && histDepth(st) && !st.atlasM && !st.atlasDp && !hist.backs) { go('trip', { noHash: true }); return histBack(); }
+  hist.step = false; hist.trail = [];
+  go('trip', { drill: true });
+}
 function histPop() {
   if (hist.backs) { // návrat, který si aplikace sama vyžádala
     if (--hist.backs > 0) return;
@@ -435,7 +448,7 @@ function go(v, opts = {}) {
   // scrollY si vynutí rozvržení celé stránky ještě před vykreslením sekce (při startu na telefonu desítky ms navíc)
   const from = activeView, y0 = opts.noHash ? 0 : Math.round(window.scrollY || 0);
   if (from === 'flights' && v !== 'flights') flKept = flKeep(Math.round(window.scrollY || 0), flMark());
-  if (from === 'flights' && v !== 'flights') window.reflight = null; // „Změnit let“ (editTrip): z Letů odešel bez výběru
+  if (from === 'flights' && v !== 'flights') window.reflight = window.reflightDrill = null; // „Změnit let“ (editTrip), ↩ Jiný let: z Letů odešel bez výběru
   // návrat na Lety (ne Zpět – ten má posun v kroku historie): uložený posun, je-li výpis pořád týž
   const flY = v === 'flights' && from !== 'flights' && !opts.noHash && !opts.keepScroll ? flBack(flKept, flMark(), Boolean(window.Flights && Flights.busy && Flights.busy())) : null;
   if (v === 'flights') flKept = null;

@@ -134,6 +134,13 @@
     if (!n || (fl.length && fl.every(p => p.blocked))) return 'Ceny letů teď nejdou načíst';
     return `Ceny ${st.includes('živě') ? 'živě' : st.includes('demo') ? 'demo' : 'orientačně'} · ${n} ${n === 1 ? 'zdroj' : n < 5 ? 'zdroje' : 'zdrojů'}`;
   }
+  // Stav serveru se po startu znovu nenačítá: zdroj vynechaný po výpadku (blocked), od kterého hledání vrátilo ceny, už jede.
+  // Mění objekty v health.providers – PROV na ně ukazuje (useHealth). true = je co překreslit.
+  function srcHeal(h, provs) {
+    const back = (h && Array.isArray(h.providers) ? h.providers : []).filter(p => p.blocked && (provs || []).some(r => r.id === p.id && !SearchHelp.allDown([r])));
+    for (const p of back) p.blocked = false;
+    return back.length > 0;
+  }
 
   /** Lety jen z mezipaměti (Aviasales) – žádný živý ani ukázkový zdroj letů zapnutý. Bez /api/health ne (jako dřív). */
   function cacheOnly(h = health) {
@@ -1554,6 +1561,12 @@
     say(h ? `Hledání hotové: ${h.textContent.replace(/\s+/g, ' ').trim()}${best ? `, nejlevněji ${best.textContent} za osobu` : ''}.`
       : note ? note.textContent.replace(/\s+/g, ' ').trim().slice(0, 200) : 'Hledání hotové.');
   }
+  // Úplný výpadek nepřepíše dřívější výsledky (do catch „kept“) – jen u hledání do stejného cíle: nabídky jiného cíle pod
+  // hláškou „Níže zůstávají výsledky“ vypadají jako výsledky nového hledání a klepnutí na ně založí cestu jinam.
+  // Výsledek z výpadku chránit nemá smysl – ukázal by jen starou kartu výpadku s druhým ↻ bez odpočtu.
+  const destKey = p => JSON.stringify(p ? (p.legs ? p.legs.map(l => l.to) : p.to) : null);
+  const keepOnDown = (prev, prevPayload, res, payload) => Boolean(prev) && !SearchHelp.allDown(prev.providers)
+    && !(res.groups || []).length && SearchHelp.allDown(res.providers) && destKey(prevPayload) === destKey(payload);
   async function startSearch(opts = {}) {
     // noci „9–3“: prohodit už ve formuláři – server by je prohodil potichu a uložené hledání i Nedávno by ukazovaly „9–3“
     const nMin = $('#nMin'), nMax = $('#nMax');
@@ -1625,15 +1638,14 @@
         onPartial: r => { r.at = Date.now(); paintSoon(() => showPartial(r, s)); },
         signal: ctl.signal,
       })); // + cesty buněk mřížky termínů
-      // žádný zdroj neodpověděl a nic není: dřívější výsledky (i uložené z minula) prázdný výsledek nepřepíše – jako
-      // u radaru chyba s odpočtem do catch, který je nechá zašedlé pod hláškou; bez dřívějších vysvětlí výpadek emptyState.
-      // Dřívější výsledek z výpadku (↻ Zkusit znovu, když zdroj pořád nejde) chránit nemá smysl – „Níže zůstávají výsledky“
-      // by ukázalo jen starou kartu výpadku s druhým ↻ bez odpočtu
-      if (lastResult && !SearchHelp.allDown(lastResult.providers) && !(res.groups || []).length && SearchHelp.allDown(res.providers)) {
+      // žádný zdroj neodpověděl a nic není: dřívější výsledky stejného cíle (i uložené z minula) prázdný výsledek nepřepíše –
+      // jako u radaru chyba s odpočtem do catch, který je nechá zašedlé pod hláškou; jinak vysvětlí výpadek emptyState (keepOnDown)
+      if (keepOnDown(lastResult, lastResultPayload, res, payload)) {
         const ra = res.providers.map(p => p.retryAfter || 0);
         throw Object.assign(new Error('Zdroj cen teď neodpovídá – zkus to za chvíli.'), { until: ra.every(x => x > 0) ? Date.now() + Math.min(...ra) * 1e3 : 0 });
       }
       lastResult = res; lastResultAt = Date.now(); lastResultPayload = payload; restored = false;
+      if (srcHeal(health, res.providers)) renderSources(); // Zdroje cen (počítač) by po obnově zdroje dál hlásily výpadek
       // souhrnné počty (count.js): dokončené hledání (i bez výsledků) a z toho „kamkoliv“
       if (window.Count) { Count.hit('search_done'); if (res.destination && res.destination.kind === 'anywhere') Count.hit('search_anywhere'); }
       PriceCheck.remember(res); // paměť cen v tomto prohlížeči („Je to dobrá cena?“)
@@ -3079,9 +3091,10 @@
     const picks = mPicks(res), plan = mPlan(res, picks);
     const any = picks.some(x => x != null), full = picks.every(x => x != null);
     const cheapest = res.combos[0] || null;
+    const route = `<div><h2>${ikona('mapa')} ${esc(res.destination.label)}</h2>
+      <div class="muted" style="font-size:13px">${plural(n, 'let', 'lety', 'letů')} · ${fmtDate(legs[0].date)} → ${fmtDate(legs[n - 1].date)} · ${esc(SearchHelp.paxShort(res.query))}${BAG_LBL[res.query.bags] ? ` · 🧳 vč. ${res.query.bags === 'cabin' ? 'kabinového kufru' : 'kufru k odbavení'}` : ''}${cheapest ? ` · celá cesta nejlevněji <b class="good">${czk(cheapest.perPersonCzk)}</b>/os.` : ''}</div></div>`;
     const head = kiwiBanner(res) + `<div class="res-head">
-      <div><h2>${ikona('mapa')} ${esc(res.destination.label)}</h2>
-      <div class="muted" style="font-size:13px">${plural(n, 'let', 'lety', 'letů')} · ${fmtDate(legs[0].date)} → ${fmtDate(legs[n - 1].date)} · ${esc(SearchHelp.paxShort(res.query))}${BAG_LBL[res.query.bags] ? ` · 🧳 vč. ${res.query.bags === 'cabin' ? 'kabinového kufru' : 'kufru k odbavení'}` : ''}${cheapest ? ` · celá cesta nejlevněji <b class="good">${czk(cheapest.perPersonCzk)}</b>/os.` : ''}</div></div>
+      ${route}
       <div class="res-tools"><div class="seg" id="mSort">${[['price', 'Nejlevnější'], ['time', 'Podle času']].map(o => `<button type="button" data-ms="${o[0]}" class="${view.legSort === o[0] ? 'on' : ''}">${o[1]}</button>`).join('')}</div></div></div>
       ${filterChips(SearchHelp.activeFilters(res.filters))}
       ${res.demo ? '<div class="note warn" style="margin-bottom:14px">⚠️ <div><b>DEMO data</b> – ceny i lety jsou vymyšlené, slouží jen k vyzkoušení aplikace.</div></div>' : ''}
@@ -3094,8 +3107,10 @@
     const body = `<div class="section-head legs-pick" id="mcPick"><h2>${title}</h2></div>`
       + (plan.best ? mCard(res, plan.best.picks) : `<div class="empty">${any ? 'Vybrané lety spolu nejdou spojit – vyber jiný let nebo zruš výběr.' : esc(mEmptyTxt(res))}</div>`);
     const foot = `<div class="res-foot faint">Ceny jsou za letenky na osobu ${bagFoot(res.query.bags)}. Doprava na letiště a z letišť do měst je u cesty zvlášť a přejezdy mezi městy se nepočítají.${footMore(`Doprava je jen pro představu (průměrná cena): ${esc(groundFoot(res, true))}; ${esc(arrivalFoot(res, true))}. ${liveFoot()} Kurz: ${fxFoot(res)}.`)}</div>`;
-    // úplný výpadek zdroje: místo prázdných kroků s „V tento den jsem let nenašel“ pravda – nic se neprohledalo
-    host.innerHTML = head + (SearchHelp.allDown(res.providers) ? downCard(res) : steps + body + (res.combos.length > 1 ? mCombos(res, picks) : '')) + foot;
+    // úplný výpadek zdroje: místo prázdných kroků s „V tento den jsem let nenašel“ pravda – nic se neprohledalo. Jen trasa
+    // a karta výpadku: řazení, „tlačítkem u každého letu“ a patička o cenách patří k letům, které tu nejsou
+    host.innerHTML = SearchHelp.allDown(res.providers) ? kiwiBanner(res) + `<div class="res-head">${route}</div>` + downCard(res)
+      : head + steps + body + (res.combos.length > 1 ? mCombos(res, picks) : '') + foot;
     wireMulti(host, res);
     wireHelp(host);
   }

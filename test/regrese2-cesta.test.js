@@ -202,7 +202,7 @@ test('↩ Jiný let: let jinam založí novou cestu, rozpracovaná stará zůsta
 test('app.js: „Změnit let“ nastaví značku, odchod z Letů ji smaže; start na #trip a Zpět jako záložka (tabGo), sdílená cesta průvodce', () => {
   const ed = fnOf('editTrip');
   assert.match(ed, /\$\('#etFlight'\); if \(ef\) ef\.onclick = \(\) => \{ modalClose\(\); window\.reflight = t\.tripId; tripFlights\(t\); \};/);
-  assert.match(fnOf('go'), /if \(from === 'flights' && v !== 'flights'\) window\.reflight = null;/);
+  assert.match(fnOf('go'), /if \(from === 'flights' && v !== 'flights'\) window\.reflight = window\.reflightDrill = null;/);
   const start = APP.match(/^async function start\(\) \{[\s\S]*?\n\}/m)[0];
   assert.match(start, /\(shared \? go : tabGo\)\(isView\(v\) \? v : 'dashboard', \{ noHash: true \}\);/);
   // hashView: Zpět na #trip se 2+ cestami → Moje cesty (mine), s jednou cestou průvodce
@@ -335,4 +335,53 @@ test('tentýž let za jinou cenu z jiného hledání: cesta ukáže cenu, na kte
   // bez značky (nové hledání, tentýž let dráž): stará cena v otevřené cestě nezůstane
   pick(c, { oe: { ...FRESH, foundAt: 2 }, czk: 3600 });
   assert.equal(c.S.trip.flight.flightCzk, 3600);
+});
+
+// Regresní kontrola 4 – historie po ↩ Jiný let: výběr letu předá app.js tripShow, jestli dokončil odbočku z Cesty u téže
+// cesty (zpátky na krok Cesty pod Lety – dřív každá výměna přidala dva kroky) nebo otevřel jinou (krok navrch bez kroků
+// průvodce staré cesty – dřív Zpět ukázal nové cestě Shrnutí a přepnul ji na Program). Historii samu hlídá history.test.js.
+test('↩ Jiný let → výběr: výměna u téže cesty se vrací na krok Cesty, let jinam a Změnit let z Mých cest krok navrch', () => {
+  const c = load(), shows = [];
+  c.tripShow = (back) => shows.push(back);
+  const e = saved(c), id = e.tripId;
+  assert.deepEqual(shows.splice(0), [false], 'nová cesta z výsledků: krok navrch');
+  jinyLet(c);
+  assert.equal(c.window.reflightDrill, true, 'odbočka z Cesty');
+  pick(c, { oe: FRESH }); // tentýž let
+  assert.equal(c.window.reflightDrill, false, 'značka jen pro tento výběr');
+  jinyLet(c);
+  pick(c, { from: 7, to: 11 }); // jiný termín – vyměněno u téže cesty
+  assert.equal(c.S.trip.created, id);
+  jinyLet(c);
+  pick(c, { dest: ROM, from: 7, to: 11 }); // let jinam = nová cesta
+  assert.notEqual(c.S.trip.created, id);
+  assert.deepEqual(shows, [true, true, false]);
+  // Změnit let z Mých cest (Lety bez odbočky z průvodce): krok Cesty navrch, Zpět vrátí k výsledkům
+  c.S.trip = null;
+  c.window.reflight = id;
+  pick(c, { from: 3, to: 6 });
+  assert.equal(c.S.trip.created, id);
+  assert.equal(shows.at(-1), false);
+  // cesta ještě neuložená v Mých cestách se vymění na místě – taky zpátky na její krok
+  const d = load(), sd = [];
+  d.tripShow = (back) => sd.push(back);
+  d.S.trips = [];
+  pick(d);
+  jinyLet(d);
+  pick(d, { from: 3, back: false });
+  assert.deepEqual(sd, [false, true]);
+});
+
+test('Změnit let → tentýž let za stejnou cenu u cesty jen v Mých cestách: čas ceny z nového hledání, sdílení bez „ceny z doby sdílení“', () => {
+  const c = load();
+  const e = saved(c), id = e.tripId;
+  e.wizard.flight.pricedAt -= 5.4e6; // hledáno před hodinou a půl
+  e.wizard.shared = { on: '2026-11-20' };
+  c.S.trip = null;
+  c.window.reflight = id;
+  const t0 = Date.now();
+  pick(c, { oe: FRESH }); // at = před minutou
+  assert.equal(c.S.trip.created, id);
+  assert.ok(c.S.trip.flight.pricedAt >= t0 - 6e4 - 5, 'čas ceny z nového hledání, ne o 1,5 h starší');
+  assert.deepEqual(plain(c.S.trip.shared), {});
 });
