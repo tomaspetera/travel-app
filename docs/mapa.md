@@ -432,7 +432,7 @@ Skripty (vše `node scripts/…`; README ## Data a licence má příkazy pro akt
 - Kontrola produkce: jen `/healthz`, `/api/health` (zdroje, kurzy, fronta, mapy) a `/api/places`; nikdy `/api/search`; `/api/diag` jen výjimečně (živé dotazy ven).
 - DEMO: `npm run demo` (= `--demo`, nebo ATLAS_MOCK=1) → `config.mock`: lety z `server/providers/mock.js`, hotely z `server/providers/stays/demo.js`, mock* v `server/lib/poi.js`, `server/lib/bike.js` a `server/lib/hikeplan.js`, pevné ceny paliva, předpověď null, Mapy.com vypnuté, krátké odkazy v paměti, `/api/verify` available:false; geokódování z `data/places.json` funguje, kurzy se zkusí stáhnout.
 - Render free (0,1 CPU, 512 MB, usíná po 15 min) → výchozí SEARCH_CONCURRENCY 4, SEARCH_QUEUE 20, CACHE_SOFT_MB 320; ladění při růstu `docs/skalovani.md`.
-- Dokumenty: `README.md` (~2 070 ř., číst po oddílech), `CLAUDE.md`, `docs/skalovani.md`, `docs/placene-planovani.md` (jen návrh), `docs/identita/` (přejmenování na Letsi, tón textů), `docs/pravni/` (návrh zásad ochrany osobních údajů a podmínek užívání), `legacy/ATLAS-puvodni.html` (nic ho nenačítá).
+- Dokumenty: `README.md` (~2 070 ř., číst po oddílech), `CLAUDE.md`, `docs/skalovani.md`, `docs/spusteni.md` (den spuštění: čistý režim na Renderu, kontrola přes `/api/health`), `docs/placene-planovani.md` (jen návrh), `docs/identita/` (přejmenování na Letsi, tón textů), `docs/pravni/` (návrh zásad ochrany osobních údajů a podmínek užívání), `legacy/ATLAS-puvodni.html` (nic ho nenačítá).
 
 ## Pozor
 

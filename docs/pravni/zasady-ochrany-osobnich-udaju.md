@@ -261,7 +261,7 @@ Tyto služby dostanou tvou **IP adresu** a identifikaci prohlížeče, jako u ka
 |---|---|---|
 | **OpenFreeMap** | podklad map | když otevřeš mapu |
 | **Wikimedia Commons**, **Unsplash**, **Pexels** | fotky měst a míst | na kartách cílů a v programu |
-| weby hotelů a jejich obrázkové servery (přes LiteAPI, TripAdvisor) | fotky ubytování | v nabídce ubytování |
+| weby hotelů a jejich obrázkové servery (přes LiteAPI, TripAdvisor) | fotky ubytování | v nabídce ubytování, jen pokud jsou zapnuté ceny ubytování (testovací provoz) |
 
 Mapy.com (turistická mapa, návrhy míst, trasy), předpověď počasí a směnné kurzy (ExchangeRate-API) jdou **přes server
 Letsi** – tyto služby tvou IP adresu nevidí; i logo Mapy.com je uložené na serveru Letsi. Písma (Onest a Unbounded vzhledu Letsi, Caveat na kartě ke sdílení, Inter a Sora staršího vzhledu) jsou na serveru Letsi, Google Fonts se nepoužívá.
@@ -275,15 +275,19 @@ Letsi** – tyto služby tvou IP adresu nevidí; i logo Mapy.com je uložené na
 Server se jich ptá **bez tvé IP adresy a bez čehokoli, co by tě identifikovalo** – dostanou jen obsah dotazu
 (např. trasu a datum letu, místo a termín ubytování, souřadnice místa):
 
-- ceny letů: **Ryanair**, **Wizz Air**, **Kiwi.com**, **Travelpayouts / Aviasales**,
-- ubytování: **Xotelo** (data TripAdvisoru), **LiteAPI** (je-li zapnuté), OpenStreetMap (Nominatim),
-- vlak a bus: **RegioJet**,
+- ceny letů: **Travelpayouts / Aviasales**; pokud jsou zapnuté živé zdroje (testovací provoz), také **Ryanair**,
+  **Wizz Air** a **Kiwi.com**,
+- ubytování: OpenStreetMap (Nominatim); pokud jsou zapnuté ceny ubytování (testovací provoz), také **Xotelo** (data
+  TripAdvisoru) nebo **LiteAPI**,
+- vlak a bus: **RegioJet** (je-li zapnutý),
 - počasí: **MET Norway** (souřadnice zaokrouhlené na 2 desetinná místa),
 - mapy, místa a trasy: **Mapy.com** (Seznam.cz, a.s.), BRouter, Overpass (OpenStreetMap), Wikidata, Wikipedie
   (místa v okolí dostanou souřadnice zaokrouhlené nejvýš na 3 desetinná místa, asi 100 m),
 - fotky: Wikimedia, Pexels, Unsplash; kurzy a palivo: ECB, ČSÚ, Evropská komise.
 
-> Kde v kódu: `server/providers/` (`ryanair.js`, `wizzair.js`, `kiwi.js`, `travelpayouts.js`, `stays/`),
+> Kde v kódu: `server/providers/` (`ryanair.js`, `wizzair.js`, `kiwi.js`, `travelpayouts.js`, `stays/`; které běží,
+> hlásí `providerStatus()` v `/api/health`), `server/config.js` (vypínače `RYANAIR_ENABLED`, `WIZZ_ENABLED`, `KIWI_ENABLED`,
+> `XOTELO`), `server/lib/ground.js` (RegioJet, vypínač `REGIOJET_LIVE`),
 > `server/lib/weather.js`, `server/lib/mapy.js` (dlaždice, návrhy a trasy přes server, neukládají se),
 > `server/lib/brouter.js`, `server/lib/poi.js`, `server/lib/photos.js`, `server/lib/fx.js`, `server/lib/fuel.js`;
 > `server/lib/http.js` `request()` – požadavky ven mají vlastní hlavičky serveru, hlavičky ani IP klienta se nepředávají.
@@ -291,7 +295,7 @@ Server se jich ptá **bez tvé IP adresy a bez čehokoli, co by tě identifikova
 ### 5.3 Partnerské odkazy a rezervace
 
 Letsi letenky, ubytování ani auta neprodává. Tlačítka **Koupit** a odkazy k rezervaci tě pošlou na web prodejce
-(aerolinka, Kiwi.com, Booking.com, Airbnb, Trip.com, Agoda, Hostelworld, půjčovny aut…) s předvyplněným hledáním
+(Aviasales, aerolinka, Booking.com, Airbnb, Trip.com, Agoda, Hostelworld, půjčovny aut…) s předvyplněným hledáním
 (místo, termín, počet osob). Tam už platí zásady prodejce. Některé odkazy (Aviasales, Booking.com, DiscoverCars) jsou
 **partnerské** – vedou přes zprostředkovatele Travelpayouts (`tp.media`) a jsou v aplikaci označené
 štítkem „reklama“. Při nákupu přes ně může provozovatel dostat provizi; partner se dozví, že jsi přišel z Letsi.
@@ -385,6 +389,10 @@ Zásady můžeme upravit, když se změní aplikace nebo předpisy. Aktuální z
    (HTTP request logs i výstup aplikace) je třeba zjistit podle tarifu.
 6. **localStorage a § 89 odst. 3 ZEK.** Ukládání považujeme za nezbytné pro funkce, o které uživatel požádal. Platí to
    i pro mezipaměť fotek, „Novinky“ a tipy (`atlas_ph`, `atlas_wn`, `atlas_tip`)? Lišta souhlasu dnes není žádná.
+   Zvlášť `atlas_ask`: počet dní s návštěvou a den poslední návštěvy kvůli načasování krátkých otázek testovací verze.
+   Zapisuje se už při prvním načtení Přehledu, ještě než se nějaká otázka ukáže, a bez ohledu na Pomáhat se zlepšováním
+   (`public/js/otazky.js` `render()` → `visit()`). Je to „nezbytné“, nebo je potřeba souhlas? (Kdyby souhlas: zapisovat
+   jen se zapnutým Pomáhat se zlepšováním, nebo otázky testovací verze před spuštěním vypnout.)
 7. **Partnerské odkazy.** Zprostředkovatel Travelpayouts a partneři mohou na svém webu nastavit vlastní cookies
    a sledovat konverzi – Letsi to neovlivní. Je třeba to výslovně uvést? Je označení „reklama“ u odkazu dostatečné
    (zákon o ochraně spotřebitele, § 2976 občanského zákoníku, DSA)?

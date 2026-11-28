@@ -61,7 +61,7 @@ test('pristupnost-4: lišta Novinky – Esc odkudkoli (posluchač na document, p
 
 test('pristupnost-8: karta souhlasu – „Ne, díky“ se čtečce ohlásí (say), „Zapnout“ dál toast', () => {
   const fn = APP.slice(APP.indexOf('function helpCard('), APP.indexOf('const WN_TOP_LS'));
-  assert.match(fn, /if \(on\) toast\('Zapnuto\. Díky! Vypnout to jde kdykoli v Další[^']*\.'\);\s*else say\('Dobře, nic nezaznamenávám\. Změnit to jde v Další[^']*\.'\);/);
+  assert.match(fn, /if \(on\) toast\('Zapnuto\. Díky! Vypnout to jde kdykoli v Další[^']*\.'\);\s*else say\('Dobře, záznam návštěvy nezapínám\. Počítají se jen souhrnné denní počty bez vazby na tebe\. Změnit to jde v Další[^']*\.'\);/);
 });
 
 // zástupný DOM jen pro Count.ask (strom, focus)

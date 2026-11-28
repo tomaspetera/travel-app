@@ -1198,6 +1198,15 @@ Zkopíruj `.env.example` na `.env`:
 | `PUBLIC_URL` | `https://letsi.cz` (v `render.yaml`) | veřejná adresa webu (bez `/` na konci) pro kanonickou adresu, náhledy sdílených odkazů a `sitemap.xml` – až bude vlastní doména, stačí ji nastavit tady (viz [Přejmenování a doména](#přejmenování-a-doména)); výchozí je `url` v `server/brand.js` |
 | `ATLAS_MOCK` | `0` | `1` = demo data (totéž co `npm run demo`) |
 
+#### Čistý režim (veřejné spuštění)
+
+Veřejná verze běží v **čistém režimu**: ceny letů jen orientačně z mezipaměti Aviasales (`TRAVELPAYOUTS_TOKEN`), odkaz
+k nákupu na Aviasales, ubytování bez cen. Přepínač „režim“ v kódu není – je to kombinace proměnných výše:
+`RYANAIR_ENABLED=0`, `WIZZ_ENABLED=0`, `KIWI_ENABLED=0`, `XOTELO=off`, bez ostrého `LITEAPI_KEY`, a podle rozhodnutí
+majitele `REGIOJET_LIVE=0`. Ověření: `/api/health` → `ryanair`, `wizzair`, `kiwi`, `xotelo`, `liteapi` vypnuté,
+`travelpayouts` zapnutý (`regiojet` podle `REGIOJET_LIVE`). Postup pro den spuštění, kontrola a návrat zpět:
+[docs/spusteni.md](docs/spusteni.md).
+
 ### Počasí (MET Norway)
 
 Předpověď na 9 dní dává MET Norway (norský meteorologický ústav, Locationforecast 2.0, data CC BY 4.0) – zdarma
