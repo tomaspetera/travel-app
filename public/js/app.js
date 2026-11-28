@@ -504,7 +504,8 @@ function go(v, opts = {}) {
 function viewFocus(a) {
   if (!a || !a.closest || !a.closest('.view:not(.active)')) return;
   // stejné tlačítko i v nové sekci (přepínač Svět Mapa ↔ Země) – Tab pak pokračuje odtamtud, ne od nadpisu
-  const sel = kbSel(a), twin = sel && $('.view.active ' + sel);
+  // dvojče jen u přepínače Svět (Mapa ↔ Země) – dlaždice z Přehledu má dvojče v Letech, fokus ale patří k průběhu hledání
+  const sel = a.matches && a.matches('.world-tabs [data-w]') && kbSel(a), twin = sel && $('.view.active ' + sel);
   if (twin && twin.getClientRects().length) return twin.focus({ preventScroll: true });
   const h = $('.view.active h1'), el = h && h.getClientRects().length ? h : $('#pageTitle');
   el.tabIndex = -1; el.focus({ preventScroll: true });
@@ -1843,7 +1844,7 @@ new MutationObserver(() => {
 function kbNear(box) {
   const b = box && $(box);
   if (!b || !b.getClientRects().length) return null;
-  const f = $$('a[href],button:not([disabled]),input:not([disabled]):not([type=hidden]),select,textarea,[tabindex]:not([tabindex="-1"])', b).find(x => x.getClientRects().length);
+  const f = $$('a[href],button:not([disabled]),input:not([disabled]):not([type=hidden]),select,textarea,[tabindex]:not([tabindex="-1"])', b).find(x => x.getClientRects().length && (x.tagName === 'SUMMARY' || !x.closest('details:not([open])')));
   if (f) return f;
   b.tabIndex = -1;
   return b;
@@ -1852,7 +1853,8 @@ document.addEventListener('keydown', e => {
   if (e.key !== 'Tab' || e.defaultPrevented || !$('#modalBg').classList.contains('show')) return;
   const m = $('#modal'), a = document.activeElement;
   const fs = $$('a[href],button:not([disabled]),input:not([disabled]):not([type=hidden]),select:not([disabled]),textarea:not([disabled]),summary,[tabindex]:not([tabindex="-1"])', m)
-    .filter(x => x.getClientRects().length && getComputedStyle(x).visibility !== 'hidden');
+    // prvky zavřeného <details> (Přenos: Mám odkaz z jiného zařízení) nejsou vidět, i když mají rozměry – summary ano
+    .filter(x => x.getClientRects().length && getComputedStyle(x).visibility !== 'hidden' && (x.tagName === 'SUMMARY' || !x.closest('details:not([open])')));
   // ↩ Vrátit v hlášce nad oknem (#toast je mimo #modal) – jinak by na něj klávesnice ani čtečka nedosáhla
   const ta = $('#toast.show .toast-act'); if (ta) fs.push(ta);
   const i = fs.indexOf(a), n = fs.length;
