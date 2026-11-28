@@ -11,7 +11,7 @@ Veřejná verze bere jen zdroje, jejichž podmínky komerční provoz dovolují:
 | Oblast | Testovací provoz (dnes) | Čistý režim (od D) |
 |---|---|---|
 | Ceny letů | Ryanair a Wizz Air živě, Kiwi.com, Aviasales | jen orientační ceny z mezipaměti Aviasales (Travelpayouts, ~48 h) |
-| Nákup letenky | u aerolinky, Kiwi.com nebo na Aviasales | odkaz na Aviasales (s markerem štítek „reklama“) |
+| Nákup letenky | u aerolinky, Kiwi.com nebo na Aviasales | odkaz na Aviasales (partnerský, se štítkem „reklama“) |
 | Ověření ceny živě | tlačítko „⚡ Ověřit cenu živě“ (Kiwi.com) | není – tlačítko se samo schová |
 | Ubytování | orientační ceny z TripAdvisoru (Xotelo) | bez cen: odkazy na Booking.com, Airbnb… a ubytování z OpenStreetMap |
 | Vlak a bus | živé spoje RegioJetu (`REGIOJET_LIVE`) | podle rozhodnutí majitele – jen odhad a odkazy, nebo živě |
