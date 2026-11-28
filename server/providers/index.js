@@ -14,6 +14,7 @@ import { kiwi, kiwiBlocked, kiwiRetryAfter } from './kiwi.js';
 import { mockProviders } from './mock.js';
 import { liteapiTestKey, liteapiLive } from './stays/index.js';
 import { xoteloBlocked, xoteloRetryAfter, xoteloBlockReason } from './stays/xotelo.js';
+import { regiojetOn } from '../lib/ground.js';
 
 // color: tečka zdroje a podklad bílé zkratky aerolinky ve výsledcích (FR, W6…) – aspoň 4,5 : 1 (světlá oranžová, tyrkysová
 // a šedá měly jen 2,6–3 : 1)
@@ -73,5 +74,8 @@ export function providerStatus() {
       blocked: travelpayouts.isBlocked(), retryAfter: travelpayouts.retryAfter(),
       hint: config.travelpayoutsToken ? null : 'Zdarma token na travelpayouts.com → TRAVELPAYOUTS_TOKEN v .env přidá stovky dalších aerolinek',
     },
+    // Živé spoje RegioJetu (lib/ground.js) mají vlastní vypínač REGIOJET_LIVE – proměnné letů ani hotelů ho nevypnou,
+    // tak ať je stav vidět v /api/health a O aplikaci. kind 'ground': front-end ho nepočítá mezi zdroje cen letů.
+    { id: 'regiojet', name: 'RegioJet', kind: 'ground', note: 'živé spoje vlak/bus na vyžádání', enabled: regiojetOn() },
   ];
 }

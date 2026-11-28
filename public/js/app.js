@@ -1141,7 +1141,7 @@ function helpCard(el) {
     Count.consent(on);
     el.hidden = true; el.innerHTML = '';
     if (on) toast('Zapnuto. Díky! Vypnout to jde kdykoli v Další nebo v O aplikaci a soukromí.');
-    else say('Dobře, nic nezaznamenávám. Změnit to jde v Další nebo v O aplikaci a soukromí.'); // karta tiše zmizí – čtečka by nevěděla, že volba platí
+    else say('Dobře, záznam návštěvy nezapínám. Počítají se jen souhrnné denní počty bez vazby na tebe. Změnit to jde v Další nebo v O aplikaci a soukromí.'); // karta tiše zmizí – čtečka by nevěděla, že volba platí; „nic nezaznamenávám“ by lhalo – Count.hit (zásady 3.6) jede i bez souhlasu
   });
   // rovnou k přepínači – v okně je až dole pod zdroji a daty
   $('#helpMore', el).onclick = () => { if (!window.About) return; About.open(); const b = $('#abHelp'); if (b) b.scrollIntoView({ block: 'center' }); };
