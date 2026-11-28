@@ -376,6 +376,7 @@ export const kiwi = {
   // Stav Kiwi v jednom hledání (ctx pro daily/search) a čekání po výpadku – pro průběh hledání v UI.
   context: kiwiContext,
   retryAfter: kiwiRetryAfter,
+  isBlocked: kiwiBlocked, // stav zdroje v hledání (outageOf blocked) – panel Zdroje cen
 
   /**
    * Nejlevnější lety po dnech: okna po 7 dnech (rozsah departureDate..departureDateTo). Chyba jednoho okna nezahodí ostatní;
