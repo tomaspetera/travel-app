@@ -25,7 +25,7 @@ const GEO_OK = 'geo:50.09,14.42|Moje poloha';
 
 test('load: prázdná položka v Nedávno, hlídání, odložených nebo v domově nesmaže stav ani nezůstane (start by spadl)', () => {
   const s = loadWith({
-    pv: 2, trips: [{ name: 'Řím' }], recent: [null, 'x'], watch: [null, { id: 'w1', form: {} }], pins: [null, { id: 'p1' }],
+    pv: 2, trips: [{ name: 'Řím', days: {}, checklist: [] }], recent: [null, 'x'], watch: [null, { id: 'w1', form: {} }], pins: [null, { id: 'p1' }],
     home: { from: [null, { id: 'ap:PRG' }, 5], radius: 150 }, form: { from: [null], trip: 'oneway' }, visited: ['PT'],
   });
   assert.deepEqual(s.recent, []);
@@ -33,7 +33,7 @@ test('load: prázdná položka v Nedávno, hlídání, odložených nebo v domov
   assert.deepEqual(s.pins, [{ id: 'p1' }]);
   assert.deepEqual(s.home, { from: [{ id: 'ap:PRG' }], radius: 150 });
   assert.deepEqual(s.form, { from: [], trip: 'oneway' });
-  assert.deepEqual([s.trips, s.visited], [[{ name: 'Řím' }], ['PT']], 'ostatní data zůstanou');
+  assert.deepEqual([s.trips, s.visited], [[{ name: 'Řím', days: {}, checklist: [] }], ['PT']], 'ostatní data zůstanou');
   // domov bez from (nebo jako text) se nemění
   assert.deepEqual(loadWith({ pv: 2, home: 'PRG' }).home, 'PRG');
   assert.deepEqual(loadWith({ pv: 2, home: { radius: 100 } }).home, { radius: 100 });

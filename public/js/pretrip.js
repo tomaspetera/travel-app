@@ -901,6 +901,8 @@
   function patch(t, o) {
     t.pretrip = { ...(t.pretrip && typeof t.pretrip === 'object' ? t.pretrip : {}), ...o };
     if (typeof save === 'function') save();
+    // vlastní položky a věci podle aktivit i do „Sbaleno“ uložené cesty (Moje cesty) – jako každá změna v průvodci
+    if (window.Trip && window.Trip.autoSoon) window.Trip.autoSoon();
   }
   function toggleAct(id) {
     if (!last || !ACT_IDS.includes(id)) return;

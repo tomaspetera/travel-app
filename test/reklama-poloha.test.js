@@ -88,7 +88,7 @@ test('načtení stavu: dřív uložená přesná 📍 Moje poloha (domov, formul
   const me = { id: 'geo:50.0877,14.4212|Moje poloha', label: 'Moje poloha', flag: '📍', type: 'place' };
   const city = { id: 'geo:49.1952,16.6080|Brno', label: 'Brno', type: 'city' };
   const s = loadWith({
-    pv: 2, trips: [{ id: 1 }], visited: ['CZ'],
+    pv: 2, trips: [{ id: 1, days: {}, checklist: [] }], visited: ['CZ'],
     home: { from: [me], radius: 150, adults: 2 },
     form: { from: [me, city], to: [], radius: 100 },
     recent: [{ form: { from: [me] }, at: 5 }, { at: 6 }],
@@ -97,7 +97,7 @@ test('načtení stavu: dřív uložená přesná 📍 Moje poloha (domov, formul
   assert.deepEqual(s.home, { from: [coarse], radius: 150, adults: 2 });
   assert.deepEqual(s.form, { from: [coarse, city], to: [], radius: 100 }, 'město s přesnou polohou se nemění');
   assert.deepEqual(s.recent, [{ form: { from: [coarse] }, at: 5 }, { at: 6 }]);
-  assert.deepEqual([s.trips, s.visited, s.pv], [[{ id: 1 }], ['CZ'], 2]);
+  assert.deepEqual([s.trips, s.visited, s.pv], [[{ id: 1, days: {}, checklist: [] }], ['CZ'], 2]);
   // bez domova a formuláře (nový uživatel, starý stav) nic nespadne
   const empty = loadWith({ pv: 2 });
   assert.deepEqual([empty.home, empty.form, empty.recent], [null, null, []]);
@@ -108,11 +108,11 @@ test('načtení stavu v pořadí jako v app.js: zaokrouhlení nespadne a ostatn�
   const a = APP.indexOf("const LS = 'atlas_v1';"), b = APP.indexOf('\n', APP.indexOf('function defState()'));
   assert.ok(a > 0 && b > a, 'app.js: úsek stavu');
   const me = { id: 'geo:50.0877,14.4212|Moje poloha', label: 'Moje poloha', flag: '📍', type: 'place' };
-  const ctx = { localStorage: { getItem: () => JSON.stringify({ pv: 2, visited: ['CZ', 'AT'], trips: [{ id: 1 }], home: { from: [me], radius: 150 } }) } };
+  const ctx = { localStorage: { getItem: () => JSON.stringify({ pv: 2, visited: ['CZ', 'AT'], trips: [{ id: 1, days: {}, checklist: [] }], home: { from: [me], radius: 150 } }) } };
   vm.createContext(ctx);
   vm.runInContext(`${APP.slice(a, b)}\nthis.S = S;`, ctx, { filename: 'app-state-order.js' });
   const s = plain(ctx.S);
-  assert.deepEqual([s.visited, s.trips], [['CZ', 'AT'], [{ id: 1 }]]);
+  assert.deepEqual([s.visited, s.trips], [['CZ', 'AT'], [{ id: 1, days: {}, checklist: [] }]]);
   assert.equal(s.home.from[0].id, 'geo:50.09,14.42|Moje poloha');
 });
 
