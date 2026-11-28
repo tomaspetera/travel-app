@@ -108,7 +108,11 @@ test('hlavička průběhu při úplném výpadku: „Ceny se nepodařilo načís
 
 test('cesta přes víc měst při úplném výpadku: karta „Ceny se teď nepodařilo načíst“ místo kroků „V tento den jsem let nenašel“', () => {
   const rm = slice('  function renderMulti(', '  function mEmptyTxt(');
-  assert.match(rm, /SearchHelp\.allDown\(res\.providers\) \? downCard\(res\) : steps \+ body/);
+  // jen trasa a karta výpadku – řazení, „tlačítkem u každého letu“ ani patička o cenách (žádný let tu není)
+  assert.match(rm, /SearchHelp\.allDown\(res\.providers\) \? kiwiBanner\(res\) \+ `<div class="res-head">\$\{route\}<\/div>` \+ downCard\(res\)\n\s*: head \+ steps \+ body/);
+  const route = rm.slice(rm.indexOf('const route = '), rm.indexOf('const head = '));
+  assert.ok(route.length > 0);
+  assert.doesNotMatch(route, /mSort|mc-note|tlačítkem u každého letu|res-foot|filterChips/);
   const downCard = new Function('esc', 'provName', 'ikona', `${slice('  function downCard(', '  function emptyState(')}; return downCard;`)(String, (id) => id, (n) => `[${n}]`);
   const html = downCard({ mode: 'multi', providers: [TP({ outage: 'blocked', retryAfter: 60 })], legs: [{ options: [] }, { options: [] }] });
   assert.match(html, /<h2>Ceny se teď nepodařilo načíst<\/h2>/);
@@ -120,7 +124,7 @@ test('cesta přes víc měst při úplném výpadku: karta „Ceny se teď nepod
 test('hledání při úplném výpadku nepřepíše dřívější výsledky ani uložené z minula (chyba s until do catch „kept“, jako radar)', () => {
   const ss = slice('    const job = (async () => {', '    running = { key: pkey, ctl, job };');
   // dřívější výsledek z výpadku se nechrání (druhá karta výpadku s ↻ bez odpočtu pod „Níže zůstávají výsledky“)
-  const thr = ss.indexOf('if (lastResult && !SearchHelp.allDown(lastResult.providers) && !(res.groups || []).length && SearchHelp.allDown(res.providers)) {');
+  const thr = ss.indexOf('if (keepOnDown(lastResult, lastResultPayload, res, payload)) {');
   assert.ok(thr > 0, 'kontrola výpadku ve startSearch');
   for (const x of ['lastResult = res;', "Count.hit('search_done')", 'PriceCheck.remember(res)', 'S.recent = ', 'saveLast(']) assert.ok(thr < ss.indexOf(x), `před ${x}`);
   assert.match(ss.slice(thr, thr + 400), /throw Object\.assign\(new Error\('Zdroj cen teď neodpovídá – zkus to za chvíli\.'\), \{ until:/);
@@ -178,4 +182,40 @@ test('Zdroje cen (počítač): ubytování „bez ceny“ není zdroj cen; výpa
   assert.equal(f.srcLine({ providers: [tp({ blocked: true }), { id: 'xotelo', kind: 'stays', tag: 'orientačně', enabled: true }] }), 'Ceny letů teď nejdou načíst');
   // jeden zdroj letů vypadl, druhý jede: počítá se jen ten, co jede
   assert.equal(f.srcLine({ providers: [tp({ blocked: true }), { id: 'ryanair', kind: 'live', enabled: true }] }), 'Ceny živě · 1 zdroj');
+});
+
+test('výpadek při hledání jiného cíle: dřívější výsledky (jiný cíl) se nechrání – karta výpadku pro nový cíl', () => {
+  const keepOnDown = new Function('SearchHelp', `${slice('  const destKey = ', '  async function startSearch(')}; return keepOnDown;`)(H);
+  const ok = { providers: [{ id: 'travelpayouts', state: 'done' }], groups: [{ id: 'g' }] };
+  const dead = { providers: [TP({ outage: 'blocked', retryAfter: 120 })], groups: [] };
+  const rim = { from: ['PRG'], to: ['c:FCO'] }, lis = { from: ['PRG'], to: ['c:LIS'] };
+  assert.equal(keepOnDown(ok, rim, dead, rim), true, 'stejný cíl: dřívější výsledky zůstanou pod hláškou');
+  assert.equal(keepOnDown(ok, rim, dead, { ...rim, dateFrom: '2027-02-01' }), true, 'jiné datum, stejný cíl');
+  assert.equal(keepOnDown(ok, rim, dead, lis), false, 'jiný cíl: nabídky do Říma pod hledáním Lisabonu ne');
+  assert.equal(keepOnDown(ok, null, dead, lis), false, 'neznámý dotaz dřívějších výsledků');
+  assert.equal(keepOnDown(dead, lis, dead, lis), false, 'dřívější výsledek z výpadku se nechrání');
+  assert.equal(keepOnDown(ok, rim, ok, rim), false, 'hledání prošlo');
+  // víc měst: cíl = města všech letů
+  const ml = (to) => ({ trip: 'multi', legs: [{ from: ['PRG'], to: ['c:FCO'] }, { from: ['c:FCO'], to }] });
+  assert.equal(keepOnDown(ok, ml(['c:BCN']), dead, ml(['c:BCN'])), true);
+  assert.equal(keepOnDown(ok, ml(['c:BCN']), dead, ml(['c:MAD'])), false);
+  assert.equal(keepOnDown(ok, rim, dead, ml(['c:FCO'])), false, 'obyčejné hledání → víc měst');
+});
+
+test('Zdroje cen (počítač) po obnově zdroje: hledání s cenami zruší „teď nejde“ a panel se překreslí', () => {
+  const src = FL.slice(FL.indexOf('  const srcOn = '), FL.indexOf('  /** Lety jen z mezipaměti'));
+  const f = new Function('esc', 'health', 'SearchHelp', `${src}; return { srcLine, srcHeal };`)(String, null, H);
+  const tp = { id: 'travelpayouts', name: 'Letenky (Aviasales)', kind: 'cached', enabled: true, blocked: true, retryAfter: 60 };
+  const h = { providers: [tp, { id: 'osm', kind: 'stays', tag: 'bez ceny', enabled: true }] };
+  const PROV = { travelpayouts: tp }; // useHealth: PROV ukazuje na tytéž objekty
+  assert.equal(f.srcLine(h), 'Ceny letů teď nejdou načíst');
+  assert.equal(f.srcHeal(h, [TP({ outage: 'blocked' })]), false, 'pořád výpadek');
+  assert.equal(tp.blocked, true);
+  assert.equal(f.srcHeal(h, [TP({ state: 'partial', error: '', outage: 'partial' })]), true, 'část dotazů prošla – zdroj jede');
+  assert.equal(PROV.travelpayouts.blocked, false);
+  assert.equal(f.srcLine(h), 'Ceny orientačně · 1 zdroj');
+  assert.equal(f.srcHeal(h, [{ id: 'travelpayouts', state: 'done' }]), false, 'nic k překreslení');
+  assert.equal(f.srcHeal(null, [{ id: 'travelpayouts', state: 'done' }]), false, 'bez /api/health');
+  const ss = slice('    const job = (async () => {', '    running = { key: pkey, ctl, job };');
+  assert.match(ss, /lastResult = res; lastResultAt = Date\.now\(\); lastResultPayload = payload; restored = false;\n\s*if \(srcHeal\(health, res\.providers\)\) renderSources\(\);/);
 });
