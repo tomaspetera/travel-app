@@ -57,7 +57,7 @@ function app() {
     }`, ctx);
   // hashView jde přes tabGo (Cesty se 2+ cestami = Moje cesty) – bez cest jako go
   vm.runInContext(`var S = { trip: null, trips: [] };\n${pick('tripCount', 'tabGo')}`, ctx);
-  vm.runInContext(pick('hist', 'histFlush', 'histBack', 'histDo', 'histDepth', 'viewHist', 'viewStep', 'trailNext', 'histTrip', 'tripEntry', 'tripShow', 'histPop', 'isView', 'hashView', 'modalKb', 'kbSel', 'modalShow', 'modalName', 'modalOpen', 'modalClose'), ctx, { filename: 'app-hist.js' });
+  vm.runInContext(pick('hist', 'histFlush', 'histBack', 'histDo', 'histDepth', 'viewHist', 'viewStep', 'trailNext', 'histTrip', 'tripEntry', 'tripShow', 'histSub', 'histPop', 'isView', 'hashView', 'modalKb', 'kbSel', 'modalShow', 'modalName', 'modalOpen', 'modalClose'), ctx, { filename: 'app-hist.js' });
   // go() v app.js volá viewStep přes histDo – ověřit, že řádek ve stubu je opravdu ten z app.js
   assert.ok(APP.includes("if (!opts.noHash) histDo(() => viewStep(v, opts.drill, from === 'dashboard' || opts.drill ? y0 : null));"), 'go(): zápis do historie');
   // posun stránky se čte jen pro nový krok (čtení scrollY vynutí rozvržení – při startu zbytečně)
@@ -256,6 +256,24 @@ test('↩ Jiný let: výměna u téže cesty historii nehromadí, nová cesta ne
   c.ctx.tripShow(true); c.tick();
   assert.equal(c.view(), 'trip');
   assert.equal(c.H.list.length, n + 1);
+});
+
+test('Zpět z okna nad Lety (náhled cíle po odbočce ze sekce s krokem uvnitř) zavře jen okno – krok sekce pod Lety zůstane', () => {
+  const a = app();
+  a.tap('trip');
+  let subs = 0;
+  a.ctx.histSub(() => { subs++; return true; }); // Cesty: seznam → otevřená cesta (krok uvnitř sekce)
+  a.tick();
+  a.tap('flights', { drill: true }); // ↩ Jiný let
+  a.ctx.modalOpen('<p>Co tam je</p>'); a.tick();
+  const i = a.H.i;
+  a.back(); // zavře okno
+  assert.equal(a.view(), 'flights', 'Lety zůstanou');
+  assert.equal(a.H.i, i - 1, 'jen krok okna, žádný krok navíc');
+  assert.equal(subs, 0, 'krok sekce pod Lety se nespotřeboval');
+  a.back(); a.back();
+  assert.equal(subs, 1, 'Zpět pod Lety vrátí krok uvnitř sekce');
+  assert.equal(a.H.exits, 0);
 });
 
 test('Zpět po obnovení stránky (Shrnutí → Uložit do plánovače, telefon pak aplikaci na pozadí zavřel): krok průvodce bez cesty kroků se přeskočí', () => {
