@@ -1139,8 +1139,7 @@ poloha středu města z FlixBusu). Místní názvy („Wien“, „Napoli“) js
 UUID FlixBusu, místní názvy a města mimo RegioJet převezme pevně z dosavadního `data/ground.json` – z FlixBusu nic
 nestahuje (FlixBus jen odkazy). Nové město RegioJetu tak odkaz na FlixBus nemá, dokud se UUID nedoplní ručně. V DEMO režimu (`ATLAS_MOCK=1`) jsou spoje RegioJetu vymyšlené a označené.
 
-**Vypínač:** `REGIOJET_LIVE=0` vypne živé spoje RegioJetu (zůstane odhad a odkazy; na Renderu: služba → Environment). Podmínky použití rozhraní RegioJetu nejsou veřejné: **před ostrým provozem doporučuji napsat RegioJetu
-a požádat o souhlas** (případně o partnerský přístup); do té doby je dotazů záměrně málo a jen na pokyn uživatele.
+**Vypínač:** živé spoje RegioJetu jsou ve výchozím stavu **vypnuté** (jen odhad a odkazy); zapne je až `REGIOJET_LIVE=1` (na Renderu: služba → Environment). Podmínky použití rozhraní RegioJetu nejsou veřejné, proto až po smlouvě v jejich **partnerském programu** (přihláška partners@regiojet.cz) – pak napojit jejich oficiální API a vypínač zapnout. Se zapnutým vypínačem je dotazů záměrně málo a jen na pokyn uživatele.
 
 ## Spuštění
 
@@ -1184,7 +1183,7 @@ Zkopíruj `.env.example` na `.env`:
 | `SEARCH_CONCURRENCY` | `4` | nával uživatelů: kolik různých hledání smí běžet naráz (jedno = 1–3 s procesoru a desítky MB paměti). Stejné hledání, které už běží (od kohokoli), se k němu jen připojí a nic navíc nestojí. Viz [docs/skalovani.md](docs/skalovani.md) |
 | `SEARCH_QUEUE` | `20` | kolik dalších hledání čeká ve frontě; nad ní server nové hledání odmítne „Letsi teď hledá pro hodně lidí najednou – zkus to prosím za minutu“ (503) místo pádu celého serveru. Hledání ve frontě, jehož klient odešel, se nespustí |
 | `CACHE_SOFT_MB` | `320` | měkký strop paměti procesu (MB): nad ním server zahodí starší polovinu mezipaměti (Render zdarma má 512 MB) |
-| `REGIOJET_LIVE` | `1` | `0` = vypnout živé spoje RegioJetu (vlak/bus místo letadla zůstane jako odhad a odkazy) |
+| `REGIOJET_LIVE` | `0` | `1` = zapnout živé spoje RegioJetu (až po smlouvě s RegioJetem); jinak vlak/bus místo letadla jako odhad a odkazy |
 | `REGIOJET_MAX_PER_HOUR` | `60` | nejvýš tolik dotazů na RegioJet za hodinu (pak jen odhad) |
 | `REGIOJET_GAP_MS` | `1000` | nejmenší odstup dotazů na RegioJet (ms) |
 | `FUEL_LIVE` | `1` | `0` = ceny paliva bez sítě (vestavěné orientační ceny s datem místo ČSÚ a Oil Bulletinu) |
