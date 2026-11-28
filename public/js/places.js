@@ -444,6 +444,9 @@
       map = new maplibregl.Map({
         container: el, style: OFM + (dark ? 'dark' : 'liberty'), center: [center.lon, center.lat], zoom: 12,
         attributionControl: { compact: true }, dragRotate: false, pitchWithRotate: false,
+        // popisky tlačítek a značek pro čtečku obrazovky česky (MapLibre jinak „Zoom in“, „Map marker“)
+        locale: { 'NavigationControl.ZoomIn': 'Přiblížit', 'NavigationControl.ZoomOut': 'Oddálit', 'Marker.Title': 'Místo na mapě',
+          'Map.Title': 'Mapa', 'Popup.Close': 'Zavřít', 'AttributionControl.ToggleAttribution': 'Zdroje mapy' },
       });
     } catch {
       mapFallback(el, center, 'Prohlížeč neumí zobrazit mapu (WebGL je vypnuté).');
@@ -553,6 +556,7 @@
       if (pt.num) { el.textContent = pt.num; const ink = dayInk(pt.color); if (ink) el.style.color = ink; }
       if (pt.day != null) el.dataset.day = pt.day; // den programu (najetí na den v seznamu ztlumí ostatní)
       el.title = pt.label;
+      el.setAttribute('aria-label', pt.label); // MapLibre (addTo) jinak dá všem značkám stejné „Místo na mapě“
       // focusAfterOpen: false – jinak bublina vezme fokus a prohlížeč odroluje stránku k mapě (na telefonu o tisíce px)
       const pop = new maplibregl.Popup({ offset: 12, closeButton: false, maxWidth: '240px', focusAfterOpen: false })
         .setHTML(`<b>${esc(pt.label)}</b>${pt.q ? `<br><a href="${esc(gmSearch(pt.q))}" target="_blank" rel="noopener">Google Maps ↗</a>` : ''}`);
@@ -1312,7 +1316,7 @@
     if (!ex.place && ex.radius === COUNTRY) wirePicker(root);
     paintRecent();
     wireBack();
-    const cl = $('#exClear', root); if (cl) cl.onclick = () => resetExplore();
+    const cl = $('#exClear', root); if (cl) cl.onclick = e => resetExplore(e.detail === 0);
     $$('[data-insp]', root).forEach(b => b.onclick = async () => {
       const it = insp[+b.dataset.insp], p = cleanPlace(it);
       if (p) return openOther(p);
@@ -1525,13 +1529,17 @@
     redo.clear();
     clearTimeout(soonT); ex.replanNow = null; // odložené přeplánování patřilo předchozímu místu
   }
-  /** ↺ Začít znovu: bez místa a plánů zpět na inspiraci (okruh, zájmy a „Naposledy“ zůstanou). */
-  function resetExplore() {
+  /**
+   * ↺ Začít znovu: bez místa a plánů zpět na inspiraci (okruh, zájmy a „Naposledy“ zůstanou). kb: ✕ z klávesnice –
+   * tlačítko s překreslením zmizelo a fokus by spadl na začátek stránky, tak do pole hledání (klepnutím ne: klávesnice).
+   */
+  function resetExplore(kb) {
     exSeq++; // načítání míst zrušeného místa už nic nepřepíše
     ex.place = null; forget();
     remember();
     const root = $('#exploreRoot');
     if (root) { renderExplore(root); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+    const q = kb && $('#exQ'); if (q) q.focus({ preventScroll: true });
   }
   /**
    * 🧳 Místo, kam uživatel jede (cesta v Mých cestách nebo v průvodci – stejný název jako „Tvoje cesta“ v Inspiraci):
@@ -1984,9 +1992,10 @@
   }
   /**
    * Zpět z 🔎 Prozkoumat: znovu přehled země c (načtený pro místo p) se seznamem a mapou, bez nového dotazu. Jen dokud
-   * je v Objevuj otevřené místo z přehledu (opened) – jinak false.
+   * je v Objevuj otevřené místo z přehledu (opened) – jinak false. y: posun stránky před Prozkoumat – zpátky ke kartě,
+   * ne nahoru přes mapu a všechny skupiny.
    */
-  function countryBack(opened, p, c) {
+  function countryBack(opened, p, c, y) {
     if (!opened || ex.place !== opened || !p || !c || !$('#exBody')) return false;
     exSeq++; // místa prozkoumaného místa, která se ještě načítají, přehled nepřepíšou
     forget();
@@ -1995,7 +2004,7 @@
     const sel = $('#exRad'); if (sel) sel.value = COUNTRY;
     const qi = $('#exQ'); if (qi) qi.value = qLabel();
     paintRecent();
-    if (c.data) paintCountry(); else loadCountry();
+    if (c.data) { paintCountry(); if (y) requestAnimationFrame(() => window.scrollTo(0, y)); } else loadCountry();
     return true;
   }
   function paintCountry() {
@@ -2018,7 +2027,7 @@
     const lastKm = ex.lastKm || 10;
     body.innerHTML = `${d.demo ? '<div class="note warn" style="margin-bottom:12px">⚠️ <div><b>DEMO data</b> – místa jsou vymyšlená.</div></div>' : ''}
       <div class="section-head ex-head" style="margin-top:6px"><h2>${flag(d.cc || p.cc || '')} ${esc(name || 'Země')} · celá země</h2><span class="ex-head-act">${window.Flights && tgt ? `<button type="button" class="btn sm ghost" id="exCFly" title="Hledat lety kamkoliv do země">${ikona('let')} Najít lety sem</button>` : ''}<button type="button" class="btn sm ghost" id="exReset" title="Vybrat jinou zemi">Jiná země</button></span></div>
-      <div class="muted ex-cnote">Města a další cíle, které vybral cestovní průvodce Wikivoyage, památky UNESCO a národní parky. Vzdálenost od ${p.capital ? 'hlavního města' : 'místa'} ${esc(p.label)} vzdušnou čarou. 🔎 Prozkoumat ukáže, co je v místě k vidění.
+      <div class="muted ex-cnote">Města a další cíle, které vybral cestovní průvodce Wikivoyage, památky UNESCO a národní parky. Vzdálenost od ${p.capital ? 'hlavního města' : 'místa'} ${esc(p.label)} vzdušnou čarou. ${ikona('kompas')} Prozkoumat ukáže, co je v místě k vidění.
         <span class="ex-cact"><button type="button" class="fchip" data-cback="city">${ikona('misto')} ${esc(p.label)} · okruh ${lastKm} km</button><button type="button" class="fchip" data-cback="loop">${ikona('kompas')} Okruh odsud na pár dní</button></span></div>
       ${d.degraded ? '<div class="faint" style="font-size:12px;margin:6px 0">Část údajů se teď nenačetla (popisy nebo výběr Wikivoyage) – zkus to později znovu.</div>' : ''}
       ${chips}
@@ -2038,11 +2047,12 @@
       ex.radius = 10;
       const sel = $('#exRad'); if (sel) sel.value = String(ex.radius);
       // poi: park, památka UNESCO, oblast z Wikivoyage… nejsou zastávka – bez 🚆 Spojení do IDOS (ten je nezná)
+      const y = Math.round(window.scrollY || 0);
       openPlace({ lat: x.lat, lon: x.lon, label: x.name, cc: d.cc || p.cc || '', country: name, ...(x.group === 'city' ? {} : { poi: true }) });
       // Zpět telefonu (krok historie v app.js) vrátí přehled země, ne Přehled aplikace
       const opened = ex.place;
       // jen v Objevuj: krok mohl zůstat pod jinou sekcí (počítač: panel Cesty → Lety → Objevuj), jinak by Zpět „nic neudělal“
-      if (typeof histSub === 'function') histSub(() => (typeof activeView === 'undefined' || activeView === 'explore') && countryBack(opened, p, c));
+      if (typeof histSub === 'function') histSub(() => (typeof activeView === 'undefined' || activeView === 'explore') && countryBack(opened, p, c, y));
       window.scrollTo({ top: 0, behavior: 'smooth' });
     };
     $$('[data-cgo]', body).forEach(b => b.onclick = e => { e.stopPropagation(); const x = all.find(i => i.id === b.dataset.cgo); if (x) go(x); });
@@ -2789,7 +2799,7 @@
         ${farL.length || farState ? `<div class="poi-sec"><b>🚗 V okolí do ${ex.radius} km</b> <span class="faint">${farL.length ? `(${farL.length}) · ` : ''}nejzajímavější města, hrady a příroda, doba jízdy autem odhadem</span></div>${farState}${cards(farL)}` : ''}`
         || empty;
     const hidden = far ? Math.max(0, cityL.length - LIST_TOP) + Math.max(0, farL.length - LIST_TOP) : Math.max(0, list.length - LIST_TOP);
-    const placesIn = `${cats.length ? `<div class="ex-cats"><button type="button" data-cat="" class="${!ex.cat ? 'on' : ''}">Vše</button>${cats.map(c => `<button type="button" data-cat="${c}" class="${ex.cat === c ? 'on' : ''}">${(CAT[c] || CAT.sight)[1]}</button>`).join('')}</div>` : ''}
+    const placesIn = `${cats.length ? `<div class="ex-cats" role="group" aria-label="Kategorie"><button type="button" data-cat="" class="${!ex.cat ? 'on' : ''}">Vše</button>${cats.map(c => `<button type="button" data-cat="${c}" class="${ex.cat === c ? 'on' : ''}">${(CAT[c] || CAT.sight)[1]}</button>`).join('')}</div>` : ''}
         <div class="poi-list${ex.listAll ? ' all' : ''}" id="exList">${listIn}</div>
         ${hidden && !ex.listAll ? `<button type="button" class="btn ghost poi-morebtn" id="exListMore">Zobrazit další místa (${hidden})</button>` : ''}`;
     // Na kole, pěšky a u výletů je hlavní výsledek trasa na mapě – seznam míst ve městě je sbalený.
