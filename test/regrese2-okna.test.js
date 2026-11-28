@@ -176,3 +176,48 @@ test('Objevuj: „+“ v nadpisu výsledku drží pevnou mezerou u počtu (na 36
   assert.equal(spans.length, 2);
   for (const s of spans) assert.match(s, /^<span class="ex-head-more">\+&nbsp;\$\{/, s);
 });
+
+test('okno nahrazené oknem (okno země → Uložit do Sešitu · Plus): fokus ze <body> do okna, nové okno ho nechá na observeru', () => {
+  const m = APP.match(/^function modalOpen\([\s\S]*?^\}$/m);
+  assert.ok(m, 'app.js: modalOpen');
+  const run = ({ was, active }) => {
+    const doc = { body: { tagName: 'BODY' } }, focused = [];
+    const modal = {
+      tabIndex: 0, scrollTop: 0, html: '',
+      contains: (a) => a === modal || Boolean(a && a.owner === modal),
+      focus(o) { assert.deepEqual({ ...o }, { preventScroll: true }); doc.activeElement = modal; focused.push('modal'); },
+      // přepsání obsahu zahodí fokus z tlačítka uvnitř jako prohlížeč (activeElement → body)
+      set innerHTML(v) { if (doc.activeElement && doc.activeElement.owner === modal) doc.activeElement = doc.body; this.html = v; },
+    };
+    doc.activeElement = active === 'in' ? { owner: modal } : active === 'modal' ? modal : doc.body;
+    const bg = { classList: { contains: () => was } }, toast = { classList: { remove() {} } };
+    const ctx = {
+      $: (s) => ({ '#modal': modal, '#modalBg': bg, '#toast': toast })[s], document: doc, hist: { modal: true },
+      modalKb: {}, kbSel: () => '', ico: () => '', modalShow() {}, modalName() {},
+    };
+    vm.runInNewContext(`${m[0]}; modalOpen('<h2>Letsi Plus</h2>', { x: true });`, ctx);
+    return { focused, modal, doc, kb: ctx.modalKb };
+  };
+  const r = run({ was: true, active: 'in' }); // klepnutí na #cmSesit v okně země
+  assert.deepEqual(r.focused, ['modal'], 'fokus na okno, ne na <body>');
+  assert.equal(r.modal.tabIndex, -1);
+  assert.equal(r.doc.activeElement, r.modal);
+  // fokus už na okně (překreslení téhož okna) – nic navíc
+  assert.deepEqual(run({ was: true, active: 'modal' }).focused, []);
+  // nové okno: fokus přesune MutationObserver (fresh), tady ne
+  const n = run({ was: false, active: 'body' });
+  assert.deepEqual(n.focused, []);
+  assert.equal(n.kb.fresh, true);
+});
+
+test('Letsi Plus: okno vždy od začátku (z listu Další i z okna země) – na 360 px nadpis a ✕ nejsou nad okrajem', () => {
+  const t = load();
+  t.modal.scrollTop = 268; // list Další posunutý k „Letsi Plus“
+  t.P.open();
+  assert.equal(t.modal.scrollTop, 0);
+  assert.deepEqual(t.scrolled, [], 'k otázce se okno posune až po „Chci Plus“');
+  const c = load();
+  c.modal.scrollTop = 840;
+  c.P.fromCountry('PT');
+  assert.equal(c.modal.scrollTop, 0, 'okno Plus z okna země také nahoře');
+});
