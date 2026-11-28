@@ -48,6 +48,9 @@ export const config = {
   travelpayoutsMarker: env.TRAVELPAYOUTS_MARKER || '',
   // Číslo projektu (trs) z app.travelpayouts.com → Profile → Sources; bez něj zůstanou odkazy přímé.
   travelpayoutsTrs: env.TRAVELPAYOUTS_TRS || '',
+  // programy Travelpayouts, do kterých je projekt přijatý – jen ty se obalí partnerským odkazem (jinak tp.media vrátí
+  // 403 a odkaz nefunguje); Booking.com a DiscoverCars přidat, až je Travelpayouts schválí
+  travelpayoutsPrograms: (env.TRAVELPAYOUTS_PROGRAMS || 'aviasales').split(',').map((s) => s.trim().toLowerCase()).filter(Boolean),
   // Trh Aviasales, z jehož hledání se berou ceny (cz, de, gb, …); prázdné = výchozí trh API.
   travelpayoutsMarket: (env.TRAVELPAYOUTS_MARKET ?? 'cz').toLowerCase(),
   // Fotky měst na kartách (pexels.com/api – zdarma, 200 dotazů/h): profesionální snímky na výšku. Bez klíče Wikimedia.

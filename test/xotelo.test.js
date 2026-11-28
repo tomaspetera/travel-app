@@ -204,8 +204,8 @@ test('hotel → nabídka: hodnocení 0–5 i 0–10, vzdálenost, ceny u webů s
   // partnerský odkaz (Travelpayouts) má příznak – karta ho označí „reklama“ (jen Booking.com)
   assert.equal(h.bookSponsored, false);
   assert.ok(h.rates.every((r) => r.sponsored === false));
-  const prev = { m: config.travelpayoutsMarker, t: config.travelpayoutsTrs };
-  Object.assign(config, { travelpayoutsMarker: '123456', travelpayoutsTrs: '7890' });
+  const prev = { m: config.travelpayoutsMarker, t: config.travelpayoutsTrs, p: config.travelpayoutsPrograms };
+  Object.assign(config, { travelpayoutsMarker: '123456', travelpayoutsTrs: '7890', travelpayoutsPrograms: ['aviasales', 'booking', 'discovercars'] });
   try {
     const a = mapHotel(LIST_PRAGUE[1], RATES_HERMITAGE, q, PRAGUE);
     assert.equal(a.bookSponsored, false, 'hlavní odkaz vede na Google Hotels – bez provize');
@@ -215,7 +215,7 @@ test('hotel → nabídka: hodnocení 0–5 i 0–10, vzdálenost, ceny u webů s
     assert.deepEqual([b.rates[0].site, b.bookSponsored], ['booking', true], 'Booking.com nejlevnější → hlavní odkaz partnerský');
     assert.match(b.bookUrl, /^https:\/\/tp\.media\/r\?/);
   } finally {
-    Object.assign(config, { travelpayoutsMarker: prev.m, travelpayoutsTrs: prev.t });
+    Object.assign(config, { travelpayoutsMarker: prev.m, travelpayoutsTrs: prev.t, travelpayoutsPrograms: prev.p });
   }
   assert.equal(mapHotel({ ...LIST_PRAGUE[0], image: 'javascript:alert(1)', url: 'https://evil.example/x' }, RATES_HERMITAGE, q, PRAGUE).photo, null);
 });
@@ -249,15 +249,15 @@ test('odkaz na hotel u webu nabídky: Booking.com, Trip.com, Hotels.com a Expedi
   assert.equal(sl.find((l) => l.id === 'hotelscom').url, 'https://www.hotels.com/Hotel-Search?destination=Prague%2C+Czechia&startDate=2026-11-12&endDate=2026-11-15&adults=3&rooms=2');
   assert.equal(sl.find((l) => l.id === 'google').url, `https://www.google.com/travel/search?q=hotels%20Prague%2C%20Czechia&hl=cs&curr=CZK&ts=${googleHotelsTs('2026-11-12', '2026-11-15', 3)}`);
   // partnerský odkaz jen u Booking.com
-  const prev = { m: config.travelpayoutsMarker, t: config.travelpayoutsTrs };
-  Object.assign(config, { travelpayoutsMarker: '123456', travelpayoutsTrs: '7890' });
+  const prev = { m: config.travelpayoutsMarker, t: config.travelpayoutsTrs, p: config.travelpayoutsPrograms };
+  Object.assign(config, { travelpayoutsMarker: '123456', travelpayoutsTrs: '7890', travelpayoutsPrograms: ['aviasales', 'booking', 'discovercars'] });
   try {
     const a = link('Booking.com', 'BookingCom');
     assert.equal(a.sponsored, true);
     assert.equal(new URL(a.url).searchParams.get('u'), b.url);
     assert.deepEqual([link('Trip.com', 'CtripTA').sponsored, link('Agoda', 'Agoda').sponsored], [false, false]);
   } finally {
-    Object.assign(config, { travelpayoutsMarker: prev.m, travelpayoutsTrs: prev.t });
+    Object.assign(config, { travelpayoutsMarker: prev.m, travelpayoutsTrs: prev.t, travelpayoutsPrograms: prev.p });
   }
 });
 
@@ -915,8 +915,8 @@ test('karta hotelu z TripAdvisoru: hlavní odkaz na web nejlevnější nabídky,
   const AG = [LIST_PRAGUE[1], [{ code: 'Agoda', name: 'Agoda.com', rate: 80 }, { code: 'Vio', name: 'Vio.com', rate: 85 }, { code: 'CtripTA', name: 'Trip.com', rate: 95 }], now - 20 * 60e3];
   const BK = [LIST_PRAGUE[0], [{ code: 'BookingCom', name: 'Booking.com', rate: 70 }, { code: 'Agoda', name: 'Agoda.com', rate: 75 }], now - 5 * 60e3];
   const TR = [LIST_PRAGUE[2], [{ code: 'CtripTA', name: 'Trip.com', rate: 60 }, { code: 'BookingCom', name: 'Booking.com', rate: 65 }, { code: 'Expedia', name: 'Expedia', rate: 66 }], now];
-  const prev = { m: config.travelpayoutsMarker, t: config.travelpayoutsTrs };
-  Object.assign(config, { travelpayoutsMarker: '123456', travelpayoutsTrs: '7890' }); // Booking.com partnerský → „reklama“
+  const prev = { m: config.travelpayoutsMarker, t: config.travelpayoutsTrs, p: config.travelpayoutsPrograms };
+  Object.assign(config, { travelpayoutsMarker: '123456', travelpayoutsTrs: '7890', travelpayoutsPrograms: ['aviasales', 'booking', 'discovercars'] }); // Booking.com partnerský → „reklama“
   let first, fresh, wait;
   try {
     first = xoteloReply([AG, BK, TR]);
@@ -925,7 +925,7 @@ test('karta hotelu z TripAdvisoru: hlavní odkaz na web nejlevnější nabídky,
     fresh = xoteloReply(after);
     wait = xoteloReply(after, { refreshIn: 240 });
   } finally {
-    Object.assign(config, { travelpayoutsMarker: prev.m, travelpayoutsTrs: prev.t });
+    Object.assign(config, { travelpayoutsMarker: prev.m, travelpayoutsTrs: prev.t, travelpayoutsPrograms: prev.p });
   }
   let reply = first;
   const c = loadTrip(() => reply);

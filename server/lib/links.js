@@ -12,7 +12,7 @@ const pad = (n) => String(n).padStart(2, '0');
 const TP_BRANDS = { aviasales: { p: 4114, c: 100 }, booking: { p: 2076, c: 84 }, discovercars: { p: 3555, c: 117 } };
 
 export function affiliateOn(brand) {
-  return Boolean(TP_BRANDS[brand] && /^\d+$/.test(config.travelpayoutsMarker) && /^\d+$/.test(config.travelpayoutsTrs));
+  return Boolean(TP_BRANDS[brand] && (config.travelpayoutsPrograms || []).includes(brand) && /^\d+$/.test(config.travelpayoutsMarker) && /^\d+$/.test(config.travelpayoutsTrs));
 }
 
 /** Partnerský (affiliate) odkaz přes tp.media, je-li pro značku vše nastavené; jinak přímý odkaz. */

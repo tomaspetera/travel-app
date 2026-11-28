@@ -69,6 +69,9 @@ lehčí než dnes. Render zdarma po 15 min bez návštěvy usne (první načten�
       Pak je odebrat v kódu (PR) i se zmínkami v O aplikaci a v zásadách (`atlas_ask`).
 - [ ] Novinka „Řekni mi, co ti vadí“ („Letsi je zatím testovací verze…“) ve `WHATS_NEW` zmizí sama po 14 dnech
       (`WN_DAYS`) – nic nedělat. K D případně nová novinka s vyšším `WN_ID` jen u skutečně nové funkce.
+- [ ] Booking.com a DiscoverCars: až je Travelpayouts schválí (projekt Letsi, sekce programů), nastavit na Renderu
+      `TRAVELPAYOUTS_PROGRAMS=aviasales,booking,discovercars`. Do té doby vedou jejich odkazy přímo (bez provize) –
+      neschválený program by na `tp.media` vrátil 403.
 - [ ] Partnerské odkazy: doplnit `TRAVELPAYOUTS_MARKER` a `TRAVELPAYOUTS_TRS` (app.travelpayouts.com → Profile →
       Sources), ověřit `affiliate: true` (níž).
 - [x] RegioJet: živé spoje vypnuté (výchozí stav v kódu, rozhodnutí 28. 11. 2026).

@@ -162,7 +162,7 @@ test('cars: vyzvednutí ve městě – srovnávače na nejbližším letišti (F
 test('affiliate: bez čísla projektu (trs) zůstávají odkazy přímé; s ním jen ověřené značky přes tp.media', async () => {
   const { config } = await import('../server/config.js');
   const { affiliate } = await import('../server/lib/links.js');
-  const prev = { m: config.travelpayoutsMarker, t: config.travelpayoutsTrs };
+  const prev = { m: config.travelpayoutsMarker, t: config.travelpayoutsTrs, p: config.travelpayoutsPrograms };
   try {
     config.travelpayoutsMarker = '123456';
     config.travelpayoutsTrs = '';
@@ -171,6 +171,11 @@ test('affiliate: bez čísla projektu (trs) zůstávají odkazy přímé; s ním
     assert.ok(!stayLinks(q).some((l) => l.sponsored));
 
     config.travelpayoutsTrs = '987654';
+    // Booking.com projekt ještě nemá schválený (výchozí TRAVELPAYOUTS_PROGRAMS = jen aviasales) → přímý odkaz, ne 403 z tp.media
+    config.travelpayoutsPrograms = ['aviasales'];
+    assert.match(stayLinks(q)[0].url, /^https:\/\/www\.booking\.com\//, 'neschválený program → přímý odkaz');
+    assert.equal(affiliate('https://www.aviasales.com/search/PRG1001ROM1', 'aviasales').startsWith('https://tp.media/r?'), true);
+    config.travelpayoutsPrograms = ['aviasales', 'booking', 'discovercars'];
     const links = stayLinks(q);
     const tp = new URL(links[0].url);
     assert.equal(tp.host, 'tp.media');
@@ -185,6 +190,7 @@ test('affiliate: bez čísla projektu (trs) zůstávají odkazy přímé; s ním
   } finally {
     config.travelpayoutsMarker = prev.m;
     config.travelpayoutsTrs = prev.t;
+    config.travelpayoutsPrograms = prev.p;
   }
 });
 
@@ -302,14 +308,14 @@ test('stayLinks: víc partnerů – co je předvyplněné (místo, termín, host
   assert.deepEqual([nowhere.url, nowhere.prefill, nowhere.note], ['https://www.hostelworld.com/', 'none', 'hostely a levná lůžka – zadej místo a data']);
   // partnerský odkaz jen u značky, kterou má aplikace nastavenou (Booking.com) – ostatní vždy přímo
   const { config } = await import('../server/config.js');
-  const prev = { m: config.travelpayoutsMarker, t: config.travelpayoutsTrs };
+  const prev = { m: config.travelpayoutsMarker, t: config.travelpayoutsTrs, p: config.travelpayoutsPrograms };
   try {
-    Object.assign(config, { travelpayoutsMarker: '123456', travelpayoutsTrs: '987654' });
+    Object.assign(config, { travelpayoutsMarker: '123456', travelpayoutsTrs: '987654', travelpayoutsPrograms: ['aviasales', 'booking', 'discovercars'] });
     const aff = stayLinks(q);
     assert.deepEqual(aff.filter((l) => l.sponsored).map((l) => l.id), ['booking', 'booking-best']);
     assert.ok(aff.filter((l) => !l.id.startsWith('booking')).every((l) => !l.url.includes('tp.media')));
   } finally {
-    Object.assign(config, { travelpayoutsMarker: prev.m, travelpayoutsTrs: prev.t });
+    Object.assign(config, { travelpayoutsMarker: prev.m, travelpayoutsTrs: prev.t, travelpayoutsPrograms: prev.p });
   }
 });
 

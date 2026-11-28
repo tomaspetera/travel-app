@@ -1163,6 +1163,7 @@ Zkopíruj `.env.example` na `.env`:
 | `TRAVELPAYOUTS_TOKEN` | – | zapne další aerolinky (zdarma na travelpayouts.com → Developers → API token) |
 | `TRAVELPAYOUTS_MARKER` | – | tvůj affiliate marker (ID účtu) – připojí se k odkazům na Aviasales |
 | `TRAVELPAYOUTS_TRS` | – | číslo projektu Travelpayouts; s markerem převede odkazy na Aviasales, Booking.com a DiscoverCars na partnerské (`tp.media`) a viditelně je označí jako reklamu |
+| `TRAVELPAYOUTS_PROGRAMS` | `aviasales` | programy, do kterých je projekt v Travelpayouts přijatý (čárkou: `aviasales,booking,discovercars`); jen ty dostanou partnerský odkaz – neschválený program by na `tp.media` vrátil 403 |
 | `TRAVELPAYOUTS_MARKET` | `cz` | trh Aviasales, z jehož vyhledávání se berou ceny (bez něj API čte ruský trh) |
 | `KIWI_ENABLED` | `1` | Kiwi.com: živá cena a porovnání aerolinek k vybranému letu (zdarma, bez klíče); `0` = vypnout |
 | `XOTELO` | zapnuto | ceny hotelů z TripAdvisoru přes neoficiální bezplatné API Xotelo (bez klíče, bez provizí), když není ostrý klíč LiteAPI – viz [Ceny hotelů](#ceny-hotelů); `off` = vypnout (zůstanou odkazy na partnery). Na místo a termín 1 + nejvýš 12 dotazů, v mezipaměti |
