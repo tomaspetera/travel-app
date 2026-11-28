@@ -1,7 +1,7 @@
 // Travelpayouts / Aviasales Data API – ceny všech aerolinek (i s přestupy) z cache
 // vyhledávání uživatelů Aviasales za poslední dny. Zdarma s tokenem z travelpayouts.com.
 //   /aviasales/v3/prices_for_dates   bez destinace = nejlevnější lety „kamkoliv“
-import { HttpError, limiter, request } from '../lib/http.js';
+import { HttpError, limiter, pacer, request } from '../lib/http.js';
 import { cache } from '../lib/cache.js';
 import { config } from '../config.js';
 import { affiliate, affiliateOn } from '../lib/links.js';
@@ -14,6 +14,12 @@ import { haversineKm } from '../lib/geo.js';
 const URL_PFD = 'https://api.travelpayouts.com/aviasales/v3/prices_for_dates';
 const TTL = 60 * 60e3;
 const limit = limiter(4);
+// Oficiální limit prices_for_dates je 600 dotazů za minutu na celý token (pak 429 do konce minuty). Souběh 4 to
+// nehlídá – při rychlé odpovědi API (~0,15 s) by server poslal ~1 600 za minutu. Tempo 8 dotazů/s (125 ms) a po klidu
+// 20 hned = za minutu nejvýš 500, s rezervou pod limitem. Platí pro všechna hledání dohromady (jedno hledání má navíc
+// vlastní podíl ve frontě, viz pfd).
+export const TP_PACE = { gapMs: 125, burst: 20 };
+const pace = pacer(TP_PACE.gapMs, TP_PACE.burst);
 
 const ddmm = (s) => `${s.slice(8, 10)}${s.slice(5, 7)}`;
 
@@ -88,8 +94,9 @@ let marketOk = true;
 // Pojistka při výpadku: po 429, 5xx nebo timeoutu / chybě sítě (request už jednou zopakoval) se Travelpayouts na chvíli
 // vynechá. Jinak by každý z desítek dotazů hledání (kamkoliv = letiště × měsíce) čekal až 2 × 15 s ve sdílené frontě
 // limit(4) – hledání by trvalo minuty a čekali by i ostatní uživatelé (v čistém režimu jediný zdroj letů). Dotazy ve
-// frontě pak skončí hned, ceny už uložené v mezipaměti (cache.wrap) se ukazují dál. 429 na dobu z Retry-After
-// (nejvýš 15 min), jinak 2 min; výpadek 1 min. Hledání to hlásí jako výpadek s odpočtem (isBlocked/retryAfter níž).
+// frontě pak skončí hned, ceny už uložené v mezipaměti (cache.wrap) se ukazují dál. 429 na dobu z Retry-After, jinak
+// z X-Rate-Limit-Reset (Travelpayouts blokuje jen do konce minutového okna; nejvýš 15 min), bez hlaviček 2 min;
+// výpadek 1 min. Hledání to hlásí jako výpadek s odpočtem (isBlocked/retryAfter níž).
 const block = { until: 0, why: '' };
 const blocked = () => Date.now() < block.until;
 const blockedError = () => Object.assign(new Error(`Aviasales ${block.why} – na chvíli vynecháno, zkus to za chvíli`), { blocked: true });
@@ -103,6 +110,7 @@ export function resetTravelpayouts() {
 async function fetchPfd(qs) {
   if (blocked()) throw blockedError();
   const j = await limit(async () => {
+    await pace();
     if (blocked()) throw blockedError();
     try {
       return await request(`${URL_PFD}?${qs}`, {
@@ -114,7 +122,9 @@ async function fetchPfd(qs) {
       const s = Number(e.status) || 0;
       // 400/422 (odmítnutá trasa), 401/403 (token) a neplatné JSON pojistku nespouští – to nejsou výpadky
       if (s !== 429 && s < 500 && e instanceof HttpError) throw e;
-      const ms = s === 429 ? (e.retryAfter > 0 ? Math.min(15 * 60e3, e.retryAfter * 1000) : 2 * 60e3) : 60e3;
+      // X-Rate-Limit-Reset: 0 = okno končí do vteřiny → blokace 1 s, ne záloha 2 min
+      const wait = e.retryAfter > 0 ? e.retryAfter : e.rateReset >= 0 ? Math.max(1, e.rateReset) : 0;
+      const ms = s === 429 ? (wait > 0 ? Math.min(15 * 60e3, wait * 1000) : 2 * 60e3) : 60e3;
       block.until = Math.max(block.until, Date.now() + ms);
       block.why = s === 429 ? 'teď omezuje dotazy (HTTP 429)' : s ? `má výpadek (HTTP ${s})` : 'neodpovídá';
       console.warn(`Travelpayouts ${block.why} (${e.message}) → vynechán na ${Math.round(ms / 1000)} s`);
@@ -129,7 +139,10 @@ async function fetchPfd(qs) {
   return j;
 }
 
-async function pfd(params) {
+// share = podíl jednoho hledání ve společné frontě (search.js, limiter na hledání): těžké hledání (rok, okruh, víkendy =
+// stovky dotazů) tak drží jen pár míst a malé hledání jiného uživatele nečeká na celou jeho dávku. Mezipaměť a
+// souběžné stejné dotazy (cache.wrap) jdou mimo frontu.
+async function pfd(params, share = (f) => f()) {
   const base = { currency: 'czk', sorting: 'price', limit: '1000', page: '1', unique: 'false', ...params };
   const market = marketOk ? config.travelpayoutsMarket : '';
   const qs = new URLSearchParams(market ? { ...base, market } : base);
@@ -139,7 +152,7 @@ async function pfd(params) {
     console.warn(`Travelpayouts odmítl dotaz (${what}): HTTP ${e.status} ${String(e.body || e.message).slice(0, 160)}`);
     return { success: true, data: [], rejected: true };
   };
-  return cache.wrap(`tp:${qs}`, (v) => (v?.rejected ? 15 * 60e3 : TTL), async () => {
+  return cache.wrap(`tp:${qs}`, (v) => (v?.rejected ? 15 * 60e3 : TTL), () => share(async () => {
     try {
       return await fetchPfd(qs);
     } catch (e) {
@@ -157,7 +170,7 @@ async function pfd(params) {
       marketOk = false; // bez trhu prošlo → API trh nepřijímá
       return res;
     }
-  });
+  }));
 }
 
 export const travelpayouts = {
@@ -175,7 +188,7 @@ export const travelpayouts = {
   },
 
   /**
-   * q: { origin, dateFrom, dateTo, ret?: {nightsMin,nightsMax,backFrom?,backTo?}, destination?, country?, directOnly, adults }
+   * q: { origin, dateFrom, dateTo, ret?: {nightsMin,nightsMax,backFrom?,backTo?}, destination?, country?, directOnly, adults, share? }
    * Přesné datum (dateFrom = dateTo, u zpáteční i backFrom = backTo) → dotaz na konkrétní den
    * (departure_at/return_at = YYYY-MM-DD), jinak po měsících.
    */
@@ -188,7 +201,7 @@ export const travelpayouts = {
       ...(back && m.length === 10 ? { return_at: back } : {}),
       one_way: q.ret ? 'false' : 'true',
       direct: q.directOnly ? 'true' : 'false',
-    }).then((j) => parsePricesForDates(j, q))));
+    }, q.share).then((j) => parsePricesForDates(j, q))));
     return parts.flat().filter((t) => {
       if (t.out.date < q.dateFrom || t.out.date > q.dateTo) return false;
       if (t.out.from !== q.origin) return false;
@@ -200,10 +213,10 @@ export const travelpayouts = {
     });
   },
 
-  async daily({ from, to, dateFrom, dateTo, adults = 1, directOnly = false }) {
+  async daily({ from, to, dateFrom, dateTo, adults = 1, directOnly = false, share }) {
     const parts = await Promise.all(periods(dateFrom, dateTo).map((m) => pfd({
       origin: from, destination: to, departure_at: m, one_way: 'true', direct: directOnly ? 'true' : 'false',
-    }).then((j) => parsePricesForDates(j, { adults }))));
+    }, share).then((j) => parsePricesForDates(j, { adults }))));
     return parts.flat().filter((t) => !t.back && t.out.date >= dateFrom && t.out.date <= dateTo).map((t) => t.out);
   },
 };
