@@ -279,17 +279,21 @@
    * Výsledek kontroly → nový stav hledání + důvod upozornění. Původní objekt nemění.
    * partial = některý zdroj neodpověděl: vyšší nebo žádná cena může být jen výpadkem – nezapíše se (skipped, hledání
    * zůstane k nové kontrole), nejvýš 2× po sobě, pak se vezme i neúplná. Nižší cena platí i při výpadku.
+   * down = žádný zdroj neodpověděl: bez ceny je to chyba kontroly (skipped, down: true), ne prázdný výsledek.
    * own = otisk 🏠 vlastních cen na letiště, které hledání použilo (SearchHelp.ownPrint). Cena posunutá změnou nastavení
    * (rebaseWhy: jiné vlastní ceny, 🙈 u nejlevnějšího města) se nehlásí jako zlevnění, zdražení ani cíl – je to nový
    * základ: výchozí, nejnižší i „viděná“ cena začnou od ní (rebased = 'own' | 'unmute' | 'mute' | 'price', bod historie
    * s own: 1, w.rebAt = kdy, w.rebWhy = proč). 'price' = hlídání ze starší verze (cena i s dopravou na letiště): cílová
    * cena se přepočítá ve stejném poměru k nové ceně. Bez own (undefined) se otisk nehlídá.
    */
-  function applyCheck(w, best, now, cfg = CFG, { partial = false, own } = {}) {
+  function applyCheck(w, best, now, cfg = CFG, { partial = false, down = false, own } = {}) {
     const h = Array.isArray(w.history) ? w.history : [];
     // minulá cena; když minulá kontrola nic nenašla, poslední známá z historie
     const prev = num(w.best && w.best.czk) || num(h.length && h[h.length - 1].czk);
     const cur = num(best && best.czk);
+    // žádný zdroj neodpověděl (SearchHelp.allDown) a nic nenalezeno: chyba kontroly, ne „nic není“ – cena i checked
+    // zůstanou (hlídání zůstane na řadě) bez limitu 2× jako u částečného výpadku; dlouhý výpadek cenu nesmaže
+    if (down && !cur) return { w: { ...w, tried: now }, why: null, prev, skipped: true, down: true };
     // hlídání ze starší verze: cena byla i s dopravou na letiště, teď je to jen letenka – nový základ, ne „zlevnilo“
     const reb = prev && cur ? (w.pv !== PV ? 'price' : rebaseWhy(w, best, own)) : null;
     // výpadek zdroje: s novým základem i nižší cenu raději ještě nebrat (příští úplná by z ní hlásila zdražení)

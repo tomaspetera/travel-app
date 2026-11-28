@@ -2026,7 +2026,7 @@
       // vejde a řádek nezvýší); po hodině ho nahradí poznámka 🕘 (ageCheck). Ne „ceny z 14:32“ – ceny z mezipaměti
       // můžou být starší než hledání.
       const age = SearchHelp.resultAge(lastResultAt, Date.now()), at = age ? `<span class="ps-at">hledáno ${esc(age.when)}</span>` : '';
-      host.innerHTML = `<details class="card progress-card done"${open}><summary class="ph">✓ ${head}${found ? `<span class="faint ps-found"> · ${found}</span>` : ''}<span class="ps-more faint">${at}<span class="ps-pd">${at ? ' · ' : ''}podrobnosti</span></span></summary>${rows}${disabled}</details>`
+      host.innerHTML = `<details class="card progress-card done"${open}><summary class="ph">${(ev.providers || []).some(p => p.outage || p.state === 'error') ? '' : '✓ '}${head}${found ? `<span class="faint ps-found"> · ${found}</span>` : ''}<span class="ps-more faint">${at}<span class="ps-pd">${at ? ' · ' : ''}podrobnosti</span></span></summary>${rows}${disabled}</details>`
         + (more ? `<div class="more-routes"><button type="button" class="btn sm" id="moreRoutes" title="Na jedno hledání smí Letsi na ${esc(shopName(more.id))} jen omezený počet dotazů – další hledání vezme nejdřív trasy, na které nedošlo">Prohledat zbylé trasy ${esc(shopName(more.id))} (${more.coverage.skipped})</button></div>` : '');
       const mr = $('#moreRoutes', host); if (mr) mr.onclick = () => rerun();
       return;
@@ -2496,6 +2496,14 @@
       : w && w.destHi != null && w.destHi < w.minTemp
       ? `V cíli ${esc(res.destination.label)} bývá v měsících odletu přes den průměrně nejvýš ~${w.destHi} °C – na filtr „za teplem“ ≥ ${w.minTemp} °C to nestačí.`
       : `Z ${aps} jsem pro zadané termíny nenašel žádný let${res.destination.kind !== 'anywhere' ? ' do cíle ' + esc(res.destination.label) : ''}.${w ? ` Filtr „za teplem“ pouští jen cíle, kde bývá v měsíci odletu přes den aspoň ${w.minTemp} °C.` : ''}`;
+    // Žádný zdroj neodpověděl (SearchHelp.allDown – 429, 5xx, timeout): nic se neprohledalo, „nic jsem nenašel“ by lhalo.
+    // Bez návrhů na rozšíření (každý by spustil hledání, které během výpadku dopadne stejně) – ↻ Zkusit znovu s odpočtem
+    // je v kartě výpadku nad ním (lowcostBanner, kiwiOnly).
+    if (SearchHelp.allDown(res.providers)) {
+      return kiwiBanner(res) + groundBanner(res) + `<div class="card empty-res"><div class="ei">${ikona('info')}</div><h2>Ceny se teď nepodařilo načíst</h2>
+      <p class="muted">Zdroj cen teď neodpovídá, takže se nic neprohledalo – neznamená to, že let není. Zkus to znovu za chvíli.</p>
+      ${errs ? `<div class="note bad" style="text-align:left;margin-top:12px"><div><b>Chyby zdrojů:</b><ul>${errs}</ul></div></div>` : ''}</div>`;
+    }
     // čistý režim: proč nic (mezipaměť trasu nezná) a kudy dál; Kamkoliv jen jednou (nápověda ho u Evropy nabízí sama)
     const cl = cleanEmpty(res), help = smartHelp(res, true);
     const anyw = cl && cl.anywhere && !actReg.some(a => a.key === 'anywhere');
@@ -3749,7 +3757,7 @@
     // prázdný výsledek (v čistém režimu je Aviasales jediný zdroj): „nejnižší cena může být nižší“ by nad „Nic jsem nenašel“ mátlo
     const none = !(res.groups || []).length, many = down.length > 1;
     const txt = [
-      down.length ? `<b>${names(down)} teď ${many ? 'neodpověděly' : 'neodpověděl'}</b> – ${many ? 'jejich' : 'jeho'} lety ${none ? 've výsledcích chybí.' : '(často ty nejlevnější) ve výsledcích chybí, takže skutečná nejnižší cena může být nižší.'}${down.some(x => x.level === 'blocked') ? ` Po výpadku ${many ? 'je' : 'ho'} Letsi na pár minut vynechává.` : ''}` : '',
+      down.length ? `<b>${names(down)} teď ${many ? 'neodpověděly' : 'neodpověděl'}</b> – ${many ? 'jejich' : 'jeho'} lety ${none ? 'se nepodařilo načíst.' : '(často ty nejlevnější) ve výsledcích chybí, takže skutečná nejnižší cena může být nižší.'}${down.some(x => x.level === 'blocked') ? ` Po výpadku ${many ? 'je' : 'ho'} Letsi na pár minut vynechává.` : ''}` : '',
       part.length ? `<b>${names(part)} ${part.length > 1 ? 'odpověděly' : 'odpověděl'} jen zčásti</b> – některé ${part.length > 1 ? 'jejich' : 'jeho'} lety můžou chybět.` : '',
     ].filter(Boolean).join(' ');
     // všechny vynechané po výpadku (Wizz Air po 429 až 10 min): nové hledání by je stejně přeskočilo – tlačítko po odpočtu
@@ -4869,11 +4877,13 @@
       PriceCheck.remember(res); // každá kontrola hlídaného hledání = další bod trendu ceny
       const cur = (S.watch || []).find(x => x.id === id); if (!cur) return; // mezitím smazané
       // jiné 🏠 vlastní ceny (S.accessOwn jde do hledání, klíč hlídání je nemá) nebo nejlevnější město změnilo 🙈: nový základ, ne zlevnění
-      const r = Alerts.applyCheck(cur, bestOf(res), Date.now(), undefined, { partial: Alerts.incomplete(res.providers), own: SearchHelp.ownPrint(res) });
+      const r = Alerts.applyCheck(cur, bestOf(res), Date.now(), undefined, { partial: Alerts.incomplete(res.providers), down: SearchHelp.allDown(res.providers), own: SearchHelp.ownPrint(res) });
       if (r.skipped) {
         // výpadek zdroje: cenu nepřepisovat (falešné „zlevnilo“ při další kontrole), za chvíli to zkusí znovu
         Object.assign(cur, r.w); save();
-        if (!auto) toast(`${cur.label}: některá aerolinka teď neodpověděla – cenu ${czk(r.prev)} nechávám, zkusím to znovu později`);
+        // žádný zdroj neodpověděl: kontrola se nepovedla – ruční pravdivě, automatický cyklus skončí (další by dopadla stejně)
+        if (r.down) { if (auto) return 'stop'; toast(`${cur.label}: zdroj cen teď neodpovídá – ${r.prev ? `cenu ${czk(r.prev)} nechávám, ` : ''}zkusím to znovu později`, 'err'); return; }
+        if (!auto) toast(`${cur.label}: zdroj cen teď neodpověděl celý – cenu ${czk(r.prev)} nechávám, zkusím to znovu později`);
         return;
       }
       Object.assign(cur, r.w); delete cur.partials; save();
@@ -5219,6 +5229,13 @@
       // z výsledku další pole, musí ho server posílat taky (test/radar-slim.test.js)
       // newerThanS – radar ukazuje ceny staré tolik sekund (↻ Obnovit): starší hotový výsledek serveru jen novější
       const res = SearchHelp.radarRes(await runSearch({ ...q.payload, radar: true, ...(newerThanS != null ? { newerThanS } : {}) }, { onProgress: ev => radarProgress(ev, key) }));
+      // žádný zdroj neodpověděl (429, 5xx, timeout) a karty nejsou: chyba, ne „z okolí zatím nic“ – do S.radar se neuloží
+      // jako čerstvý výsledek (příště se hledá znovu) a renderRadar ukáže dřívější ceny s upozorněním a ↻ Zkusit znovu
+      // (radarFail), u zdroje vynechaného po výpadku s odpočtem
+      if (!(res.groups || []).length && SearchHelp.allDown(res.providers)) {
+        const ra = res.providers.map(p => p.retryAfter || 0);
+        throw Object.assign(new Error('zdroj cen teď neodpovídá – zkus to za chvíli'), { until: ra.every(x => x > 0) ? Date.now() + Math.min(...ra) * 1e3 : 0 });
+      }
       // čas cen: starší hotový výsledek od serveru (staleAgeS – spočítal ho před chvílí pro jiného návštěvníka a teď ho
       // přepočítává) platí od spočítání – „Aktualizováno“ ukáže skutečné stáří, paměť cen ho zapíše k tomu času a 30min
       // platnost uloženého radaru běží od něj, takže příští hledání po ní dostane už nový výsledek
@@ -5347,7 +5364,7 @@
         <div class="rc-foot"><div class="rc-price">${czk(x.czk)}<small>/os.</small>${cacheMark(radarOrient(x))}</div><span class="rc-go" aria-hidden="true">›</span></div>
       </div>
     </div>`;
-    }).join('')}</div><div class="faint" style="font-size:11.5px;margin-top:8px">Načteno ${when}<span data-rago="${+r.at || 0}">${radarAgo(r.at)}</span>${r.partial ? ' · ⚠️ část aerolinek neodpověděla – ceny můžou být vyšší' : ''} · klepni na kartu: detail, koupit let nebo všechny termíny</div>`;
+    }).join('')}</div><div class="faint" style="font-size:11.5px;margin-top:8px">Načteno ${when}<span data-rago="${+r.at || 0}">${radarAgo(r.at)}</span>${r.partial ? ' · ⚠️ zdroj cen neodpověděl celý – ceny můžou být vyšší' : ''} · klepni na kartu: detail, koupit let nebo všechny termíny</div>`;
     // telefon: nejdřív 6 karet, zbytek tlačítkem (CSS skryje 7.+ jen na úzké obrazovce; rozbalené zůstane do zavření aplikace)
     const rg = $('.radar-grid', host), rcN = rg ? rg.children.length : 0;
     if (rg && rcN > 6) {
