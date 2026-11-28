@@ -21,8 +21,8 @@ Letsi je **vyhledávač a plánovač cest**: hledá levné letenky z letišť v 
 letiště a na místě, počasí, vstupní podmínky a pomáhá poskládat program cesty.
 
 **Letsi nic neprodává.** Není aerolinka, cestovní kancelář ani zprostředkovatel prodeje. Letenky, ubytování, jízdenky
-a půjčení auta si kupuješ vždy **přímo u prodejce** (aerolinka, Kiwi.com, Booking.com, Airbnb, RegioJet…), na jehož
-web tě odkaz pošle. Smlouvu uzavíráš s ním a platí jeho obchodní podmínky.
+a půjčení auta si kupuješ vždy **přímo u prodejce** (u letenek aerolinka nebo cestovní agentura, ke které tě přesměruje
+Aviasales; Booking.com, Airbnb, RegioJet…), na jehož web tě odkaz pošle. Smlouvu uzavíráš s ním a platí jeho obchodní podmínky.
 
 ## 3. Zdarma a bez registrace
 
@@ -37,9 +37,10 @@ krátce nedostupný (na bezplatném hostingu se po nečinnosti probouzí až min
 
 ## 4. Ceny a spoje jsou orientační
 
-Ceny a spoje Letsi získává z **veřejných zdrojů a od partnerů**: webů Ryanair a Wizz Air, Kiwi.com, Travelpayouts /
-Aviasales, TripAdvisoru (přes Xotelo), LiteAPI, RegioJetu a dalších (přehled je v aplikaci v ⋯ Další → ℹ️ O aplikaci
-a soukromí). Proto:
+Ceny a spoje Letsi získává z **veřejných zdrojů a od partnerů**: ceny letů a odkaz k nákupu letenky z Travelpayouts /
+Aviasales, ubytování bez ceny z OpenStreetMap, spoje vlakem a busem od RegioJetu (je-li zapnutý) a dalších. Pokud jsou
+zapnuté živé zdroje (testovací provoz), také z webů Ryanair a Wizz Air, Kiwi.com, TripAdvisoru (přes Xotelo) a LiteAPI.
+Zdroje, které právě běží, jsou v aplikaci v ⋯ Další → ℹ️ O aplikaci a soukromí. Proto:
 
 - Ceny se u prodejců mění i během minut. Ceny letů jsou orientační: pocházejí z vyhledávání jiných cestujících na
   Aviasales (Travelpayouts) za posledních ~48 hodin a jsou označené **orientační – ověř**. Pokud jsou zapnuté živé
@@ -47,9 +48,11 @@ a soukromí). Proto:
   Výsledky starší než hodina aplikace označí časem; u výsledků starších 3 hodin první klepnutí na Koupit jen
   připomene stáří cen.
 - **Závazná je vždy cena, kterou ukáže prodejce před zaplacením.** Před nákupem ji ověř na jeho webu.
-- Ceny ubytování z TripAdvisoru jsou orientační; „od ~… / noc“ znamená běžnou cenu, ne nabídku na tvůj termín.
+- Ceny ubytování z TripAdvisoru (jen pokud jsou zapnuté – testovací provoz; jinak jsou u ubytování odkazy na partnery
+  a místa bez ceny) jsou orientační; „od ~… / noc“ znamená běžnou cenu, ne nabídku na tvůj termín.
   Ceny ubytování nemusí obsahovat místní poplatky (např. městskou taxu), pokud je zdroj neuvádí.
-- Prodejce může účtovat ve své měně (Ryanair a Wizz Air v měně země odletu, Aviasales v eurech); přepočet na koruny
+- Prodejce může účtovat ve své měně (Aviasales v eurech; pokud jsou zapnuté živé zdroje, Ryanair a Wizz Air v měně
+  země odletu); přepočet na koruny
   je podle aktuálního kurzu a skutečná částka se může lišit.
 - Odhady (cena dopravy na letiště a do města, paliva, parkování, zavazadel, vstupních poplatků, doba cesty) jsou
   orientační a slouží k porovnání.
@@ -65,8 +68,8 @@ a soukromí). Proto:
 Podle nařízení (ES) č. 1008/2008 (čl. 23) musí cena letenky od prvního zobrazení obsahovat všechny nevyhnutelné
 daně, letištní a jiné poplatky; volitelné příplatky se uvádějí zvlášť a srozumitelně. Letsi dnes cenu ukazuje takto:
 
-- Cena ve výsledcích je **za osobu**, za letenku v nejlevnějším tarifu tak, jak ji vrátí zdroj (aerolinka, Kiwi.com,
-  Aviasales). U rodiny se ukazuje i celková cena za sedadla (děti platí jako dospělí, miminko na klíně bez poplatku
+- Cena ve výsledcích je **za osobu**, za letenku v nejlevnějším tarifu tak, jak ji vrátí zdroj (Aviasales; pokud jsou
+  zapnuté živé zdroje, i aerolinka nebo Kiwi.com). U rodiny se ukazuje i celková cena za sedadla (děti platí jako dospělí, miminko na klíně bez poplatku
   aerolinky).
 - **Zavazadla jsou volitelná a ukazují se zvlášť.** Výchozí hledání je bez zavazadel. Když v hledání zvolíš kabinový
   kufr nebo kufr k odbavení, Letsi k ceně připočte **odhad** příplatku podle ceníku dopravce a ukáže rozpis

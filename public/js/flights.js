@@ -116,7 +116,8 @@
    * Panel Zdroje cen (počítač, #srcBox): jen zdroje, které server opravdu používá. „Ryanair vypnuto“ nebo tlačítko
    * „Zapnout hotely“ návštěvníkovi nic neřeknou (zapnout je může jen správce serveru – návod je ve ⋯ Další).
    */
-  const srcOn = h => (h && Array.isArray(h.providers) ? h.providers : []).filter(p => p.enabled || p.kind === 'demo');
+  // živé spoje RegioJetu (kind 'ground') nejsou zdroj cen letů ani hotelů – „Ceny živě · 3 zdroje“ by v čistém režimu lhalo
+  const srcOn = h => (h && Array.isArray(h.providers) ? h.providers : []).filter(p => (p.enabled || p.kind === 'demo') && p.kind !== 'ground');
   const srcSt = p => (p.blocked ? 'blokováno' : p.tag ? esc(p.tag) : p.kind === 'cached' ? 'orientačně' : p.kind === 'demo' ? 'demo' : 'živě');
   function srcBoxHtml(h = health) {
     return `<div class="src-t">Zdroje cen</div>` + srcOn(h).map(p => `<div class="src on" title="${esc(p.note || '')}${p.hint ? ' – ' + esc(p.hint) : ''}"><i style="background:${p.color}"></i>${esc(p.name)}<span>${srcSt(p)}</span></div>`).join('');
@@ -132,7 +133,7 @@
 
   /** Lety jen z mezipaměti (Aviasales) – žádný živý ani ukázkový zdroj letů zapnutý. Bez /api/health ne (jako dřív). */
   function cacheOnly(h = health) {
-    const ps = h && Array.isArray(h.providers) ? h.providers.filter(p => p.enabled && p.kind !== 'stays') : [];
+    const ps = h && Array.isArray(h.providers) ? h.providers.filter(p => p.enabled && p.kind !== 'stays' && p.kind !== 'ground') : [];
     return ps.length > 0 && ps.every(p => p.kind === 'cached');
   }
   /**
