@@ -15,6 +15,7 @@ vm.runInContext(read('public/js/recs.js'), ctx, { filename: 'recs.js' });
 const VIBES = vm.runInContext('VIBES', ctx);
 const R = ctx.window.Recs;
 const COUNTRIES = JSON.parse(read('data/countries.json'));
+const plain = (v) => JSON.parse(JSON.stringify(v)); // objekty z jiného vm kontextu
 const BY = Object.fromEntries(COUNTRIES.map((c) => [c.iso2, c]));
 const NOW = Date.parse('2026-10-23T10:00:00Z');
 const TODAY = '2026-10-23';
@@ -216,4 +217,32 @@ test('✈️ Najít lety v končícím měsíci (monthRange null): toast „… 
   assert.match(fn, /range = Recs\.monthRange\(m, fmtYMD\(new Date\(\)\)\)/);
   assert.match(fn, /if \(!range\) \{[^}]*toast\(`\$\{mn\[0\]\.toUpperCase\(\)\}\$\{mn\.slice\(1\)\} už končí – hledám nejbližší termíny`\)/);
   assert.match(fn, /Flights\.searchTo\(\[[^\]]+\], range \|\| \{\}\)/);
+});
+
+test('warmRows: „Kam za teplem“ – bez Česka, MZV pod 3, dál než 6 000 km a pod 20 °C; moře před pevninou; n', () => {
+  const C = [['CZ', 5], ['ES', 4], ['EG', 3], ['YE', 2], ['TH', 4], ['NO', 5], ['GR', 4], ['MT', 5], ['TN', 3]].map(([iso2, safety]) => ({ iso2, safety }));
+  const S = {
+    CZ: { city: 'Praha', iata: 'PRG', hi: 25, p: 50, km: 0 },
+    // Madrid chladný, Kanáry teplé → řádek je oblast u moře (teplota, letiště i vzdálenost odtud)
+    ES: { city: 'Madrid', iata: 'MAD', hi: 15, p: 40, km: 1770, sea: { name: 'Kanárské ostrovy (Tenerife)', rg: 'kanary', iata: 'TFS', hi: 24, hiPrev: 25, p: 30, km: 3300 } },
+    EG: { city: 'Káhira', iata: 'CAI', hi: 27, p: 1, km: 2600, sea: { name: 'Rudé moře', rg: 'egypt-more', iata: 'HRG', hi: 28, p: 0, km: 2900 } },
+    YE: { city: 'Saná', iata: 'SAH', hi: 30, p: 5, km: 4300 }, // MZV nedoporučuje
+    TH: { city: 'Bangkok', iata: 'BKK', hi: 32, p: 40, km: 8600 }, // příliš daleko
+    NO: { city: 'Oslo', iata: 'OSL', hi: 5, p: 60, km: 1000 }, // zima
+    GR: { city: 'Atény', iata: 'ATH', hi: 20, p: 50, km: 1550 }, // na hraně 20 °C – ještě ano
+    MT: { city: 'Malta', iata: 'MLA', hi: 20, km: 1650 }, // stejně teplo jako Atény – pořadí jako v countries; bez srážek null
+  };
+  const rows = plain(R.warmRows(C, S, 11));
+  assert.deepEqual(rows.map((r) => r.cc), ['EG', 'ES', 'GR', 'MT']);
+  assert.deepEqual(rows[1], { cc: 'ES', city: 'Kanárské ostrovy', iata: 'TFS', hi: 24, p: 30, km: 3300, flightMin: Math.round(3300 / 780 * 60 + 35) });
+  assert.deepEqual(rows[2], { cc: 'GR', city: 'Atény', iata: 'ATH', hi: 20, p: 50, km: 1550, flightMin: 154 });
+  assert.equal(rows[3].p, null);
+  assert.equal(R.warmRows(C, S, 11, 2).length, 2);
+  assert.deepEqual(plain(R.warmRows(C, null, 11)), [], 'bez dat o počasí nic');
+  // skutečná data: v lednu Kanáry a Rudé moře, Norsko ani Česko ne
+  const jan = plain(R.warmRows(COUNTRIES, seasonMonth(1).countries, 1, 30));
+  assert.ok(jan.length > 0 && jan.length <= 30);
+  assert.ok(jan.every((r) => r.cc !== 'CZ' && r.km <= 6000 && r.hi >= 20 && BY[r.cc].safety >= 3));
+  assert.ok(jan.some((r) => r.cc === 'ES' && r.iata !== 'MAD'), 'Španělsko jen jako oblast u moře');
+  for (let i = 1; i < jan.length; i++) assert.ok(jan[i - 1].hi >= jan[i].hi);
 });

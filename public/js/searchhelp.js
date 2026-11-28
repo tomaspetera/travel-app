@@ -1384,6 +1384,16 @@
       depAfter: dFrom < lw.start ? { date: dFrom, time: LW_DEP } : null,
     };
   }
+  /**
+   * Výběr měsíce v hledání (value 'YYYY-MM' nebo '' = kdykoliv) ke dni today → termín pro Flights.searchTo: stejný
+   * rozsah jako ✈️ Najít lety v Doporučení (Recs.monthRange, recFly) – { dateMode: 'flex', dFrom, dTo }. Prázdné, měsíc,
+   * ze kterého zbývá míň než 3 dny, i měsíc mimo nejbližší rok (monthRange by dal jiný rok) → {} (výchozí termín).
+   */
+  function heroWhen(value, today) {
+    const m = /^(\d{4})-(0[1-9]|1[0-2])$/.exec(String(value || ''));
+    const r = m && window.Recs ? window.Recs.monthRange(+m[2], today) : null;
+    return r && r.dTo.slice(0, 7) === value ? { dateMode: 'flex', dFrom: r.dFrom, dTo: r.dTo } : {};
+  }
   /** Prodloužený víkend, jehož termín (dFrom, dTo) formulář f ke dni today má → lw ze seznamu, nebo null (termín upravený). */
   function holidayOf(f, today) {
     return (f && holidayList(today).find(lw => { const h = holidayDates(lw, today); return f.dFrom === h.dFrom && f.dTo === h.dTo; })) || null;
@@ -2352,7 +2362,7 @@
     DAYPARTS, freshTime, dayPart, legMinutes, maxLayover, timeActive, timeFails, timeOk, fillLegs, fastPair, directHint, directNear, timeHidden, timeStats, timeChips, hm, multiPlan, multiWhy,
     REACH, reach, reachCtx, clockTxt, ve,
     radarQuery, radarStale, radarSame, radarDiff, radarEntry, radarOwnOk,
-    easter, czHolidays, longWeekend, longWeekends, radarPick, radarRes, radarRoute, placeGuess, isCached, liveKey, liveVerdict, livePick, holidayList, holidayDates, holidayOf, holidayHint, dmRange, dowList, dowBits, lwPrices, lwKeep,
+    easter, czHolidays, longWeekend, longWeekends, radarPick, radarRes, radarRoute, placeGuess, isCached, liveKey, liveVerdict, livePick, holidayList, holidayDates, heroWhen, holidayOf, holidayHint, dmRange, dowList, dowBits, lwPrices, lwKeep,
     leaveDays, leaveTxt, leaveWindows, spanCal, SPAN_DOW,
     lastPack, lastLoad, savedWhen, resultAge, shownAt, ageNote, recentAdd, viewedAdd, viewedPick, weekendHabit, recentForm, DRAFT_MAX_AGE, formSig, formKey, draftPack, draftLoad, dataAge, tripMinutes, fastKey, nightsTxt, gridModel, gridSummary, gridTrips, cellTrips, dayCal,
     partialHead, reusable, partialFail, keptNote, ideaClickOk, recentNotes, miniTwins, miniTimes,

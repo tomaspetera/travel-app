@@ -457,3 +457,18 @@ test('🔔 Otevřít u hlídání s proběhlým termínem: jen formulář k výb
   const fn = fl.slice(fl.indexOf('function openWatch(id)'), fl.indexOf('function setTarget('));
   assert.match(fn, /if \(Alerts\.isPast\(w\.form, today\(\)\)\) \{ expandForm\(\); toast\('Termín už proběhl – vyber nový a spusť hledání'\); return; \}\s*startSearch\(\);/);
 });
+
+test('radarRows: karty radaru podle ceny i s cestou nebo podle letenky, neúplné za úplnými, při shodě původní pořadí', () => {
+  const a = radarX({ label: 'A', czk: 2000, gc: 900, ac: 100 }); // i s cestou 3 000
+  const b = radarX({ label: 'B', czk: 2500, gc: 100, ac: 100 }); // 2 700
+  const c = radarX({ label: 'C', czk: 1000 }); // bez dopravy – jen dolní mez 1 000
+  const d = radarX({ label: 'D', czk: 2500, gc: 50, ac: 150 }); // 2 700 jako B
+  const rows = P.radarRows([a, b, c, d]);
+  assert.deepEqual(plain(rows.map((r) => [r.x.label, r.i, r.d.total, r.d.full])), [['B', 1, 2700, true], ['D', 3, 2700, true], ['A', 0, 3000, true], ['C', 2, 1000, false]]);
+  assert.deepEqual(plain(rows[0].d), plain(P.door({ kind: 'r', r: b })), 'stejný výpočet jako 📌 Porovnat');
+  assert.deepEqual(plain(P.radarRows([a, b, c, d], 'ticket').map((r) => r.x.label)), ['A', 'B', 'D', 'C'], 'letenka: B a D stejně → původní pořadí');
+  // neúplná i s levnější letenkou za úplnými; mezi sebou podle ceny
+  const e = radarX({ label: 'E', czk: 500, gc: 40 });
+  assert.deepEqual(plain(P.radarRows([c, e, a], 'ticket').map((r) => r.x.label)), ['A', 'E', 'C']);
+  assert.deepEqual(plain(P.radarRows(null)), []);
+});
