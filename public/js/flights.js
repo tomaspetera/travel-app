@@ -6123,8 +6123,9 @@
     const { from, radius, exclude, to, trip, len, nMin, nMax, dFrom, dTo, outDays, backDays, depAfter, dateMode, xOut, xBack, xFlex, legs, minTemp, maxPrice, ...rest } = singleTrip(f);
     return rest;
   }
-  // dFrom / dTo: odlet kdykoliv v rozmezí (Doporučení – měsíc, na který tip platí)
-  function searchTo(items, { xOut = '', xBack = '', dFrom = '', dTo = '' } = {}) {
+  // dFrom / dTo: odlet kdykoliv v rozmezí (Doporučení – měsíc, na který tip platí); k rozmezí volitelně noci, dny odletu
+  // a návratu a předvečer od 16:00 (nMin, nMax, outDays, backDays, depAfter – prodloužený víkend z SearchHelp.holidayDates)
+  function searchTo(items, { xOut = '', xBack = '', dFrom = '', dTo = '', ...more } = {}) {
     go('flights');
     // odkud jako minulé hledání, jinak domov radaru
     const o = S.form && S.form.from?.length ? { from: S.form.from, radius: S.form.radius ?? 200, exclude: S.form.exclude || [] }
@@ -6136,7 +6137,9 @@
     const ex = ymd(xOut) && xOut >= today() && xOut <= addDays(today(), 359)
       ? { dateMode: 'exact', xOut, xFlex: 0, ...(ymd(xBack) && xBack >= xOut && SearchHelp.diffDays(xOut, xBack) <= 45 ? { trip: 'return', xBack } : { trip: 'oneway' }) }
       : ymd(dFrom) && ymd(dTo) && dTo >= dFrom && dTo >= today() ? { dateMode: 'flex', dFrom: dFrom < today() ? today() : dFrom, dTo } : {};
-    const f = { ...defaultForm(), ...prefsOf(S.form), ...o, ...ex, to: items }; // odkud jako minulé hledání
+    // jen to, co volající poslal, a jen k rozmezí (bez něj by noci a dny víkendu zúžily výchozí termín)
+    const lw = ex.dateMode === 'flex' ? Object.fromEntries(['nMin', 'nMax', 'outDays', 'backDays', 'depAfter'].filter(k => more[k] !== undefined).map(k => [k, more[k]])) : {};
+    const f = { ...defaultForm(), ...prefsOf(S.form), ...o, ...ex, ...lw, to: items }; // odkud jako minulé hledání
     setForm(f);
     if (!f.from.length) { askFrom(); return; }
     startSearch();

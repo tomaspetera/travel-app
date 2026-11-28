@@ -145,3 +145,17 @@ test('leaveWindows: nejvíc volna kolem svátků za nejvýš N dní dovolené (i
     assert.deepEqual(plain(lv.days), plain(w.leave), w.start);
   }
 });
+
+test('longWeekends: rok 2027 podle skutečného kalendáře českých svátků (most v út a čt, svátky o víkendu a ve středu ne)', () => {
+  const lws = H.longWeekends('2027-01-01', 20, 364).map((x) => ({ start: x.start, end: x.end, name: x.name, bridge: x.bridge }));
+  assert.deepEqual(plain(lws), [
+    { start: '2027-01-01', end: '2027-01-03', name: 'Nový rok', bridge: null }, // pá
+    { start: '2027-03-26', end: '2027-03-29', name: 'Velký pátek', bridge: null }, // Velikonoce pá–po (neděle 28. 3.)
+    // 1. a 8. 5. jsou soboty – žádné volno navíc
+    { start: '2027-07-03', end: '2027-07-06', name: 'Cyril a Metoděj', bridge: null }, // po 5. a út 6. 7.
+    { start: '2027-09-25', end: '2027-09-28', name: 'Den české státnosti', bridge: '2027-09-27' }, // út, most v pondělí
+    { start: '2027-10-28', end: '2027-10-31', name: 'Vznik Československa', bridge: '2027-10-29' }, // čt, most v pátek
+    // 17. 11. je středa – bez dvou dnů dovolené nic; 1. 1. 2028 je sobota (31. 12. není svátek)
+    { start: '2027-12-24', end: '2027-12-26', name: 'Vánoce', bridge: null }, // pá–ne
+  ]);
+});

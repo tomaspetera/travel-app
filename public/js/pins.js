@@ -258,6 +258,18 @@
     const top = xs.find(x => x.exact), min = top ? top.d.total : null;
     return { rows: xs.map(x => ({ ...x, best: x === top, maybe: Boolean(top) && !x.exact && x.d.total < min, diff: top ? x.d.total - min : null })), skip };
   }
+  /**
+   * Karty radaru items v tabulce (webový vzhled na počítači): cena i s cestou (door jako 📌 Porovnat), pořadí by = 'trip'
+   * (podle total) nebo 'ticket' (podle letenky x.czk). Neúplné (!d.full – total je jen dolní mez) vždy za úplnými, ať se
+   * karta bez známé dopravy netváří levněji; při shodě původní pořadí (sort je stabilní).
+   * → [{ x (karta), i (index v items), d (door) }]
+   */
+  function radarRows(items, by = 'trip') {
+    const xs = (Array.isArray(items) ? items : []).map((x, i) => ({ x, i })).filter(r => obj(r.x));
+    for (const r of xs) r.d = door({ kind: 'r', r: r.x });
+    const key = r => (by === 'ticket' ? r.x.czk : r.d.total);
+    return xs.sort((a, b) => b.d.full - a.d.full || key(a) - key(b));
+  }
 
   /** Stáří ceny (SearchHelp.resultAge) + day = starší než 24 h, ago = „před 3 dny“; bez času null. */
   function age(at, now = Date.now()) { const a = window.SearchHelp.resultAge(at, now); return a ? { ...a, day: a.min >= OLD_MIN, ago: a.txt.slice(a.when.length + 2, -1) } : null; }
@@ -310,5 +322,5 @@
     return out.join('\n');
   }
 
-  window.Pins = { MAX, OLD_MIN, basis, sigTrip, sigRadar, rowKey, radarKey, fromRow, fromRadar, has, toggle, alive, clean, merge, refresh, age, price, dep, sorted, extras, door, rank, shareText };
+  window.Pins = { MAX, OLD_MIN, basis, sigTrip, sigRadar, rowKey, radarKey, fromRow, fromRadar, has, toggle, alive, clean, merge, refresh, age, price, dep, sorted, extras, door, rank, radarRows, shareText };
 })();

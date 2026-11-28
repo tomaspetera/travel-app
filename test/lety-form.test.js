@@ -195,3 +195,31 @@ test('hlídání při plném úložišti nehlásí „uloženo“ – změna se 
   }
   assert.match(body('setTarget'), /if \(!done\) \{ save\(\); renderNews\(\); return; \}[\s\S]*watchSave\(/);
 });
+
+test('Flights.searchTo: termín prodlouženého víkendu (noci, dny, předvečer) jde do formuláře; bez nich beze změny', () => {
+  const i = src.indexOf('  function searchTo(');
+  const fn = src.slice(i, src.indexOf('\n  }\n', i) + 4);
+  const run = (opts) => {
+    const got = [];
+    const searchTo = new Function('go', 'S', 'defaultForm', 'prefsOf', 'today', 'addDays', 'SearchHelp', 'setForm', 'askFrom', 'startSearch', `${fn} return searchTo;`)(
+      () => {}, { form: { from: [{ id: 'ap:PRG' }], radius: 100 } },
+      () => ({ from: [], trip: 'return', len: 'week', nMin: 5, nMax: 9, outDays: [], backDays: [], depAfter: null, dateMode: 'any' }),
+      () => ({ adults: 2 }), () => '2026-11-28', (d, n) => new Date(Date.parse(d + 'T12:00:00Z') + n * 864e5).toISOString().slice(0, 10),
+      { diffDays: (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 864e5) }, (f) => got.push(f), () => {}, () => {});
+    searchTo([{ id: 'country:IT' }], opts);
+    return got[0];
+  };
+  const to = [{ id: 'country:IT' }], base = { from: [{ id: 'ap:PRG' }], radius: 100, exclude: [], trip: 'return', len: 'week', adults: 2, to };
+  // Doporučení (rozsah měsíce) jako dřív: noci a dny z výchozího formuláře
+  assert.deepEqual(run({ dFrom: '2027-01-01', dTo: '2027-01-31' }), { ...base, nMin: 5, nMax: 9, outDays: [], backDays: [], depAfter: null, dateMode: 'flex', dFrom: '2027-01-01', dTo: '2027-01-31' });
+  // prodloužený víkend (SearchHelp.holidayDates): Velikonoce 2027
+  const h = { dFrom: '2027-03-25', dTo: '2027-03-26', nMin: 3, nMax: 4, outDays: [4, 5], backDays: [1], depAfter: { date: '2027-03-25', time: '16:00' } };
+  assert.deepEqual(run(h), { ...base, ...h, dateMode: 'flex' });
+  // jen část voleb: zbytek z výchozího formuláře
+  assert.deepEqual(run({ dFrom: '2027-03-25', dTo: '2027-03-26', nMin: 3 }), { ...base, nMin: 3, nMax: 9, outDays: [], backDays: [], depAfter: null, dateMode: 'flex', dFrom: '2027-03-25', dTo: '2027-03-26' });
+  // bez platného rozsahu (víkend už proběhl) noci a dny víkendu nezužují výchozí termín
+  assert.deepEqual(run({ ...h, dFrom: '2026-03-25', dTo: '2026-03-26' }), { ...base, nMin: 5, nMax: 9, outDays: [], backDays: [], depAfter: null, dateMode: 'any' });
+  // přesná data a nic jako dřív
+  assert.equal(run({ xOut: '2027-02-01', xBack: '2027-02-05', nMin: 1 }).nMin, 5);
+  assert.deepEqual(run(undefined), { ...base, nMin: 5, nMax: 9, outDays: [], backDays: [], depAfter: null, dateMode: 'any' });
+});

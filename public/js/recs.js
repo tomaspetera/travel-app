@@ -221,6 +221,31 @@
     return { list, hidden };
   }
 
+  /**
+   * Tabulka „Kam v <měsíci> za teplem“ (webový vzhled na počítači): země z countries (data/countries.json) s počasím
+   * season (api/climate?month=m → countries) bez Česka, bez zemí, kam MZV ČR nedoporučuje cestovat (bezpečnost pod 3),
+   * dál než 6 000 km (let přes ~8 h) a pod 20 °C přes den. Kde má země oblast u moře (sea – Kanáry u Španělska), počítá
+   * se s ní jako v rank (k moři se letí tam): teplota, srážky, vzdálenost i letiště. Od nejteplejší, nejvýš n;
+   * m (1–12) je měsíc, pro který season je (pro volajícího, výpočet ho nepotřebuje).
+   * → [{ cc, city, iata, hi (°C přes den), p (mm srážek | null), km (z Prahy), flightMin (odhad délky přímého letu) }]
+   */
+  function warmRows(countries, season, m, n = 8) {
+    if (!season) return [];
+    const rows = [];
+    for (const c of countries || []) {
+      if (!c || !ccOk(c.iso2) || c.iso2 === 'CZ' || !(c.safety >= 3)) continue;
+      const s = season[c.iso2];
+      const at = s && s.sea && Number.isFinite(s.sea.hi) ? s.sea : s;
+      if (!at || !Number.isFinite(at.hi) || !Number.isFinite(at.km) || at.km > 6000 || at.hi < 20) continue;
+      rows.push({
+        cc: c.iso2, city: at === s ? s.city : short(at.name), iata: at.iata, hi: at.hi, p: Number.isFinite(at.p) ? at.p : null, km: at.km,
+        // přímý let ~780 km/h + 35 min (vzlet a přistání) – stejný odhad jako rank.js (direct) a server/lib/ground.js flightMinOf
+        flightMin: Math.round(at.km / 780 * 60 + 35),
+      });
+    }
+    return rows.sort((a, b) => b.hi - a.hi).slice(0, n); // stabilní – při shodě pořadí jako v countries
+  }
+
   /** Věta pod nadpisem: co z tebe Doporučení vzalo v úvahu a co vynechalo (prázdné = nic). */
   function profileLine(prof, hidden, vibe) {
     const parts = [];
@@ -233,5 +258,5 @@
     return parts.join(' · ');
   }
 
-  window.Recs = { W, SEA_RG, POPULAR, defaultMonth, monthRange, profile, radarBest, seaWeather, rank, profileLine };
+  window.Recs = { W, SEA_RG, POPULAR, defaultMonth, monthRange, profile, radarBest, seaWeather, rank, warmRows, profileLine };
 })();

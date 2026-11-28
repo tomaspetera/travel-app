@@ -1532,3 +1532,20 @@ test('nightsAround: ± 2 noci kolem přesných dat, tam i zpět v jeden den = 0�
   assert.match(h, /SearchHelp\.nightsAround\(lf\.xOut, lf\.xBack\)/);
   assert.doesNotMatch(h, /Math\.max\(1,/);
 });
+
+test('heroWhen: měsíc z výběru v hledání → stejný termín jako ✈️ Najít lety v Doporučení (Recs.monthRange)', () => {
+  // recs.js je v index.html před searchhelp.js – tady ve stejném kontextu
+  const c = { window: {} };
+  vm.createContext(c);
+  for (const f of ['recs.js', 'searchhelp.js']) vm.runInContext(readFileSync(new URL(`../public/js/${f}`, import.meta.url), 'utf8'), c);
+  const W = (v, today) => plain(c.window.SearchHelp.heroWhen(v, today));
+  const today = '2026-11-28';
+  assert.deepEqual(W('', today), {});
+  assert.deepEqual(W('2027-01', today), { dateMode: 'flex', dFrom: '2027-01-01', dTo: '2027-01-31' });
+  assert.deepEqual(W('2026-12', '2026-12-10'), { dateMode: 'flex', dFrom: '2026-12-11', dTo: '2026-12-31' }, 'běžící měsíc od zítřka');
+  const r = c.window.Recs.monthRange(1, today);
+  assert.deepEqual(W('2027-01', today), { dateMode: 'flex', dFrom: r.dFrom, dTo: r.dTo });
+  // z listopadu zbývají 2 dny (monthRange null) – výchozí termín, ne listopad za rok
+  assert.deepEqual(W('2026-11', today), {});
+  for (const v of ['2027-11', '2025-12', '2027-13', '2027-1', 'leden', null, undefined]) assert.deepEqual(W(v, today), {}, String(v));
+});
