@@ -549,7 +549,7 @@ function comboAria(input, dd, name) {
 /* Přepínače (.seg – Tam i zpět / Jen tam, Flexibilně, Týden, Kdykoliv / Víkendy…, dny v týdnu, ± dny): vybraná
    možnost se pozná jen barvou (třída on, nastavují ji desítky míst ve všech modulech). Pro čtečku obrazovky stav
    aria-pressed podle třídy – jedno hlídání tříd a nově vykreslených přepínačů místo úprav u každého z nich. */
-const SEG_BTN = '.seg>button,.dow>button,#xFlex>button';
+const SEG_BTN = '.seg>button,.dow>button,#xFlex>button,.ex-cats>button';
 function segPressed(b) { const on = String(b.classList.contains('on')); if (b.getAttribute('aria-pressed') !== on) b.setAttribute('aria-pressed', on); }
 /* Název sekce v horní liště (Cesta, Země, Plánovač…) je pro čtečku nadpis stránky 1. úrovně – navigace po nadpisech
    začínala až nadpisy 2. úrovně v obsahu. Sekce s vlastním h1 ve fotce (Přehled, Lety, Objevuj bez místa) ho nemají
@@ -1595,7 +1595,7 @@ const SAFE_TXT = ['', 'MZV ČR varuje', 'jen nezbytné cesty', 'zvýšená opatr
 function destCard(c, score, why) {
   const months = c.months ? monthRanges(c.months) : '';
   return `<div class="card dest ${visited.has(c.iso2) ? 'visited' : ''}" data-iso="${c.iso2}" data-photo="${esc(c.capCs || c.cap || c.cs)}" style="--h:${ccHue(c.iso2)}">
-    ${score ? `<div class="score-pill">${score}</div>` : `<div class="vmark"><svg viewBox="0 0 24 24" width="13" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></div>`}
+    ${score ? `<div class="score-pill">${score}</div>` : `<div class="vmark"><svg viewBox="0 0 24 24" width="13" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg><span class="sr-only">navštíveno</span></div>`}
     <div class="flag">${flag(c.iso2)}</div>
     <div class="dest-panel"><div class="cname">${c.cs}</div><div class="ccont">${c.cont}${c.cap ? ' · ' + (c.capCs || c.cap) : ''}</div>
     <div class="cblurb">${c.blurb || 'Objev tuto zemi – počasí, ceny i odkazy najdeš uvnitř.'}</div>${why ? recWhy(why, 1) : ''}
@@ -1630,7 +1630,7 @@ function seasonOf(m, key, then) {
     s = SEASON[m] = { cb: {} };
     s.p = fetch('api/climate?month=' + m).then(r => (r.ok ? r.json() : null)).catch(() => null).then(j => {
       SEASON[m] = j && j.countries ? { data: j.countries } : { fail: Date.now() };
-      if (SEASON[m].data) Object.values(s.cb).forEach(fn => fn());
+      Object.values(s.cb).forEach(fn => fn()); // i po chybě – Doporučení řekne, že počítá jen se sezónou
     });
   }
   if (s.cb && key) s.cb[key] = then; // jedno překreslení na místo, i když se mezitím kreslilo víckrát
@@ -1677,7 +1677,10 @@ function renderRecs() {
   // vynechané (ať je vidět proč tu nějaká země není)
   const foot = [hidden.unsafe ? `Doporučení vynechává ${hidden.unsafe} ${hidden.unsafe === 1 ? 'zemi' : hidden.unsafe <= 4 ? 'země' : 'zemí'}, před kterými MZV ČR varuje nebo kam doporučuje jen nezbytné cesty.` : '',
     hidden.mute.length ? `🙈 Vynechané kvůli Nezajímá mě: ${hidden.mute.join(', ')} – seznam upravíš přes ⋯ u cíle ve výsledcích hledání.` : '',
-    season ? 'Teploty jsou dlouhodobý průměr denních maxim u letiště (ne předpověď); teplotu moře Letsi nezná.' : ''].filter(Boolean);
+    season ? 'Teploty jsou dlouhodobý průměr denních maxim u letiště (ne předpověď); teplotu moře Letsi nezná.' : '',
+    SEASON[m] && SEASON[m].fail ? (navigator.onLine === false ? 'Bez připojení – pořadí jen podle sezóny, teploty doplním po připojení.' : 'Teploty se teď nenačetly – pořadí jen podle sezóny.') : ''].filter(Boolean);
+  // po připojení teploty znovu (jinak by méně přesné pořadí zůstalo až do další změny filtru)
+  if (SEASON[m] && SEASON[m].fail && window.Pwa && Pwa.whenOnline) Pwa.whenOnline('recs', () => { SEASON[m] = null; if (activeView === 'recommend') renderRecs(); });
   $('#recFoot').innerHTML = foot.map(x => `<div>${esc(x)}</div>`).join('');
   $$('#recGrid [data-fly]').forEach(b => { b.onclick = e => { e.stopPropagation(); recFly(list[+b.dataset.fly], m); }; });
   bindDest('#recGrid');
@@ -1731,7 +1734,7 @@ function modalOpen(html, o = {}) {
   const was = $('#modalBg').classList.contains('show');
   // tlačítko, které okno otevřelo – po zavření na něj vrátit fokus; okno z okna přes modalClose() a hned modalOpen()
   // (Info o zemi z okna cesty) má fokus ještě na tlačítku zavřeného okna, které zmizí – vrátit na původní tlačítko
-  if (!was && !$('#modal').contains(document.activeElement)) { modalKb.ret = document.activeElement; modalKb.sel = kbSel(modalKb.ret); }
+  if (!was && !$('#modal').contains(document.activeElement)) { modalKb.ret = document.activeElement; modalKb.sel = kbSel(modalKb.ret); modalKb.box = kbSel(modalKb.ret && modalKb.ret.parentElement && modalKb.ret.parentElement.closest('[id]')); }
   // nové okno hned po zavření jiného (Další → ✨ Novinky, 💾 Záloha…): MutationObserver uvidí obě změny třídy najednou
   // („pořád otevřené“) a fokus by nepřesunul – čtečka by nové okno neohlásila
   if (!was) modalKb.fresh = true;
@@ -1797,13 +1800,25 @@ new MutationObserver(() => {
   modalKb.on = on; modalKb.fresh = false;
   const a = document.activeElement;
   if (on) { if (!m.contains(a)) { m.tabIndex = -1; m.focus({ preventScroll: true }); } return; }
-  const r0 = modalKb.ret, sel = modalKb.sel; modalKb.ret = null; modalKb.sel = '';
-  const r = r0 && r0.isConnected ? r0 : sel ? $$(sel).find(x => !m.contains(x) && x.getClientRects().length) : null;
+  const r0 = modalKb.ret, sel = modalKb.sel, box = modalKb.box; modalKb.ret = null; modalKb.sel = modalKb.box = '';
+  const r = (r0 && r0.isConnected ? r0 : sel ? $$(sel).find(x => !m.contains(x) && x.getClientRects().length) : null) || kbNear(box);
   // telefon: do textového pole fokus nevracet – vyskočila by klávesnice, kterou nikdo nechtěl
   if (r && modalKb.touch && modalKb.touch.matches && /^(INPUT|TEXTAREA|SELECT)$/.test(r.tagName)) return;
   // fokus někam přesunula sama akce okna (náhled cíle vrací na 🔎) → nechat
   if ((!a || a === document.body || $('#modalBg').contains(a)) && r && r.getClientRects().length) r.focus({ preventScroll: true });
 }).observe($('#modalBg'), { attributes: true, attributeFilter: ['class'] });
+/**
+ * Tlačítko okna po zavření zmizelo (odebraná navštívená země, karta mimo filtr Navštívené): fokus by spadl na začátek
+ * stránky – místo toho první viditelný prvek v jeho kontejneru (box = selektor), jinak kontejner sám.
+ */
+function kbNear(box) {
+  const b = box && $(box);
+  if (!b || !b.getClientRects().length) return null;
+  const f = $$('a[href],button:not([disabled]),input:not([disabled]):not([type=hidden]),select,textarea,[tabindex]:not([tabindex="-1"])', b).find(x => x.getClientRects().length);
+  if (f) return f;
+  b.tabIndex = -1;
+  return b;
+}
 document.addEventListener('keydown', e => {
   if (e.key !== 'Tab' || e.defaultPrevented || !$('#modalBg').classList.contains('show')) return;
   const m = $('#modal'), a = document.activeElement;

@@ -172,7 +172,7 @@ test('přepínače (.seg, dny v týdnu, ± dny): vybraná možnost i pro čtečk
   const b1 = btn(true, null), b2 = btn(false, 'true');
   ctx.segPressed(b1); ctx.segPressed(b2);
   assert.equal(b1.a['aria-pressed'], 'true'); assert.equal(b2.a['aria-pressed'], 'false');
-  assert.match(appJs, /const SEG_BTN = '\.seg>button,\.dow>button,#xFlex>button';/);
+  assert.match(appJs, /const SEG_BTN = '\.seg>button,\.dow>button,#xFlex>button,\.ex-cats>button';/);
   assert.match(appJs, /\}\)\.observe\(document\.body, \{ subtree: true, childList: true, attributes: true, attributeFilter: \['class'\] \}\);\n\$\$\(SEG_BTN\)\.forEach\(segPressed\);/);
   // skupiny přepínačů ve formuláři mají jméno
   for (const id of ['minTemp', 'tripType', 'dateMode', 'xFlex', 'lenPreset', 'bags', 'cVisited', 'outDays', 'backDays']) assert.match(html, new RegExp(`id="${id}" role="group" aria-label="[^"]+"`), id);

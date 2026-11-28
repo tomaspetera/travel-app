@@ -186,10 +186,11 @@ test('klávesnice: otevřené okno dostane fokus, Tab v něm koluje a po zavřen
   assert.doesNotMatch(appJs, /modalKb\.mq/);
   // okno z okna přes modalClose() + modalOpen() (Info o zemi z okna cesty): fokus je na tlačítku zavřeného okna, které
   // zmizí – zůstane původní tlačítko
-  assert.match(appJs, /if \(!was && !\$\('#modal'\)\.contains\(document\.activeElement\)\) \{ modalKb\.ret = document\.activeElement; modalKb\.sel = kbSel\(modalKb\.ret\); \}/);
+  assert.match(appJs, /if \(!was && !\$\('#modal'\)\.contains\(document\.activeElement\)\) \{ modalKb\.ret = document\.activeElement; modalKb\.sel = kbSel\(modalKb\.ret\); modalKb\.box = kbSel\([^\n]*\); \}/);
   assert.match(appJs, /if \(on\) \{ if \(!m\.contains\(a\)\) \{ m\.tabIndex = -1; m\.focus\(\{ preventScroll: true \}\); \} return; \}/);
   // tlačítko překreslené, zatímco bylo okno otevřené (karta cesty v Plánovači po úpravě v okně): stejné id / data-*
-  assert.match(appJs, /const r = r0 && r0\.isConnected \? r0 : sel \? \$\$\(sel\)\.find\(x => !m\.contains\(x\) && x\.getClientRects\(\)\.length\) : null;/);
+  // a když zmizelo úplně (odebraná navštívená země), náhradní cíl v jeho kontejneru (kbNear, test/final-objevuj.test.js)
+  assert.match(appJs, /const r = \(r0 && r0\.isConnected \? r0 : sel \? \$\$\(sel\)\.find\(x => !m\.contains\(x\) && x\.getClientRects\(\)\.length\) : null\) \|\| kbNear\(box\);/);
   assert.match(appJs, /r\.focus\(\{ preventScroll: true \}\)/);
   assert.match(appJs, /if \(e\.key !== 'Tab' \|\| e\.defaultPrevented \|\| !\$\('#modalBg'\)\.classList\.contains\('show'\)\) return;/);
   assert.match(readFileSync(new URL('../public/css/atlas.css', import.meta.url), 'utf8'), /#modal:focus\{outline:none\}/);

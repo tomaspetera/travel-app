@@ -233,7 +233,7 @@ test('countryBack: přehled země zpátky bez nového dotazu, jen dokud je otev�
   assert.equal(X.radius, T.COUNTRY);
   assert.equal(JSON.parse(ls.m[T.UI_LS]).radius, T.COUNTRY);
   // 🔎 Prozkoumat v přehledu země krok přidá
-  assert.match(src('places.js'), /histSub\(\(\) => \(typeof activeView === 'undefined' \|\| activeView === 'explore'\) && countryBack\(opened, p, c\)\)/);
+  assert.match(src('places.js'), /histSub\(\(\) => \(typeof activeView === 'undefined' \|\| activeView === 'explore'\) && countryBack\(opened, p, c, y\)\)/);
 });
 
 // --- Předstartovní kontrola Objevuj: země z věty, „Emiráty“, „Chorvatsko u moře“, fokus po ✕ a karty z klávesnice ---
