@@ -1424,6 +1424,34 @@
     const r = m && window.Recs ? window.Recs.monthRange(+m[2], today) : null;
     return r && r.dTo.slice(0, 7) === value ? { dateMode: 'flex', dFrom: r.dFrom, dTo: r.dTo } : {};
   }
+  /**
+   * Odkaz /#hledat=[ODKUD]-[KAM][-KDY] (budoucí veřejné stránky zemí a měsíců) ke dni today → { from, to, dates } | null.
+   * from = IATA nebo '' (odkud z minulého hledání / domova), to = IATA, ISO2 země nebo '' (Kamkoliv), dates = volby
+   * pro Flights.searchTo: přesné { xOut[, xBack] }, měsíc MM → { dFrom, dTo } (nejbližší takový, Recs.monthRange),
+   * nebo {}. Gramatika striktní (jen velká písmena a číslice) – cokoli jiného → null. Termín mimo meze serveru se
+   * zahodí jako v searchTo: odlet ode dneška nejvýš +359 dní, návrat nejvýš 45 nocí (jinak jen tam).
+   * Odkaz jen vyplní formulář – hledání (drahé /api/search) z něj nikdy nespustí ani robot, který spouští JS.
+   */
+  function hledatFromHash(hash, today) {
+    const m = /^#hledat=([A-Z]{3})?-([A-Z]{2,3})?(?:-(\d{2}|\d{4}-\d{2}-\d{2}(?:-\d{4}-\d{2}-\d{2})?))?$/.exec(String(hash || ''));
+    if (!m) return null;
+    // ne 2027-02-30 ani 2027-13-01 (neplatné datum → NaN, toISOString by vyhodil chybu)
+    const real = d => /^\d{4}-\d{2}-\d{2}$/.test(d) && Number.isFinite(ms(d)) && new Date(ms(d)).toISOString().slice(0, 10) === d;
+    const w = m[3] || '';
+    let dates = {};
+    if (w.length === 2) {
+      const mm = +w;
+      if (mm < 1 || mm > 12) return null;
+      const r = window.Recs ? window.Recs.monthRange(mm, today) : null; // z měsíce zbývají < 3 dny → výchozí termín
+      if (r) dates = { dFrom: r.dFrom, dTo: r.dTo };
+    } else if (w) {
+      const x = w.slice(0, 10), y = w.slice(11);
+      if (!real(x) || (y && !real(y))) return null;
+      // (359: server v UTC má po půlnoci našeho času ještě včerejšek – viz searchTo)
+      if (x >= today && x <= addDays(today, 359)) dates = y && y >= x && diffDays(x, y) <= 45 ? { xOut: x, xBack: y } : { xOut: x };
+    }
+    return { from: m[1] || '', to: m[2] || '', dates };
+  }
   /** Prodloužený víkend, jehož termín (dFrom, dTo) formulář f ke dni today má → lw ze seznamu, nebo null (termín upravený). */
   function holidayOf(f, today) {
     return (f && holidayList(today).find(lw => { const h = holidayDates(lw, today); return f.dFrom === h.dFrom && f.dTo === h.dTo; })) || null;
@@ -2392,7 +2420,7 @@
     DAYPARTS, freshTime, dayPart, legMinutes, maxLayover, timeActive, timeFails, timeOk, fillLegs, fastPair, directHint, directNear, timeHidden, timeStats, timeChips, hm, multiPlan, multiWhy,
     REACH, reach, reachCtx, clockTxt, ve,
     radarQuery, radarStale, radarSame, radarDiff, radarEntry, radarOwnOk,
-    easter, czHolidays, longWeekend, longWeekends, radarPick, radarRes, radarFacts, radarFoundAt, radarRoute, placeGuess, isCached, liveKey, liveVerdict, livePick, holidayList, holidayDates, heroWhen, holidayOf, holidayHint, dmRange, dowList, dowBits, lwPrices, lwKeep,
+    easter, czHolidays, longWeekend, longWeekends, radarPick, radarRes, radarFacts, radarFoundAt, radarRoute, placeGuess, isCached, liveKey, liveVerdict, livePick, holidayList, holidayDates, heroWhen, hledatFromHash, holidayOf, holidayHint, dmRange, dowList, dowBits, lwPrices, lwKeep,
     leaveDays, leaveTxt, leaveWindows, spanCal, SPAN_DOW,
     lastPack, lastLoad, savedWhen, resultAge, shownAt, ageNote, recentAdd, viewedAdd, viewedPick, weekendHabit, recentForm, DRAFT_MAX_AGE, formSig, formKey, draftPack, draftLoad, dataAge, tripMinutes, fastKey, nightsTxt, gridModel, gridSummary, gridTrips, cellTrips, dayCal,
     partialHead, reusable, partialFail, keptNote, ideaClickOk, recentNotes, miniTwins, miniTimes,
