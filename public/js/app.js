@@ -398,8 +398,9 @@ function histPop() {
     if (moved) tripEntry(hist.trail.length > 0); else histBack();
     return;
   }
-  // Zpět z kroku uvnitř sekce (histSub): sekce se vrátí sama, jinak o krok dál
-  if (hist.sub && !(st && st.atlasS)) {
+  // Zpět z kroku uvnitř sekce (histSub): sekce se vrátí sama, jinak o krok dál. Jen když Zpět krok sekce opravdu
+  // opustilo (pod něj) – zavření náhledu cíle v Letech nad ním by jinak spotřebovalo krok navíc (Zpět naprázdno).
+  if (hist.sub && !(st && st.atlasS) && histDepth(st) < hist.subAt) {
     const back = hist.sub;
     hist.sub = null;
     if (!back()) histBack();

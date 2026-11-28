@@ -332,6 +332,9 @@ test('outageOf: Wizz Air po 429 (vlastní blokace bez ctx) = blocked s odpočtem
   assert.equal(outageOf({ state: 'error' }, { isBlocked: () => false }).outage, 'down');
   assert.equal(outageOf({ state: 'done' }, wizz).outage, null, 'prošlo – žádný výpadek');
   assert.equal(outageOf({ state: 'error' }, {}).outage, 'down');
+  // Wizz Air z paměti tras: částečný výsledek, ale zdroj dál blokuje – panel Zdroje cen ho nesmí brát jako obnovený
+  assert.deepEqual([outageOf({ state: 'partial' }, wizz).outage, outageOf({ state: 'partial' }, wizz).blocked], ['partial', true]);
+  assert.equal(outageOf({ state: 'done' }, { isBlocked: () => false }).blocked, false);
 });
 
 test('resolveOrigins: z okolí letiště, odkud se opravdu létá (cestující z Wikidat), ne podle typu z OurAirports', async () => {

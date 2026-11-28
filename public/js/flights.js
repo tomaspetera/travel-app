@@ -137,7 +137,8 @@
   // Stav serveru se po startu znovu nenačítá: zdroj vynechaný po výpadku (blocked), od kterého hledání vrátilo ceny, už jede.
   // Mění objekty v health.providers – PROV na ně ukazuje (useHealth). true = je co překreslit.
   function srcHeal(h, provs) {
-    const back = (h && Array.isArray(h.providers) ? h.providers : []).filter(p => p.blocked && (provs || []).some(r => r.id === p.id && !SearchHelp.allDown([r])));
+    // obnovený jen zdroj, který odpověděl a teď neblokuje – Wizz Air z paměti tras (outage 'partial', blocked) dál blokuje
+    const back = (h && Array.isArray(h.providers) ? h.providers : []).filter(p => p.blocked && (provs || []).some(r => r.id === p.id && !r.blocked && !SearchHelp.allDown([r])));
     for (const p of back) p.blocked = false;
     return back.length > 0;
   }

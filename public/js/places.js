@@ -2041,7 +2041,8 @@
       openPlace({ lat: x.lat, lon: x.lon, label: x.name, cc: d.cc || p.cc || '', country: name, ...(x.group === 'city' ? {} : { poi: true }) });
       // Zpět telefonu (krok historie v app.js) vrátí přehled země, ne Přehled aplikace
       const opened = ex.place;
-      if (typeof histSub === 'function') histSub(() => countryBack(opened, p, c));
+      // jen v Objevuj: krok mohl zůstat pod jinou sekcí (počítač: panel Cesty → Lety → Objevuj), jinak by Zpět „nic neudělal“
+      if (typeof histSub === 'function') histSub(() => (typeof activeView === 'undefined' || activeView === 'explore') && countryBack(opened, p, c));
       window.scrollTo({ top: 0, behavior: 'smooth' });
     };
     $$('[data-cgo]', body).forEach(b => b.onclick = e => { e.stopPropagation(); const x = all.find(i => i.id === b.dataset.cgo); if (x) go(x); });

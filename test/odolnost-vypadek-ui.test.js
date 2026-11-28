@@ -213,6 +213,10 @@ test('Zdroje cen (počítač) po obnově zdroje: hledání s cenami zruší „t
   assert.equal(tp.blocked, true);
   assert.equal(f.srcHeal(h, [TP({ state: 'partial', error: '', outage: 'partial' })]), true, 'část dotazů prošla – zdroj jede');
   assert.equal(PROV.travelpayouts.blocked, false);
+  tp.blocked = true; // Wizz Air z paměti tras: část výsledků, ale zdroj dál blokuje (server: blocked) – zůstane „teď nejde“
+  assert.equal(f.srcHeal(h, [TP({ state: 'partial', error: '429 – ceny jen z paměti', outage: 'partial', blocked: true })]), false, 'blokuje dál');
+  assert.equal(tp.blocked, true);
+  tp.blocked = false;
   assert.equal(f.srcLine(h), 'Ceny orientačně · 1 zdroj');
   assert.equal(f.srcHeal(h, [{ id: 'travelpayouts', state: 'done' }]), false, 'nic k překreslení');
   assert.equal(f.srcHeal(null, [{ id: 'travelpayouts', state: 'done' }]), false, 'bez /api/health');

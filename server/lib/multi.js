@@ -217,6 +217,7 @@ export function mergeStatus(per) {
       outage,
       retryable: Boolean(outage),
       retryAfter: Math.max(0, ...xs.map((x) => x.s.retryAfter || 0)),
+      blocked: xs.some((x) => x.s.blocked), // zdroj teď blokuje (srcHeal ho nesmí brát jako obnovený)
     };
   });
 }

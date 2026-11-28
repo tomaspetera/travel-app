@@ -282,6 +282,8 @@ export function outageOf(st, p, ctx) {
     outage,
     retryable: Boolean(outage),
     retryAfter: outage === 'blocked' && p?.retryAfter ? p.retryAfter() : 0,
+    // zdroj teď blokuje i s částečným výsledkem (Wizz Air z paměti tras) – panel Zdroje cen ho nesmí brát jako obnovený
+    blocked: Boolean(p?.isBlocked?.()),
   };
 }
 

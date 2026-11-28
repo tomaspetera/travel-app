@@ -165,6 +165,10 @@ test('pairsPerLeg, runLimited a mergeStatus', async () => {
   assert.equal(m[0].error, '2. let: HTTP 503');
   const all = mergeStatus([[st('kiwi', 'error', { outage: 'down' })], [st('kiwi', 'error', { outage: 'blocked' })]]);
   assert.deepEqual([all[0].state, all[0].outage], ['error', 'blocked']);
+  assert.equal(m[0].blocked, false);
+  // Wizz Air z paměti tras v některém úseku: zdroj dál blokuje – panel Zdroje cen ho nesmí brát jako obnovený
+  const mem = mergeStatus([[st('wizzair', 'partial', { outage: 'partial', blocked: true })], [st('wizzair', 'done')]]);
+  assert.equal(mem[0].blocked, true);
 });
 
 /* ---------- hledání úseků se zástupnými zdroji ---------- */
