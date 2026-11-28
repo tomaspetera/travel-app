@@ -198,7 +198,9 @@ test('hlídání při plném úložišti nehlásí „uloženo“ – změna se 
 
 test('Flights.searchTo: termín prodlouženého víkendu (noci, dny, předvečer) jde do formuláře; bez nich beze změny', () => {
   const i = src.indexOf('  function searchTo(');
-  const fn = src.slice(i, src.indexOf('\n  }\n', i) + 4);
+  // searchTo a za ním formTo (formulář do cíle, sdílí ho Flights.prefill)
+  const j = src.indexOf('  function formTo(', i);
+  const fn = src.slice(i, src.indexOf('\n  }\n', j) + 4);
   const run = (opts) => {
     const got = [];
     const searchTo = new Function('go', 'S', 'defaultForm', 'prefsOf', 'today', 'addDays', 'SearchHelp', 'setForm', 'askFrom', 'startSearch', `${fn} return searchTo;`)(
