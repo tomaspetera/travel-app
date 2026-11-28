@@ -1,0 +1,8 @@
+{
+  "note": "Obsahové stránky webu (server/lib/obsah.js): které země mají stránku /zeme/<slug> a jediný zdroj pro směrování, rozcestník i sitemap. do = země ve 2. pádě („Kdy letět do Portugalska“), letiste = letiště stránky v tomto pořadí (graf podnebí, tabulka letišť; každé musí mít podnebí a cestu do centra v tabulce data/arrival.json, ne jen odhad nebo přístup), slug = jen když se adresa nemá brát z českého názvu. checked = kdy byl seznam naposledy prověřen, safetyChecked = k jakému dni odpovídá bezpečnost v data/countries.json (MZV ČR, README → Omezení).",
+  "checked": "2026-11-28",
+  "safetyChecked": "2026-10-05",
+  "zeme": {
+    "PT": { "do": "Portugalska", "letiste": ["LIS", "OPO", "FAO", "FNC"] }
+  }
+}

@@ -1,0 +1,506 @@
+/* Letsi – sdílené styly obsahových stránek serveru (/zeme/…, server/lib/obsah.js). Samostatné dokumenty, ne aplikace:
+   pravidlo o desktop CSS z CLAUDE.md platí pro public/css/, tady je jeden soubor pro telefon i počítač.
+   Základ = komponenty schváleného návrhu (web-navrh v4, jazyk.md) beze změny hodnot; pod nimi pravidla stránky země,
+   ikona „i“ u autora fotky a opravy, které maketa neměla (graf pro 1–4 letiště a horké země, odkaz místo formuláře
+   hledání, Přeskočit na obsah, úzký telefon). Písma z vlastního serveru (stejné soubory jako aplikace, sdílí mezipaměť).
+   Pořadí: tokeny → základ → hlavička → pás (otevírák) → pruh s cenou / hledání → oddíly → podnebí →
+   cesta → dobré vědět → délka cesty → tabulky → otázky a další trasy → patička → užší počítač → telefon. */
+
+@font-face{font-family:Onest;font-weight:400;font-display:swap;src:url(/vendor/fonts/letsi/onest-400.woff2) format("woff2")}
+@font-face{font-family:Onest;font-weight:500;font-display:swap;src:url(/vendor/fonts/letsi/onest-500.woff2) format("woff2")}
+@font-face{font-family:Onest;font-weight:600;font-display:swap;src:url(/vendor/fonts/letsi/onest-600.woff2) format("woff2")}
+@font-face{font-family:Onest;font-weight:700 900;font-display:swap;src:url(/vendor/fonts/letsi/onest-700.woff2) format("woff2")}
+@font-face{font-family:Letsi;font-weight:600;font-display:swap;src:url(/vendor/fonts/letsi/unbounded-600.woff2) format("woff2")}
+@font-face{font-family:Flags;font-display:swap;src:url(/vendor/flags/TwemojiCountryFlags.woff2) format("woff2")}
+
+/* === tokeny: stejné jako schválený úvod, nic navíc === */
+:root{--vapno:#F3F4F0;--noc:#14161F;--pist:#D6DE82;--ton:#C6CF6E;--pena:#EDEFD6;--olive:#474F22;
+  --line:#DFE2DA;--line2:#C9CDC2;--muted:#585D56;--nocmut:#A6ACB6;--noc2:#2A2E3A;--hover:#F7F8F1;
+  --t:Onest,system-ui,sans-serif;--h:Letsi,Onest,sans-serif;
+  --gut:32px;--sec:104px;--secb:72px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--vapno);color:var(--noc);font:16px/1.55 var(--t);-webkit-font-smoothing:antialiased}
+img{display:block;max-width:100%}
+a{color:inherit;text-underline-offset:3px;text-decoration-thickness:1px}
+.wrap{max-width:1248px;margin:0 auto;padding:0 var(--gut)}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap}
+.ico{width:20px;height:20px;flex:none;vertical-align:-4px}
+.flag{font-family:Flags;font-size:22px;line-height:1}
+.num{font-variant-numeric:tabular-nums}
+h1,h2,h3{font-family:var(--h);font-weight:600;letter-spacing:-.03em;line-height:1.12}
+/* kapitálky jen u popisků polí (hledání, pruh s cenou), jako v úvodu */
+.lbl{display:block;font-size:11.5px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+.go{font-weight:600;font-size:15px;text-decoration:underline;white-space:nowrap}
+.src{font-size:13.5px;color:var(--muted);margin-top:18px}
+.btn{display:inline-flex;gap:10px;align-items:center;justify-content:center;background:var(--noc);color:var(--vapno);border:0;border-radius:14px;font:600 16px var(--t);padding:0 22px;height:52px;text-decoration:none;white-space:nowrap;cursor:pointer}
+.btn:hover{background:var(--noc2)}
+.pill{display:inline-flex;gap:8px;align-items:center;min-height:40px;border:1px solid var(--line2);border-radius:999px;padding:0 14px;background:#fff;text-decoration:none;white-space:nowrap}
+.pill:hover{border-color:var(--noc)}
+/* fokus z klávesnice vidět všude: Noc na světlém a na Pistácii, Vápno na tmavém */
+:is(a,button,summary,label):focus-visible{outline:2.5px solid var(--noc);outline-offset:3px}
+:is(.noc,footer) :is(a,button,summary):focus-visible{outline-color:var(--vapno)}
+
+/* === hlavička: 1:1 se schváleným úvodem (žádné černé tlačítko) === */
+.top{border-bottom:1px solid var(--line)}
+.top .wrap{display:flex;align-items:center;gap:44px;height:68px}
+.top .logo img{height:25px;width:auto;display:block}
+.top nav{display:flex;gap:30px;font-weight:500;font-size:15px;align-self:stretch}
+.top nav a{text-decoration:none;display:flex;align-items:center;border-bottom:2px solid transparent;margin-bottom:-1px}
+.top nav a.on{border-color:var(--noc)}
+.top .right{margin-left:auto;display:flex;gap:10px;align-items:center;font-size:14px;font-weight:500}
+.top .tel{display:none}
+
+/* === okénko: tvar okna ze znaku Letsi, vždy na výšku (0,64), jediný tvar fotky === */
+.okf{display:block;flex:none;overflow:hidden;border-radius:46% / 29.4%;background:var(--pena);outline:1.5px solid var(--noc);outline-offset:3px}
+.okf img{width:100%;height:100%;object-fit:cover}
+.okf.xl{width:116px;height:181px}
+.okf.s{width:52px;height:81px;outline-width:1px;outline-offset:2px}
+
+/* === pás: jediná Pistácie na stránce = otázka stránky. Geometrie úvodu: velký nadpis vlevo,
+   vpravo nad linkou to důležité (tady fakta jako čísla), pod tím jeden bílý pruh s černým tlačítkem === */
+.band{background:var(--pist);padding:22px 0 30px}
+.crumbs{font-size:14px;color:var(--olive);display:flex;gap:8px;flex-wrap:wrap}
+.crumbs a{text-decoration:none}.crumbs a:hover{text-decoration:underline}
+.rh{display:flex;align-items:flex-end;justify-content:space-between;gap:48px;margin-top:26px}
+.rt{display:flex;align-items:flex-end;gap:26px;min-width:0}
+.rt h1{font-size:94px;line-height:.96;letter-spacing:-.045em}
+.rt h1.m{font-size:76px}  /* cíl 10–12 znaků */
+.rt h1.s{font-size:62px}  /* cíl delší než 12 znaků */
+.rt h1 .ar{display:inline-block;margin-left:.16em}  /* mezera uvnitř inline-blocku se ztratí, odstup dělá jen margin */
+.rt figure{position:relative;flex:none;margin-bottom:6px}
+/* fakta: skutečná čísla jako typografie, ne věta v šedém řádku */
+.fk{width:440px;flex:none;display:grid;grid-template-columns:1fr 1fr;column-gap:32px;margin-bottom:2px}
+.fk>div{display:flex;flex-direction:column-reverse;justify-content:flex-end;border-top:1.5px solid var(--noc);padding:10px 0 14px}
+.fk dd{font:600 26px/1.1 var(--h);letter-spacing:-.035em;white-space:nowrap}
+.fk dt{font-size:14px;line-height:1.35;color:var(--olive);margin-top:5px}
+
+/* pruh s cenou = komponenta hledání z úvodu: bílá, linka Noc, buňky, černé tlačítko vpravo */
+.pbar,.band .search{margin-top:48px}
+.pbar{display:grid;grid-template-columns:1.5fr 1fr 1fr 1.15fr auto;background:#fff;border-radius:22px;border:1.5px solid var(--noc)}
+.pbar .c{padding:15px 22px;border-right:1px solid var(--line);min-width:0}
+.pbar .c:nth-child(4){border-right:0}
+.pbar .v{display:block;font-size:17.5px;font-weight:600;margin-top:2px;white-space:nowrap}
+.pbar .s{display:block;font-size:13px;color:var(--muted);white-space:nowrap}
+.pbar .cena{display:flex;gap:16px;align-items:center;padding-left:20px}
+.pbar .cena .oci{width:50px;flex:none}
+.pbar .cena .v{font:600 31px/1.05 var(--h);letter-spacing:-.035em;margin-top:3px}
+.pbar .cena .s{white-space:normal;line-height:1.35}
+.pbar .cena .s span{white-space:nowrap}  /* „vč. poplatků a daní“ se nikdy neláme uprostřed */
+.pbar .b,.search .b{padding:9px}
+.pbar .b .btn,.search .b .btn{height:100%;min-height:62px;padding:0 30px;font-size:17px;border-radius:15px}
+/* bez ceny: stejné místo, hledání z úvodu s vyplněným cílem */
+.search{display:grid;grid-template-columns:1.3fr 1.1fr 1fr 1fr auto;background:#fff;border-radius:22px;border:1.5px solid var(--noc)}
+.search .f{display:block;padding:15px 22px;border-right:1px solid var(--line);min-width:0;cursor:pointer}
+.search .f:first-child{border-radius:20px 0 0 20px}
+.search .f:hover,.search .f:focus-within{background:var(--hover)}
+.search .f:focus-visible{outline-offset:-4px}
+.search .f:nth-child(4){border-right:0}
+.search .f>span{display:block}
+.search .v{font-size:17.5px;font-weight:600;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.search .s{font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stamp{display:flex;gap:8px;align-items:flex-start;margin-top:14px;font-size:14px;color:var(--olive);max-width:960px}
+.stamp .ico{width:17px;height:17px;margin-top:2px}
+/* oči ze znaku: nanejvýš jednou na stránce, jen kde Letsi mluví o tom, co viděl */
+.oci .okno{fill:var(--vapno)}.oci .zor{fill:var(--noc)}
+.oci .hl{transform:translate(5px,3px)}.oci .zor{transform:translate(10px,11px)}
+.nema{display:flex;gap:14px;align-items:center;margin-top:16px;font-size:14.5px;color:var(--olive);max-width:760px}
+.nema b{color:var(--noc);font-weight:600}
+.nema .oci{width:40px;flex:none}
+.nema .oci .hl{transform:translate(6px,-1px)}.nema .oci .zor{transform:translate(11px,-9px)}
+
+/* === oddíly. Úroveň A (data): malá otázka, velká odpověď. Úroveň B (příručka): prostý nadpis, menší mezera === */
+.sec{padding-top:var(--sec)}
+.sec.b{padding-top:var(--secb)}
+.band+.sec{padding-top:80px}
+.op{border-top:1.5px solid var(--noc);padding-top:14px;display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:14px 64px;align-items:end;margin-bottom:40px}
+.op h2{grid-column:1/-1;font:600 15px/1.3 var(--t);letter-spacing:0}
+.op .odp{font:600 32px/1.16 var(--h);letter-spacing:-.035em;max-width:820px;text-wrap:balance}
+.op .pod{font-size:18px;line-height:1.45;margin-top:10px;max-width:640px}
+.op .side{font-size:14.5px;line-height:1.5;color:var(--muted)}
+.op .side p+p{margin-top:8px}
+.op .side b{color:var(--noc);font-weight:600}
+.op .side .go{color:var(--noc)}  /* jediný odkaz oddílu nesmí zšednout, jinak vypadá vypnutý */
+.op.b{display:block;border-top:0;padding-top:0;margin-bottom:18px}
+.op.b h2{font:600 28px/1.15 var(--h);letter-spacing:-.03em}
+/* odpověď v tabulce nebo grafu: jediné místo, kde Pistácie leží pod číslem; jednou na oddíl */
+.ans{background:var(--pist);color:var(--noc);border-radius:999px;padding:2px 9px;margin:-2px -9px}
+
+/* === podnebí: teplota nahoru, srážky dolů od jedné linky; doporučené měsíce = Pistácie + černá pilulka === */
+.kl{display:grid;grid-template-columns:104px repeat(12,minmax(0,1fr));grid-template-rows:auto 190px 78px;grid-auto-flow:column}
+.kl.ceny{grid-template-rows:auto 190px 78px auto}
+.kl>div{display:flex;justify-content:center;min-width:0}
+.kl .ax{justify-content:flex-start;font-size:13.5px;color:var(--muted)}
+.kl .ax.a2{align-items:flex-end;padding-bottom:10px;border-bottom:1.5px solid var(--noc)}
+.kl .ax.a3{padding-top:10px}
+.kl .ax.a4{border-top:1px solid var(--line);padding-top:14px}
+.kl .m{padding-bottom:12px;font-size:14px;font-weight:500}
+.kl .m span{display:inline-flex;align-items:center;height:28px;padding:0 10px;border-radius:999px}
+.kl .m.dop span{background:var(--noc);color:var(--vapno);font-weight:600}
+.kl .t{flex-direction:column;align-items:center;justify-content:flex-end;border-bottom:1.5px solid var(--noc)}
+.kl .t b{font:600 19px/1 var(--h);letter-spacing:-.03em;margin-bottom:9px}
+.kl .t i{display:block;width:54%;max-width:54px;height:calc(var(--v) * 4.6px);background:#fff;border:1.5px solid var(--noc);border-bottom:0;border-radius:16px 16px 0 0}
+.kl .t.dop i{background:var(--pist)}
+.kl .r{flex-direction:column;align-items:center;justify-content:flex-start;font-size:13px;color:var(--muted)}  /* srážky visí od linky, ne uprostřed řádku */
+.kl .r i{display:block;width:8px;height:calc(var(--v) * .6px);min-height:3px;background:var(--noc);border-radius:0 0 4px 4px;margin-bottom:6px}
+.kl .p{border-top:1px solid var(--line);padding-top:12px;font-size:14px;color:var(--muted)}
+.kl .p b{color:var(--noc);font-weight:600}
+/* 1–4 letiště (země, --n): malé grafy nad sebou ve stejném měřítku, měsíce jednou nahoře */
+.kl.k3{grid-template-rows:auto repeat(var(--n,3),132px 90px) auto}  /* víc vzduchu mezi srážkami a teplotami dalšího města */
+.kl.k3 .t i{height:calc(var(--v) * var(--k,3.6px))}
+.kl.k3 .t b{font-size:16px;margin-bottom:7px}
+.kl.k3 .r{padding-top:0;font-size:12.5px}
+.kl.k3 .r i{height:calc(var(--v) * var(--kr,.4px));margin-bottom:4px}  /* srážky jsou to, čím se města liší: ať je rozdíl vidět bez čtení čísel */
+.kl.k3 .ax.mesto{align-items:flex-end;padding-bottom:10px;border-bottom:1.5px solid var(--noc);font:600 18px/1.1 var(--h);letter-spacing:-.03em;color:var(--noc)}
+.kl.k3 .ax.a3{font-size:12.5px;padding-top:8px}
+.kl3t{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap}
+.legend{display:flex;gap:22px;flex-wrap:wrap;margin-top:18px;font-size:13.5px;color:var(--muted)}
+.legend span{display:inline-flex;gap:8px;align-items:center}
+.legend i{display:inline-block;width:14px;height:14px;background:#fff;border:1.5px solid var(--noc);border-bottom:0;border-radius:5px 5px 0 0}
+.legend i.p{background:var(--pist)}
+.legend i.r{width:5px;border:0;background:var(--noc);border-radius:0 0 3px 3px}
+
+/* === z centra do centra: jediný tmavý pás; let je nejširší úsek, ale úseky nejsou v měřítku
+   (pozemní mají minimum 250 px kvůli názvům zastávek), proto to stránka netvrdí === */
+.noc{background:var(--noc);color:var(--vapno);margin-top:var(--sec);padding:60px 0 56px}
+.noc .op{border-color:var(--vapno)}
+.noc .op .side{color:var(--nocmut)}
+.noc .op .side b{color:var(--vapno)}
+.noc .op .side .go{color:var(--vapno)}
+.cesta{display:grid;grid-template-columns:minmax(250px,45fr) minmax(0,145fr) minmax(250px,35fr)}
+.leg{position:relative;padding:82px 32px 0 0}
+.leg::before{content:"";position:absolute;top:57px;left:0;right:0;border-top:2px solid var(--vapno)}
+.leg.let::before{border-top-style:dashed;border-color:var(--nocmut)}
+.leg .od,.leg .do{position:absolute;top:0;left:0;font-size:15px;font-weight:600;white-space:nowrap}
+.leg .od::after,.leg .do::after{content:"";position:absolute;left:0;top:50px;width:16px;height:16px;border-radius:50%;background:var(--noc);border:2px solid var(--vapno)}
+.leg .do{left:auto;right:0;text-align:right}
+.leg .do::after{left:auto;right:0;background:var(--vapno)}
+.leg .od.prvni::after{background:var(--vapno)}
+.leg .od small,.leg .do small{display:block;font-size:13px;font-weight:400;color:var(--nocmut);line-height:1.3}
+.leg .jak{display:flex;gap:8px;align-items:center;font-size:14px;color:var(--nocmut)}
+.leg .jak .ico{width:18px;height:18px;color:var(--vapno)}
+.leg .kol{display:block;font:600 30px/1.1 var(--h);letter-spacing:-.035em;margin-top:8px}
+.leg .kol span{font:600 17px var(--t);letter-spacing:0;margin-left:6px}
+.leg p{font-size:14px;color:var(--nocmut);margin-top:8px;max-width:330px}
+.noc .src{color:var(--nocmut);margin-top:34px;border-top:1px solid var(--noc2);padding-top:16px}
+
+/* === dobré vědět / na místě: odpověď je hodnota, ta je velká; 3 sloupce × 2 řádky, bez ikon a krabic === */
+.fakta{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border-top:1.5px solid var(--noc)}
+.fakta>div{padding:20px 28px 22px;border-left:1px solid var(--line2)}
+.fakta>div:nth-child(3n+1){border-left:0;padding-left:0}
+.fakta>div:nth-child(n+4){border-top:1px solid var(--line)}
+.fakta dt{font-size:14px;color:var(--muted)}
+.fakta dd b{display:block;font:600 24px/1.18 var(--h);letter-spacing:-.035em;margin:6px 0 8px;text-wrap:balance}
+.fakta dd span{display:block;font-size:14px;color:var(--muted)}
+/* pět položek v řadě (úvod: prodloužené víkendy) */
+.fakta.f5{grid-template-columns:repeat(5,minmax(0,1fr))}
+.fakta.f5>div{border-left:1px solid var(--line2);padding:18px 20px 20px;border-top:0}
+.fakta.f5>div:first-child{border-left:0;padding-left:0}
+.fakta.f5 dd b{font-size:19px}
+
+/* === ceny podle délky cesty: proužek z rodiny pruhu, nejlevnější buňka Pistácie === */
+.delky{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));background:#fff;border:1.5px solid var(--noc);border-radius:22px;overflow:hidden}
+.delky a{display:block;padding:18px 24px 20px;border-left:1px solid var(--line);text-decoration:none}
+.delky a:first-child{border-left:0}
+.delky a:hover{background:var(--hover)}
+.delky a:focus-visible{outline-offset:-5px}
+.delky a.best,.delky a.best:hover{background:var(--pist);border-left-color:var(--pist)}
+.delky .best .lbl,.delky .best .s{color:var(--olive)}
+.delky .p{display:block;font:600 30px/1.1 var(--h);letter-spacing:-.035em;margin:8px 0 8px}
+.delky .d{font-weight:600;font-size:15px;text-decoration:underline;text-underline-offset:3px}
+.delky .s{display:block;font-size:13.5px;color:var(--muted);margin-top:2px}
+.pozn{display:flex;justify-content:space-between;gap:32px;margin-top:16px;font-size:14.5px}
+.pozn b{font-weight:600}
+.pozn .src{margin:0;max-width:520px;text-align:right}
+
+/* === tabulky: jedno velké číslo na řádek, celý řádek je odkaz, kulatá šipka z úvodu === */
+.tab{width:100%;border-collapse:collapse;font-size:15.5px}
+.tab th{text-align:left;font-size:13.5px;font-weight:500;color:var(--muted);padding:0 18px 10px 0;white-space:nowrap}
+.tab th.r,.tab td.r{text-align:right}
+.tab th.on{color:var(--noc);font-weight:600}
+.tab tr{position:relative}
+.tab td{padding:16px 18px 16px 0;border-top:1px solid var(--line);vertical-align:middle}
+.tab tbody tr:first-child td{border-top:1.5px solid var(--noc)}
+.tab tbody tr:last-child td{border-bottom:1px solid var(--line)}
+.tab td:last-child,.tab th:last-child{padding-right:0}
+.tab tbody tr:hover td{background:#fff}
+.tab td.fl{width:44px;padding-left:4px}
+.tab .cil a,.tab .cil b{font:600 20px/1.2 var(--h);letter-spacing:-.03em;text-decoration:none}
+.tab a.row::after{content:"";position:absolute;inset:0}
+.tab .s{display:block;font-size:13.5px;color:var(--muted)}
+.tab .jl{font-weight:600}
+.tab .tot b,.tab .big{font:600 23px/1.1 var(--h);letter-spacing:-.035em;white-space:nowrap}
+.tab .tot .s,.tab .kdy{white-space:nowrap}
+.tab .ga{width:38px;height:38px;border-radius:50%;border:1px solid var(--line2);background:#fff;display:inline-block;position:relative;vertical-align:middle}
+.tab .ga::after{content:"";position:absolute;left:12px;top:14px;width:8px;height:8px;border:2px solid var(--noc);border-left:0;border-bottom:0;transform:rotate(45deg)}
+.tab tbody tr:hover .ga{background:var(--noc);border-color:var(--noc)}
+.tab tbody tr:hover .ga::after{border-color:var(--vapno)}
+.tab .rain{display:inline-flex;gap:10px;align-items:center;white-space:nowrap}
+.tab .rain i{display:inline-block;height:6px;width:calc(var(--v) * 1px);min-width:2px;max-width:80px;background:var(--noc);border-radius:3px}
+.tab .iata{font:600 22px/1.1 var(--h);letter-spacing:-.03em}
+.lnote{display:flex;justify-content:space-between;align-items:baseline;gap:24px;margin-top:16px}
+/* filtry a řazení nad tabulkou (úvod): stejné čipy jako v úvodu, aktivní plný Noc */
+.filtr{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;margin:-16px 0 20px}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 14px;border-radius:999px;border:1px solid var(--line2);background:#fff;font-size:14px;font-weight:500;text-decoration:none;white-space:nowrap}
+.chip:hover{border-color:var(--noc)}
+.chip.on{background:var(--noc);border-color:var(--noc);color:var(--vapno)}
+.seg{display:inline-flex;align-items:center;font-size:14px;font-weight:500}
+.seg .k{color:var(--muted);margin-right:10px}
+.seg a{height:34px;display:inline-flex;align-items:center;padding:0 13px;border:1px solid var(--line2);background:#fff;text-decoration:none}
+.seg a:first-of-type{border-radius:999px 0 0 999px}
+.seg a:last-of-type{border-radius:0 999px 999px 0;border-left:0}
+.seg a.on{background:var(--noc);border-color:var(--noc);color:var(--vapno)}
+.lnote .src{margin:0}
+
+/* === otázky + další trasy === */
+/* dvojice na konci: nadpisy obou sloupců na jedné lince (subgrid), obsah pod nimi */
+.two{display:grid;grid-template-columns:minmax(0,1fr) 420px;grid-template-rows:auto auto;column-gap:80px;align-items:start}
+.two>*{display:grid;grid-template-rows:subgrid;grid-row:span 2}
+.two .op.b{align-self:end}
+.faq{border-top:1.5px solid var(--noc)}
+.faq details{border-bottom:1px solid var(--line2)}
+.faq summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:24px;min-height:66px;padding:12px 0;font-weight:600;font-size:18px;line-height:1.35}
+.faq summary::-webkit-details-marker{display:none}
+.faq summary i{flex:none;width:38px;height:38px;border-radius:50%;border:1px solid var(--line2);background:#fff;position:relative}
+.faq summary i::after{content:"";position:absolute;left:14px;top:12px;width:8px;height:8px;border:2px solid var(--noc);border-top:0;border-left:0;transform:rotate(45deg)}
+.faq summary:hover i{border-color:var(--noc)}
+.faq details[open] summary i{background:var(--noc);border-color:var(--noc)}
+.faq details[open] summary i::after{border-color:var(--vapno);transform:rotate(-135deg);top:16px}
+.faq details p{padding:0 72px 24px 0;font-size:16.5px;max-width:740px}
+.rel ul:first-child{border-top:1.5px solid var(--noc)}
+.rel ul{list-style:none}
+.rel li a{display:flex;align-items:center;gap:18px;padding:12px 0;border-bottom:1px solid var(--line);text-decoration:none}
+.rel li a:hover .rn{text-decoration:underline}
+.rel .rn{font:600 18px/1.2 var(--h);letter-spacing:-.03em;display:block}
+.rel .rz{display:block;font-size:14px;color:var(--muted)}
+.rel .txt{margin-top:0}
+.rel .txt a{justify-content:space-between;min-height:48px;padding:10px 0;font-weight:600}
+.rel .txt a span{font-weight:400;font-size:14px;color:var(--muted)}
+.rel h3.rk{font:500 13.5px/1.3 var(--t);letter-spacing:0;color:var(--muted);padding:26px 0 8px;border-bottom:1px solid var(--line)}
+.faq .go{display:inline-block;padding:11px 0;margin:-6px 0 -11px}
+
+/* === patička: 1:1 s úvodem === */
+footer{background:var(--noc);color:var(--vapno);margin-top:120px;padding:56px 0 28px}
+footer .cols{display:grid;grid-template-columns:1.3fr repeat(4,1fr);gap:32px}
+footer h2{font:600 15px var(--t);letter-spacing:0;color:var(--vapno);margin-bottom:14px}
+footer ul{list-style:none;display:grid;gap:9px;font-size:14.5px;color:var(--line2)}
+footer a{text-decoration:none}footer a:hover{text-decoration:underline}
+footer .logo img{height:26px;width:auto;display:block}  /* letsi-logo-negativ.svg: Vápno a červená tečka */
+footer .about{font-size:14px;color:var(--line2);margin-top:16px;max-width:300px}
+footer .bottom{border-top:1px solid var(--noc2);margin-top:44px;padding-top:20px;display:flex;gap:24px;font-size:13.5px;color:var(--nocmut)}
+footer .bottom span:last-child{margin-left:auto}
+/* při 1024 px se nesmí lámat „Kč“ a „© Letsi“; zalomí se jen prostřední věta */
+footer .bottom span:first-child,footer .bottom span:last-child{white-space:nowrap;flex:none}
+
+/* === užší počítač 1024–1279: fakta pod nadpis do jedné řady, pruh bez buňky Let (zavazadla zůstávají vždy) === */
+@media (max-width:1279px){
+  .rh{flex-direction:column;align-items:stretch;gap:44px}
+  .fk{width:auto;grid-template-columns:repeat(4,minmax(0,1fr))}
+  .pbar{grid-template-columns:1.5fr 1fr 1.15fr auto}.pbar .c:nth-child(3){display:none}
+  .op{grid-template-columns:minmax(0,1fr) 280px;gap:14px 40px}
+  .two{grid-template-columns:minmax(0,1fr) 320px;column-gap:56px}  /* ne gap: row-gap by odtrhl nadpisy od obsahu */
+}
+
+/* === telefon (≤760 px): jeden sloupec, nic do strany, cíle dotyku 44 px === */
+@media (max-width:760px){
+  :root{--gut:20px;--sec:64px;--secb:48px}
+  .top .wrap{height:60px;gap:16px}
+  .top nav,.top .right{display:none}
+  .top .tel{display:inline-flex;margin-left:auto;min-height:44px;font-size:14.5px;font-weight:600}
+  .top .logo img{height:23px}
+  .top .logo{padding:11px 0}
+  .crumbs a{display:inline-block;padding:11px 0;margin:-11px 0}  /* cíl dotyku 44 px beze změny vzhledu */
+  .band{padding:16px 0 24px}
+  .rh{margin-top:18px;gap:42px}
+  .rt{gap:16px;justify-content:space-between}
+  .rt h1{font-size:41px;line-height:.98}
+  .rt h1.m{font-size:34px}.rt h1.s{font-size:29px}
+  .okf.xl{width:68px;height:106px}
+  .rt figure{margin:0 4px 0 0}
+  .fk{grid-template-columns:1fr 1fr;column-gap:20px}
+  .fk>div{padding:8px 0 12px}
+  .fk dd{font-size:22px}
+  .fk dt{font-size:13px}
+  .pbar,.band .search{margin-top:18px}
+  .pbar{display:block;border-radius:20px}
+  .pbar .c{border-right:0;border-bottom:1px solid var(--line);padding:9px 18px;display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+  .pbar .v,.pbar .s{line-height:1.3}
+  .pbar .c>span:last-child{display:flex;flex-direction:column;align-items:flex-end;min-width:0;text-align:right}
+  .pbar .c:nth-child(3){display:flex}
+  .pbar .v{font-size:16px}
+  .pbar .cena{justify-content:flex-start;align-items:center;padding:14px 18px}
+  .pbar .cena>span:last-child{align-items:flex-start;text-align:left}
+  .pbar .cena .v{font-size:34px}
+  .pbar .b,.search .b{padding:10px}
+  .pbar .b .btn,.search .b .btn{width:100%;min-height:54px}
+  .stamp{font-size:13.5px}
+  .band+.sec{padding-top:52px}
+  .op{display:block;margin-bottom:28px}
+  .op h2{font-size:14px;margin-bottom:10px}
+  .op .odp{font-size:24px;line-height:1.2}
+  .op .pod{font-size:16.5px}
+  .op .side{margin-top:14px}
+  .op.b h2{font-size:24px}
+  /* podnebí na výšku: měsíc na řádek, sloupec teploty leží; žádné posouvání do strany */
+  .kl,.kl.ceny{grid-auto-flow:row;grid-template-columns:50px minmax(0,1fr) 54px;grid-template-rows:none}
+  .kl.ceny{grid-template-columns:50px minmax(0,1fr) 54px 62px}
+  .kl>div{justify-content:flex-start;align-items:center;min-height:40px;border-bottom:1px solid var(--line)}
+  .kl .ax{font-size:12px;line-height:1.2;padding:0 0 8px;align-items:flex-end;border-bottom:1.5px solid var(--noc)!important;border-top:0!important}
+  .kl .ax.a2,.kl .ax.a3,.kl .ax.a4{padding:0 0 8px}
+  .kl .ax.a3,.kl .ax.a4,.kl .r,.kl .p{justify-content:flex-end;text-align:right}
+  .kl .m{padding:0;font-size:13.5px}
+  .kl .m span{height:26px;padding:0 8px;margin-left:-8px}
+  .kl .t{flex-direction:row;justify-content:flex-start;border-bottom:1px solid var(--line)}
+  .kl .t i{order:-1;width:calc(var(--v) * 4.4px);max-width:none;height:16px;border:1.5px solid var(--noc);border-left:0;border-radius:0 999px 999px 0}
+  .kl .t b{font-size:15px;margin:0 0 0 8px}
+  .kl .r{font-size:13px;flex-direction:row;align-items:center}
+  .kl .r i{display:none}
+  .kl .p{border-top:0;padding:0;font-size:13.5px}
+  /* legenda popisuje jen to, co je na telefonu vidět: sloupky leží, srážky jsou jen číslo */
+  .legend span:has(i.r){display:none}
+  .legend i{width:16px;height:10px;border:1.5px solid var(--noc);border-left:0;border-radius:0 5px 5px 0}
+  /* víc letišť: na telefonu místo malých grafů viditelná tabulka měsíc × město (stejná data jako pro čtečky) */
+  .kl.k3{display:none}
+  .kl3t{position:static;width:auto;height:auto;overflow:visible;clip:auto;clip-path:none;white-space:normal}
+  .kl3t table{width:100%;border-collapse:collapse;font-size:13px}
+  .kl3t th{font-weight:500;color:var(--muted);text-align:right;padding:0 0 8px;border-bottom:1.5px solid var(--noc);font-size:12.5px}
+  .kl3t th:first-child,.kl3t td:first-child{text-align:left}
+  .kl3t td{padding:7px 0;border-bottom:1px solid var(--line);text-align:right;vertical-align:middle;color:var(--muted);line-height:1.25}
+  .kl3t td b{display:block;font:600 15px/1.2 var(--h);letter-spacing:-.03em;color:var(--noc)}
+  .kl3t td:first-child{font-weight:500;color:var(--noc);width:56px}
+  .kl3t tr.dop td:first-child span{display:inline-flex;align-items:center;height:26px;padding:0 8px;margin-left:-8px;border-radius:999px;background:var(--noc);color:var(--vapno);font-weight:600}
+  .kl3t caption{text-align:left;font-size:13px;color:var(--muted);padding-bottom:10px}
+  /* cesta na výšku: zastávky pod sebou */
+  .noc{padding:48px 0 44px}
+  .cesta{display:block}
+  .leg{padding:0 0 30px 34px;display:flex;flex-direction:column;align-items:flex-start}
+  .leg .do{order:9}
+  .leg::before{top:10px;bottom:-10px;left:7px;right:auto;border-top:0;border-left:2px solid var(--vapno)}
+  .leg.let::before{border-left-style:dashed;border-color:var(--nocmut)}
+  .leg .od,.leg .do{position:relative;display:block;margin-bottom:12px;white-space:normal}
+  .leg .od::after,.leg .do::after{left:-34px;top:3px}
+  .leg .do{text-align:left;margin:22px 0 0}
+  .leg .do::after{right:auto;left:-34px}
+  .leg:last-child{padding-bottom:0}
+  .leg:last-child::before{bottom:28px}
+  .leg .kol{font-size:25px}
+  .fakta{grid-template-columns:1fr}
+  .fakta>div,.fakta>div:nth-child(3n+1){border-left:0;padding:14px 0;display:grid;grid-template-columns:110px minmax(0,1fr);gap:12px}
+  .fakta>div+div{border-top:1px solid var(--line)}
+  .fakta.f5{grid-template-columns:1fr}.fakta.f5>div{border-left:0;padding:14px 0}.fakta.f5>div+div{border-top:1px solid var(--line)}
+  .filtr{margin:0 0 16px}.chip,.seg a{height:44px}
+  .fakta dd b{font-size:20px;margin:0 0 4px}
+  .delky{grid-template-columns:1fr;border-radius:20px}
+  .delky a{border-left:0;border-top:1px solid var(--line);display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:12px;align-items:center;padding:14px 18px;min-height:64px}
+  .delky a:first-child{border-top:0}
+  .delky a.best{border-top-color:var(--pist)}
+  .delky .p{grid-column:2;grid-row:1/span 3;margin:0;font-size:24px}
+  .pozn{flex-direction:column;gap:6px}
+  .pozn .src{text-align:left}
+  .two,.two>*{display:block}
+  .rel{margin-top:56px}
+  .faq summary{font-size:16.5px;min-height:60px}
+  .faq details p{padding:0 0 20px}
+  .search{grid-template-columns:1fr 1fr;border-radius:20px}
+  .search .f{border-right:0;border-bottom:1px solid var(--line);padding:12px 18px}
+  .search .f:nth-child(-n+2),.search .b{grid-column:1/-1}
+  .search .f:nth-child(3){border-right:1px solid var(--line)}
+  .search .f:first-child{border-radius:19px 19px 0 0}
+  .nema{align-items:flex-start}
+  /* tabulky → seznam: kam vlevo, velké číslo vpravo, zbytek pod tím; hlavička jen pro čtečky */
+  .tab,.tab tbody{display:block}
+  .tab thead{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+  .tab tr{display:grid;column-gap:12px;padding:14px 0;border-top:1px solid var(--line)}
+  .tab tbody tr:first-child{border-top:1.5px solid var(--noc)}
+  .tab tbody tr:last-child{border-bottom:1px solid var(--line)}
+  .tab td{border:0!important;padding:0}
+  .tab .ga,.tab td.gac,.tab td.nal{display:none}
+  .tab .tot b,.tab .big{font-size:21px}
+  .tab.lev tr{grid-template-columns:34px minmax(0,1fr) auto;grid-template-areas:"f c t" "f d t" "f o o"}
+  .tab.lev td.fl{grid-area:f;padding-top:2px}
+  .tab.lev td.cil{grid-area:c}
+  .tab.lev td.kdy{grid-area:d;font-size:14px}
+  .tab.lev td.kdy .s,.tab.lev td.odl .s{display:inline}
+  .tab.lev td.kdy .s::before,.tab.lev td.odl .s::before{content:" · "}
+  .tab.lev td.odl{grid-area:o;font-size:13.5px;color:var(--muted);margin-top:6px}
+  .tab.lev td.odl .jl{font-weight:500;color:var(--noc)}
+  .tab.lev td.tot{grid-area:t;text-align:right}
+  .tab.tep tr{grid-template-columns:34px auto minmax(0,1fr) auto;grid-template-areas:"f c c t" "f s d l"}
+  .tab.tep td.fl{grid-area:f;padding-top:2px}
+  .tab.tep td.cil{grid-area:c}
+  .tab.tep td.tep{grid-area:t;text-align:right}
+  .tab.tep td.srz,.tab.tep td.dok,.tab.tep td.let{font-size:13.5px;color:var(--muted);margin-top:6px}
+  .tab.tep td.srz{grid-area:s}
+  .tab.tep td.dok{grid-area:d;padding-left:16px}
+  .tab.tep td.let{grid-area:l;text-align:right}
+  .tab.let3 tr{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"c k" "z z" "g g";row-gap:8px}
+  .tab.let3 td.cil{grid-area:c}
+  .tab.let3 td.km{grid-area:k;text-align:right}
+  .tab.let3 td.cen{grid-area:z;font-size:14.5px}
+  .tab.let3 td.hl{grid-area:g}
+  .tab.let3 td.hl .go{display:inline-block;padding:11px 0;margin:-11px 0}
+  .lnote{flex-direction:column;align-items:flex-start}
+  footer{margin-top:80px;padding:44px 0 24px}
+  footer .cols{grid-template-columns:1fr 1fr;gap:28px 20px}
+  footer .cols>div:first-child{grid-column:1/-1}
+  footer ul{gap:0}
+  footer ul a{display:block;padding:11px 0}
+  footer .bottom{flex-direction:column;gap:10px}
+  footer .bottom span:last-child{margin-left:0}
+  footer .logo{display:inline-block;padding:9px 0}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+/* === stránka země (z makety d-zeme) === */
+.crumbs .flag{font-size:17px;vertical-align:-3px;margin-right:3px}
+.stamp{max-width:720px}
+.stamp b{color:var(--noc);font-weight:600}
+.stamp a{display:inline-block;padding:12px 0;margin:-12px 0}  /* klepací plocha 44 px jako u drobečků, řádek se nezvětší */
+/* letiště: město je to, v čem lidé přemýšlejí, kód letiště jde do šedého řádku */
+.tab .mn{display:block;font:600 22px/1.1 var(--h);letter-spacing:-.03em}
+/* tichá řada měsíců i pod posledním městem, ať se u spodního grafu nemusí počítat sloupce */
+.kl.k3 .mb{font-size:12.5px;color:var(--muted);padding-top:4px}
+@media (max-width:1279px){
+  .two{row-gap:0}  /* komponenty dávají v tomhle rozsahu gap:56px i mezi nadpis a obsah */
+}
+@media (max-width:760px){
+  .kl.k3~.legend{display:none}  /* na telefonu je místo grafu tabulka, legenda sloupců by nesouhlasila */
+  /* letiště: vzdálenost pod název, ne vedle něj (vedle se slévala s „hlavní město“ do jedné věty) */
+  .tab.let3 tr{grid-template-columns:minmax(0,1fr);grid-template-areas:"c" "k" "z" "g"}
+  .tab.let3 td.km,.tab.let3 td.hl{text-align:left}
+  .tab.let3 td.km .s{display:inline}
+  .tab.let3 td.km .s::before{content:" · "}
+  /* podnebí na telefonu: doporučené řádky podbarvené, ať je čtveřice měsíců vidět i v tabulce čísel */
+  .kl3t tr.dop td{background:var(--pena)}
+  .kl3t td:first-child,.kl3t th:first-child{padding-left:12px}
+  .kl3t td:last-child,.kl3t th:last-child{padding-right:10px}
+}
+
+/* === autor fotky pod ikonou „i“ (<details class="fi">, funguje bez JS): kredit je na stránce, ale neruší
+   (CC BY dovoluje uvést autora „přiměřeně médiu“); okénko M pro pás Podobné země === */
+.okf.m{width:118px;height:184px}
+.ofo{position:relative;display:block;flex:none;line-height:0}
+.fi summary{position:absolute;right:-7px;bottom:-7px;z-index:2;display:grid;place-items:center;width:26px;height:26px;border-radius:50%;background:var(--vapno);color:var(--noc);border:1.5px solid var(--noc);cursor:pointer;list-style:none}
+.fi summary::-webkit-details-marker{display:none}
+.fi summary::before{content:"";position:absolute;inset:-9px}  /* cíl 44 px */
+.fi summary .ico{width:16px;height:16px}
+.fi[open] summary{background:var(--noc);color:var(--vapno)}
+.okf.s+.fi summary{width:22px;height:22px;right:-8px;bottom:-8px}
+.okf.s+.fi summary .ico{width:14px;height:14px}
+.fi-t{position:absolute;left:-4px;bottom:30px;z-index:3;width:max-content;max-width:190px;padding:8px 11px;border-radius:10px;background:var(--noc);color:var(--vapno);font:500 12px/1.4 var(--t);letter-spacing:0;text-align:left;white-space:normal}
+.ofo .fi .fi-t a{color:inherit;font:inherit;letter-spacing:inherit;text-decoration:underline;text-underline-offset:2px}
+.okf.xl+.fi .fi-t{left:auto;right:-4px}
+.okf.s+.fi .fi-t{bottom:auto;top:calc(100% + 12px)}
+
+/* === opravy oproti maketě === */
+/* Přeskočit na obsah: vidět jen při fokusu z klávesnice */
+.skip{position:absolute;left:16px;top:-80px;z-index:10;padding:10px 16px;border-radius:12px;background:var(--noc);color:var(--vapno);font-weight:600;text-decoration:none}
+.skip:focus{top:12px}
+/* hledání v pásu je jeden odkaz do aplikace (#hledat=…), políčka jsou jen popisky – žádný falešný formulář.
+   Tři políčka: počet cestujících ani zavazadla odkaz nenese, tak je stránka neslibuje */
+a.search{text-decoration:none;color:inherit}
+.search.s3{grid-template-columns:1.3fr 1.1fr 1fr auto}
+.search.s3 .f:nth-child(3){border-right:0}
+@media (max-width:760px){
+  .search.s3 .f:nth-child(3){grid-column:1/-1;border-right:0}
+}

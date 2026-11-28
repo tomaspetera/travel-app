@@ -112,7 +112,8 @@ export function clampRange(from, to) {
 
 // Formátovač na zónu jen jednou – vytvoření Intl.DateTimeFormat je drahé a makeLeg ho volá u každého letu.
 const tzFmts = new Map();
-function tzOffsetMin(tz, utcMs) {
+/** Posun zóny tz proti UTC v minutách v okamžiku utcMs (Lisabon v lednu 0, Praha v červenci 120). */
+export function tzOffsetMin(tz, utcMs) {
   let dtf = tzFmts.get(tz);
   if (!dtf) {
     dtf = new Intl.DateTimeFormat('en-US', {

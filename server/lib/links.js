@@ -59,7 +59,8 @@ export function googleHotelsUrl(text, q) {
 // města – searchStays ho dohledá (partnerids.js): s ID vede odkaz na hledání /pwa/s s termínem a hosty; místo bez
 // hostelů (stránka 404 nebo „0 Hostels“) na stránku země s poznámkou a až na konec seznamu.
 const HW_CONT = { Evropa: 'europe', Afrika: 'africa', Asie: 'asia', 'Severní Amerika': 'north-america', 'Jižní Amerika': 'south-america', 'Oceánie': 'oceania' };
-const slug = (x) => String(x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+// Tvoří i adresy obsahových stránek /zeme/<slug> (obsah.js) – změna by přesunula už zveřejněné stránky.
+export const slug = (x) => String(x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 // ID místa u partnera (z partnerids.js): kladné celé číslo, jinak nic.
 const partnerId = (x) => (Number.isInteger(x) && x > 0 ? x : null);
 
