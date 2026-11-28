@@ -363,7 +363,7 @@ test('název sekce v horní liště je pro čtečku nadpis 1. úrovně – jen v
   vm.runInContext(pick('pageHeading'), ctx);
   ctx.pageHeading();
   assert.deepEqual({ ...a }, { role: 'heading', 'aria-level': '1' }, 'Cesta, Země, Plánovač…');
-  h1 = { getClientRects: () => [{}] }; ctx.pageHeading();
+  h1 = { closest: () => null }; ctx.pageHeading();
   assert.deepEqual({ ...a }, {}, 'Přehled, Lety, Objevuj bez místa: h1 ve fotce');
   h1 = null; ctx.pageHeading(); ctx.pageHeading();
   assert.deepEqual({ ...a }, { role: 'heading', 'aria-level': '1' });

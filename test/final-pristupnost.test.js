@@ -15,9 +15,11 @@ const pick = (name) => {
   return m[0];
 };
 
-test('hláška po zmizení: visibility hidden – neviditelné „↩ Vrátit“ není v pořadí Tab ani pro čtečku', () => {
-  assert.match(tripCss, /\n\.toast:not\(\.show\)\{pointer-events:none;visibility:hidden\}/);
-  // schování doběhne s přechodem (visibility se z visible na hidden přepne až na konci), ukázání hned
+test('hláška po zmizení: obsah visibility hidden – neviditelné „↩ Vrátit“ není v pořadí Tab ani pro čtečku', () => {
+  assert.match(tripCss, /\n\.toast:not\(\.show\)>\*\{visibility:hidden\}\n\.toast>\*\{transition:visibility \.3s\}/);
+  // samotná hláška (role status) zůstane vidět – schovaná oblast s obsahem vloženým při ukázání se čtečce nemusí ohlásit
+  assert.doesNotMatch(tripCss, /\.toast:not\(\.show\)\{[^}]*visibility/);
+  // obsah schová až po doběhnutí přechodu, stejně dlouhého jako zmizení hlášky (atlas.css)
   assert.match(read('css/atlas.css'), /\.toast\{[^}]*transition:\.3s var\(--ease\)/);
 });
 
@@ -25,13 +27,17 @@ test('výsledky Letů: h1 schovaný sbaleným formulářem se nepočítá – na
   const a = {};
   const t = { getAttribute: (k) => a[k] ?? null, setAttribute: (k, v) => { a[k] = v; }, removeAttribute: (k) => { delete a[k]; } };
   let rects = 1;
-  const h1 = { getClientRects: () => Array(rects).fill({}) };
+  let h1 = { closest: (s) => (s === '.fl-hero' ? {} : null), getClientRects: () => Array(rects).fill({}) };
   const ctx = vm.createContext({ $: (s) => (s === '#pageTitle' ? t : s === '.view.active h1' ? h1 : null) });
   vm.runInContext(pick('pageHeading'), ctx);
   ctx.pageHeading();
   assert.deepEqual({ ...a }, {}, 'před hledáním: h1 „Najdi levné letenky“ ve fotce');
   rects = 0; ctx.pageHeading();
   assert.deepEqual({ ...a }, { role: 'heading', 'aria-level': '1' }, 'po hledání: fotka s h1 je display:none');
+  // Přehled (h1 mimo .fl-hero): rozvržení se nečte – při startu běží při každé změně stránky
+  h1 = { closest: () => null, getClientRects: () => { throw new Error('čtení rozvržení na Přehledu'); } };
+  ctx.pageHeading();
+  assert.deepEqual({ ...a }, {});
 });
 
 test('přepnutí sekce s fokusem ve schované sekci (Najít lety na Přehledu): fokus na nadpis nové sekce, ne na začátek stránky', () => {

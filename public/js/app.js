@@ -567,9 +567,10 @@ function segPressed(b) { const on = String(b.classList.contains('on')); if (b.ge
    začínala až nadpisy 2. úrovně v obsahu. Sekce s vlastním h1 ve fotce (Přehled, Lety, Objevuj bez místa) ho nemají
    dvakrát. Role místo <h1>: lišta vypadá stejně (h1 má jiné písmo); hlídá ho stejné sledování změn jako přepínače. */
 function pageHeading() {
-  // h1 schovaný v CSS (Lety po hledání: sbalený formulář schová fotku s nadpisem) se nepočítá – jinak by stránka s výsledky
-  // neměla nadpis 1. úrovně žádný
-  const t = $('#pageTitle'), h = $('.view.active h1'), own = Boolean(h && h.getClientRects().length);
+  // h1 ve fotce schovaný v CSS (Lety po hledání: sbalený formulář schová fotku s nadpisem; na telefonu i vracející se
+  // uživatel) se nepočítá – jinak by stránka s výsledky neměla nadpis 1. úrovně žádný. Rozměry jen u fotky .fl-hero: čtení
+  // rozvržení při každé změně stránky zdvojnásobilo přepočty stylu při startu (Přehled, h1 tam schovaný nebývá)
+  const t = $('#pageTitle'), h = $('.view.active h1'), own = Boolean(h && (!h.closest('.fl-hero') || h.getClientRects().length));
   if (!t || (t.getAttribute('role') === 'heading') !== own) return;
   if (own) { t.removeAttribute('role'); t.removeAttribute('aria-level'); } else { t.setAttribute('role', 'heading'); t.setAttribute('aria-level', '1'); }
 }
