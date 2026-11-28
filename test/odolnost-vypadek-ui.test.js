@@ -119,7 +119,8 @@ test('cesta přes víc měst při úplném výpadku: karta „Ceny se teď nepod
 
 test('hledání při úplném výpadku nepřepíše dřívější výsledky ani uložené z minula (chyba s until do catch „kept“, jako radar)', () => {
   const ss = slice('    const job = (async () => {', '    running = { key: pkey, ctl, job };');
-  const thr = ss.indexOf('if (lastResult && !(res.groups || []).length && SearchHelp.allDown(res.providers)) {');
+  // dřívější výsledek z výpadku se nechrání (druhá karta výpadku s ↻ bez odpočtu pod „Níže zůstávají výsledky“)
+  const thr = ss.indexOf('if (lastResult && !SearchHelp.allDown(lastResult.providers) && !(res.groups || []).length && SearchHelp.allDown(res.providers)) {');
   assert.ok(thr > 0, 'kontrola výpadku ve startSearch');
   for (const x of ['lastResult = res;', "Count.hit('search_done')", 'PriceCheck.remember(res)', 'S.recent = ', 'saveLast(']) assert.ok(thr < ss.indexOf(x), `před ${x}`);
   assert.match(ss.slice(thr, thr + 400), /throw Object\.assign\(new Error\('Zdroj cen teď neodpovídá – zkus to za chvíli\.'\), \{ until:/);

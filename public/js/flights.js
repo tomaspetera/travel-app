@@ -1626,8 +1626,10 @@
         signal: ctl.signal,
       })); // + cesty buněk mřížky termínů
       // žádný zdroj neodpověděl a nic není: dřívější výsledky (i uložené z minula) prázdný výsledek nepřepíše – jako
-      // u radaru chyba s odpočtem do catch, který je nechá zašedlé pod hláškou; bez dřívějších vysvětlí výpadek emptyState
-      if (lastResult && !(res.groups || []).length && SearchHelp.allDown(res.providers)) {
+      // u radaru chyba s odpočtem do catch, který je nechá zašedlé pod hláškou; bez dřívějších vysvětlí výpadek emptyState.
+      // Dřívější výsledek z výpadku (↻ Zkusit znovu, když zdroj pořád nejde) chránit nemá smysl – „Níže zůstávají výsledky“
+      // by ukázalo jen starou kartu výpadku s druhým ↻ bez odpočtu
+      if (lastResult && !SearchHelp.allDown(lastResult.providers) && !(res.groups || []).length && SearchHelp.allDown(res.providers)) {
         const ra = res.providers.map(p => p.retryAfter || 0);
         throw Object.assign(new Error('Zdroj cen teď neodpovídá – zkus to za chvíli.'), { until: ra.every(x => x > 0) ? Date.now() + Math.min(...ra) * 1e3 : 0 });
       }
