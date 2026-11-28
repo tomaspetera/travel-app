@@ -31,7 +31,7 @@
    */
   const chipText = (g, ret = false) => {
     const p = `${g.typ > 0 ? 'běžně' : 'od'} ~${kc(typOf(g) * (ret ? 2 : 1))}`;
-    return `🚆 ~${hm(g.min)} · ${ret ? `tam i zpět ${p}`.replace(/ /g, '\u00a0') : p}`;
+    return `~${hm(g.min)} · ${ret ? `tam i zpět ${p}`.replace(/ /g, '\u00a0') : p}`;
   };
   /** Původ odhadu: změřené spoje a ceny z Prahy, nebo model podle vzdálenosti (přes hory delší). */
   const basisTxt = (b, hills) => b === 'measured' ? 'odhad podle skutečných spojů a cen z 15. 10.' : `odhad podle vzdálenosti${hills ? ` (přes ${hills === 'Alpy' ? 'Alpy' : 'hory'} déle)` : ''}`;

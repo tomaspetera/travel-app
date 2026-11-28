@@ -1217,7 +1217,7 @@
     const tp = ownPlaces(), sp = searchedPlaces(tp.map(p => p.label)), own = new Set([...tp, ...sp].map(p => p.label));
     return [...tp, ...sp, ...INSP.filter(p => !own.has(p.label))];
   };
-  const inspSub = p => (p.trip ? `${p.shared ? '🔗 Sdílená cesta' : '🧳 Tvoje cesta'}${p.from ? ` · od ${fmtDate(p.from)}` : ''}` : p.searched ? '🔁 hledal jsi sem lety' : esc(p.country || ''));
+  const inspSub = p => (p.trip ? `${p.shared ? 'Sdílená cesta' : 'Tvoje cesta'}${p.from ? ` · od ${fmtDate(p.from)}` : ''}` : p.searched ? 'hledal jsi sem lety' : esc(p.country || ''));
   const inspHtml = (list = inspList()) => `<div class="section-head ex-insp-h"><h2>Inspirace</h2></div><div class="dest-grid ex-insp">${list.map((p, i) => `<button type="button" class="card dest${p.trip || p.searched ? ' ex-mine' : ''}" data-insp="${i}" data-photo="${esc(p.label)}" style="--h:${window.ccHue ? ccHue(p.cc) : 215}"><div class="flag">${flag(p.cc)}</div><div class="dest-panel"><div class="cname">${esc(p.label)}</div><div class="ccont">${inspSub(p)}</div><div class="meta"><span class="chip accent">Co tam vidět</span><span>→</span></div></div></button>`).join('')}</div>`;
   /* ---------- 🌍 Celá země bez místa: výběr země (oblíbené nahoře, pak všechny A–Ž) ---------- */
   const CC_POP = ['IT', 'FR', 'ES', 'HR', 'GR', 'PT', 'CZ', 'AT', 'DE', 'GB', 'NL', 'TR'];

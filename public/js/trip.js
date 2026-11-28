@@ -18,10 +18,11 @@
   const DOW = ['ne', 'po', 'út', 'st', 'čt', 'pá', 'so'];
   const STAY_BADGES = {
     // [v hranatých závorkách] část štítku, která se na telefonu schová – kompaktní karta, štítky vedle sebe na řádku
-    'best-value': ['🏆 Nejlepší poměr[ cena/hodnocení]', 'good'],
-    'cheapest-good': ['💚 Nejlevnější[ s hodnocením] 8+', 'good'],
-    cheapest: ['💰 Nejlevnější', 'info'],
-    'top-rated': ['⭐ Nejlépe hodnocené', 'hot'],
+    // bez emoji (CLAUDE.md: štítky a tlačítka jen s ikonami Letsi) – barvu štítku dává třída
+    'best-value': ['Nejlepší poměr[ cena/hodnocení]', 'good'],
+    'cheapest-good': ['Nejlevnější[ s hodnocením] 8+', 'good'],
+    cheapest: ['Nejlevnější', 'info'],
+    'top-rated': ['Nejlépe hodnocené', 'hot'],
   };
   // Chybová odpověď API bez vlastního textu serveru (502–504 z Renderu jako HTML při probouzení nebo přetížení) česky
   // (Pwa.statusMsg), ne „HTTP 503“ ani anglické „Unexpected token“
@@ -1850,7 +1851,7 @@ let calOut = false; // jedna obsluha klepnutí mimo nabídku „Do kalendáře �
     const t = T(), r = t.route;
     $('#routeBody').innerHTML = `<div class="route-tools" id="rtTools"></div>
       <div class="ex-layout route-layout"><div><div id="rtList"></div>
-        <div class="route-add"><label for="rtQ">➕ Přidat místo do trasy</label>
+        <div class="route-add"><label for="rtQ">${ikona('plus')} Přidat místo do trasy</label>
           <div style="position:relative"><input class="input" id="rtQ" placeholder="Město nebo místo – napiš název…" autocomplete="off"><div class="pi-dd" id="rtDd" tabindex="-1" hidden></div></div>
           <div class="rt-cands" id="rtCands"></div></div></div>
         <div class="ex-map route-map" id="rtMap"></div></div>
@@ -3657,7 +3658,7 @@ let calOut = false; // jedna obsluha klepnutí mimo nabídku „Do kalendáře �
       const b = $('#tfAuto'); if (b && b.isConnected !== false) { b.disabled = false; b.innerHTML = AUTO_BTN; }
     }
   }
-  const AUTO_BTN = '⚡ Poskládej celou cestu za mě', AUTO_RUN = '<span class="spin"></span> Skládám cestu…';
+  const AUTO_BTN = 'Poskládej celou cestu za mě', AUTO_RUN = '<span class="spin"></span> Skládám cestu…';
   // Co ⚡ a „✨ Vyber za mě“ o ubytování slibují: poměr ceny a hodnocení jen s cenami hotelů na serveru (stayPricesOn);
   // bez nich (jen ubytování z OpenStreetMap bez ceny) vyberu podle polohy a cenu doplní uživatel.
   const NO_PRICE_PICK = 'Vyberu ubytování blízko centra. Cenu doplníš podle nabídky u prodejce.';

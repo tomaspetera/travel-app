@@ -180,7 +180,7 @@
   const FREE = [
     ['Hledání letenek, orientační ceny a\u00a0ověření u\u00a0prodejce', 'ano', 'ano'],
     ['Informace o zemích a Objevuj', 'ano', 'ano'],
-    ['Naplánované cesty (i\u00a0z\u00a0⚡\u00a0Poskládej)', 'jedna', 'neomezeně'], // pevné mezery: závorka se zalomí celá, ne „⚡“ zvlášť
+    ['Naplánované cesty (i\u00a0z\u00a0„Poskládej“)', 'jedna', 'neomezeně'], // pevné mezery: závorka se zalomí celá
     ['Záloha do souboru a sdílení cesty', 'ano', 'ano'],
     ['Balicí seznam podle počasí', 'ano', 'ano'], // chytrý seznam zůstává zdarma – Plus si jen pamatuje a dělí
     ['Kódy rezervací', 'ano', 'ano'], // dnes zdarma – vzít je by bylo zamčení bezplatné funkce

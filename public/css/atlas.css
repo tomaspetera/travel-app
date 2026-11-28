@@ -662,7 +662,7 @@ html:has(#modalBg.show) body{overflow:hidden} /* na body, ne na html: přejde na
 .tip-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
 .tip{padding:16px;border-radius:14px;background:var(--surface);border:1px solid var(--border)}
 .tip .tn{font-weight:800;font-size:14px;display:flex;gap:8px;align-items:center}
-.tip .tn span{width:26px;height:26px;border-radius:8px;background:var(--surface-2);display:grid;place-items:center;font-size:14px}
+.tip .tn>span{width:26px;height:26px;border-radius:8px;background:var(--surface-2);display:grid;place-items:center;font-size:14px;flex:none}
 .tip p{font-size:12.5px;color:var(--muted);margin-top:8px}
 .radar-row{display:flex;align-items:center;gap:12px;padding:13px 14px;border-radius:13px;border:1px solid var(--border);background:var(--surface);transition:.15s}
 .radar-row:hover{border-color:var(--border-2)}

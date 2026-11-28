@@ -960,11 +960,11 @@ test('Inspirace: cesta kamaráda z odkazu (#trip=), kterou si příjemce neulož
   const trip = (o) => ({ flight: { out: { date: '2099-05-10' } }, dest: { label: 'Řím (Itálie)', lat: 41.9, lon: 12.5, cc: 'IT', country: 'Itálie' }, ...o });
   const shared = plain(T.tripPlaces(trip({ shared: { on: '2099-04-01' } })));
   assert.deepEqual(shared.map((p) => [p.label, p.trip, p.shared]), [['Řím', true, true]]);
-  assert.equal(T.inspSub({ ...shared[0], from: '' }), '🔗 Sdílená cesta');
+  assert.equal(T.inspSub({ ...shared[0], from: '' }), 'Sdílená cesta');
   // vlastní cesta (i sdílená, kterou si uložil – shared pak zmizí) dál „Tvoje cesta“
   const own = plain(T.tripPlaces(trip()));
   assert.equal(own[0].shared, undefined);
-  assert.equal(T.inspSub({ ...own[0], from: '' }), '🧳 Tvoje cesta');
+  assert.equal(T.inspSub({ ...own[0], from: '' }), 'Tvoje cesta');
 });
 
 test('Inspirace: i nadcházející cesty z plánovače – nejbližší první, proběhlé ne, cesta z průvodce jednou, nejvýš 6 míst', () => {
@@ -987,7 +987,7 @@ test('Inspirace: i nadcházející cesty z plánovače – nejbližší první, 
   assert.deepEqual(own.map((p) => [p.label, p.from || '', p.trip]), [['Lisabon', '2099-01-03', true], ['Vídeň', '2099-01-20', true],
     ['Barcelona', '', true], ['Girona', '', true], ['Tarragona', '', true], ['Itálie', '2099-05-01', true]]);
   assert.deepEqual([own[0].lat, own[0].shared], [38.78, undefined], 'uložená z průvodce s polohou z kopie cesty');
-  assert.equal(C.inspSub({ ...own[0], from: '' }), '🧳 Tvoje cesta');
+  assert.equal(C.inspSub({ ...own[0], from: '' }), 'Tvoje cesta');
   assert.deepEqual([own[1].lat, own[1].cc, own[1].country, own[1].whole], [undefined, 'AT', 'Rakousko', undefined], 'jen z plánovače: poloha až po klepnutí');
   assert.equal(own[5].whole, 'IT', 'cíl = země: celá země');
   // známé město z Inspirace s polohou, „Řím, Barcelona“ (víc letů) a „(…)“ v názvu jen první místo
@@ -1004,7 +1004,7 @@ test('Inspirace: i nadcházející cesty z plánovače – nejbližší první, 
   // sdílená cesta kamaráda v průvodci zůstane „🔗 Sdílená cesta“, cesty z plánovače jsou vlastní
   const sh = plain(C.ownPlaces(wiz('Paříž', 'FR', 48.86, 2.35, '2099-01-01', { created: 55, shared: { on: '2098-12-01' } }), trips));
   assert.deepEqual(sh.slice(0, 2).map((p) => [p.label, Boolean(p.shared)]), [['Paříž', true], ['Lisabon', false]]);
-  assert.equal(C.inspSub({ ...sh[0], from: '' }), '🔗 Sdílená cesta');
+  assert.equal(C.inspSub({ ...sh[0], from: '' }), 'Sdílená cesta');
   assert.deepEqual(plain(C.ownPlaces(null, null)), []);
 });
 

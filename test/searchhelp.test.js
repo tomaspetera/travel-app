@@ -150,7 +150,7 @@ test('activeFilters: filtry ze serveru (se skrytými nabídkami) i z výpisu', (
   const chips = H.activeFilters({ maxPrice: 2000, directOnly: true, hidden: { maxPrice: 12, directOnly: 0 } },
     { onlyDeals: true, maxPrice: 3000, outDate: '2026-11-12', excludeOrigins: new Set(['VIE']), excludeCarriers: new Set(['wizzair']) }, { ryanair: 'Ryanair', wizzair: 'Wizz Air' });
   assert.deepEqual(plain(chips.map((c) => [c.key, c.label, c.hidden || 0, Boolean(c.rerun)])), [
-    ['maxPrice', `do ${kc(2000)}`, 12, true], ['directOnly', 'jen přímé lety', 0, true], ['onlyDeals', '🔥 jen výhodné', 0, false],
+    ['maxPrice', `do ${kc(2000)}`, 12, true], ['directOnly', 'jen přímé lety', 0, true], ['onlyDeals', 'jen výhodné', 0, false],
     ['viewPrice', `max. ${kc(3000)}`, 0, false], ['outDate', 'odlet 12. 11.', 0, false], ['origins', 'bez VIE', 0, false], ['carriers', 'bez Wizz Air', 0, false],
   ]);
   assert.deepEqual(plain(H.activeFilters(null, { excludeOrigins: new Set(), excludeCarriers: new Set() })), []);
@@ -1045,7 +1045,7 @@ test('🆕 nové země: až od 3 označených zemí, cíle bez země zůstávaj�
   assert.deepEqual(plain(H.newSplit([g('ES'), g('AT'), g(''), g('FR')], ['CZ', 'AT'])), { keep: 4, hidden: 0 });
   assert.deepEqual(plain(H.newSplit(null, vis)), { keep: 0, hidden: 0 });
   const chips = H.activeFilters(null, { newOnly: true, excludeOrigins: new Set(), excludeCarriers: new Set() }, {}, {}, { newHidden: 4 });
-  assert.deepEqual(plain(chips), [{ key: 'newOnly', label: '🆕 jen nové země', hidden: 4 }]);
+  assert.deepEqual(plain(chips), [{ key: 'newOnly', label: 'jen nové země', hidden: 4 }]);
   assert.deepEqual(plain(H.activeFilters(null, { newOnly: false, excludeOrigins: new Set(), excludeCarriers: new Set() })), []);
 });
 
@@ -1325,7 +1325,7 @@ test('prefGroups (computeGroups v Kamkoliv): 🙈 schované s počítadlem, uká
   assert.deepEqual(keys(H.prefGroups(gs, null)), ['EIN', 'OPO', 'LON', 'CRL', 'BCN'], 'bez seznamů nic neschová');
   // čip aktivního filtru „⭐ jen moje cíle“ se schovanými cíli
   const chip = plain(H.activeFilters(null, { favOnly: true, excludeOrigins: new Set(), excludeCarriers: new Set() }, {}, {}, { favHidden: fav.notFav }));
-  assert.deepEqual(chip, [{ key: 'favOnly', label: '⭐ jen moje cíle', hidden: 2 }]);
+  assert.deepEqual(chip, [{ key: 'favOnly', label: 'jen moje cíle', hidden: 2 }]);
 });
 
 test('🔎 Co tam je: střed města pro místa k vidění – metropole, město z cesty z letiště, jinak dohledat', () => {
