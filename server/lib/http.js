@@ -67,9 +67,10 @@ export async function request(url, opts = {}) {
         // je-li to do 10 s. U aerolinek se to nepoužívá (429 je tam ochrana proti botům).
         const ra = Number(res.headers.get('retry-after'));
         if (ra > 0) err.retryAfter = ra; // pro pojistky volajícího (vynechat zdroj na tak dlouho)
-        // Travelpayouts Retry-After neposílá, jen X-Rate-Limit-Reset = sekundy do konce minutového okna limitu.
-        const rr = Number(res.headers.get('x-rate-limit-reset'));
-        if (rr > 0) err.rateReset = rr;
+        // Travelpayouts podle dokumentace Retry-After neposílá, jen X-Rate-Limit-Reset = sekundy do konce minutového
+        // okna limitu (i 0 = okno právě končí – proto se uloží i nula).
+        const rr = res.headers.get('x-rate-limit-reset');
+        if (rr && Number(rr) >= 0) err.rateReset = Number(rr);
         if (res.status === 429 && retry429 && !waited429 && ra > 0 && ra <= 10) {
           waited429 = true;
           await sleep(ra * 1000);

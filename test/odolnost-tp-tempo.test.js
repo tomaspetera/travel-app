@@ -96,6 +96,19 @@ test('tp-limity-4: 429 s X-Rate-Limit-Reset: 40 → Travelpayouts vynechán na ~
   }
 });
 
+test('tp-limity-4: 429 s X-Rate-Limit-Reset: 0 (okno právě končí) → blokace 1 s, ne záloha 2 min', async () => {
+  resetTravelpayouts();
+  const stub = stubFetch(() => ({ status: 429, body: {}, headers: { 'X-Rate-Limit-Reset': '0' } }));
+  try {
+    const d = ymdPlus(42);
+    await assert.rejects(travelpayouts.daily({ from: 'OSR', to: 'LIS', dateFrom: d, dateTo: d }), /429/);
+    assert.ok(travelpayouts.retryAfter() <= 1, `blokace ${travelpayouts.retryAfter()} s`);
+  } finally {
+    stub.restore();
+    resetTravelpayouts();
+  }
+});
+
 test('tp-limity-4: 429 bez hlaviček → záloha 2 min', async () => {
   resetTravelpayouts();
   const stub = stubFetch(() => ({ status: 429, body: {} }));

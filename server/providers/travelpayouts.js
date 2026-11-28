@@ -122,7 +122,8 @@ async function fetchPfd(qs) {
       const s = Number(e.status) || 0;
       // 400/422 (odmítnutá trasa), 401/403 (token) a neplatné JSON pojistku nespouští – to nejsou výpadky
       if (s !== 429 && s < 500 && e instanceof HttpError) throw e;
-      const wait = e.retryAfter || e.rateReset;
+      // X-Rate-Limit-Reset: 0 = okno končí do vteřiny → blokace 1 s, ne záloha 2 min
+      const wait = e.retryAfter > 0 ? e.retryAfter : e.rateReset >= 0 ? Math.max(1, e.rateReset) : 0;
       const ms = s === 429 ? (wait > 0 ? Math.min(15 * 60e3, wait * 1000) : 2 * 60e3) : 60e3;
       block.until = Math.max(block.until, Date.now() + ms);
       block.why = s === 429 ? 'teď omezuje dotazy (HTTP 429)' : s ? `má výpadek (HTTP ${s})` : 'neodpovídá';

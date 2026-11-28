@@ -6,7 +6,7 @@ Podklad k podnikatelskému plánu (cíl: 1000+ lidí naráz, později desítky t
 
 Od 12. 1. 2027 (čistý režim) je Travelpayouts jediný zdroj letů. Oficiální limit `/aviasales/v3/prices_for_dates` je
 **600 dotazů za minutu** na token (Help Center Travelpayouts, „API rate limits“); po překročení HTTP 429 a blokace do
-konce minutového okna (hlavička `X-Rate-Limit-Reset`, `Retry-After` neposílá). Dřív server hlídal jen souběh 4 dotazů,
+konce minutového okna (hlavička `X-Rate-Limit-Reset`; `Retry-After` dokumentace neuvádí). Dřív server hlídal jen souběh 4 dotazů,
 takže při rychlé odpovědi API (~0,15 s) poslal až ~1 600 dotazů za minutu a dvě těžká hledání stačila na 429 pro všechny.
 
 - **Tempo** (`server/providers/travelpayouts.js`, `TP_PACE` a `fetchPfd`; `pacer()` v `server/lib/http.js`): 8 dotazů/s
