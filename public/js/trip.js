@@ -840,9 +840,11 @@ let calOut = false; // jedna obsluha klepnutí mimo nabídku „Do kalendáře �
     const mine = S.trip;
     // „Změnit let“ (app.js editTrip) i „↩ Jiný let“ v průvodci (otherFlight) → window.reflight = id cesty: let se vymění
     // u ní – dřív vznikla druhá cesta se stejným názvem bez programu. Značka platí jen pro tento výběr (app.js go ji smaže
-    // i při odchodu z Letů).
-    const rid = window.reflight;
-    window.reflight = null;
+    // i při odchodu z Letů). reflightDrill = Lety jsou odbočkou z Cesty (↩ Jiný let): výměna se vrátí na její krok.
+    const rid = window.reflight, drill = Boolean(window.reflightDrill);
+    window.reflight = null; window.reflightDrill = false;
+    // let vyměněný u téže cesty (same) po odbočce: zpátky na krok Cesty pod Lety, jinak krok Cesty navrch (app.js tripShow)
+    const show = same => (typeof tripShow === 'function' ? tripShow(same && drill) : go('trip', { drill: true }));
     const old = rid && Array.isArray(S.trips) ? S.trips.find(x => x && x.tripId && x.tripId === rid) : null;
     // cesta z průvodce ještě neuložená v Mých cestách (jen prohlédnutý let, samoukládání nestihlo) se vymění na místě
     const ow = old ? old.wizard : rid && mine && mine.created === rid ? mine : null;
@@ -857,14 +859,16 @@ let calOut = false; // jedna obsluha klepnutí mimo nabídku „Do kalendáře �
     // na kterou uživatel klepl; výměna (reflightTrip) dá novou a hotel ve stejné dny nechá
     const legsOf = f => JSON.stringify([f.out, Array.isArray(f.mid) ? f.mid : [], f.back || null]);
     const keep = Boolean(cur && cur.flight && sameFlight(cur.flight, t) && (cur.flight.flightCzk === t.flightCzk || legsOf(cur.flight) === legsOf(t)) && +cur.adults === +result.query.adults && sameKids(cur, result.query) && (cur.bags || 'none') === (result.query.bags || 'none'));
+    // tentýž let za stejnou cenu z novějšího hledání: čas ceny k němu – otevřené i zavřené cestě (jinak „hledáno“ s časem
+    // původního hledání, i když cena je právě ověřená); sdílená cesta: „ceny jsou z doby sdílení“ by neplatilo (sharedHtml)
+    const repriced = x => { if (!(at > 0 && at - mem > (x.flight.pricedAt || 0) && at <= Date.now() && x.flight.flightCzk === t.flightCzk)) return false; x.flight.pricedAt = at - mem; if (x.shared) x.shared = {}; return true; };
     if (keep && (!re || re.open)) {
-      // sdílená cesta: cena letu je teď z novějšího hledání – „ceny jsou z doby sdílení“ by neplatilo (sharedHtml)
-      if (at > 0 && at - mem > (mine.flight.pricedAt || 0) && at <= Date.now() && mine.flight.flightCzk === t.flightCzk) { mine.flight.pricedAt = at - mem; if (mine.shared) mine.shared = {}; persist(); }
-      go('trip', { drill: true }); return;
+      if (repriced(mine)) persist();
+      show(true); return;
     }
     if (!(re && re.open) && !here && !leaveTrip(mine, done => `Máš rozpracovanou cestu: ${mine.dest?.label || mine.flight.out.to} (${done.join(', ')}). Nahradit ji novou cestou s tímto letem?`)) return;
     // „Změnit let“ na tentýž let u cesty jen v Mých cestách: jen ji otevřít (jako výměna, ale beze změny)
-    if (keep) { S.trip = re.t; staysData = null; carsData = null; persist(); go('trip', { drill: true }); return; }
+    if (keep) { repriced(re.t); S.trip = re.t; staysData = null; carsData = null; persist(); show(true); return; }
     // Let z průběžných výsledků (pomalejší zdroje ještě hledaly): statistika cen i úroveň ceny letu jsou jen z části
     // zdrojů – neuložit, doplní je konečný výsledek téhož hledání (finalStats, statsWait = jeho dotaz). Statistika
     // průběžného výsledku čeká stranou (statsPreview) pro případ, že hledání konečný výsledek nepřinese (statsGiveUp).
@@ -912,13 +916,13 @@ let calOut = false; // jedna obsluha klepnutí mimo nabídku „Do kalendáře �
     if (re) {
       const n = reflightTrip(re.t, trip);
       saveRetimed(re.e, n, true, outLeg(n).date, backLeg(n) ? backLeg(n).date : stayDates(n).checkout);
-      go('trip', { drill: true }); return;
+      show(true); return;
     }
-    if (here) { S.trip = reflightTrip(here, trip); persist(); go('trip', { drill: true }); return; }
+    if (here) { S.trip = reflightTrip(here, trip); persist(); show(true); return; }
     S.trip = trip;
     persist();
     if (window.Count) Count.hit('trip_started'); // souhrnný počet (count.js) – nová cesta s letem, i vlastním
-    go('trip', { drill: true }); // Zpět telefonu vrátí k výsledkům, ze kterých let je (app.js viewHist)
+    show(false); // Zpět telefonu vrátí k výsledkům, ze kterých let je (app.js viewHist)
   }
   /* ---------- ✈️ Letenku už mám: průvodce bez hledání letu ---------- */
   // Kód letiště místa z našeptávače: letiště (iata), metropole (metro:LON), jinak první kód z popisku („letiště v okolí:
@@ -4516,6 +4520,7 @@ let calOut = false; // jedna obsluha klepnutí mimo nabídku „Do kalendáře �
    */
   function otherFlight(t) {
     window.reflight = Number.isFinite(t.created) ? t.created : null;
+    window.reflightDrill = true; // výměna se vrátí na krok Cesty pod Lety (start), ne krok navrch
     const f = t.flight, d = t.dest || {}, ids = [d.id, 'ap:' + f.out.to, d.cc && 'cc:' + d.cc].filter(Boolean);
     const r = $('#results'), to = S.form && Array.isArray(S.form.to) ? S.form.to : null;
     // Lety jako odbočka z průvodce: Zpět vrátí do Cesty (a značku zruší – app.js go), ne na Přehled
