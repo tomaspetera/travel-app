@@ -57,6 +57,14 @@ function load() { try { const d = JSON.parse(localStorage.getItem(LS)); if (d) r
 function fixState(s) {
   for (const k of ['visited', 'trips', 'watch', 'recent', 'fav', 'mute', 'pins', 'viewed']) if (!Array.isArray(s[k])) s[k] = [];
   for (const k of ['trips', 'watch', 'recent', 'pins']) s[k] = s[k].filter(x => x && typeof x === 'object' && !Array.isArray(x));
+  // obsah cest: Moje cesty čtou t.days[d].map, x.done v Sbaleno a t.start.localeCompare – jedna ručně upravená cesta
+  // by jinak shodila celý seznam (zálohy, přenos a odkazy cesty čistí už samy)
+  for (const t of s.trips) {
+    if (!t.days || typeof t.days !== 'object' || Array.isArray(t.days)) t.days = {};
+    for (const d in t.days) if (!Array.isArray(t.days[d])) delete t.days[d];
+    t.checklist = (Array.isArray(t.checklist) ? t.checklist : []).filter(x => x && typeof x === 'object' && typeof x.t === 'string');
+    for (const k of ['start', 'end', 'name', 'dest']) if (t[k] != null && typeof t[k] !== 'string') t[k] = '';
+  }
   for (const k of ['home', 'form']) if (s[k] && Array.isArray(s[k].from)) s[k] = { ...s[k], from: s[k].from.filter(p => p && typeof p.id === 'string') };
   return s;
 }
@@ -2470,7 +2478,7 @@ function openTrip(i) {
     pack: `<div class="divider"></div>
     <div class="grid trip-two">
       <div><h3 style="font-size:16px;margin-bottom:10px">Sbaleno</h3><div id="checkList">${(t.checklist || []).map((x, xi) => `<label class="check"><input type="checkbox" ${x.done ? 'checked' : ''} data-check="${xi}"><span style="${x.done ? 'opacity:.5;text-decoration:line-through' : ''}">${esc(x.t)}</span></label>`).join('')}</div><div class="row" style="gap:8px;margin-top:10px"><input class="input" id="newCheck-${i}" data-addcheck placeholder="Přidej položku…" aria-label="Nová položka do seznamu Sbaleno"><button class="btn sm" data-addcheck aria-label="Přidat položku">+</button></div></div>
-      <div><h3 style="font-size:16px;margin-bottom:10px">Rozpočet</h3><div class="field"><label for="bud-${i}">Celkový rozpočet (Kč)</label><input class="input" type="number" id="bud-${i}" value="${esc(t.budget || '')}"></div>${t.budget ? `<div class="muted" style="font-size:13px;margin-top:10px">Na osobu: <b style="color:var(--text)">${Math.round(t.budget / (t.pax || 1)).toLocaleString('cs')} Kč</b></div>` : ''}<div class="field" style="margin-top:14px"><label for="notes-${i}">Poznámky</label><textarea id="notes-${i}" rows="3" placeholder="Cokoliv k cestě…">${esc(t.notes || '')}</textarea></div></div>
+      <div><h3 style="font-size:16px;margin-bottom:10px">Rozpočet</h3><div class="field"><label for="bud-${i}">Celkový rozpočet (Kč)</label><input class="input" type="number" id="bud-${i}" value="${esc(t.budget || '')}"></div><div id="tripPerPax">${perPaxHtml(t)}</div><div class="field" style="margin-top:14px"><label for="notes-${i}">Poznámky</label><textarea id="notes-${i}" rows="3" placeholder="Cokoliv k cestě…">${esc(t.notes || '')}</textarea></div></div>
     </div>`,
   };
   modalOpen(`<div class="modal-hero"><div class="mh-bg ${c && c.cost >= 4 ? 'warm' : ''}"></div><button class="modal-close" data-close aria-label="Zavřít">${ico('M18 6L6 18M6 6l12 12')}</button><div class="modal-hero-inner"><div style="font-size:40px;line-height:1">${c ? flag(t.iso) : '🧳'}</div><h2 style="font-size:25px;margin-top:4px;overflow-wrap:anywhere">${esc(t.name)}</h2><div style="font-size:13px">${esc(t.dest)}${t.start ? ' · ' + dateSpan(t.start, t.end, ' – ') : ''} · ${t.pax} os.</div><button type="button" class="trip-edit" id="tripEdit">${ikona('upravit')} ${tripEditLbl(t)}</button></div></div>
@@ -2518,8 +2526,8 @@ function openTrip(i) {
   const tv = $('#tripVisited');
   if (tv) tv.onclick = () => { const ccs = tripNotVisited(t); ccs.forEach(cc => setVisited(cc, true)); toast(`Na mapě navštívených: ${ccs.map(cc => byIso[cc].cs).join(', ')}`); openTrip(i); };
   const ics = $('#tripIcs'); if (ics) ics.onclick = () => exportPlan(i);
-  // Poznámky se ukládají bez překreslení – odkaz do Google Kalendáře je musí mít aktuální.
-  const gcal = $('#tripGcal'); if (gcal) $('#notes-' + i).addEventListener('change', () => { gcal.href = safeUrl(Ics.gcalUrl(planEvents(t)[0])); });
+  // Poznámky a rozpočet se ukládají bez překreslení – odkaz do Google Kalendáře je musí mít aktuální.
+  const gcal = $('#tripGcal'); if (gcal) for (const f of ['#notes-', '#bud-']) $(f + i).addEventListener('change', () => { gcal.href = safeUrl(Ics.gcalUrl(planEvents(t)[0])); });
   $('#tripShare').onclick = () => sharePlan(i);
   // krátký odkaz se začne ukládat už při dotyku – sdílení pak nečeká (Safari ho chce ještě v obsluze klepnutí)
   $('#tripShare').onpointerdown = () => ShareLink.short('plan', planJson(t));
@@ -2577,7 +2585,7 @@ function planEvents(t) {
 function exportPlan(i) {
   const t = S.trips[i], ev = planEvents(t);
   if (!ev.length) return toast('Nejdřív doplň termíny cesty', 'err');
-  icsDownload('atlas-' + t.name, ev, { name: t.name });
+  icsDownload('letsi-' + t.name, ev, { name: t.name });
 }
 /** Stáhne .ics (i z průvodce cestou); do kalendáře se události dostanou až otevřením souboru. */
 function icsDownload(filename, events, opts) {
@@ -2779,8 +2787,19 @@ function previewPlan(shared) {
 }
 // úprava v okně cesty: uložit a překreslit okno i kartu v plánovači pod ním (rozpočet, aktivity, sbaleno)
 const reTrip = i => { save(); openTrip(i); tripsChanged(); };
-window.addAct = (i, d) => { const inp = $('#act-' + i + '-' + d); const v = inp.value.trim(); if (!v) return; S.trips[i].days[d] = S.trips[i].days[d] || []; S.trips[i].days[d].push(v); reTrip(i); };
-window.delAct = (i, d, ai) => { S.trips[i].days[d].splice(ai, 1); reTrip(i); };
+// po Enteru zpět do (překresleného) pole – další položka jde psát hned, na telefonu nespadne klávesnice (jako addRef)
+const refocus = id => { const el = document.getElementById(id); if (el) el.focus(); };
+window.addAct = (i, d) => { const inp = $('#act-' + i + '-' + d); const v = inp.value.trim(); if (!v) return; S.trips[i].days[d] = S.trips[i].days[d] || []; S.trips[i].days[d].push(v); reTrip(i); refocus('act-' + i + '-' + d); };
+// smaže hned – „↩ Vrátit“ v hlášce ji vrátí na stejné místo (jako smazanou cestu); patří k cestě, ne k pořadí
+window.delAct = (i, d, ai) => {
+  const t = S.trips[i], [a] = t.days[d].splice(ai, 1); reTrip(i);
+  toast('Aktivita smazána', '', 6000, { label: '↩ Vrátit', run: () => {
+    const k = S.trips.indexOf(t); if (k < 0) return;
+    const acts = t.days[d] = Array.isArray(t.days[d]) ? t.days[d] : [];
+    acts.splice(Math.min(ai, acts.length), 0, a);
+    if (tripShown === t && $('#modalBg').classList.contains('show')) reTrip(k); else { save(); tripsChanged(); }
+  } });
+};
 window.toggleCheck = (i, xi) => {
   const t = S.trips[i], x = t.checklist[xi];
   x.done = !x.done;
@@ -2788,7 +2807,7 @@ window.toggleCheck = (i, xi) => {
   if (x.id && t.wizard) { const f = () => PreTrip.fromPlanner(t, x); if (window.PreTrip) f(); else if (window.Lazy) Lazy.need('pretrip').then(f, () => { }); }
   reTrip(i);
 };
-window.addCheck = i => { const inp = $('#newCheck-' + i); const v = inp.value.trim(); if (!v) return; S.trips[i].checklist.push({ t: v, done: false }); reTrip(i); };
+window.addCheck = i => { const inp = $('#newCheck-' + i); const v = inp.value.trim(); if (!v) return; S.trips[i].checklist.push({ t: v, done: false }); reTrip(i); refocus('newCheck-' + i); };
 window.addRef = i => {
   const t = S.trips[i], v = k => ($(`#${k}-${i}`) || { value: '' }).value;
   if (!t || !window.Backup) return;
@@ -2857,7 +2876,14 @@ window.setRideSoon = (i, key, k, v) => { const t = S.trips[tripIdx(i)]; if (t) r
 window.addEventListener('pagehide', flushRide);
 document.addEventListener('visibilitychange', () => { if (document.hidden) flushRide(); });
 // „change“ přijde i při překreslení okna po změně z jiného panelu – patří k cestě v okně (smazaná: nic)
-window.setBudget = (i, v) => { i = tripIdx(i); if (i < 0) return; S.trips[i].budget = v; reTrip(i); };
+// Rozpočet bez překreslení okna (jako poznámky): „change“ přijde při odchodu z pole – překreslení by spolklo klepnutí
+// na ✕ nebo do Poznámek, které ho vyvolalo. Přepíše se jen řádek „Na osobu“.
+window.setBudget = (i, v) => {
+  i = tripIdx(i); if (i < 0) return;
+  const t = S.trips[i]; t.budget = v; save(); tripsChanged();
+  const pp = tripShown === t && $('#tripPerPax'); if (pp) pp.innerHTML = perPaxHtml(t);
+};
+const perPaxHtml = t => (t.budget ? `<div class="muted" style="font-size:13px;margin-top:10px">Na osobu: <b style="color:var(--text)">${Math.round(t.budget / (t.pax || 1)).toLocaleString('cs')} Kč</b></div>` : '');
 window.setNotes = (i, v) => { i = tripIdx(i); if (i < 0) return; S.trips[i].notes = v; save(); };
 // Poznámky už při psaní („change“ přijde až po opuštění pole – obnovení stránky nebo zavřená aplikace by text ztratily).
 // Čekající text patří k cestě (ne k pořadí – mezitím smazaná cesta nic nepřepíše).

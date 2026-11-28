@@ -37,8 +37,8 @@ test('poškozený uložený stav: pole, která nejsou seznamem, jsou prázdný s
   assert.deepEqual(fix({ trips: null, home: 'PRG' }), { trips: [], visited: [], watch: [], recent: [], fav: [], mute: [], pins: [], viewed: [], home: 'PRG' });
   assert.deepEqual(fix({ trips: {} }).trips, []);
   assert.deepEqual(fix({ trips: [], watch: null }).watch, []);
-  assert.deepEqual(fix({ trips: [null, { name: 'Řím' }, 5, 'x', [1]] }).trips, [{ name: 'Řím' }]);
-  const ok = { visited: ['PT'], trips: [{ name: 'Lisabon' }], watch: [{ id: 1 }], recent: [], fav: [], mute: [], pins: [], viewed: [] };
+  assert.deepEqual(fix({ trips: [null, { name: 'Řím' }, 5, 'x', [1]] }).trips, [{ name: 'Řím', days: {}, checklist: [] }]);
+  const ok = { visited: ['PT'], trips: [{ name: 'Lisabon', days: {}, checklist: [] }], watch: [{ id: 1 }], recent: [], fav: [], mute: [], pins: [], viewed: [] };
   assert.deepEqual(fix(plain(ok)), ok, 'zdravý stav beze změny');
   // load() opraví stav, ještě než se z něj cokoli čte
   assert.match(APP, /migratePrices\(fixState\(Object\.assign\(defState\(\), d\)\), d\.pv\)/);

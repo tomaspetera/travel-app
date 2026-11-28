@@ -5073,6 +5073,8 @@ let calOut = false; // jedna obsluha klepnutí mimo nabídku „Do kalendáře �
     routeLegs, carRuns, suggestModes, setLegModes, rangeModes, carDays, carRange, carStart, transferParts, phoneNext, splitDoneTxt, stepEvent,
     // ✏️ nový termín cesty s vlastním letem z Mých cest (app.js editTrip)
     retimeSaved, retimeOwn, fitPlan,
+    // vlastní položky a aktivity ze Shrnutí → „Sbaleno“ v Mých cestách (pretrip.js patch)
+    autoSoon,
     // hlavička jako pruh, „Uloženo ✓“ a tlačítko Hotovo ve Shrnutí (testy)
     miniHead, savedTxt, sumSaveLbl };
 })();

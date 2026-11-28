@@ -157,7 +157,7 @@
   function download(filename, events, opts = {}) {
     const text = build(events, opts);
     const base = String(filename || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\.ics$/i, '')
-      .replace(/[^\w.-]+/g, '-').replace(/^[-.]+|[-.]+$/g, '').slice(0, 80) || 'atlas';
+      .replace(/[^\w.-]+/g, '-').replace(/^[-.]+|[-.]+$/g, '').slice(0, 80) || 'letsi';
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([text], { type: 'text/calendar;charset=utf-8' }));
     a.download = base + '.ics';
