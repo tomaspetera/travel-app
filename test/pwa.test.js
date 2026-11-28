@@ -517,6 +517,12 @@ test('service worker – směrování (čistá funkce): API, POST, cizí weby a 
   assert.equal(route('/js/statistiky.js'), null);
   // právní texty (server/lib/pravni.js) taky ne – po jejich otevření by se offline místo aplikace ukázaly zásady
   for (const u of ['/soukromi', '/podminky']) assert.equal(route(u, { mode: 'navigate' }), null, u);
+  // obsahové stránky serveru (země, kam v měsíci) a jejich soubory taky ne – uložené by se offline otevíraly místo aplikace
+  for (const u of ['/zeme', '/zeme/portugalsko', '/kam-v-breznu', '/obsah/obsah.css', '/obsah/foto/pt.webp']) {
+    assert.equal(route(u, { mode: 'navigate' }), null, u);
+    assert.equal(route(u), null, u);
+  }
+  for (const u of ['/zemekoule', '/kam']) assert.equal(route(u, { mode: 'navigate' }), 'page', `${u}: jen přesná adresa`);
   assert.equal(route('/css/c/x.css'), 'asset', 'jen /c/ na začátku rozsahu');
   for (const u of ['https://tiles.openfreemap.org/planet/1/2/3.pbf', 'https://fonts.googleapis.com/css2?family=Inter', 'https://fonts.gstatic.com/s/inter.woff2',
     'https://api.open-meteo.com/v1/forecast?x=1', 'https://www.booking.com/x', 'http://atlas.test/js/app.js', 'https://atlas.test:8443/js/app.js']) {
