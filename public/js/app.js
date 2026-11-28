@@ -2262,9 +2262,11 @@ async function saveTrip(iso, flightTxt) {
 window.planSearch = i => tripFlights(S.trips[i]);
 /**
  * Lety do cíle cesty t ({ wizard, place, iso, start, end } – uložená cesta, i stav průvodce: „↩ Jiný let“, „Změnit let“
- * v ✏️ Upravit) s předvyplněným cílem a termínem.
+ * v ✏️ Upravit) s předvyplněným cílem a termínem. o.drill = odbočka z průvodce (↩ Jiný let): Zpět vrátí do Cesty.
  */
-window.tripFlights = t => {
+window.tripFlights = (t, o = {}) => {
+  // napřed krok historie odbočky – další go('flights') (Flights.searchTo) už jen v Letech zůstane
+  if (o.drill) go('flights', { drill: true });
   if (!t || !window.Flights) return go('flights');
   // cesta přes víc měst letadlem (z průvodce): stejná trasa znovu, ne zpáteční let do prvního města
   const wf = t.wizard && t.wizard.flight;
