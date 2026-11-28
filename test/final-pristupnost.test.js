@@ -105,7 +105,7 @@ test('okno cesty po úpravě a zavření: název karty (tt-open) má data-tt s i
 test('↩ Vrátit nad otevřeným oknem: Tab z posledního prvku okna na tlačítko hlášky a z něj zpět na začátek (Shift+Tab obráceně)', () => {
   const src = appJs.match(/^document\.addEventListener\('keydown', e => \{\n {2}if \(e\.key !== 'Tab'[\s\S]*?^\}\);$/m);
   assert.ok(src, 'app.js: past na Tab v okně');
-  const box = (name) => ({ name, getClientRects: () => [{}], focus() { ctx.document.activeElement = this; } });
+  const box = (name, closed = false, tagName = 'BUTTON') => ({ name, tagName, closest: (s) => (s === 'details:not([open])' && closed ? {} : null), getClientRects: () => [{}], focus() { ctx.document.activeElement = this; } });
   const first = box('first'), mid = box('mid'), last = box('last'), ta = box('Vrátit'), m = { ...box('modal'), contains: (x) => [m, first, mid, last].includes(x) };
   let toastOn = true, handler;
   const ctx = vm.createContext({
@@ -123,6 +123,12 @@ test('↩ Vrátit nad otevřeným oknem: Tab z posledního prvku okna na tlačí
   assert.equal(tab(mid), 'prohlížeč', 'uvnitř okna dál pořadí prohlížeče');
   toastOn = false;
   assert.equal(tab(last), 'first', 'bez hlášky koluje jen v okně');
+  // Přenos: pole a tlačítko v zavřeném <details> nejsou vidět (rozměry ale mají) – summary je poslední prvek okna
+  const sum = box('summary', true, 'SUMMARY'), hidIn = box('tfIn', true), hidBtn = box('tfLoad', true);
+  ctx.$$ = () => [first, sum, hidIn, hidBtn];
+  m.contains = (x) => [m, first, sum, hidIn, hidBtn].includes(x);
+  assert.equal(tab(sum), 'first', 'z posledního viditelného prvku zpět na začátek, ne z okna ven');
+  assert.equal(tab(first, true), 'summary', 'Shift+Tab ze začátku na summary');
 });
 
 test('hláška s ↩ Vrátit se neschová, dokud má tlačítko fokus (Tab) – fokus by spadl na začátek stránky', () => {
@@ -164,13 +170,18 @@ test('přepínač Svět Mapa ↔ Země: fokus na stejné tlačítko v nové sekc
   const h1 = { tabIndex: 0, getClientRects: () => [{}], focus() { focused.push('h1'); } };
   let shown = true;
   const ctx = vm.createContext({ document: { body: {} }, CSS: CSSx,
-    $: (s) => (s === '.view.active button[data-w="countries"]' ? (shown ? twin : null) : s === '.view.active h1' ? h1 : null) });
+    $: (s) => (s === '.view.active button[data-w="countries"]' || s === '.view.active div[data-qf="0"]' ? (shown ? twin : null) : s === '.view.active h1' ? h1 : null) });
   vm.runInContext(`${pick('kbSel')}\n${pick('viewFocus')}`, ctx);
-  const zeme = node('BUTTON', { type: 'button', 'data-w': 'countries' }, { closest: (s) => (s === '.view:not(.active)' ? {} : null) });
+  const zeme = node('BUTTON', { type: 'button', 'data-w': 'countries' }, { closest: (s) => (s === '.view:not(.active)' ? {} : null), matches: (s) => s === '.world-tabs [data-w]' });
   ctx.viewFocus(zeme);
   assert.deepEqual(focused, ['twin']);
   shown = false; ctx.viewFocus(zeme);
   assert.deepEqual(focused, ['twin', 'h1'], 'bez dvojčete nadpis jako dřív');
+  // dlaždice Rychlého hledání z Přehledu má dvojče i v Letech – fokus ale na nadpis (startSearch ho dá na průběh), ne na dlaždici pod výsledky
+  shown = true;
+  const qf = node('DIV', { 'data-qf': '0' }, { closest: (s) => (s === '.view:not(.active)' ? {} : null), matches: () => false });
+  ctx.viewFocus(qf);
+  assert.deepEqual(focused, ['twin', 'h1', 'h1']);
   // go(): viewFocus až po lazyView – Objevuj si nadpis překreslí (renderExplore) a fokus na starém by spadl na <body>
   const go = pick('go');
   assert.equal(go.split('viewFocus(a0)').length, 2, 'jen jednou');

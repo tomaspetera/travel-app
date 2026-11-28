@@ -44,7 +44,7 @@ function closeModal({ ret, sel = '', box = '', els = {} }) {
   return { focused, kb: ctx.modalKb };
 }
 const node = (name, o = {}) => {
-  const el = { name, tagName: 'BUTTON', isConnected: true, getClientRects: () => [1], f: false, ...o };
+  const el = { name, tagName: 'BUTTON', isConnected: true, closest: () => null, getClientRects: () => [1], f: false, ...o };
   el.focus = (opt) => { assert.deepEqual({ ...opt }, { preventScroll: true }); el.f = true; };
   return el;
 };
