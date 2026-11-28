@@ -895,9 +895,9 @@ function nowCard(x, p) {
   };
   const row = (r, d, past) => `<li${past ? ' class="nw-past"' : ''}><span class="nw-i">${r[1]}</span><span>${d ? `<span class="nw-d">${tag(r[0])}</span>` : ''}${r[2]}${walk(r)}</span></li>`;
   // po návratu domů (poslední den, spoj zpět přistál) už ne „na cestě“ – karta zůstane do půlnoci kvůli kódům a plánu
-  const head = x.home ? `🏠 Zpátky doma · <b>${esc(p.place)}</b> <span class="faint">· den ${x.day} z ${x.days}</span>`
-    : x.on ? `📍 Dnes na cestě · den ${x.day} z ${x.days} · ${p.from ? `${esc(p.from)} → ` : ''}<b>${esc(p.place)}</b>`
-    : `🧳 ${x.until === 1 ? 'Zítra' : `Za ${x.until} dny`} ${p.verb} · <b>${esc(p.place)}</b> <span class="faint">${dowLbl(t.start)}</span>`;
+  const head = x.home ? `${ikona('domov')} Zpátky doma · <b>${esc(p.place)}</b> <span class="faint">· den ${x.day} z ${x.days}</span>`
+    : x.on ? `${ikona('misto')} Dnes na cestě · den ${x.day} z ${x.days} · ${p.from ? `${esc(p.from)} → ` : ''}<b>${esc(p.place)}</b>`
+    : `${ikona('kalendar')} ${x.until === 1 ? 'Zítra' : `Za ${x.until} dny`} ${p.verb} · <b>${esc(p.place)}</b> <span class="faint">${dowLbl(t.start)}</span>`;
   const h = Math.abs(p.shift) / 60, shift = `o ${String(h).replace('.', ',')}\u00a0h ${p.shift < 0 ? 'méně' : 'víc'} než v Praze`;
   // online check-in: řádek 📲 v průběhu cesty je jen v den otevření – večer předem a ráno odletu čas zavření tady
   // (pevné mezery: „do zítra 4:25“ se na úzkém telefonu neroztrhne)
@@ -925,7 +925,7 @@ function nowCard(x, p) {
 /** #now bez cesty na kartu: krátce, že žádná neprobíhá, a nejbližší naplánovaná. */
 function nowNone() {
   const today = todayLocal(), n = S.trips.map((t, i) => ({ t, i })).filter(y => y.t && okYmd(y.t.start) && y.t.start > today).sort((a, b) => a.t.start.localeCompare(b.t.start))[0];
-  return `<div class="card now-card none" id="nowCard" tabindex="-1" role="region" aria-label="Na cestě"><div class="nw-h">📍 Žádná cesta právě neprobíhá</div><div class="nw-meta"><span>${n
+  return `<div class="card now-card none" id="nowCard" tabindex="-1" role="region" aria-label="Na cestě"><div class="nw-h">${ikona('misto')} Žádná cesta právě neprobíhá</div><div class="nw-meta"><span>${n
     ? `Nejbližší: <b>${esc(n.t.dest && n.t.dest !== '—' ? n.t.dest : n.t.name)}</b> ${fmtDate(n.t.start)} (${inDays(daysTo(today, n.t.start))}) · <button type="button" class="linkbtn" data-nw-plan="${n.i}">Otevřít plán →</button>`
     : 'Naplánovanou cestu zatím nemáš · <button type="button" class="linkbtn" data-nw-go="planner">Moje cesty →</button>'}</span></div></div>`;
 }
@@ -936,7 +936,7 @@ function nowUnsaved(today) {
   const u = window.Trip && Trip.unsavedNow ? Trip.unsavedNow(today) : null;
   if (!u) return '';
   const d = daysTo(today, u.start);
-  return `<div class="card now-card none" id="nowCard" tabindex="-1" role="region" aria-label="Na cestě"><div class="nw-h">📍 ${u.shared ? 'Sdílená cesta' : 'Cesta'} ${u.cc ? flag(u.cc) + ' ' : ''}${esc(u.label)} ${d > 0 ? 'začíná ' + inDays(d) : 'právě probíhá'}</div><div class="nw-meta"><span>${u.shared ? 'Od kamaráda – jedeš taky? Ulož si ji' : 'Ještě není v Mých cestách – ulož ji'} a tady uvidíš na každý den program, ubytování a spoje, i bez signálu. <button type="button" class="linkbtn" data-nw-save>Uložit do Mých cest</button></span></div></div>`;
+  return `<div class="card now-card none" id="nowCard" tabindex="-1" role="region" aria-label="Na cestě"><div class="nw-h">${ikona('misto')} ${u.shared ? 'Sdílená cesta' : 'Cesta'} ${u.cc ? flag(u.cc) + ' ' : ''}${esc(u.label)} ${d > 0 ? 'začíná ' + inDays(d) : 'právě probíhá'}</div><div class="nw-meta"><span>${u.shared ? 'Od kamaráda – jedeš taky? Ulož si ji' : 'Ještě není v Mých cestách – ulož ji'} a tady uvidíš na každý den program, ubytování a spoje, i bez signálu. <button type="button" class="linkbtn" data-nw-save>Uložit do Mých cest</button></span></div></div>`;
 }
 /* 🌤️ Počasí na kartě: předpověď MET Norway (Weather.forecast – jeden dotaz na všechna místa karty) uložená
    v localStorage, ať je vidět i bez signálu. Jen když karta místa chce (na cestě, den před odjezdem) – jinak žádný dotaz.
@@ -1326,7 +1326,7 @@ const DASH_TIPS = [
     used: s => (s.watch || []).length > 0, run: () => go('flights') },
   { id: 'pin', ico: '📌', h: 'Odložené nabídky', t: '📌 Odložit u nabídky ji schová na později – pak je porovnáš vedle sebe a pošleš k výběru.', btn: 'Otevřít Lety',
     used: s => (s.pins || []).length > 0, run: () => go('flights') },
-  { id: 'auto', ico: '⚡', h: 'Hotová cesta', t: 'v průvodci cestou vyber let a klepni na ⚡ Poskládej celou cestu za mě – ubytování i program vyberu za tebe.', btn: 'Otevřít Cesty',
+  { id: 'auto', ico: '⚡', h: 'Hotová cesta', t: 'v průvodci cestou vyber let a klepni na „Poskládej celou cestu za mě“ – ubytování i program vyberu za tebe.', btn: 'Otevřít Cesty',
     used: s => Boolean(s.trip) || (s.trips || []).some(t => t && t.wizard), run: () => go('trip') },
   { id: 'explore', ico: '🧭', h: 'Objevuj', t: 'napiš město nebo „Lisabon na 3 dny“ – ukážu, co tam vidět, a naplánuju program po dnech.', btn: 'Otevřít Objevuj',
     used: (s, x) => Boolean(x.explore || (s.navUse && s.navUse.explore)), run: () => go('explore') },
@@ -3043,7 +3043,7 @@ function wireEvents() {
     if (ch.has('pins') && window.Flights && Flights.refreshPins) Flights.refreshPins();
   });
 }
-function renderTips() { $('#flightTips').innerHTML = TIPS.map(t => `<div class="tip"><div class="tn"><span>${t[0]}</span>${t[1]}</div><p>${t[2]}</p></div>`).join(''); }
+function renderTips() { $('#flightTips').innerHTML = TIPS.map(t => `<div class="tip"><div class="tn"><span>${ikona(t[0])}</span>${t[1]}</div><p>${t[2]}</p></div>`).join(''); }
 
 /**
  * Kolik ms ještě nechat úvodní obrazovku: vlaštovka ATLASu musí vzlétnout (~0,95 s od prvního vykreslení), oči Letsi

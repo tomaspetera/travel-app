@@ -19,7 +19,7 @@ function load({ fetch = null, storage = null, online = true } = {}) {
   ctx.window = ctx;
   if (storage) ctx.localStorage = { getItem: (k) => (k in storage ? storage[k] : null), setItem: (k, v) => { storage[k] = String(v); } };
   vm.createContext(ctx);
-  vm.runInContext(pick('esc', 'enc', 'flag', 'safeUrl', 'cssUrl', 'pad', 'fmtYMD', 'fmtDate', 'czk'), ctx, { filename: 'app-helpers.js' });
+  vm.runInContext(pick('esc', 'enc', 'flag', 'ikona', 'safeUrl', 'cssUrl', 'pad', 'fmtYMD', 'fmtDate', 'czk'), ctx, { filename: 'app-helpers.js' });
   vm.runInContext(`var S = { trips: [] }, __els = {}, __go = [], __toasts = [], __rn = 0;
     var $ = (s) => (__els[s] ||= { innerHTML: '', value: '', remove() {} });
     var $$ = () => []; var go = (v) => { __go.push(v); }; var save = () => {}; var toast = (m) => { __toasts.push(m); }; var confirm = () => true;

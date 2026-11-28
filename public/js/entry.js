@@ -148,18 +148,19 @@
   /**
    * Čip k letu – jen když je co vyřizovat (registrace, e-vízum, vízum na hranici, vízum, povinný online formulář
    * k příletu – „📝 TDAC předem“), nebo když cesta (date) vychází po konci časově omezeného bezvízového režimu
-   * („⏳ ověř vstup“). Formulář u země s vízem nebo „ověř vstup“ jen v bublině – druhý čip by se na mobil nevešel.
+   * („ověř vstup“). Formulář u země s vízem nebo „ověř vstup“ jen v bublině – druhý čip by se na mobil nevešel.
+   * Štítek nabídky bez emoji (CLAUDE.md) – druh vstupu nese barva (ec-…); čip na kartě země (cardChip) ho má dál.
    */
   // klepnutí na čip (i na telefonu, kde bublina title není) otevře zemi u podmínek vstupu – termín, oficiální odkaz (app.js)
   const tap = r => (r && /^[A-Z]{2}$/.test(r.iso2 || '') ? ` data-ec="${r.iso2}"` : '');
   function flightChip(iso, date) {
     const r = get(iso), k = kind(r), f = form(iso);
-    if (k && !k.need && (expired(r, date) || over(r))) return `<span class="b ec-b ec-visa" title="${esc(`${name(iso)}: ${untilTxt(r)}${f ? ` Navíc ${formTxt(f)}.` : ''} ${r.notes || ''} ${srcTxt(r)}.`)}"${tap(r)}>⏳ ověř vstup</span>`;
-    if (k && !k.need && f) return `<span class="b ec-b ec-form" title="${esc(`${name(iso)}: bez víza, ale ${formTxt(f)}. ${srcTxt(r)}, před cestou ověř.`)}"${tap(r)}>📝 ${esc(formChipTxt(f))}</span>`;
+    if (k && !k.need && (expired(r, date) || over(r))) return `<span class="b ec-b ec-visa" title="${esc(`${name(iso)}: ${untilTxt(r)}${f ? ` Navíc ${formTxt(f)}.` : ''} ${r.notes || ''} ${srcTxt(r)}.`)}"${tap(r)}>ověř vstup</span>`;
+    if (k && !k.need && f) return `<span class="b ec-b ec-form" title="${esc(`${name(iso)}: bez víza, ale ${formTxt(f)}. ${srcTxt(r)}, před cestou ověř.`)}"${tap(r)}>${esc(formChipTxt(f))}</span>`;
     if (!k || !k.need) return '';
     const eur = Number(r.etaCostEur);
     const cost = (r.visa === 'eta' || r.visa === 'evisa') && r.etaCostEur != null && eur >= 0 ? (eur === 0 ? ' zdarma' : ` ${eur} €`) : '';
-    return `<span class="b ec-b ec-${k.cls}" title="${esc(tip(iso, r, k))}"${tap(r)}>${k.icon} ${esc(k.label + q(r) + cost)}</span>`;
+    return `<span class="b ec-b ec-${k.cls}" title="${esc(tip(iso, r, k))}"${tap(r)}>${esc(k.label + q(r) + cost)}</span>`;
   }
   /** „🪪 stačí OP“ do rozbaleného detailu letu (jen kde OP stačí). */
   function idNote(iso) {

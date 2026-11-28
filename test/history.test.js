@@ -374,7 +374,7 @@ test('📍 Dnes na cestě: cesta z průvodce bez uložení do plánovače → na
     var $ = () => ({ innerHTML: '', value: '' }); var $$ = () => []; var go = (v) => { __go.push(v); }; var save = () => {};
     var toast = (m) => { __toasts.push(m); }; var confirm = () => true; var byIso = { PT: { cs: 'Portugalsko' } }; var PACK = ['Pas'];`, ctx);
   for (const f of ['ics.js', 'planshare.js', 'backup.js', 'trip.js']) vm.runInContext(src(f), ctx, { filename: f });
-  vm.runInContext(pick('daysTo', 'inDays', 'nowUnsaved'), ctx);
+  vm.runInContext(pick('ikona', 'daysTo', 'inDays', 'nowUnsaved'), ctx);
   const T = ctx.Trip;
   ctx.S.trip = lisbon(); // 12. 11. – 17. 11.
   assert.equal(T.unsavedNow('2026-11-09'), null, '3 dny před odletem ještě ne');
@@ -388,7 +388,7 @@ test('📍 Dnes na cestě: cesta z průvodce bez uložení do plánovače → na
   // sdílená cesta kamaráda: „Sdílená cesta“ a „jedeš taky?“, ne jako vlastní
   ctx.S.trip.shared = { on: '2026-11-01' };
   assert.deepEqual(plain(T.unsavedNow('2026-11-14')).shared, true);
-  assert.match(ctx.nowUnsaved('2026-11-14'), /📍 Sdílená cesta 🇵🇹 Lisabon právě probíhá.*Od kamaráda – jedeš taky\? Ulož si ji/);
+  assert.match(ctx.nowUnsaved('2026-11-14'), /i-misto" aria-hidden="true"><\/span> Sdílená cesta 🇵🇹 Lisabon právě probíhá.*Od kamaráda – jedeš taky\? Ulož si ji/);
   delete ctx.S.trip.shared;
   // uložení z karty: zůstane na Přehledu (bez přepnutí do plánovače), pak už se nenabízí
   T.saveToPlanner({ stay: true });

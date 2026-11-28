@@ -28,7 +28,7 @@ test('uvítání a Letsi Plus: bez „bez reklam.“ a bez příjmu z předplatn
   // provize a příspěvky jen podle /api/health (livesTxt, test/regrese-okna-texty.test.js a test/ux-texty-sliby.test.js)
   assert.match(plus, /aff && 'z provizí partnerů \(takové odkazy jsou označené reklama\)', pay && 'z dobrovolných příspěvků/);
   assert.match(plus, /return `Z čeho Letsi žije: \$\{from\}, později i z předplatného Plus\. Pořadí výsledků si nikdo nekoupí\.`;/);
-  assert.match(plus, /\['Naplánované cesty \(i\\u00a0z\\u00a0⚡\\u00a0Poskládej\)', 'jedna', 'neomezeně'\]/);
+  assert.match(plus, /\['Naplánované cesty \(i\\u00a0z\\u00a0„Poskládej“\)', 'jedna', 'neomezeně'\]/);
 });
 
 test('Co je nového: přejmenování neslibuje přenesené cesty, starší novinky nechválí ceny hotelů ani ověřování volna', () => {

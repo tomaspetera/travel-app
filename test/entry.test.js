@@ -140,7 +140,7 @@ test('entry.json: klíčové poplatky – britská ETA, americká ESTA, kanadsk�
     assert.equal(r.etaCostEur, k.eur, iso);
     assert.ok(Math.abs(k.fee / k.perEur - r.etaCostEur) < 1, `${iso}: ${k.fee} ${k.cur} ≈ ${(k.fee / k.perEur).toFixed(1)} €, v datech ${r.etaCostEur} €`);
     // čip u letu i bublina ukazují stejnou částku jako data
-    assert.match(Entry.flightChip(iso), new RegExp(`>🛂 ${k.chip}</span>$`));
+    assert.match(Entry.flightChip(iso), new RegExp(`>${k.chip}</span>$`));
     assert.match(sp(Entry.cardChip(iso)), new RegExp(`– ~${k.eur} € \\(≈ ${k.eur * 25} Kč\\)`));
   }
   assert.match(BY.GB.notes, /platí 2 roky/);
@@ -179,7 +179,7 @@ test('kind/čip země: stačí OP, registrace, e-vízum, vízum na hranici, víz
   assert.match(Entry.cardChip('SY'), />🛂 vízum na hranici\?<\/span>$/);
   assert.match(Entry.cardChip('SY'), /stav 10\/2026, neověřeno na oficiální stránce/);
   assert.doesNotMatch(Entry.cardChip('SY'), /ověřeno 10\/2026\)/);
-  assert.match(Entry.flightChip('TM'), />🛂 e-vízum\?<\/span>$/);
+  assert.match(Entry.flightChip('TM'), />e-vízum\?<\/span>$/);
 
   assert.match(Entry.cardChip('US'), /^<span class="ec ec-reg" title="[^"<>]*">🛂 ESTA<\/span>$/);
   assert.match(Entry.cardChip('DE'), />🪪 stačí OP</);
@@ -190,18 +190,18 @@ test('kind/čip země: stačí OP, registrace, e-vízum, vízum na hranici, víz
 });
 
 test('čip u letu jen když je co vyřizovat; cena v €, „zdarma“, escapování textů z dat', () => {
-  assert.match(Entry.flightChip('US'), />🛂 ESTA 36 €<\/span>$/);
-  assert.match(Entry.flightChip('GB'), />🛂 ETA 24 €</);
-  assert.match(Entry.flightChip('LK'), />🛂 ETA zdarma</);
-  assert.match(Entry.flightChip('IN'), />🛂 e-vízum 22 €</);
-  assert.match(Entry.flightChip('EG'), />🛂 vízum na hranici</);
-  assert.match(Entry.flightChip('CN'), />📄 vízum předem</);
+  assert.match(Entry.flightChip('US'), />ESTA 36 €<\/span>$/);
+  assert.match(Entry.flightChip('GB'), />ETA 24 €</);
+  assert.match(Entry.flightChip('LK'), />ETA zdarma</);
+  assert.match(Entry.flightChip('IN'), />e-vízum 22 €</);
+  assert.match(Entry.flightChip('EG'), />vízum na hranici</);
+  assert.match(Entry.flightChip('CN'), />vízum předem</);
   for (const iso of ['DE', 'AL', 'TR', 'CZ', '', null, 'XX']) assert.equal(Entry.flightChip(iso), '', String(iso));
   // Korea: výjimka z K-ETA do 31. 12. 2026 – cesta v lednu 2027 dostane „⏳ ověř vstup“, prosincová ne
-  assert.match(Entry.flightChip('KR', '2027-01-05'), /^<span class="b ec-b ec-visa" title="Jižní Korea: Tento režim platí podle MZV zatím do 31\. 12\. 2026[^"]*" data-ec="KR">⏳ ověř vstup<\/span>$/);
-  assert.match(Entry.flightChip('KR', '2026-12-31'), />📝 e-Arrival Card předem</, 'bez víza: jen povinná e-Arrival Card');
+  assert.match(Entry.flightChip('KR', '2027-01-05'), /^<span class="b ec-b ec-visa" title="Jižní Korea: Tento režim platí podle MZV zatím do 31\. 12\. 2026[^"]*" data-ec="KR">ověř vstup<\/span>$/);
+  assert.match(Entry.flightChip('KR', '2026-12-31'), />e-Arrival Card předem</, 'bez víza: jen povinná e-Arrival Card');
   assert.doesNotMatch(Entry.flightChip('KR'), /ověř vstup/);
-  assert.match(Entry.flightChip('US', '2027-01-05'), />🛂 ESTA 36 €</);
+  assert.match(Entry.flightChip('US', '2027-01-05'), />ESTA 36 €</);
   assert.match(Entry.idNote('AL'), /🪪 stačí OP/);
   assert.equal(Entry.idNote('US'), '');
   assert.equal(Entry.idNote('CZ'), '');
@@ -248,19 +248,19 @@ test('entry.json: povinné online formuláře k příletu (arrivalForm) – náz
 });
 
 test('online formulář k příletu: čip „📝 TDAC předem“ bez víza, u víza a „ověř vstup“ jen v bublině; texty kdy a kde', () => {
-  assert.match(Entry.flightChip('TH'), /^<span class="b ec-b ec-form" title="Thajsko: bez víza, ale povinný online formulář TDAC \(Thailand Digital Arrival Card\) – zdarma, nejdříve 72 h před příletem, jen na oficiálním webu tdac\.immigration\.go\.th\. Zdroj: MZV ČR[^"]*" data-ec="TH">📝 TDAC předem<\/span>$/);
-  assert.match(Entry.flightChip('PH'), />📝 eTravel předem</);
-  assert.match(Entry.flightChip('SG'), />📝 SG Arrival Card předem</);
-  assert.match(Entry.flightChip('MU'), />📝 formulář předem</, 'dlouhý název → „formulář“');
-  assert.match(Entry.flightChip('XK'), />📝 registrace do 3 dnů</);
+  assert.match(Entry.flightChip('TH'), /^<span class="b ec-b ec-form" title="Thajsko: bez víza, ale povinný online formulář TDAC \(Thailand Digital Arrival Card\) – zdarma, nejdříve 72 h před příletem, jen na oficiálním webu tdac\.immigration\.go\.th\. Zdroj: MZV ČR[^"]*" data-ec="TH">TDAC předem<\/span>$/);
+  assert.match(Entry.flightChip('PH'), />eTravel předem</);
+  assert.match(Entry.flightChip('SG'), />SG Arrival Card předem</);
+  assert.match(Entry.flightChip('MU'), />formulář předem</, 'dlouhý název → „formulář“');
+  assert.match(Entry.flightChip('XK'), />registrace do 3 dnů</);
   // s vízem jeden čip – formulář v bublině
-  assert.match(Entry.flightChip('IN'), />🛂 e-vízum 22 €</);
+  assert.match(Entry.flightChip('IN'), />e-vízum 22 €</);
   assert.match(Entry.flightChip('IN'), /title="[^"]*Navíc povinný online formulář e-Arrival Card – zdarma, nejdříve 72 h před příletem, jen na oficiálním webu indianvisaonline\.gov\.in\./);
   assert.equal((Entry.flightChip('IN').match(/<span/g) || []).length, 1);
   // Korea po konci výjimky z K-ETA: „ověř vstup“ a formulář v bublině
-  assert.match(Entry.flightChip('KR', '2027-01-05'), /⏳ ověř vstup/);
+  assert.match(Entry.flightChip('KR', '2027-01-05'), /ověř vstup/);
   assert.match(Entry.flightChip('KR', '2027-01-05'), /Navíc povinný online formulář e-Arrival Card/);
-  assert.match(Entry.flightChip('KR'), />📝 e-Arrival Card předem</);
+  assert.match(Entry.flightChip('KR'), />e-Arrival Card předem</);
   // kdy: hodiny, dny (nad 96 h), před odletem, po příjezdu, bez lhůty
   assert.equal(Entry.formWhen(Entry.form('TH')), 'nejdříve 72 h před příletem');
   assert.equal(Entry.formWhen(Entry.form('MV')), 'nejdříve 96 h před příletem');
@@ -307,7 +307,7 @@ test('tranzit: přestup v USA / Kanadě → varování; cíl v té zemi, jiné z
   // území USA (Portoriko): v databázi letišť PR, pravidla USA – cíl San Juan = ESTA, přestup tam = jako v USA
   assert.deepEqual(plain(Entry.transit([via(['SJU', 'PR'])], 'DO')).map((w) => w.text), ['✈︎ přestup v USA – i tranzit vyžaduje ESTA']);
   assert.equal(Entry.transit([via(['JFK', 'US'])], 'PR').length, 0, 'cíl Portoriko = USA');
-  assert.match(Entry.flightChip('PR'), />🛂 ESTA 36 €</);
+  assert.match(Entry.flightChip('PR'), />ESTA 36 €</);
   assert.match(Entry.flightChip('PR'), /title="Portoriko \(USA\): /);
   assert.deepEqual(plain(Entry.transitCcs([via(['JFK', 'US'], ['LHR', 'GB'])], 'MX')), ['US', 'GB']);
   // kód země ze sdíleného odkazu (cizí vstup) nesmí sáhnout na Object.prototype

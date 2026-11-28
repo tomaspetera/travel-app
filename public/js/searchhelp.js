@@ -490,9 +490,9 @@
     const out = [];
     if (f.maxPrice) out.push({ key: 'maxPrice', label: `do ${kc(f.maxPrice)}`, hidden: h.maxPrice || 0, rerun: true });
     if (f.directOnly) out.push({ key: 'directOnly', label: 'jen přímé lety', hidden: h.directOnly || 0, rerun: true });
-    if (v.onlyDeals) out.push({ key: 'onlyDeals', label: '🔥 jen výhodné' });
-    if (v.newOnly) out.push({ key: 'newOnly', label: '🆕 jen nové země', hidden: extra.newHidden || 0 });
-    if (v.favOnly) out.push({ key: 'favOnly', label: '⭐ jen moje cíle', hidden: extra.favHidden || 0 });
+    if (v.onlyDeals) out.push({ key: 'onlyDeals', label: 'jen výhodné' });
+    if (v.newOnly) out.push({ key: 'newOnly', label: 'jen nové země', hidden: extra.newHidden || 0 });
+    if (v.favOnly) out.push({ key: 'favOnly', label: 'jen moje cíle', hidden: extra.favHidden || 0 });
     if (v.maxPrice) out.push({ key: 'viewPrice', label: `max. ${kc(v.maxPrice)}` });
     if (v.outDate) out.push({ key: 'outDate', label: `odlet ${dm(v.outDate)}${v.nights != null ? `, ${nightsTxt(v.nights)}` : ''}` });
     if (v.excludeOrigins && v.excludeOrigins.size) {
@@ -642,7 +642,7 @@
     const g = r.ground;
     // cena jako ve srovnání nad nápovědou: u zpáteční cesty tam i zpět (jinak by vedle „běžně ~598 Kč tam i zpět“ stálo
     // „běžně ~299 Kč“); běžná cena, starší výsledek bez ní „od“
-    if (g && g.min > 0 && (g.worth || !(r.groups || []).length)) acts.push({ key: 'ground', label: `🚆 Vlakem/busem ~${hhmmTxt(g.min)} · ${ret ? 'tam i zpět ' : ''}${g.typ > 0 ? 'běžně' : 'od'} ~${kc((g.typ > 0 ? g.typ : g.czk) * (ret ? 2 : 1))} (odhad)`, ground: true });
+    if (g && g.min > 0 && (g.worth || !(r.groups || []).length)) acts.push({ key: 'ground', label: `Vlakem/busem ~${hhmmTxt(g.min)} · ${ret ? 'tam i zpět ' : ''}${g.typ > 0 ? 'běžně' : 'od'} ~${kc((g.typ > 0 ? g.typ : g.czk) * (ret ? 2 : 1))} (odhad)`, ground: true });
     if (exact) {
       const fl = +f.xFlex || 0;
       if (fl < 1) add('flex1', '± 1 den', { xFlex: 1 });

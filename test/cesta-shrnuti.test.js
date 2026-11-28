@@ -84,7 +84,7 @@ test('krok Let: ⚡ Poskládej je hlavní volba hned pod letem, vedle „Projdu 
   let s = render(c, 'flight');
   const iLegs = s.indexOf('class="tl-legs"'), iAuto = s.indexOf('id="tfAuto"'), iNext = s.indexOf('id="tfNext"'), iCosts = s.indexOf('class="tf-costs"');
   assert.ok(iLegs > 0 && iLegs < iAuto && iAuto < iNext && iNext < iCosts, '⚡ a krok za krokem mezi vybraným letem a cenami');
-  assert.match(s, /<button type="button" class="btn primary" id="tfAuto">⚡ Poskládej celou cestu za mě<\/button><button class="btn" id="tfNext" data-next="Pokračovat: Trasa →">Projdu to krok za krokem →<\/button>/);
+  assert.match(s, /<button type="button" class="btn primary" id="tfAuto">Poskládej celou cestu za mě<\/button><button class="btn" id="tfNext" data-next="Pokračovat: Trasa →">Projdu to krok za krokem →<\/button>/);
   assert.doesNotMatch(s, />Pokračovat: Trasa →</, 'v kartě není druhé „Pokračovat: Trasa →“ (plovoucí lišta bere popisek z data-next)');
   // vedlejší tlačítko dělá totéž co dřívější Pokračovat
   c.__els['#tfNext'].onclick();

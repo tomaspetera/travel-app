@@ -78,12 +78,12 @@ test('„Kdy vyrazit z domu“ (SearchHelp.REACH) počítá se stejným časem n
 
 test('Ground: text čipu, délka cesty, převod spoje a odhadu na úsek cesty, cena za všechny', () => {
   // běžná cena (co typicky zaplatíš v daný den), „od“ jen v popisku a ve srovnání
-  assert.equal(Ground.chipText({ min: 260, czk: 299, typ: 450 }), '🚆 ~4\u00a0h\u00a020 · běžně ~450 Kč');
+  assert.equal(Ground.chipText({ min: 260, czk: 299, typ: 450 }), '~4\u00a0h\u00a020 · běžně ~450 Kč');
   // zpáteční hledání: cena tam i zpět jako u letenek vedle čipu
-  assert.equal(Ground.chipText({ min: 260, czk: 299, typ: 450 }, true), '🚆 ~4\u00a0h\u00a020 · tam\u00a0i\u00a0zpět\u00a0běžně\u00a0~900\u00a0Kč');
+  assert.equal(Ground.chipText({ min: 260, czk: 299, typ: 450 }, true), '~4\u00a0h\u00a020 · tam\u00a0i\u00a0zpět\u00a0běžně\u00a0~900\u00a0Kč');
   // starší uložený výsledek bez běžné ceny: „od“ jako dřív
-  assert.equal(Ground.chipText({ min: 260, czk: 299 }), '🚆 ~4\u00a0h\u00a020 · od ~299 Kč');
-  assert.equal(Ground.chipText({ min: 260, czk: 299 }, true), '🚆 ~4\u00a0h\u00a020 · tam\u00a0i\u00a0zpět\u00a0od\u00a0~598\u00a0Kč');
+  assert.equal(Ground.chipText({ min: 260, czk: 299 }), '~4\u00a0h\u00a020 · od ~299 Kč');
+  assert.equal(Ground.chipText({ min: 260, czk: 299 }, true), '~4\u00a0h\u00a020 · tam\u00a0i\u00a0zpět\u00a0od\u00a0~598\u00a0Kč');
   // cena s „od“: stejné ceny jen běžně, tam i zpět ×2
   assert.equal(Ground.priceTxt({ czk: 299, typ: 450 }), 'běžně ~450\u00a0Kč (od ~299\u00a0Kč)');
   assert.equal(Ground.priceTxt({ czk: 299, typ: 450 }, 2), 'běžně ~900\u00a0Kč (od ~598\u00a0Kč)');
@@ -160,12 +160,12 @@ test('SearchHelp: blízký cíl s málo lety → nabídka vlaku/busu; daleký c�
   const acts = SearchHelp.smartActions(form, res, { today: '2026-10-06' });
   assert.equal(acts[0].key, 'ground');
   assert.equal(acts[0].ground, true);
-  assert.equal(acts[0].label, '🚆 Vlakem/busem ~3\u00a0h\u00a054 · tam i zpět od ~598 Kč (odhad)', 'zpáteční: cena jako ve srovnání nad nápovědou');
-  assert.equal(SearchHelp.smartActions({ ...form, trip: 'oneway', xBack: null }, res, { today: '2026-10-06' })[0].label, '🚆 Vlakem/busem ~3\u00a0h\u00a054 · od ~299 Kč (odhad)');
+  assert.equal(acts[0].label, 'Vlakem/busem ~3\u00a0h\u00a054 · tam i zpět od ~598 Kč (odhad)', 'zpáteční: cena jako ve srovnání nad nápovědou');
+  assert.equal(SearchHelp.smartActions({ ...form, trip: 'oneway', xBack: null }, res, { today: '2026-10-06' })[0].label, 'Vlakem/busem ~3\u00a0h\u00a054 · od ~299 Kč (odhad)');
   // s běžnou cenou (nový server): běžně, tam i zpět ×2
   const rt = { ...res, ground: { ...res.ground, czk: 249, typ: 279 } };
-  assert.equal(SearchHelp.smartActions(form, rt, { today: '2026-10-06' })[0].label, '🚆 Vlakem/busem ~3\u00a0h\u00a054 · tam i zpět běžně ~558 Kč (odhad)');
-  assert.equal(SearchHelp.smartActions({ ...form, trip: 'oneway', xBack: null }, rt, { today: '2026-10-06' })[0].label, '🚆 Vlakem/busem ~3\u00a0h\u00a054 · běžně ~279 Kč (odhad)');
+  assert.equal(SearchHelp.smartActions(form, rt, { today: '2026-10-06' })[0].label, 'Vlakem/busem ~3\u00a0h\u00a054 · tam i zpět běžně ~558 Kč (odhad)');
+  assert.equal(SearchHelp.smartActions({ ...form, trip: 'oneway', xBack: null }, rt, { today: '2026-10-06' })[0].label, 'Vlakem/busem ~3\u00a0h\u00a054 · běžně ~279 Kč (odhad)');
   // nevýhodné (dlouhé) a lety existují → nenabízet; žádné lety → nabídnout i delší cestu
   const slow = { ...res, ground: { ...res.ground, worth: false, min: 700 }, groups: [{ best: {} }] };
   assert.ok(!SearchHelp.smartActions(form, slow, { today: '2026-10-06' }).some((a) => a.key === 'ground'));
