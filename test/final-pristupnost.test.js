@@ -129,7 +129,7 @@ test('hláška s ↩ Vrátit se neschová, dokud má tlačítko fokus (Tab) – 
   const timers = [];
   const cls = new Set();
   const btn = {};
-  const t = { innerHTML: '', classList: { add: (c) => cls.add(c), remove: (c) => cls.delete(c) }, contains: (x) => x === btn };
+  const t = { innerHTML: '', classList: { add: (c) => cls.add(c), remove: (c) => cls.delete(c), contains: (c) => cls.has(c) }, contains: (x) => x === btn };
   const ctx = vm.createContext({
     $: (s) => (s === '#toast' ? t : s === '.toast-act' ? btn : null), esc: String,
     document: { activeElement: btn }, setTimeout: (fn, ms) => { timers.push([fn, ms]); return timers.length; }, clearTimeout() {},
@@ -142,6 +142,20 @@ test('hláška s ↩ Vrátit se neschová, dokud má tlačítko fokus (Tab) – 
   ctx.document.activeElement = {};
   timers.shift()[0]();
   assert.ok(!cls.has('show'), 'fokus pryč → schová se');
+});
+
+test('Esc s fokusem na ↩ Vrátit nad oknem: fokus zpět na tutéž cestu (data-tt), ne na hlášce – po ní by spadl na začátek stránky', () => {
+  const cb = appJs.match(/new MutationObserver\((\(\) => \{[\s\S]*?\n\})\)\.observe\(\$\('#modalBg'\)/)[1];
+  const focused = [];
+  const ta = { tagName: 'BUTTON' }, card = { tagName: 'BUTTON', getClientRects: () => [{}], focus: () => focused.push('karta') };
+  const m = { contains: () => false }, bg = { classList: { contains: () => false }, contains: () => false }, toast = { contains: (x) => x === ta };
+  const ctx = vm.createContext({ $: (s) => (s === '#modal' ? m : s === '#toast' ? toast : bg), $$: (s) => (s === 'button[data-tt="1"]' ? [card] : []),
+    kbNear: () => null, document: { activeElement: ta, body: {} }, modalKb: { on: true, fresh: false, ret: null, sel: 'button[data-tt="1"]', box: '' } });
+  vm.runInContext(`this.cb = ${cb};`, ctx);
+  ctx.cb();
+  assert.deepEqual(focused, ['karta']);
+  // schovaná hláška s fokusem (klik myší na Vrátit) už nečeká po vteřině – není na co
+  assert.match(pick('toast'), /const hide = \(\) => \{ if \(t\.classList\.contains\('show'\) && t\.contains\(document\.activeElement\)\)/);
 });
 
 test('přepínač Svět Mapa ↔ Země: fokus na stejné tlačítko v nové sekci, ne na nadpis; Objevuj: fokus až po vykreslení', () => {

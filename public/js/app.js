@@ -531,7 +531,7 @@ function toast(msg, kind, ms = 2600, act = null) {
   t.innerHTML = (kind === 'err' ? '⚠️ ' : kind === 'info' ? '👆 ' : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>`) + (act ? `<span>${esc(msg)}</span><button type="button" class="toast-act">${esc(act.label)}</button>` : esc(msg));
   if (act) $('.toast-act', t).onclick = () => { t.classList.remove('show'); act.run(); };
   // s fokusem na ↩ Vrátit (Tab) počká – zmizelé tlačítko by fokus pustilo na začátek stránky
-  const hide = () => { if (t.contains(document.activeElement)) t._t = setTimeout(hide, 1000); else t.classList.remove('show'); };
+  const hide = () => { if (t.classList.contains('show') && t.contains(document.activeElement)) t._t = setTimeout(hide, 1000); else t.classList.remove('show'); };
   t.classList.add('show'); clearTimeout(t._t); t._t = setTimeout(hide, act ? Math.max(ms, 6000) : ms);
 }
 /**
@@ -1832,8 +1832,9 @@ new MutationObserver(() => {
   const r = (r0 && r0.isConnected ? r0 : sel ? $$(sel).find(x => !m.contains(x) && x.getClientRects().length) : null) || kbNear(box);
   // telefon: do textového pole fokus nevracet – vyskočila by klávesnice, kterou nikdo nechtěl
   if (r && modalKb.touch && modalKb.touch.matches && /^(INPUT|TEXTAREA|SELECT)$/.test(r.tagName)) return;
-  // fokus někam přesunula sama akce okna (náhled cíle vrací na 🔎) → nechat
-  if ((!a || a === document.body || $('#modalBg').contains(a)) && r && r.getClientRects().length) r.focus({ preventScroll: true });
+  // fokus někam přesunula sama akce okna (náhled cíle vrací na 🔎) → nechat; ↩ Vrátit v hlášce nad oknem (Esc z něj)
+  // patří k oknu – jinak by fokus zůstal na hlášce a po jejím zmizení spadl na začátek stránky
+  if ((!a || a === document.body || $('#modalBg').contains(a) || $('#toast').contains(a)) && r && r.getClientRects().length) r.focus({ preventScroll: true });
 }).observe($('#modalBg'), { attributes: true, attributeFilter: ['class'] });
 /**
  * Tlačítko okna po zavření zmizelo (odebraná navštívená země, karta mimo filtr Navštívené): fokus by spadl na začátek
