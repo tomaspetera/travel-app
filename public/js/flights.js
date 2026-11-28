@@ -5300,6 +5300,8 @@
         ...(t.back && (t.back.from !== t.out.to || t.back.to !== t.out.from) ? { bf: t.back.from, bt: t.back.to } : {}),
         // čas odletu a přílet zpět kvůli dnům dovolené na kartě (SearchHelp.leaveDays)
         t1: t.out.hasTime ? String(t.out.dep).slice(11, 16) : '', a2: t.back && t.back.hasTime && t.back.arr ? String(t.back.arr).slice(0, 16) : '', deal: t.deal.level, score: t.deal.score, prov: t.out.provider, ...(SearchHelp.isCached(t) ? { oc: 1 } : {}), // oc = orientační cena (z mezipaměti)
+        // dopravce, přestupy a čas nálezu ceny (cr, st, fa) – pro tabulku ceníku; jen když je zdroj dává
+        ...SearchHelp.radarFacts(t),
         ...(wxGeo(g.dest) ? { lat: +g.dest.lat.toFixed(3), lon: +g.dest.lon.toFixed(3) } : {}), // předpověď na kartě
         // dlouhodobý průměr teplot v měsíci odletu – štítek karet mimo dosah předpovědi (dál než 9 dní)
         ...(t.tempHi != null ? { th: Math.round(t.tempHi) } : {}),

@@ -58,6 +58,7 @@ function radarView(res, q, mute = []) {
     label: g.dest.label, cc: g.dest.cc, id: g.dest.id, czk: t.perPersonCzk, from: t.out.from, to: t.out.to, d1: t.out.date, d2: t.back?.date,
     ...(t.back && (t.back.from !== t.out.to || t.back.to !== t.out.from) ? { bf: t.back.from, bt: t.back.to } : {}),
     t1: t.out.hasTime ? String(t.out.dep).slice(11, 16) : '', a2: t.back && t.back.hasTime && t.back.arr ? String(t.back.arr).slice(0, 16) : '', deal: t.deal.level, score: t.deal.score, prov: t.out.provider,
+    ...H.radarFacts(t),
     ...(wxGeo(g.dest) ? { lat: +g.dest.lat.toFixed(3), lon: +g.dest.lon.toFixed(3) } : {}),
     ...(t.tempHi != null ? { th: Math.round(t.tempHi) } : {}),
     ...(res.arrivals && res.arrivals[t.out.to] ? { ar: res.arrivals[t.out.to] } : {}),
@@ -97,6 +98,7 @@ test('radar: zmenšený výsledek dá stejné karty, pořadí, štítky ✓, pam
 
     const ref = radarView(plain(full), q);
     assert.ok(ref.items.length >= 12 && ref.items.some((x) => x.why) && ref.entries.length > 100, `${name}: karty, štítky ✓ i paměť cen`);
+    assert.ok(ref.items.every((x) => x.cr && (x.st != null || x.prov === 'travelpayouts')), `${name}: dopravce a přestupy na kartách`);
     assert.deepEqual(radarView(H.radarRes(JSON.parse(smallJson)), q), ref, `${name}: totéž ze zmenšeného`);
     // 🙈 cíle: radar je přeskočí a vezme další – i ty další musí zmenšený výsledek nést stejně
     const mute = [0, 3, 7].map((i) => ({ key: ref.order[i][0] }));
@@ -110,7 +112,8 @@ test('radarResult: pole, která radar čte – i ta, která DEMO nemá (odkaz ob
     arr: null, arrEst: false, date, hasTime: true, price: 20, currency: 'EUR', czk: 500, prevCzk: null, stops: 0, durationMin: null, live: true,
     bookUrl: 'https://example.com/let', foundAt: null, otherDeps: ['09:00'], ...extra,
   });
-  const out = leg('PRG', 'BGY', '2026-11-20', { stops: 1, arrUnknown: true, estMin: 140, layovers: [{ at: 'VIE', min: 95, cc: 'AT' }] });
+  // foundAt jen tam (Ryanair priceUpdated), zpět null – chybějící se neposílá; u letu kód aerolinky, jméno jednou (airlines)
+  const out = leg('PRG', 'BGY', '2026-11-20', { stops: 1, arrUnknown: true, estMin: 140, layovers: [{ at: 'VIE', min: 95, cc: 'AT' }], foundAt: 1792686097000 });
   const back = leg('BGY', 'PRG', '2026-11-23', { durationMin: 85, arr: '2026-11-23T08:35:00' });
   const t = {
     id: 'x', out, back, flightCzk: 1000, nights: 3, provider: 'kiwi', combined: true, bookUrl: 'https://example.com/cesta', groundCzk: 100, bagCzk: 0,
@@ -127,30 +130,79 @@ test('radarResult: pole, která radar čte – i ta, která DEMO nemá (odkaz ob
     }],
   };
   const r = radarResult(res);
-  const keep = (l) => ({ from: l.from, to: l.to, date: l.date, dep: l.dep, arr: l.arr, hasTime: true, stops: l.stops, durationMin: l.durationMin, provider: 'kiwi', bookUrl: 'https://example.com/let', live: true });
+  const keep = (l) => ({ from: l.from, to: l.to, date: l.date, dep: l.dep, arr: l.arr, hasTime: true, stops: l.stops, durationMin: l.durationMin, provider: 'kiwi', bookUrl: 'https://example.com/let', live: true, carrier: 'FR' });
   assert.deepEqual(r.groups, [{
     dest: { key: 'MIL', id: 'metro:MIL', label: 'Milán', cc: 'IT', lat: 45.46, lon: 9.19 },
     options: [{
       perPersonCzk: 1000, tripCzk: 1220, flightCzk: 1000, groundCzk: 100, arrCzk: 120, destKey: 'MIL', distanceKm: 600, nights: 3, tempHi: 14,
       bookUrl: 'https://example.com/cesta', provider: 'kiwi', deal: { level: 'good', score: 2 }, priceLevel: { level: 'low' },
-      out: { ...keep(out), arrUnknown: true, estMin: 140, layovers: [{ at: 'VIE', min: 95, cc: 'AT' }] }, back: keep(back),
+      out: { ...keep(out), arrUnknown: true, estMin: 140, layovers: [{ at: 'VIE', min: 95, cc: 'AT' }], foundAt: 1792686097000 }, back: keep(back),
     }],
     minFlightCzk: 1000,
     priceStats: { n: 9, median: 1500, mins: [['PRG', '2026-11', 1000]] },
   }]);
   assert.deepEqual(r.arrivals, { BGY: { czk: 60, min: 50 } }, 'cesta do města jen k letištím nabídek');
+  assert.deepEqual(r.airlines, { FR: 'Ryanair' }, 'jméno aerolinky jednou za výsledek');
   for (const k of ['query', 'mode', 'origins', 'providers', 'demo']) assert.equal(r[k], res[k], k);
   assert.equal(res.groups[0].best.out.carrierName, 'Ryanair', 'plný výsledek se nemění');
+  // prohlížeč (radarRes) jméno vrátí do letů; karta: dopravce a přestupy ano, čas nálezu ne – zpět ho zdroj nedal
+  const o = H.radarRes(plain(r)).groups[0].best;
+  assert.equal(o.back.carrierName, 'Ryanair');
+  assert.deepEqual({ ...H.radarFacts(o) }, { cr: 'Ryanair', st: 1 });
+});
+
+test('radar: dopravce, přestupy a čas nálezu na kartě – jen co zdroj dal; staré karty bez nich beze změny', () => {
+  const at = Date.parse('2026-11-28T10:00:00Z');
+  const ry = (from, to, foundAt) => ({ provider: 'ryanair', carrierName: 'Ryanair', from, to, stops: 0, live: true, foundAt });
+  // Ryanair tam i zpět s priceUpdated: přímý, starší z obou časů
+  const both = H.radarFacts({ out: ry('PRG', 'STN', at - 7200e3), back: ry('STN', 'PRG', at - 3600e3) });
+  assert.deepEqual({ ...both }, { cr: 'Ryanair', st: 0, fa: at - 7200e3 });
+  assert.equal(H.radarFoundAt(both, at), at - 7200e3);
+  // dva dopravci, přestup jen zpět; Kiwi čas nálezu nemá → fa chybí, u živé ceny platí čas hledání radaru
+  const kw = H.radarFacts({ out: { provider: 'kiwi', carrierName: 'Wizz Air', stops: 0 }, back: { provider: 'kiwi', carrier: 'LO', stops: 1 } });
+  assert.deepEqual({ ...kw }, { cr: 'Wizz Air + LO', st: 1 });
+  assert.equal(H.radarFoundAt({ prov: 'kiwi', ...kw }, at), at);
+  // Aviasales: 0 přestupů = i „neví“ → st chybí; přestup známý ano; bez dopravce cr chybí
+  const tp = (stops, extra) => ({ provider: 'travelpayouts', stops, live: false, ...extra });
+  assert.deepEqual({ ...H.radarFacts({ out: tp(0, { carrier: 'VY' }), back: tp(0) }) }, { cr: 'VY' });
+  assert.deepEqual({ ...H.radarFacts({ out: tp(1), back: tp(0) }) }, { st: 1 });
+  assert.equal(H.radarFoundAt({ prov: 'travelpayouts', oc: 1 }, at), null, 'orientační cena bez fa: stáří neznámé');
+  assert.deepEqual({ ...H.radarFacts(null) }, {});
+  // stará uložená karta (bez cr, st, fa): radarEntry / radarDiff ji nechají, jak byla, čas nálezu = čas hledání
+  const old = { label: 'Londýn', cc: 'GB', id: 'metro:LON', czk: 990, from: 'PRG', to: 'STN', d1: '2026-12-01', d2: '2026-12-04', t1: '06:10', a2: '', deal: 'good', score: 2, prov: 'ryanair' };
+  const key = 'k';
+  const prev = { key, at: at - 600e3, demo: false, items: [old] };
+  const next = H.radarEntry(prev, [{ ...old, ...both }], key, at);
+  assert.deepEqual(plain(next.items[0]), { ...old, cr: 'Ryanair', st: 0, fa: at - 7200e3 }, 'nová pole se uloží');
+  assert.deepEqual(plain(H.radarEntry(null, [old], key, at).items[0]), old, 'stará karta beze změny');
+  assert.equal(H.radarFoundAt(old, prev.at), prev.at);
+  // radar ve flights.js karty skládá přes radarFacts (stejně jako radarView výš)
+  assert.match(readFileSync(new URL('../public/js/flights.js', import.meta.url), 'utf8'), /\.\.\.SearchHelp\.radarFacts\(t\)/);
 });
 
 test('radarResult: cena z mezipaměti (live: false) zůstane poznat – karta i detail radaru ji označí „orientační“', () => {
-  const leg = (from, to, date) => ({ provider: 'travelpayouts', from, to, date, dep: `${date}T00:00:00`, hasTime: false, stops: 0, live: false, bookUrl: 'https://example.com/a' });
+  const leg = (from, to, date) => ({ provider: 'travelpayouts', carrier: 'VY', carrierName: null, from, to, date, dep: `${date}T00:00:00`, hasTime: false, stops: 0, live: false, bookUrl: 'https://example.com/a', foundAt: null });
   const t = { id: 'c', out: leg('PRG', 'BCN', '2026-12-01'), back: leg('BCN', 'PRG', '2026-12-04'), perPersonCzk: 1890, flightCzk: 1890, provider: 'travelpayouts', deal: { level: 'super', score: 3 } };
   const r = radarResult({ groups: [{ dest: { key: 'BCN', id: 'metro:BCN', label: 'Barcelona', cc: 'ES' }, best: t, options: [t] }] });
   const o = r.groups[0].options[0];
   assert.equal(o.out.live, false);
   assert.equal(o.back.live, false);
   assert.equal(H.isCached(plain(o)), true, 'SearchHelp.isCached → oc u karty radaru');
+  // dopravce jen kódem (jméno neznámé – žádné se mu nedoplní), čas nálezu Aviasales nedává – pole chybí
+  assert.equal(o.out.carrier, 'VY');
+  assert.equal(o.out.carrierName, null);
+  assert.ok(!('foundAt' in o.out));
+  assert.deepEqual(r.airlines, {});
+});
+
+test('radarResult: jméno aerolinky, které ke kódu nesedí (Kiwi s přestupem), zůstane u letu; radarRes ho nepřepíše', () => {
+  const leg = (carrier, carrierName) => ({ provider: 'kiwi', carrier, carrierName, from: 'PRG', to: 'ATH', date: '2026-12-01', stops: carrierName.includes('+') ? 1 : 0, live: true });
+  const trip = (out) => ({ out, back: null, perPersonCzk: 2000, provider: 'kiwi', deal: { level: 'ok', score: 0 } });
+  const r = radarResult({ groups: [{ dest: { key: 'ATH', id: 'metro:ATH', label: 'Atény', cc: 'GR' }, options: [trip(leg('W6', 'Wizz Air')), trip(leg('W6', 'Wizz Air + LOT'))] }] });
+  assert.deepEqual(r.airlines, { W6: 'Wizz Air' });
+  assert.deepEqual(r.groups[0].options.map((t) => [t.out.carrier, t.out.carrierName]), [['W6', undefined], ['W6', 'Wizz Air + LOT']]);
+  const back = H.radarRes(plain(r)).groups[0].options.map((t) => H.radarFacts(t).cr);
+  assert.deepEqual(plain(back), ['Wizz Air', 'Wizz Air + LOT']);
 });
 
 test('radar: SearchHelp.radarRes doplní best jen zmenšenému výsledku, plný (starší server) nechá být', () => {

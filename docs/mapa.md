@@ -23,7 +23,7 @@ Navigační mapa repozitáře: kde co je a jak to spolu souvisí, aby se kód da
 - Zdroje cen: zapnutí a stav v `/api/health` → `server/providers/index.js`: `activeProviders()`, `providerStatus()`, `PROVIDER_INFO`
 - Rozpočet dotazů a paměť tras Wizz Air → `server/lib/search.js`: `planRoutes()`, `routesNote()`; `server/providers/wizzair.js`: `routeState()`, `timetable()`, `missingWindows()`
 - Výpadek zdroje, Zkusit znovu, odpočet → `server/lib/search.js`: `settle()`, `outageOf()`, `errText()`; `server/providers/kiwi.js`: `kiwiBlocked()`
-- Průběžné náhledy a zmenšený radar → `server/lib/search.js`: `partialSoon()`, `partialNow()`, `compose()`, `radarResult()`, `RADAR_TRIP`
+- Průběžné náhledy a zmenšený radar → `server/lib/search.js`: `partialSoon()`, `partialNow()`, `compose()`, `radarResult()`, `RADAR_TRIP`, `radarCarrier()` (jména aerolinek jednou v `airlines`)
 - Tvar letu a cesty, převod měn, zavazadla → `server/lib/fares.js`: `makeLeg()`, `makeTrip()`; `server/lib/fx.js`: `loadRates()`, `toCzk()`; `server/lib/baggage.js`: `legBagEur()`
 - Je to dobrá cena? (zrcadlo server ↔ prohlížeč) → `server/lib/pricelevel.js`: `priceLevelOf()`, `levelOf()`; `public/js/pricecheck.js`: `levelOf()`, `assess()`, `remember()`, `explain()`
 - Výpis výsledků, filtry, řazení, karta nabídky, kliky (data-*) → `public/js/flights.js`: `renderResults()`, `computeGroups()`, `baseOk()`, `sortKey()`, `tripRow()`, `priceBox()`, `wireResults()`
@@ -32,7 +32,7 @@ Navigační mapa repozitáře: kde co je a jak to spolu souvisí, aby se kód da
 - Doporučené pořadí a štítek „proč výš“ → `public/js/rank.js`: `score()`, `order()`, `reasons()`, `W`
 - ✨ Hledání větou → `public/js/smart.js`: `parse()`, `rule()`, `seaFor()`; `public/js/flights.js`: `smartResolve()`, `smartRun()`, `smartTips()`
 - ♡ Hlídání cen a jeho kontrola → `public/js/flights.js`: `addWatch()`, `checkOne()`, `startAutoCheck()`, `renderWatch()`; `public/js/alerts.js`: `scheduler()`, `applyCheck()`, `shouldNotify()`
-- Radar na Přehledu → `public/js/flights.js`: `renderRadar()`, `radarSearch()`, `paintRadar()`; `public/js/searchhelp.js`: `radarQuery()`, `radarPick()`, `radarEntry()`
+- Radar na Přehledu → `public/js/flights.js`: `renderRadar()`, `radarSearch()`, `paintRadar()`; `public/js/searchhelp.js`: `radarQuery()`, `radarPick()`, `radarEntry()`, `radarRes()`, `radarFacts()` (na kartě `cr` dopravce, `st` přestupy, `fa` čas nálezu ceny), `radarFoundAt()`
 - Prázdný výsledek v čistém režimu (proč nic, Kamkoliv, hledání trasy na Aviasales) → `public/js/flights.js`: `cleanEmpty()` v `emptyState()`, radar `radarEmptyTxt()` v `radarEmpty()`; odkaz ze serveru `res.tpSearch` → `server/lib/search.js`: `emptyTpSearch()`
 - ⭐ Moje cíle, 🙈 Nezajímá mě, 📌 Odložené → `public/js/flights.js`: `destMenu()`, `searchFavs()`, `openPins()`; `public/js/searchhelp.js`: `destPrefSet()`; `public/js/pins.js`: `toggle()`, `refresh()`, `rank()`
 - ⚡ Živé ověření ceny → `public/js/flights.js`: `verifyOne()`, `autoVerify()`; `server/providers/kiwi.js`: `kiwi.exact()`

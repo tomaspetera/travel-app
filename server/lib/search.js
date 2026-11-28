@@ -1949,6 +1949,17 @@ const RADAR_DEST = ['key', 'id', 'label', 'cc', 'lat', 'lon'];
 const RADAR_TRIP = ['perPersonCzk', 'tripCzk', 'flightCzk', 'groundCzk', 'arrCzk', 'destKey', 'distanceKm', 'nights', 'tempHi', 'bookUrl', 'provider'];
 // live: false = cena z mezipaměti (Aviasales) – podle ní radar značí kartu a detail „orientační“ (SearchHelp.isCached)
 const RADAR_LEG = ['from', 'to', 'date', 'dep', 'arr', 'hasTime', 'arrUnknown', 'stops', 'durationMin', 'estMin', 'layovers', 'provider', 'bookUrl', 'live'];
+// Dopravce a čas nálezu ceny pro karty radaru (SearchHelp.radarFacts) – jen když je zdroj dává; foundAt má jen Ryanair
+// (priceUpdated), Aviasales prices_for_dates čas nálezu nevrací. Prázdné (null) se neposílá. Jméno aerolinky jen jednou
+// za výsledek (airlines: kód → jméno), u letu kód – jméno u každého z tisíců letů by bylo ~+7 % velikosti radaru.
+// Jméno, které ke kódu nesedí (Kiwi s přestupem „Wizz Air + LOT“), u letu zvlášť; bez kódu jen jméno.
+function radarCarrier(l, names) {
+  const c = l.carrier, n = l.carrierName;
+  if (!c) return n ? { carrierName: n } : {};
+  if (n && !Object.hasOwn(names, c)) names[c] = n;
+  if (!n) return { carrier: c, carrierName: null }; // kód bez jména (vzácné) – jméno z jiného letu se mu nepřidá
+  return names[c] !== n ? { carrier: c, carrierName: n } : { carrier: c };
+}
 const fieldsOf = (o, keys) => {
   const x = {};
   for (const k of keys) if (o[k] !== undefined) x[k] = o[k];
@@ -1957,7 +1968,8 @@ const fieldsOf = (o, keys) => {
 /** Výsledek „kamkoliv“ → zmenšený pro radar (viz výš); ostatní části výsledku (dotaz, zdroje, letiště) beze změny. */
 export function radarResult(res) {
   const air = new Set(); // letiště, ke kterým radar čte cestu do města: přílet tam a odlet zpět
-  const leg = (l) => (l ? fieldsOf(l, RADAR_LEG) : l);
+  const airlines = {}; // kód → jméno aerolinky jednou za výsledek (SearchHelp.radarRes ho vrátí do letů)
+  const leg = (l) => (l ? { ...fieldsOf(l, RADAR_LEG), ...radarCarrier(l, airlines), ...(l.foundAt ? { foundAt: l.foundAt } : {}) } : l);
   const groups = res.groups.map((g) => ({
     dest: fieldsOf(g.dest, RADAR_DEST),
     options: g.options.map((t) => {
@@ -1973,7 +1985,7 @@ export function radarResult(res) {
   }));
   const arrivals = {};
   for (const [k, v] of Object.entries(res.arrivals || {})) if (air.has(k)) arrivals[k] = v;
-  return { ...res, arrivals, groups };
+  return { ...res, arrivals, groups, airlines };
 }
 
 // Kousek práce v buildGroups: tolik cest (~1 ms) a tolik cílů (řazení jejich nabídek, statistika cen) mezi přestávkami.
