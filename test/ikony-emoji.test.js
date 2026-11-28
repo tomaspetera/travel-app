@@ -191,3 +191,77 @@ test('Rychlé hledání (Přehled, Lety Nápady): dlaždice s ikonou Letsi míst
   const css = read('css/atlas.css');
   for (const n of [...ico, 'oblibene-plne', 'filtr', 'kompas', 'historie']) assert.match(css, new RegExp(`\\.i-${n}\\{`), n);
 });
+
+/* ---------- texty tlačítek, štítků a nadpisů z konstant a šablon (nález E1) ---------- */
+test('konstanty textů tlačítek a štítků (…_BTN, …_LABEL, …_BADGE) bez emoji – i ⚡ Poskládej a štítky ubytování', () => {
+  // statistiky.js = stránka čísel jen pro majitele (popisky řádků tabulky, ne tlačítka)
+  const files = readdirSync(new URL('../public/js/', import.meta.url)).filter((f) => f.endsWith('.js') && f !== 'statistiky.js');
+  const hits = files.flatMap((f) => {
+    const src = read(`js/${f}`);
+    // konstanta i přes víc řádků (objekt štítků) až po první řádek končící ; nebo };
+    return [...src.matchAll(/const [A-Z_]*(?:BTN|LABELS?|BADGES?) = [\s\S]*?(?:;|\};)$/gm)].filter((m) => emoji(m[0]).length).map((m) => `${f}: ${m[0].slice(0, 60)}`);
+  });
+  assert.deepEqual(hits, []);
+  const trip = read('js/trip.js');
+  assert.match(trip, /const AUTO_BTN = 'Poskládej celou cestu za mě'/);
+  assert.match(trip, /'best-value': \['Nejlepší poměr\[ cena\/hodnocení\]', 'good'\]/);
+  // odkazy na tlačítko v tipu Přehledu a v tabulce Plus jeho text opakují – bez ⚡, jméno v uvozovkách
+  assert.match(read('js/app.js'), /klepni na „Poskládej celou cestu za mě“ –/);
+  assert.match(read('js/plus.js'), /Naplánované cesty \(i\\u00a0z\\u00a0„Poskládej“\)/);
+});
+
+test('Cesta, Lety, Objevuj: popisek pole trasy, tlačítko Odkud v letech přes víc měst, čip teploty a podnadpis Inspirace bez emoji', () => {
+  assert.match(read('js/trip.js'), /<label for="rtQ">\$\{ikona\('plus'\)\} Přidat místo do trasy<\/label>/);
+  // tlačítko „Praha +150 km“ v první řádce letů přes víc měst (homeTxt) – ikona domova jako v hlavičce
+  assert.deepEqual(emoji(radek('const homeTxt = () =>')), [], 'homeTxt');
+  assert.match(radek('const homeTxt = () =>'), /\$\{ikona\('domov'\)\} \$\{esc\(/);
+  // čipy cílů nad výsledkem do víc míst (span.chip) – teplota číslem, bez 🌡️
+  assert.deepEqual(emoji(FL.split('\n').find((l) => l.includes('<div class="dest-mini">'))), [], 'dest-mini');
+  // karta Inspirace v Objevuj je celá tlačítko – podnadpis textem
+  assert.deepEqual(emoji(read('js/places.js').split('\n').find((l) => l.includes('const inspSub = p =>'))), [], 'inspSub');
+});
+
+test('Kamkoliv: tlačítko vlakem/busem u cíle s ikonou vlak a štítky vstupu u nabídky (Entry.flightChip) bez emoji', () => {
+  assert.match(FL, /data-gchip="\$\{esc\(g\.dest\.key\)\}" title="\$\{esc\(tip\.trim\(\)\)\}">\$\{ikona\('vlak'\)\}<span class="sr-only">Vlakem\/busem<\/span> \$\{esc\(Ground\.chipText\(x, ret\)\)\}/);
+  // ikona je aria-hidden – čtečka bez 🚆 jinak nepozná, že tlačítko je o vlaku a busu
+  const gr = read('js/ground.js');
+  assert.deepEqual(emoji(gr.slice(gr.indexOf('const chipText ='), gr.indexOf('};', gr.indexOf('const chipText =')))), [], 'chipText');
+  const en = read('js/entry.js'), a = en.indexOf('  function flightChip(');
+  assert.ok(a > 0);
+  assert.deepEqual(emoji(en.slice(a, en.indexOf('\n  }\n', a))), [], 'flightChip');
+});
+
+test('SearchHelp: čipy aktivních filtrů a tlačítka nápovědy (out.push / acts.push s label) bez emoji', () => {
+  const SH = read('js/searchhelp.js');
+  const labels = [...SH.matchAll(/\b(?:out|acts)\.push\(\{ key: '\w+', label: ('[^']*'|`[^`]*`)/g)].map((m) => m[1]);
+  assert.ok(labels.some((s) => s.includes('jen moje cíle')) && labels.some((s) => s.includes('Vlakem/busem')));
+  assert.deepEqual(labels.flatMap(emoji), []);
+});
+
+test('nadpisy karet bez h-tagu: Tipy v Letech (.tn) a Dnes na cestě (.nw-h) s ikonou Letsi', () => {
+  const app = read('js/app.js');
+  assert.match(app, /<div class="tip"><div class="tn"><span>\$\{ikona\(t\[0\]\)\}<\/span>/);
+  // první položka tipu je název ikony ze sady Letsi (s CSS třídou i-… v atlas.css)
+  const ctx = {};
+  vm.runInNewContext(read('js/data.js').match(/^const TIPS=.*$/m)[0].replace(/^const TIPS/, 'globalThis.TIPS'), ctx);
+  const ikony = new Set(readdirSync(new URL('../public/vendor/letsi/ikony/', import.meta.url)).map((f) => f.replace(/\.svg$/, '')));
+  const css = read('css/atlas.css');
+  for (const [n, h] of ctx.TIPS) assert.ok(ikony.has(n) && css.includes(`.i-${n}{`), `${h}: ${n}`);
+  // kroužek tipu jen na přímém potomku – jinak by jeho pozadí přebarvilo masku ikony (span.ico uvnitř) a ikona zmizela
+  assert.match(css, /^\.tip \.tn>span\{/m);
+  assert.doesNotMatch(css, /\.tip \.tn span\{/);
+  // karta Na cestě: hlavička (domov / místo / kalendář) i stav bez cesty
+  const nw = app.split('\n').filter((l) => /const head = x\.home|^ {4}: x\.on \? `|^ {4}: `\$\{ikona\('kalendar'\)\}|class="nw-h">(?!\$\{head\})/.test(l));
+  assert.equal(nw.length, 5);
+  for (const l of nw) assert.deepEqual(emoji(l.match(/class="nw-h">(.*?)<\/div>/)?.[1] ?? l), [], l.slice(0, 80));
+});
+
+test('okno nabídky: štítek vstupu bez emoji; tipy v Letech jen s ikonou ve významu z ikony.json', () => {
+  // dp-chips: když flightChip nic nevrátí (stačí OP, bez víza), cardChip bez emoji – jinak „🪪 stačí OP“ vedle štítků bez emoji
+  assert.match(FL, /Entry\.flightChip\(d\.cc, d\.d2 \|\| d\.d1\) \|\| Entry\.cardChip\(d\.cc, true\)/);
+  // super-cena jen pro štítek „Super cena“ (ikony.json: ikona v cizím významu nikdy) – ne u tipu o zavazadlech
+  const ctx = {};
+  vm.runInNewContext(read('js/data.js').match(/^const TIPS=.*$/m)[0].replace(/^const TIPS/, 'globalThis.TIPS'), ctx);
+  assert.equal(ctx.TIPS.find((t) => t[1] === 'Leť jen s příručním')[0], 'info');
+  assert.ok(!ctx.TIPS.some((t) => t[0] === 'super-cena'));
+});

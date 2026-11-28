@@ -948,7 +948,7 @@ ol.guide code,.note code{background:var(--surface-2);padding:1px 6px;border-radi
 .ml-row .pi-input{min-width:70px}
 .ml-lab{font-size:10.5px;font-weight:700;color:var(--faint);text-transform:uppercase;letter-spacing:.05em}
 .ml-home{min-height:46px;padding:8px 12px;border-radius:12px;border:1px dashed var(--border-2);background:transparent;color:var(--text);font:700 13.5px Inter,sans-serif;text-align:left;cursor:pointer;overflow-wrap:anywhere}
-.ml-home span{color:var(--muted);font-weight:600;font-size:12px}
+.ml-home>span:not(.ico){color:var(--muted);font-weight:600;font-size:12px}
 .ml-home:hover{border-color:var(--accent)}
 .ml-dt{display:flex;gap:6px}
 .ml-dt .input{width:150px;padding:11px 10px}

@@ -1108,7 +1108,7 @@
   let mlTouched = false; // lety upravené uživatelem (jinak se při přepnutí na Víc měst předvyplní z formuláře)
   let mlHomeIds = ''; // Odkud při posledním překreslení – návrat domů ho následuje
   const idsOf = items => (items || []).map(x => x.id).sort().join('|');
-  const homeTxt = () => fromInput.items.length ? `📍 ${esc(fromInput.items.map(x => x.label).join(', '))} <span>+${+$('#radius').value} km</span>` : '<span>📍 vyplň Odkud nahoře</span>';
+  const homeTxt = () => fromInput.items.length ? `${ikona('domov')} ${esc(fromInput.items.map(x => x.label).join(', '))} <span>+${+$('#radius').value} km</span>` : `<span>${ikona('domov')} vyplň Odkud nahoře</span>`;
 
   /** Lety z formuláře: [{ from, to, date, flex }] (odkud 1. letu = pole Odkud). */
   function mlRead() {
@@ -2419,7 +2419,7 @@
     }
     // cíle hledání do víc míst („k moři v prosinci“): s filtrem tepla nebo řazením „Nejtepleji“ i teplota (dlouhodobý
     // průměr, podle kterého se řadí) – jinak nebylo vidět, proč je který cíl první
-    else body = isRoute ? (groups.length > 1 ? `<div class="dest-mini">${groups.map(g => `<span class="chip">${flag(g.dest.cc)} ${esc(g.dest.label)} od <b>${czk(Math.min(...g.vis.map(x => x.perPersonCzk)))}</b>${(view.sort === 'warm' || res.query?.minTemp) && g.vis[0].tempHi != null ? ` · 🌡️ ${Math.round(g.vis[0].tempHi)}\u00a0°C` : ''}</span>`).join('')}</div>` : '') + directHintHtml(flat, pre) + flatList(flat)
+    else body = isRoute ? (groups.length > 1 ? `<div class="dest-mini">${groups.map(g => `<span class="chip">${flag(g.dest.cc)} ${esc(g.dest.label)} od <b>${czk(Math.min(...g.vis.map(x => x.perPersonCzk)))}</b>${(view.sort === 'warm' || res.query?.minTemp) && g.vis[0].tempHi != null ? ` · ${Math.round(g.vis[0].tempHi)}\u00a0°C` : ''}</span>`).join('')}</div>` : '') + directHintHtml(flat, pre) + flatList(flat)
       : view.mode === 'cards' ? groups.map(g => groupCard(g)).join('') : compactList(groups);
     // konkrétní cíl: výpis je z res.top (flat), ne z 6 nabídek skupiny – podle něj, jinak hláška pod nalezenými lety
     // (výpis konkrétního cíle – flatList – svou hlášku už má; „nových zemí“ jen u Kamkoliv a zemí)
@@ -3411,7 +3411,7 @@
   function groundChip(g, c) {
     const x = g.ground, ret = lastResult.query.trip === 'return';
     const tip = `${c.reason || ''} Cena: ${Ground.priceTxt(x, ret ? 2 : 1)} na osobu${ret ? ' tam i zpět' : ''}, odhad. Klikni pro spoje a odkazy.`;
-    return `<button type="button" class="gnd-chip${c.worth ? ' hot' : ''}" data-gchip="${esc(g.dest.key)}" title="${esc(tip.trim())}">${esc(Ground.chipText(x, ret))} <small>odhad</small></button>`;
+    return `<button type="button" class="gnd-chip${c.worth ? ' hot' : ''}" data-gchip="${esc(g.dest.key)}" title="${esc(tip.trim())}">${ikona('vlak')}<span class="sr-only">Vlakem/busem</span> ${esc(Ground.chipText(x, ret))} <small>odhad</small></button>`;
   }
   // Srovnání letadlo × vlak/bus: cena na osobu a čas od dveří ke dveřím (vlak/bus = jízda + 45 min na nádraží a z něj; cena
   // běžná – co typicky zaplatíš v daný den – a pod ní „od“). Cena i čas letadla vždy z téže cesty (c = groundCmp);
@@ -3597,7 +3597,7 @@
   function dpHtml(d) {
     // „víkend“ podle termínu cesty, jak ho okno ukazuje (ne podle dne příletu – noční let pá → so by z pá–út udělal víkend)
     const c = byIso[d.cc], geo = Boolean((window.Places || window.Lazy) && wxGeo(d)), w = dpClim(d, Boolean(window.Weather) && wxGeo(d) && wxWin(d.d1)), st = SearchHelp.stayPlan(d.d1, d.d2);
-    const ent = window.Entry && d.cc && d.cc !== 'CZ' ? Entry.flightChip(d.cc, d.d2 || d.d1) || Entry.cardChip(d.cc) : '';
+    const ent = window.Entry && d.cc && d.cc !== 'CZ' ? Entry.flightChip(d.cc, d.d2 || d.d1) || Entry.cardChip(d.cc, true) : '';
     const day = x => `<span class="dp-nw">${dayLabel(x)}</span>`;
     // role okna a jméno (nadpis #dpTitle) dává celé okno #modal (app.js modalName) – tady by bylo okno v okně
     return `<div class="dp">

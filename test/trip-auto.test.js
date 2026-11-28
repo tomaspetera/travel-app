@@ -70,7 +70,7 @@ test('⚡ Poskládej: jedno místo – hotel s nejlepším poměrem, bez auta, p
   const t = begin(c);
   const asked = fakeFetch(c);
   const s = render(c, 'flight');
-  assert.match(s, /id="tfAuto">⚡ Poskládej celou cestu za mě<\/button>/);
+  assert.match(s, /id="tfAuto">Poskládej celou cestu za mě<\/button>/);
   // ⚡ je hlavní volba hned pod letem, vedle ní vedlejší „krok za krokem“ (dřívější Pokračovat: Trasa →)
   assert.ok(s.indexOf('id="tfAuto"') < s.indexOf('id="tfNext"') && s.indexOf('id="tfNext"') < s.indexOf('class="tf-costs"'), '⚡ první, hned pod letem');
   assert.match(s, /<button class="btn" id="tfNext" data-next="Pokračovat: Trasa →">Projdu to krok za krokem →<\/button>/);
@@ -130,10 +130,10 @@ test('⚡ Poskládej: u hotové cesty (ubytování, auto i platný program) v kr
   assert.match(f, /id="tfNext"/);
   // chybí jen auto (nebo program po změně letu) → nabídka je zpátky
   t.car = null;
-  assert.match(render(c, 'flight'), /id="tfAuto">⚡ Poskládej/);
+  assert.match(render(c, 'flight'), /id="tfAuto">Poskládej/);
   t.car = { mode: 'skip', totalCzk: 0 };
   t.plan.span = { ...t.plan.span, start: '2026-11-09' };
-  assert.match(render(c, 'flight'), /id="tfAuto">⚡ Poskládej/);
+  assert.match(render(c, 'flight'), /id="tfAuto">Poskládej/);
 });
 
 const ICO = (n) => `<span class="ico i-${n}" aria-hidden="true"></span>`;
@@ -237,7 +237,7 @@ test('⚡ Poskládej: ubytování selže nebo nic s cenou nenajde → stop v kro
     assert.match(s, msg);
     // tlačítko v kroku Let zase jde zmáčknout
     const f = render(c, 'flight');
-    assert.match(f, /id="tfAuto">⚡ Poskládej/);
+    assert.match(f, /id="tfAuto">Poskládej/);
     assert.doesNotMatch(f, /autoNote/);
   }
 });
