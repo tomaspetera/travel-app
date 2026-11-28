@@ -280,6 +280,8 @@
   /** Stránka ⭐ Plus (okno): tabulka Zdarma × Plus a „Chci Plus“. */
   function open() {
     modalOpen(pageHtml(), { x: true });
+    // Plus nahrazuje list Další nebo okno země i s jejich posunem – na 360 px by nadpis a ✕ byly nad okrajem
+    q('#modal').scrollTop = 0;
     hit('plus_page'); hit('plus_offer_shown');
     q('#plusWant').onclick = () => { hit('plus_offer_click'); after(q('#plusAfter'), 'Plus chystáme na jaro – dáme vědět tady v aplikaci.', true); };
     // provize podle serveru (stejný dotaz /api/health, který app.js stahuje při startu) – jen věta, ať nezmizí odpověď na „Chci Plus“

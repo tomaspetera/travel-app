@@ -1725,6 +1725,9 @@ function modalOpen(html, o = {}) {
   // a bez něj šly zavřít jen Escapem nebo klepnutím vedle; zavře ho společná obsluha [data-close]
   $('#modal').innerHTML = (o.x ? `<button type="button" class="modal-close mc-plain" data-close aria-label="Zavřít">${ico('M18 6L6 18M6 6l12 12')}</button>` : '') + html; modalShow(true);
   modalName();
+  // okno nahrazené oknem bez zavření (okno země → Uložit do Sešitu · Plus): tlačítko zmizelo se starým obsahem a fokus
+  // spadl na <body> – observer níž to nepozná (třída show se nemění), čtečka by okno neohlásila a Tab začínal mimo něj
+  if (was && !$('#modal').contains(document.activeElement)) { $('#modal').tabIndex = -1; $('#modal').focus({ preventScroll: true }); }
   if (!was) { $('#toast').classList.remove('show'); $('#modal').scrollTop = 0; } // nové okno nahoře, ne s posunem z minulého
   // krok historie jen pro nově otevřené okno – okno otevřené z okna (Info o zemi z náhledu…) ho jen nahradí
   if (!was && o.hist !== false && !hist.modal) {
