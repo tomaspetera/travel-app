@@ -321,3 +321,18 @@ test('↩ Jiný let: Lety jako odbočka z průvodce (drill) – Zpět do Cesty; 
   const vh = vm.runInContext(`${APP.match(/^const histDepth = .*$/m)[0]}\n${fnOf('viewHist')}\nviewHist`, vm.createContext({}));
   assert.deepEqual(plain(vh('flights', { atlasV: 1 }, '#trip', true)), { back: 0, how: 'drill' });
 });
+
+test('tentýž let za jinou cenu z jiného hledání: cesta ukáže cenu, na kterou uživatel klepl, ne starou (Jiný let – hotel ve stejné dny zůstane)', () => {
+  const c = load();
+  const e = saved(c), id = e.tripId;
+  jinyLet(c);
+  pick(c, { oe: FRESH, czk: 3300 });
+  assert.equal(c.S.trips.length, 1);
+  assert.equal(c.S.trip.created, id);
+  assert.equal(c.S.trip.flight.flightCzk, 3300, 'cena z výběru, ne stará 3000');
+  assert.equal(c.S.trips[0].wizard.flight.flightCzk, 3300);
+  assert.equal(c.S.trip.stay.name, 'Hotel', 'stejné noci a lidé → hotel platí');
+  // bez značky (nové hledání, tentýž let dráž): stará cena v otevřené cestě nezůstane
+  pick(c, { oe: { ...FRESH, foundAt: 2 }, czk: 3600 });
+  assert.equal(c.S.trip.flight.flightCzk, 3600);
+});

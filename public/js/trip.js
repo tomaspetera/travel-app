@@ -853,7 +853,10 @@ let calOut = false; // jedna obsluha klepnutí mimo nabídku „Do kalendáře �
     // a zavazadla → pokračovat v cestě beze změny; dřív výměna za tentýž let potichu zahodila vybraný hotel a vrátila
     // průvodce na krok Let. Za stejnou cenu z novějšího hledání platí cena k jeho času (jinak zůstane i se svým stářím).
     const cur = re ? re.t : mine;
-    const keep = Boolean(cur && cur.flight && sameFlight(cur.flight, t) && +cur.adults === +result.query.adults && sameKids(cur, result.query) && (cur.bags || 'none') === (result.query.bags || 'none'));
+    // za jinou cenu jen shodná nabídka (týž výpis) jako dřív – z jiného hledání by cesta ukázala starou cenu místo té,
+    // na kterou uživatel klepl; výměna (reflightTrip) dá novou a hotel ve stejné dny nechá
+    const legsOf = f => JSON.stringify([f.out, Array.isArray(f.mid) ? f.mid : [], f.back || null]);
+    const keep = Boolean(cur && cur.flight && sameFlight(cur.flight, t) && (cur.flight.flightCzk === t.flightCzk || legsOf(cur.flight) === legsOf(t)) && +cur.adults === +result.query.adults && sameKids(cur, result.query) && (cur.bags || 'none') === (result.query.bags || 'none'));
     if (keep && (!re || re.open)) {
       // sdílená cesta: cena letu je teď z novějšího hledání – „ceny jsou z doby sdílení“ by neplatilo (sharedHtml)
       if (at > 0 && at - mem > (mine.flight.pricedAt || 0) && at <= Date.now() && mine.flight.flightCzk === t.flightCzk) { mine.flight.pricedAt = at - mem; if (mine.shared) mine.shared = {}; persist(); }
