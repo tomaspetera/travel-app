@@ -205,7 +205,8 @@ test('čip u letu jen když je co vyřizovat; cena v €, „zdarma“, escapov�
   assert.match(Entry.flightChip('KR', '2026-12-31'), />e-Arrival Card předem</, 'bez víza: jen povinná e-Arrival Card');
   assert.doesNotMatch(Entry.flightChip('KR'), /ověř vstup/);
   assert.match(Entry.flightChip('US', '2027-01-05'), />ESTA 36 €</);
-  assert.match(Entry.idNote('AL'), /🪪 stačí OP/);
+  assert.match(Entry.idNote('AL'), />stačí OP</);
+  assert.doesNotMatch(Entry.idNote('AL'), /🪪/, 'štítek bez emoji (CLAUDE.md)');
   assert.equal(Entry.idNote('US'), '');
   assert.equal(Entry.idNote('CZ'), '');
 

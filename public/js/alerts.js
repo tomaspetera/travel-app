@@ -367,11 +367,12 @@
    * Původní seznam nemění. → { list, w (uložená položka), dup (už se hlídalo) }
    */
   // partial = hledání s výpadkem zdroje: vyšší cena se jako u kontroly nezapíše (falešné „zlevnilo“ příště)
-  function upsertWatch(list, w, keyOf, { now = Date.now(), cap = 12, partial = false } = {}) {
+  // down = žádný zdroj neodpověděl: prázdná cena známou nepřepíše ani nezmění checked (applyCheck)
+  function upsertWatch(list, w, keyOf, { now = Date.now(), cap = 12, partial = false, down = false } = {}) {
     const key = keyOf(w);
     const old = (list || []).find(x => x && keyOf(x) === key);
     if (!old) return { list: [w, ...(list || [])].slice(0, cap), w, dup: false };
-    const upd = { ...applyCheck(old, w.best, now, CFG, { partial, own: w.own }).w, label: w.label, sub: w.sub, form: w.form };
+    const upd = { ...applyCheck(old, w.best, now, CFG, { partial, down, own: w.own }).w, label: w.label, sub: w.sub, form: w.form };
     return { list: [upd, ...list.filter(x => x !== old)].slice(0, cap), w: upd, dup: true };
   }
 

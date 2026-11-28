@@ -1725,6 +1725,9 @@ function modalOpen(html, o = {}) {
   // a bez něj šly zavřít jen Escapem nebo klepnutím vedle; zavře ho společná obsluha [data-close]
   $('#modal').innerHTML = (o.x ? `<button type="button" class="modal-close mc-plain" data-close aria-label="Zavřít">${ico('M18 6L6 18M6 6l12 12')}</button>` : '') + html; modalShow(true);
   modalName();
+  // okno nahrazené oknem bez zavření (okno země → Uložit do Sešitu · Plus): tlačítko zmizelo se starým obsahem a fokus
+  // spadl na <body> – observer níž to nepozná (třída show se nemění), čtečka by okno neohlásila a Tab začínal mimo něj
+  if (was && !$('#modal').contains(document.activeElement)) { $('#modal').tabIndex = -1; $('#modal').focus({ preventScroll: true }); }
   if (!was) { $('#toast').classList.remove('show'); $('#modal').scrollTop = 0; } // nové okno nahoře, ne s posunem z minulého
   // krok historie jen pro nově otevřené okno – okno otevřené z okna (Info o zemi z náhledu…) ho jen nahradí
   if (!was && o.hist !== false && !hist.modal) {
@@ -2262,9 +2265,11 @@ async function saveTrip(iso, flightTxt) {
 window.planSearch = i => tripFlights(S.trips[i]);
 /**
  * Lety do cíle cesty t ({ wizard, place, iso, start, end } – uložená cesta, i stav průvodce: „↩ Jiný let“, „Změnit let“
- * v ✏️ Upravit) s předvyplněným cílem a termínem.
+ * v ✏️ Upravit) s předvyplněným cílem a termínem. o.drill = odbočka z průvodce (↩ Jiný let): Zpět vrátí do Cesty.
  */
-window.tripFlights = t => {
+window.tripFlights = (t, o = {}) => {
+  // napřed krok historie odbočky – další go('flights') (Flights.searchTo) už jen v Letech zůstane
+  if (o.drill) go('flights', { drill: true });
   if (!t || !window.Flights) return go('flights');
   // cesta přes víc měst letadlem (z průvodce): stejná trasa znovu, ne zpáteční let do prvního města
   const wf = t.wizard && t.wizard.flight;

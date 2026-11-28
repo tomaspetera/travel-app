@@ -183,6 +183,11 @@ let calOut = false; // jedna obsluha klepnutí mimo nabídku „Do kalendáře �
   /* ---------- cesta přes víc měst letadlem (3 a víc letů s návratem domů) ---------- */
   /** Lety mezi místy trasy (bez letu tam a zpět). */
   const midLegs = t => (t && t.flight && Array.isArray(t.flight.mid) ? t.flight.mid : []);
+  // Tentýž let (tam, mezi městy, zpět)? Jen podstatná pole – nabídka z jiného hledání nese jiné foundAt, czk, prevCzk…
+  const LEG_SIG = ['from', 'to', 'date', 'dep', 'arr', 'flightNo', 'provider'];
+  const legSig = l => (l ? LEG_SIG.map(k => l[k] ?? null) : null);
+  const sameFlight = (a, b) => JSON.stringify([legSig(a.out), (Array.isArray(a.mid) ? a.mid : []).map(legSig), legSig(a.back)])
+    === JSON.stringify([legSig(b.out), (Array.isArray(b.mid) ? b.mid : []).map(legSig), legSig(b.back)]);
   /** Všechny lety cesty v pořadí: tam, mezi místy, zpět. */
   const allLegs = t => [t.flight.out, ...midLegs(t), t.flight.back].filter(Boolean);
   /** Trasu dávají lety: místa jsou cíle letů, mezi místy se letí, noci jsou dané daty letů (bez vlaku/busu místo letu). */
@@ -844,14 +849,22 @@ let calOut = false; // jedna obsluha klepnutí mimo nabídku „Do kalendáře �
     // let jinam (v Letech hledal jiný cíl) = nová cesta jako dřív – program a název starého cíle by k letu nepatřily
     const same = Boolean(ow && ow.flight && ow.flight.out && (ow.flight.out.to === t.out.to || (ow.dest && ow.dest.label === dest.label)));
     const re = same && old ? savedEdit(old) : null, here = same && !old ? mine : null;
-    // stejný let tam i zpět znovu (z výsledků, z uložených výsledků) pro stejně lidí a zavazadla → pokračovat v rozpracované
-    // cestě; za stejnou cenu z novějšího hledání platí cena k jeho času
-    if (!re && mine && mine.flight && JSON.stringify([mine.flight.out, midLegs(mine), mine.flight.back || null]) === JSON.stringify([t.out, Array.isArray(t.mid) ? t.mid : [], t.back || null])
-      && +mine.adults === +result.query.adults && sameKids(mine, result.query) && (mine.bags || 'none') === (result.query.bags || 'none')) {
-      if (at > 0 && at - mem > (mine.flight.pricedAt || 0) && at <= Date.now() && mine.flight.flightCzk === t.flightCzk) { mine.flight.pricedAt = at - mem; persist(); }
+    // stejný let tam i zpět znovu (z výsledků, z uložených výsledků, i po ↩ Jiný let / Změnit let) pro stejně lidí
+    // a zavazadla → pokračovat v cestě beze změny; dřív výměna za tentýž let potichu zahodila vybraný hotel a vrátila
+    // průvodce na krok Let. Za stejnou cenu z novějšího hledání platí cena k jeho času (jinak zůstane i se svým stářím).
+    const cur = re ? re.t : mine;
+    // za jinou cenu jen shodná nabídka (týž výpis) jako dřív – z jiného hledání by cesta ukázala starou cenu místo té,
+    // na kterou uživatel klepl; výměna (reflightTrip) dá novou a hotel ve stejné dny nechá
+    const legsOf = f => JSON.stringify([f.out, Array.isArray(f.mid) ? f.mid : [], f.back || null]);
+    const keep = Boolean(cur && cur.flight && sameFlight(cur.flight, t) && (cur.flight.flightCzk === t.flightCzk || legsOf(cur.flight) === legsOf(t)) && +cur.adults === +result.query.adults && sameKids(cur, result.query) && (cur.bags || 'none') === (result.query.bags || 'none'));
+    if (keep && (!re || re.open)) {
+      // sdílená cesta: cena letu je teď z novějšího hledání – „ceny jsou z doby sdílení“ by neplatilo (sharedHtml)
+      if (at > 0 && at - mem > (mine.flight.pricedAt || 0) && at <= Date.now() && mine.flight.flightCzk === t.flightCzk) { mine.flight.pricedAt = at - mem; if (mine.shared) mine.shared = {}; persist(); }
       go('trip', { drill: true }); return;
     }
     if (!(re && re.open) && !here && !leaveTrip(mine, done => `Máš rozpracovanou cestu: ${mine.dest?.label || mine.flight.out.to} (${done.join(', ')}). Nahradit ji novou cestou s tímto letem?`)) return;
+    // „Změnit let“ na tentýž let u cesty jen v Mých cestách: jen ji otevřít (jako výměna, ale beze změny)
+    if (keep) { S.trip = re.t; staysData = null; carsData = null; persist(); go('trip', { drill: true }); return; }
     // Let z průběžných výsledků (pomalejší zdroje ještě hledaly): statistika cen i úroveň ceny letu jsou jen z části
     // zdrojů – neuložit, doplní je konečný výsledek téhož hledání (finalStats, statsWait = jeho dotaz). Statistika
     // průběžného výsledku čeká stranou (statsPreview) pro případ, že hledání konečný výsledek nepřinese (statsGiveUp).
@@ -4505,8 +4518,9 @@ let calOut = false; // jedna obsluha klepnutí mimo nabídku „Do kalendáře �
     window.reflight = Number.isFinite(t.created) ? t.created : null;
     const f = t.flight, d = t.dest || {}, ids = [d.id, 'ap:' + f.out.to, d.cc && 'cc:' + d.cc].filter(Boolean);
     const r = $('#results'), to = S.form && Array.isArray(S.form.to) ? S.form.to : null;
-    if ((r && r.firstElementChild && to && (!to.length || to.some(x => x && ids.includes(x.id)))) || typeof tripFlights !== 'function') return go('flights');
-    tripFlights({ wizard: t, iso: byIso[d.cc] ? d.cc : null, start: f.out.date, end: f.back ? f.back.date : '' });
+    // Lety jako odbočka z průvodce: Zpět vrátí do Cesty (a značku zruší – app.js go), ne na Přehled
+    if ((r && r.firstElementChild && to && (!to.length || to.some(x => x && ids.includes(x.id)))) || typeof tripFlights !== 'function') return go('flights', { drill: true });
+    tripFlights({ wizard: t, iso: byIso[d.cc] ? d.cc : null, start: f.out.date, end: f.back ? f.back.date : '' }, { drill: true });
   }
   /* ---------- ✏️ nový termín cesty s vlastním letem (Moje cesty → Upravit název a termín) ---------- */
   // Všechna data cesty (lety, program, auto, termíny míst) o off dní – den i začátek „2027-03-13T16:08“; jiné texty beze změny
@@ -4596,7 +4610,8 @@ let calOut = false; // jedna obsluha klepnutí mimo nabídku „Do kalendáře �
   /**
    * „Změnit let“ (app.js editTrip): cesta old s letem z nového výběru (fresh = cesta, jakou by start() založil). Id,
    * program, trasa, odškrtnuté rezervace a ručně zadané ubytování zůstanou a posunou se na nový termín jako u změny
-   * termínu (retimeOwn); hotel vybraný z nabídek platil pro původní dny a lidi – pryč, auto s jinými časy taky (retime).
+   * termínu (retimeOwn); hotel vybraný z nabídek platil pro původní dny a lidi – s jinými pryč, auto s jinými časy taky
+   * (retime); co zmizelo, řekne hláška.
    */
   function reflightTrip(old, fresh) {
     const times = tripTimes(old), plan = tripPlan(old);
@@ -4605,9 +4620,16 @@ let calOut = false; // jedna obsluha klepnutí mimo nabídku „Do kalendáře �
     // trasa přes víc měst podle letů: místa a noci z nových letů
     if (fresh.route || (t.route && t.route.fixed === 'flights')) t.route = fresh.route || null;
     t.step = fresh.step;
-    dropPicked(t);
+    // sdílená cesta: let je z dnešního hledání, „ceny jsou z doby sdílení“ už neplatí (sharedHtml – „mohly se změnit“)
+    if (t.shared) t.shared = {};
+    // hotel z nabídek platí pro dny a lidi: jiný let ve stejné dny pro stejné lidi ho nechá
+    const stayKey = x => JSON.stringify([stayDates(x), +x.adults, +x.children || 0, +x.infants || 0]);
+    const hotel = isMulti(old) || stayKey(old) !== stayKey(t) ? dropPicked(t) : 0;
     if (plan && t.plan && !tripPlan(t)) t.plan = fitPlan(t.plan, progSpan(t));
-    retime(t, times);
+    const rt = retime(t, times);
+    // co zmizelo a proč – dřív hotel i auto zmizely beze slova
+    const msg = [hotel ? 'hotel platil pro původní let, vyber ho znovu' : '', rt === 'car' || rt === 'both' ? RETIME_TXT.car : ''].filter(Boolean).join(', ');
+    if (msg) toast(`Let vyměněn – ${msg}`);
     return t;
   }
 
