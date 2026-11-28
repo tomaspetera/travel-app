@@ -190,6 +190,9 @@ let calOut = false; // jedna obsluha klepnutí mimo nabídku „Do kalendáře �
     === JSON.stringify([legSig(b.out), (Array.isArray(b.mid) ? b.mid : []).map(legSig), legSig(b.back)]);
   /** Všechny lety cesty v pořadí: tam, mezi místy, zpět. */
   const allLegs = t => [t.flight.out, ...midLegs(t), t.flight.back].filter(Boolean);
+  // řádek Let v přehledu cesty: „a zpět“ jen při návratu stejnou trasou – zpět z jiného letiště (CIA tam, FCO zpět) by
+  // poslalo cestujícího na špatné letiště
+  const flightLine = f => `${f.out.from} → ${f.out.to}${!f.back ? '' : f.back.from === f.out.to && f.back.to === f.out.from ? ' a zpět' : `, zpět ${f.back.from} → ${f.back.to}`}`;
   /** Trasu dávají lety: místa jsou cíle letů, mezi místy se letí, noci jsou dané daty letů (bez vlaku/busu místo letu). */
   const isFly = t => Boolean(t && t.route && t.route.fixed === 'flights' && midLegs(t).length && !ovOn(t)
     && Array.isArray(t.route.bases) && t.route.bases.length === midLegs(t).length + 1);
@@ -1134,7 +1137,7 @@ let calOut = false; // jedna obsluha klepnutí mimo nabídku „Do kalendáře �
         <div class="trip-intro-act">${window.newTrip ? '<button type="button" class="btn ghost" id="tripOwn">' + ikona('plus') + ' Vlastní cesta bez letu</button>' : ''}</div>
         <div class="trip-steps-h">Jak to funguje</div>
         <ol class="trip-steps">
-          <li><span>✈️</span><div><b>Let</b><small>Napiš výš, kam chceš (nebo hledej v Letech či v Kam letět levně na Přehledu), a u nabídky klikni na <b>Naplánovat celou cestu</b>.</small></div></li>
+          <li><span>✈️</span><div><b>Let</b><small>Do pole <b>Kam chceš jet?</b> napiš, kam chceš (nebo hledej v Letech či v Kam letět levně na Přehledu), a u nabídky klikni na <b>Naplánovat celou cestu</b>.</small></div></li>
           <li><span>🏨</span><div><b>Ubytování</b><small>Hotely s cenou na tvoje dny a odkazy na Booking, Airbnb a další.</small></div></li>
           <li><span>🚗</span><div><b>Auto</b><small>Půjčení auta na místě – nebo jen veřejná doprava.</small></div></li>
           <li><span>🗺️</span><div><b>Program</b><small>Co vidět den po dni, výlety, kolo i pěšky.</small></div></li>
@@ -1310,7 +1313,7 @@ let calOut = false; // jedna obsluha klepnutí mimo nabídku „Do kalendáře �
     const transport = c.ground + c.arrival + c.transfers;
     const rows = [
       ['flight', ov ? 'vlak' : 'let', ov ? 'Vlak / bus' : 'Let', ov ? `${t.overland.from.label} → ${t.overland.to.label}${t.overland.back ? ' a zpět' : ''}`
-        : f.own ? `vlastní let${f.back ? ' tam i zpět' : ''}` : `${f.out.from} → ${f.out.to}${isFly(t) ? ` · ${allLegs(t).length} lety` : f.back ? ' a zpět' : ''}`, ov ? c.overland : c.flights + c.bags],
+        : f.own ? `vlastní let${f.back ? ' tam i zpět' : ''}` : isFly(t) ? `${f.out.from} → ${f.out.to} · ${allLegs(t).length} lety` : flightLine(f), ov ? c.overland : c.flights + c.bags],
       transport ? ['', 'vlak', 'Doprava', `${[c.ground && 'na letiště', c.arrival && 'do města', c.transfers && 'mezi místy'].filter(Boolean).join(', ').replace(/, ([^,]+)$/, ' a $1')} (odhad)`, transport] : null,
       ['route', 'mapa', 'Trasa', multi ? t.route.bases.map(b => `${b.name} (${b.nights})`).join(' → ') : `${t.dest.label} · celý pobyt`, 0],
       ['stay', 'ubytovani', 'Ubytování', multi ? (picked ? `vybráno ${picked} z ${n}` : 'zatím nevybráno')

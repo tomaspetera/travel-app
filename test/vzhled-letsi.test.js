@@ -13,6 +13,28 @@ const INDEX = read('index.html');
 const CSS = read('css/letsi.css');
 const BOOT = [...INDEX.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]).find((s) => s.includes("localStorage.getItem('atlas_v1')"));
 
+/** Specifičnost selektoru [id, třídy/atributy/pseudotřídy, prvky]; :is()/:not() = nejsilnější položka, :where() = 0. */
+function spec(sel) {
+  const r = [0, 0, 0];
+  const add = (x) => x.forEach((n, i) => { r[i] += n; });
+  // vnořené :is(…) jen bez dalších závorek uvnitř – letsi.css je nevnořuje
+  sel = sel.replace(/:(is|not|where)\(([^()]*)\)/g, (m, f, list) => {
+    if (f !== 'where') add(list.split(',').map(spec).sort(specCmp).pop());
+    return ' ';
+  });
+  r[0] += (sel.match(/#[\w-]+/g) || []).length;
+  r[1] += (sel.match(/\.[\w-]+|\[[^\]]*\]|:(?!:)[\w-]+/g) || []).length;
+  r[2] += (sel.replace(/\[[^\]]*\]/g, '').match(/(^|[\s>+~])[a-z][\w-]*/gi) || []).length;
+  return r;
+}
+const specCmp = (a, b) => a[0] - b[0] || a[1] - b[1] || a[2] - b[2];
+
+test('spec(): specifičnost jako v prohlížeči', () => {
+  assert.deepEqual(spec(':root[data-brand="letsi"] :is(.pill.on,.score-pill,.stepbar .st.on>span)'), [0, 5, 1]);
+  assert.deepEqual(spec(':root[data-brand="letsi"] .dest[data-photo] .score-pill'), [0, 5, 0]);
+  assert.deepEqual(spec('#a .b:where(.c,#d) p'), [1, 1, 1]);
+});
+
 /** Start stránky na adrese href s obsahem localStorage store → atribut data-brand, uložená volba a adresa po startu. */
 function boot(href, store = {}) {
   const attrs = {}, ls = { ...store };
@@ -370,10 +392,12 @@ test('chyby a varování: lem barvou chyby / okrem, text barvou písma na kartě
 });
 
 test('skóre a puntíky ceny na kartách cílů: vidět ve světlém i tmavém, vysvětlivka Naplánovat písmem textu', () => {
-  // skóre na fotce: bílé pozadí z atlas.css + protibarva (ve světlém Vápno) = neviditelné číslo → vlastní plocha i písmo;
-  // pravidlo musí stát až za společným :is(…,.score-pill,…), jinak by ho barva písma přebila
-  const pill = SRC.indexOf(':root[data-brand="letsi"] .dest[data-photo] .score-pill{background:#D6DE82;color:#14161F}');
-  assert.ok(pill > SRC.search(/:is\([^)]*\.score-pill[^)]*\)\{color:var\(--letsi-na-grad\)/), 'pravidlo pro fotku za společným');
+  // skóre na fotce: bílé pozadí z atlas.css + protibarva (ve světlém Vápno) = neviditelné číslo → vlastní plocha i písmo.
+  // Hlídat jen pořadí nestačilo: :is() bere specifičnost nejsilnější položky a společné pravidlo vyhrálo i dřív v souboru
+  const photo = SRC.match(/(:root\[data-brand="letsi"\] [^{}]*\[data-photo\] \.score-pill)\{background:#D6DE82;color:#14161F\}/);
+  const shared = SRC.match(/(:root\[data-brand="letsi"\] :is\([^)]*\.score-pill[^)]*\))\{color:var\(--letsi-na-grad\)/);
+  assert.ok(photo && shared, 'obě pravidla pro skóre');
+  assert.ok(specCmp(spec(photo[1]), spec(shared[1])) > 0, `skóre na fotce ${spec(photo[1])} musí přebít společné ${spec(shared[1])}`);
   assert.ok(contrast('#14161F', '#D6DE82') >= 4.5);
   // jantarové puntíky: na kartě barvou textu, na tmavém panelu fotky (v obou režimech) Pistácie
   assert.match(SRC, /\] \.dots\.warm i\.f\{background:var\(--text\)\}/);

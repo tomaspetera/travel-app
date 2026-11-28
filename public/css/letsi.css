@@ -103,8 +103,9 @@
    bílé písmo by v tmavém na Vápně (--accent) zmizelo */
 :root[data-brand="letsi"] :is(.pill.on,.score-pill,.dow button.on,.ml-n,.dp-n,.stepbar .st.on>span,.tf-n,.poi-acts a.go,.wc-steps .wc-n){color:var(--letsi-na-grad);box-shadow:none}
 /* skóre na fotce cíle má z atlas.css bílé pozadí – protibarva z pravidla výš (ve světlém Vápno) by na něm zmizela;
-   proto vlastní plocha Pistácie s Nocí v obou režimech */
-:root[data-brand="letsi"] .dest[data-photo] .score-pill{background:#D6DE82;color:#14161F}
+   proto vlastní plocha Pistácie s Nocí v obou režimech. .card navíc: :is() výš má specifičnost nejsilnější položky
+   (.stepbar .st.on>span, celkem 0,5,1) a bez ní by barvu písma přebil i přes pořadí v souboru */
+:root[data-brand="letsi"] .card.dest[data-photo] .score-pill{background:#D6DE82;color:#14161F}
 /* cenová hladina: jantarové puntíky (--warn) jsou na bílé kartě málo vidět → barvou textu; na tmavém panelu fotky
    cíle by barva textu ve světlém (Noc) zmizela → Pistácie */
 :root[data-brand="letsi"] .dots.warm i.f{background:var(--text)}

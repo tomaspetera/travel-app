@@ -1623,8 +1623,9 @@
     $('#results').innerHTML = ''; $('#results').classList.remove('aged'); paintGroundStale(true);
     const btn = $('#doSearch'); btn.disabled = true; btn.innerHTML = '<span class="spin"></span> Hledám…';
     // vypnuté tlačítko fokus ztratí a prohlížeč ho pustí na <body> – Tab i čtečka by začaly od začátku stránky; fokus
-    // na průběh hledání, kde se teď mění obsah (spuštění z dlaždice nebo z Nedávno nechá fokus, kde je)
-    if (document.activeElement === document.body) { const pg = $('#progress'); pg.tabIndex = -1; pg.focus({ preventScroll: true }); }
+    // na průběh hledání, kde se teď mění obsah (spuštění z dlaždice nebo z Nedávno nechá fokus, kde je); stejně z nadpisu,
+    // kam fokus dalo přepnutí sekce (Najít lety na Přehledu, app.js viewFocus) – h1 ve fotce sbalený formulář schová
+    if (document.activeElement === document.body || document.activeElement.matches('h1, #pageTitle')) { const pg = $('#progress'); pg.tabIndex = -1; pg.focus({ preventScroll: true }); }
     say('Hledám lety…'); // čtečka obrazovky: průběh hledání se mění pod tlačítkem
     renderProgress({ providers: [], ...(f.trip === 'multi' ? { legs: f.legs.map((l, i) => ({ label: `${(i ? l.from : f.from).map(x => x.label).join(', ')} → ${l.to.map(x => x.label).join(', ')}`, state: 'pending' })) } : {}) }, true);
     // na sbalené hledání (collapseForm), ne na průběh pod ním: z karty s Hlídat a Upravit by pod lištou trčel jen okraj
