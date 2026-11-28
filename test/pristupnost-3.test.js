@@ -38,7 +38,7 @@ test('pruvodce-3: karta cesty z průvodce – cena a „rozpočet“ s popiskem,
 test('pristupnost-5: karta s „Program, balení a poznámky“ není role=button – otevře ji název jako tlačítko', () => {
   const fn = APP.slice(APP.indexOf('function myTrips('), APP.indexOf('function newTrip('));
   // i s tlačítkem „Naplánuj podobnou · Plus“ (plus.js, test/plus-test-zajmu.test.js) je karta bez role=button
-  assert.match(fn, /const nm = \$\('\[data-mdet\],\[data-plus-soon\]', el\) && \$\('\.tt-name', el\);\s*if \(nm\) nm\.innerHTML = `<button type="button" class="tt-open">\$\{nm\.innerHTML\}<\/button>`; else kbClick\(el\);/);
+  assert.match(fn, /const nm = \$\('\[data-mdet\],\[data-plus-soon\]', el\) && \$\('\.tt-name', el\);\s*if \(nm\) nm\.innerHTML = `<button type="button" class="tt-open" data-tt="\$\{el\.dataset\.mt\}">\$\{nm\.innerHTML\}<\/button>`; else kbClick\(el\);/);
   assert.doesNotMatch(fn, /open\(\+el\.dataset\.mt\); \}; kbClick\(el\);/, 'kbClick na každou kartu (i s vnitřním tlačítkem) pryč');
   const css = read('css/trip.css');
   const h = /\.mt-det\{[^}]*min-height:(\d+)px/.exec(css);

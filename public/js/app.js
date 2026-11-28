@@ -478,7 +478,6 @@ function go(v, opts = {}) {
   // Mapa a Země jsou jedna sekce Svět (přepínač nahoře, v liště i v menu „Svět“) – nadpis Svět, ne „Mapa“; podnadpis
   // podle karty (na počítači jsou v panelu zvlášť a pod stejným „Svět“ se nedalo poznat, co je co)
   const nv = NAV.find(x => x[0] === v); $('#pageTitle').textContent = WORLD_VIEWS.includes(v) ? NAV_INFO.world[0] : nv[1]; $('#pageSub').textContent = nv[2];
-  viewFocus(a0);
   // i left: 0 – posun na (0, 0) prohlížeč provede bez vynuceného rozvržení stránky (jen top by si ho vyžádal)
   if (!opts.keepScroll) window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
   if (flY != null) {
@@ -495,6 +494,7 @@ function go(v, opts = {}) {
   if (v === 'trip') lazyView('trip', '#tripRoot', () => (opts.mine ? Trip.mine() : Trip.render()));
   if (v === 'flights' && window.Flights && Flights.ageCheck) Flights.ageCheck(Boolean(opts.keepScroll)); // výsledky hledání z dřívějška: 🕘 kdy byly
   if (v === 'explore') lazyView('places', '#exploreRoot', () => Places.renderExplore($('#exploreRoot')));
+  viewFocus(a0); // až po vykreslení – Objevuj si nadpis překreslí a fokus na starém by spadl na <body>
 }
 /**
  * Fokus zůstal v sekci, kterou go() právě schovalo (Najít lety, „Otevřít vyhledávač →“ na Přehledu): prohlížeč by ho
@@ -503,6 +503,9 @@ function go(v, opts = {}) {
  */
 function viewFocus(a) {
   if (!a || !a.closest || !a.closest('.view:not(.active)')) return;
+  // stejné tlačítko i v nové sekci (přepínač Svět Mapa ↔ Země) – Tab pak pokračuje odtamtud, ne od nadpisu
+  const sel = kbSel(a), twin = sel && $('.view.active ' + sel);
+  if (twin && twin.getClientRects().length) return twin.focus({ preventScroll: true });
   const h = $('.view.active h1'), el = h && h.getClientRects().length ? h : $('#pageTitle');
   el.tabIndex = -1; el.focus({ preventScroll: true });
 }
@@ -527,7 +530,9 @@ function toast(msg, kind, ms = 2600, act = null) {
   const t = $('#toast');
   t.innerHTML = (kind === 'err' ? '⚠️ ' : kind === 'info' ? '👆 ' : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>`) + (act ? `<span>${esc(msg)}</span><button type="button" class="toast-act">${esc(act.label)}</button>` : esc(msg));
   if (act) $('.toast-act', t).onclick = () => { t.classList.remove('show'); act.run(); };
-  t.classList.add('show'); clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove('show'), act ? Math.max(ms, 6000) : ms);
+  // s fokusem na ↩ Vrátit (Tab) počká – zmizelé tlačítko by fokus pustilo na začátek stránky
+  const hide = () => { if (t.classList.contains('show') && t.contains(document.activeElement)) t._t = setTimeout(hide, 1000); else t.classList.remove('show'); };
+  t.classList.add('show'); clearTimeout(t._t); t._t = setTimeout(hide, act ? Math.max(ms, 6000) : ms);
 }
 /**
  * Hlášení jen pro čtečku obrazovky (#srSay, role status – zdvořile, nepřeruší): začátek a konec hledání, kdy se na
@@ -1827,8 +1832,9 @@ new MutationObserver(() => {
   const r = (r0 && r0.isConnected ? r0 : sel ? $$(sel).find(x => !m.contains(x) && x.getClientRects().length) : null) || kbNear(box);
   // telefon: do textového pole fokus nevracet – vyskočila by klávesnice, kterou nikdo nechtěl
   if (r && modalKb.touch && modalKb.touch.matches && /^(INPUT|TEXTAREA|SELECT)$/.test(r.tagName)) return;
-  // fokus někam přesunula sama akce okna (náhled cíle vrací na 🔎) → nechat
-  if ((!a || a === document.body || $('#modalBg').contains(a)) && r && r.getClientRects().length) r.focus({ preventScroll: true });
+  // fokus někam přesunula sama akce okna (náhled cíle vrací na 🔎) → nechat; ↩ Vrátit v hlášce nad oknem (Esc z něj)
+  // patří k oknu – jinak by fokus zůstal na hlášce a po jejím zmizení spadl na začátek stránky
+  if ((!a || a === document.body || $('#modalBg').contains(a) || $('#toast').contains(a)) && r && r.getClientRects().length) r.focus({ preventScroll: true });
 }).observe($('#modalBg'), { attributes: true, attributeFilter: ['class'] });
 /**
  * Tlačítko okna po zavření zmizelo (odebraná navštívená země, karta mimo filtr Navštívené): fokus by spadl na začátek
@@ -1847,9 +1853,12 @@ document.addEventListener('keydown', e => {
   const m = $('#modal'), a = document.activeElement;
   const fs = $$('a[href],button:not([disabled]),input:not([disabled]):not([type=hidden]),select:not([disabled]),textarea:not([disabled]),summary,[tabindex]:not([tabindex="-1"])', m)
     .filter(x => x.getClientRects().length && getComputedStyle(x).visibility !== 'hidden');
-  const i = fs.indexOf(a);
-  const to = !fs.length ? m : !m.contains(a) || (e.shiftKey && a === m) ? fs[e.shiftKey ? fs.length - 1 : 0]
-    : e.shiftKey && i === 0 ? fs[fs.length - 1] : !e.shiftKey && i === fs.length - 1 ? fs[0] : null;
+  // ↩ Vrátit v hlášce nad oknem (#toast je mimo #modal) – jinak by na něj klávesnice ani čtečka nedosáhla
+  const ta = $('#toast.show .toast-act'); if (ta) fs.push(ta);
+  const i = fs.indexOf(a), n = fs.length;
+  // na krajích (poslední prvek okna ↔ hláška ↔ první prvek) ručně dokola, uvnitř okna pořadí prohlížeče
+  const to = !n ? m : (!m.contains(a) && a !== ta) || (e.shiftKey && a === m) ? fs[e.shiftKey ? n - 1 : 0]
+    : a === ta || (e.shiftKey ? i === 0 : i >= n - (ta ? 2 : 1)) ? fs[(i + (e.shiftKey ? -1 : 1) + n) % n] : null;
   if (!to) return;
   e.preventDefault();
   if (to === m) m.tabIndex = -1;
@@ -2247,8 +2256,9 @@ function myTrips(host, o = {}) {
     el.onclick = e => { if (!e.target.closest('[data-mdet]')) open(+el.dataset.mt); };
     // karta s tlačítkem „Program, balení a poznámky“ nesmí být sama tlačítkem (role=button skryje vnitřní tlačítko před
     // čtečkou) – z klávesnice ji otevře název cesty jako tlačítko, klik bublá na kartu
+    // data-tt (ne data-mt – to vybírá karty): kbSel podle něj po úpravě v okně najde v překresleném seznamu tutéž cestu
     const nm = $('[data-mdet],[data-plus-soon]', el) && $('.tt-name', el);
-    if (nm) nm.innerHTML = `<button type="button" class="tt-open">${nm.innerHTML}</button>`; else kbClick(el);
+    if (nm) nm.innerHTML = `<button type="button" class="tt-open" data-tt="${el.dataset.mt}">${nm.innerHTML}</button>`; else kbClick(el);
   });
   $$('[data-mdet]', host).forEach(b => b.onclick = e => { e.stopPropagation(); openTrip(+b.dataset.mdet); });
   const c0 = $('[data-mcur]', host); if (c0) { c0.onclick = () => o.resume && o.resume(); kbClick(c0); }
