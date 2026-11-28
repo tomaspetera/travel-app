@@ -41,7 +41,7 @@ const res = { mode: 'oneway', origins: [{}, {}], stats: { ms: 8400 }, legs: [] }
 test('před prvními výsledky jen řádek se spinnerem a nadpisem, řádky zdrojů ve sbaleném <details>', () => {
   const { host, render } = load();
   render({ providers: [] }, true);
-  assert.match(host.innerHTML, /^<details class="card progress-card run"><summary class="ph"><span class="ph-txt"><span class="spin"><\/span> Prohledávám letiště…<\/span><span class="ps-more faint">podrobnosti<\/span><\/summary><\/details>$/);
+  assert.match(host.innerHTML, /^<details class="card progress-card run"><summary class="ph"><span class="ph-txt"><span class="spin"><\/span> Prohledávám letiště…<\/span><span class="ps-more faint">podrobnosti<\/span><\/summary><div class="pnote">Čekám na odpověď serveru…<\/div><\/details>$/, 'rozbalené podrobnosti před první odpovědí nejsou prázdné');
   render(running, false);
   assert.equal(host.det.open, false);
   assert.match(host.innerHTML, /<\/summary><div class="prow running">[\s\S]*wizzair[\s\S]*<\/details>$/, 'zdroje až za řádkem');

@@ -162,10 +162,10 @@
     const cost = (r.visa === 'eta' || r.visa === 'evisa') && r.etaCostEur != null && eur >= 0 ? (eur === 0 ? ' zdarma' : ` ${eur} €`) : '';
     return `<span class="b ec-b ec-${k.cls}" title="${esc(tip(iso, r, k))}"${tap(r)}>${esc(k.label + q(r) + cost)}</span>`;
   }
-  /** „🪪 stačí OP“ do rozbaleného detailu letu (jen kde OP stačí). */
+  /** „stačí OP“ do rozbaleného detailu letu (jen kde OP stačí) – štítek bez emoji, druh nese třída ec-id. */
   function idNote(iso) {
     const r = get(iso);
-    return r && r.idCard && r.iso2 !== 'CZ' ? `<span class="ec-id" title="${esc(`${name(iso)}: ${kind(r).text}. ${srcTxt(r)}`)}">🪪 stačí OP</span>` : '';
+    return r && r.idCard && r.iso2 !== 'CZ' ? `<span class="ec-id" title="${esc(`${name(iso)}: ${kind(r).text}. ${srcTxt(r)}`)}">stačí OP</span>` : '';
   }
 
   /* ---------- tranzit ---------- */
