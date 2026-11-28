@@ -16,6 +16,7 @@ import { priceLevelOf, priceStats, refOf, referencePrice } from './pricelevel.js
 import { MULTI, buildCombos, linkMatrix, mergeStatus, pairsPerLeg, pickOptions, runLimited } from './multi.js';
 import { arrivalCzk, arrivalOn, arrivalsFor, legArrivalCzk } from './arrival.js';
 import { breathe } from './crowd.js';
+import { limiter } from './http.js';
 
 export { referencePrice, refOf };
 import { attachGround } from './ground.js';
@@ -223,6 +224,17 @@ export function dealOf(trip) {
   };
 }
 
+/**
+ * Kolik tras „kamkoliv“ dohledat po dnech (nejlevnější napřed). Živé zdroje 10. Zdroj z mezipaměti (Travelpayouts) platí
+ * dotaz za trasu × měsíc × směr: celý rok zpátečně = 26 dotazů na trasu, 10 tras by bylo 260 dotazů navíc a při tempu
+ * 8 dotazů/s (limit API) přes půl minuty čekání. Proto rozpočet ~100 dotazů – krátké období (radar, formulář) beze změny,
+ * u celého roku 3 nejlevnější trasy (ostatní cíle zůstanou s termíny, které sedí rovnou z dotazů po měsících).
+ */
+export function refineRoutes(p, months, ret) {
+  if (p.live) return 10;
+  return Math.max(3, Math.min(10, Math.floor(100 / (Math.max(1, months) * (ret ? 2 : 1)))));
+}
+
 async function settle(fn, st, p, ctx) {
   const t0 = Date.now();
   st.state = 'running';
@@ -407,6 +419,9 @@ export async function search(raw, emit = () => {}, opts = {}) {
   // Stav zdroje v tomto hledání (Kiwi: úspěchy, chyby, opakování) – předává se do jeho dotazů.
   const ctxs = new Map(providers.map((p) => [p.id, p.context ? p.context() : null]));
   const ctxOf = (p) => ctxs.get(p.id);
+  // Podíl tohoto hledání ve společné frontě Travelpayouts (tempo 8 dotazů/s pro celý server): nejvýš 3 dotazy naráz,
+  // ať těžké hledání (stovky dotazů) nezablokuje frontu malým hledáním ostatních. Jiné zdroje ho nečtou.
+  const share = limiter(3);
   // Přesná data: dny kolem odletu/návratu (±3), které zdroje vrátí bez dotazu navíc → „nejbližší dny“.
   const nearOut = q.exact ? nearRange(q.exact.out) : null;
   const nearBack = q.exact?.back ? nearRange(q.exact.back) : null;
@@ -907,7 +922,7 @@ export async function search(raw, emit = () => {}, opts = {}) {
       await runTasks(st, [...ors.map((o) => ({ origin: o.iata })), ...hubCalls].map((c) => async () => {
         const res = await p.explore({
           origin: c.origin, ...(c.destination ? { destination: c.destination } : {}), dateFrom: q.dateFrom, dateTo: q.dateTo, ret, country: singleCountry,
-          ...pax(q), directOnly: q.directOnly,
+          ...pax(q), directOnly: q.directOnly, share,
         });
         const w = breathe(); // pustit ke slovu ostatní požadavky (crowd.js) – odpovědi zdrojů chodí často naráz
         if (w) await w;
@@ -932,12 +947,13 @@ export async function search(raw, emit = () => {}, opts = {}) {
       const have = new Set(trips.filter((t) => t.provider === p.id && warmLeg(t.out)).map((t) => `${t.out.from}|${t.out.to}`));
       const todo = [];
       const seen = new Set();
+      const most = refineRoutes(p, monthsInRange(q.dateFrom, q.dateTo).length, Boolean(ret));
       for (const t of refine.sort((a, b) => a.flightCzk - b.flightCzk)) {
         const k = `${t.out.from}|${t.out.to}`;
         if (have.has(k) || seen.has(k)) continue;
         seen.add(k);
         todo.push(t);
-        if (todo.length >= 10) break;
+        if (todo.length >= most) break;
       }
       mixPlan(p, todo.map((t) => [t.out.from, t.out.to]));
       if (todo.length) {
@@ -998,7 +1014,7 @@ export async function search(raw, emit = () => {}, opts = {}) {
     // (crowd.js breathe). Mezi kousky se smí pustit ke slovu ostatní, pořadí kousků zůstává.
     let w = breathe();
     if (w) await w;
-    const all = await p.daily({ from: o, to: d, dateFrom: q.dateFrom, dateTo: q.dateTo, ...pax(q), directOnly: q.directOnly, memoryOnly });
+    const all = await p.daily({ from: o, to: d, dateFrom: q.dateFrom, dateTo: q.dateTo, ...pax(q), directOnly: q.directOnly, memoryOnly, share });
     if ((w = breathe())) await w;
     const out = all.filter((l) => warmLeg(l) && depOk(l));
     if (!ret) {
@@ -1008,7 +1024,7 @@ export async function search(raw, emit = () => {}, opts = {}) {
     // Lety tam jsou, jen je filtr vyřadil (za teplem, odlet v předvečer od 16:00): zpáteční směr, se kterým plán trasy
     // počítal, se stejně načte – jinak by trasa zůstala navždy „nehledaná“ a brala rozpočet každému hledání.
     if (!out.length && !(all.length && p.routeState && !memoryOnly)) return [];
-    const back = await p.daily({ from: d, to: o, dateFrom: backFrom, dateTo: backTo, ...pax(q), directOnly: q.directOnly, memoryOnly });
+    const back = await p.daily({ from: d, to: o, dateFrom: backFrom, dateTo: backTo, ...pax(q), directOnly: q.directOnly, memoryOnly, share });
     if ((w = breathe())) await w;
     // ceny z mezipaměti (Travelpayouts dohledává po dnech taky) se nekombinují (mixAdd jen živé zdroje)
     mixAdd(p, out, back);
@@ -1038,7 +1054,7 @@ export async function search(raw, emit = () => {}, opts = {}) {
       const capped = pairs.slice(0, Math.min(16, limits.maxPairs || 16));
       if (pairs.length > capped.length) st.note = `prohledáno ${capped.length} z ${pairs.length} kombinací letišť`;
       await runTasks(st, capped.map(({ o, d }) => async () => {
-        const res = await p.explore({ origin: o, destination: d, dateFrom: q.dateFrom, dateTo: q.dateTo, ret, ...pax(q), directOnly: q.directOnly });
+        const res = await p.explore({ origin: o, destination: d, dateFrom: q.dateFrom, dateTo: q.dateTo, ret, ...pax(q), directOnly: q.directOnly, share });
         for (const t of res) {
           if (dateOk(t.out.date, t.back?.date, constraints) && depOk(t.out)) {
             trips.push(t);

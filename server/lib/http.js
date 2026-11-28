@@ -67,6 +67,9 @@ export async function request(url, opts = {}) {
         // je-li to do 10 s. U aerolinek se to nepoužívá (429 je tam ochrana proti botům).
         const ra = Number(res.headers.get('retry-after'));
         if (ra > 0) err.retryAfter = ra; // pro pojistky volajícího (vynechat zdroj na tak dlouho)
+        // Travelpayouts Retry-After neposílá, jen X-Rate-Limit-Reset = sekundy do konce minutového okna limitu.
+        const rr = Number(res.headers.get('x-rate-limit-reset'));
+        if (rr > 0) err.rateReset = rr;
         if (res.status === 429 && retry429 && !waited429 && ra > 0 && ra <= 10) {
           waited429 = true;
           await sleep(ra * 1000);
@@ -100,6 +103,21 @@ export async function request(url, opts = {}) {
     }
   }
   throw lastErr;
+}
+
+/**
+ * Tempo startů dotazů u API s limitem za minutu: průměrně jeden start za gapMs, po klidu až `burst` startů hned
+ * (malé hledání se nezdrží). Za libovolných 60 s tak nejvýš burst + 60000 / gapMs startů. Každé volání vrátí slib,
+ * který se splní v čase jeho startu; místo se rezervuje hned, takže souběžní čekající se seřadí za sebe.
+ */
+export function pacer(gapMs, burst = 1) {
+  let tat = 0; // „teoretický čas příštího startu“ při rovnoměrném tempu (GCRA)
+  return () => {
+    const now = Date.now();
+    const start = Math.max(now, tat - (burst - 1) * gapMs);
+    tat = Math.max(tat, now) + gapMs;
+    return start > now ? sleep(start - now) : Promise.resolve();
+  };
 }
 
 /** Omezí počet souběžně běžících async úloh. */

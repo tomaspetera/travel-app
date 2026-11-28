@@ -2,6 +2,29 @@
 
 Podklad k podnikatelskému plánu (cíl: 1000+ lidí naráz, později desítky tisíc uživatelů). Stav k 24. 10. 2026.
 
+## Tempo dotazů na Travelpayouts (28. 11. 2026)
+
+Od 12. 1. 2027 (čistý režim) je Travelpayouts jediný zdroj letů. Oficiální limit `/aviasales/v3/prices_for_dates` je
+**600 dotazů za minutu** na token (Help Center Travelpayouts, „API rate limits“); po překročení HTTP 429 a blokace do
+konce minutového okna (hlavička `X-Rate-Limit-Reset`, `Retry-After` neposílá). Dřív server hlídal jen souběh 4 dotazů,
+takže při rychlé odpovědi API (~0,15 s) poslal až ~1 600 dotazů za minutu a dvě těžká hledání stačila na 429 pro všechny.
+
+- **Tempo** (`server/providers/travelpayouts.js`, `TP_PACE` a `fetchPfd`; `pacer()` v `server/lib/http.js`): 8 dotazů/s
+  (rozestup 125 ms), po klidu 20 hned – za libovolnou minutu nejvýš 500 dotazů pro celý server.
+- **Podíl hledání** (`server/lib/search.js`, `share` v `search()` → `explore`/`daily` → `pfd`): jedno hledání drží ve
+  společné frontě nejvýš 3 dotazy, takže malé hledání nečeká na celou dávku těžkého. Mezipaměť a souběžné stejné dotazy
+  (`cache.wrap`) jdou mimo frontu.
+- **Po 429** (`fetchPfd`): blokace podle `Retry-After`, jinak `X-Rate-Limit-Reset` (`err.rateReset` z `request()`),
+  bez hlaviček 2 min.
+- **Dohledání po dnech** u „kamkoliv“ (`refineRoutes()` v `search.js`): u zdroje z mezipaměti rozpočet ~100 dotazů, celý rok
+  = 3 nejlevnější trasy místo 10 (krátké období beze změny).
+
+Simulace (podvržený fetch, latence 150–300 ms, Praha): typické hledání (12 dotazů) 1,6 → 1,8 s, Kamkoliv výchozí (12)
+1,7 → 1,8 s, Víkendy (52) 4,0 → 5,0 s, Kamkoliv celý rok 600 km (104) 7,1 → 11,7 s, trasa Londýn celý rok (208)
+12,9 → 24,7 s, Víkendy kamkoliv celý rok 600 km 364 dotazů za 21,8 s → 182 dotazů za 21,4 s (bez stropu by to s tempem
+trvalo 44 s; skupin výsledků 58 jako dřív, nejlevnější termíny stejné). Malé hledání spuštěné vedle nejtěžšího: 6,0 → 0,3 s.
+Víc těžkých hledání naráz se o 8 dotazů/s dělí – každé trvá déle, ale 429 nepřijde.
+
 ## Starší výsledek radaru hned, přepočet na pozadí (24. 10. 2026)
 
 Navazuje na „Další kroky“ bod 5. Na Renderu zdarma (0,1 CPU) trvá výpočet radaru při návalu minuty (níž: p50 141–157 s
