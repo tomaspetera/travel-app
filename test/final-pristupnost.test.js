@@ -45,7 +45,7 @@ test('přepnutí sekce s fokusem ve schované sekci (Najít lety na Přehledu): 
   const el = (name, rects) => ({ name, tabIndex: 0, getClientRects: () => Array(rects).fill({}), focus(o) { focused.push([name, this.tabIndex, o.preventScroll]); } });
   let h1 = el('h1', 1);
   const title = el('pageTitle', 1);
-  const ctx = vm.createContext({ $: (s) => (s === '.view.active h1' ? h1 : s === '#pageTitle' ? title : null) });
+  const ctx = vm.createContext({ $: (s) => (s === '.view.active h1' ? h1 : s === '#pageTitle' ? title : null), kbSel: () => '' });
   vm.runInContext(pick('viewFocus'), ctx);
   const inView = (hidden) => ({ closest: (s) => (s === '.view:not(.active)' && hidden ? {} : null) });
   ctx.viewFocus(inView(false)); ctx.viewFocus(null); ctx.viewFocus({});
@@ -87,4 +87,79 @@ test('úvod průvodce: krok Let odkazuje na pole jménem (na počítači je vedl
   assert.match(tripJs, /<b>Let<\/b><small>Do pole <b>Kam chceš jet\?<\/b> napiš, kam chceš/);
   assert.match(tripJs, /const askHtml = \(lead = 'Kam chceš jet\?'\)/);
   assert.doesNotMatch(tripJs, /Napiš výš/);
+});
+
+/* ---------- 6. regresní kontrola: fokus v okně cesty, ↩ Vrátit z klávesnice, přepínač Svět, Objevuj podruhé ---------- */
+const CSSx = { escape: (s) => String(s).replace(/["\\]/g, '\\$&') };
+/** Zástupný prvek s atributy (kbSel je čte přes .attributes). */
+const node = (tag, attrs = {}, extra = {}) => ({ tagName: tag, id: attrs.id || '', attributes: Object.entries(attrs).map(([name, value]) => ({ name, value })), ...extra });
+
+test('okno cesty po úpravě a zavření: název karty (tt-open) má data-tt s indexem cesty – kbSel najde tutéž cestu i v překresleném seznamu', () => {
+  const fn = appJs.slice(appJs.indexOf('function myTrips('), appJs.indexOf('function newTrip('));
+  assert.match(fn, /<button type="button" class="tt-open" data-tt="\$\{el\.dataset\.mt\}">/);
+  assert.doesNotMatch(fn, /class="tt-open" data-mt=/, 'data-mt vybírá karty – klik by se zdvojil');
+  const kbSel = new Function('document', 'CSS', `${pick('kbSel')}; return kbSel;`)({ body: {} }, CSSx);
+  assert.equal(kbSel(node('BUTTON', { type: 'button', class: 'tt-open', 'data-tt': '2' })), 'button[data-tt="2"]');
+});
+
+test('↩ Vrátit nad otevřeným oknem: Tab z posledního prvku okna na tlačítko hlášky a z něj zpět na začátek (Shift+Tab obráceně)', () => {
+  const src = appJs.match(/^document\.addEventListener\('keydown', e => \{\n {2}if \(e\.key !== 'Tab'[\s\S]*?^\}\);$/m);
+  assert.ok(src, 'app.js: past na Tab v okně');
+  const box = (name) => ({ name, getClientRects: () => [{}], focus() { ctx.document.activeElement = this; } });
+  const first = box('first'), mid = box('mid'), last = box('last'), ta = box('Vrátit'), m = { ...box('modal'), contains: (x) => [m, first, mid, last].includes(x) };
+  let toastOn = true, handler;
+  const ctx = vm.createContext({
+    document: { activeElement: null, addEventListener: (k, fn) => { handler = fn; } },
+    getComputedStyle: () => ({ visibility: 'visible' }),
+    $: (s) => (s === '#modalBg' ? { classList: { contains: () => true } } : s === '#modal' ? m : s === '#toast.show .toast-act' ? (toastOn ? ta : null) : null),
+    $$: () => [first, mid, last],
+  });
+  vm.runInContext(src[0], ctx);
+  const tab = (from, shiftKey = false) => { ctx.document.activeElement = from; let p = false; handler({ key: 'Tab', shiftKey, defaultPrevented: false, preventDefault: () => { p = true; } }); return p ? ctx.document.activeElement.name : 'prohlížeč'; };
+  assert.equal(tab(last), 'Vrátit');
+  assert.equal(tab(ta), 'first');
+  assert.equal(tab(first, true), 'Vrátit');
+  assert.equal(tab(ta, true), 'last');
+  assert.equal(tab(mid), 'prohlížeč', 'uvnitř okna dál pořadí prohlížeče');
+  toastOn = false;
+  assert.equal(tab(last), 'first', 'bez hlášky koluje jen v okně');
+});
+
+test('hláška s ↩ Vrátit se neschová, dokud má tlačítko fokus (Tab) – fokus by spadl na začátek stránky', () => {
+  const timers = [];
+  const cls = new Set();
+  const btn = {};
+  const t = { innerHTML: '', classList: { add: (c) => cls.add(c), remove: (c) => cls.delete(c) }, contains: (x) => x === btn };
+  const ctx = vm.createContext({
+    $: (s) => (s === '#toast' ? t : s === '.toast-act' ? btn : null), esc: String,
+    document: { activeElement: btn }, setTimeout: (fn, ms) => { timers.push([fn, ms]); return timers.length; }, clearTimeout() {},
+  });
+  vm.runInContext(pick('toast'), ctx);
+  ctx.toast('Aktivita smazána', '', 6000, { label: '↩ Vrátit', run() {} });
+  assert.equal(timers[0][1], 6000);
+  timers.shift()[0]();
+  assert.ok(cls.has('show'), 'fokus na Vrátit → pořád vidět');
+  ctx.document.activeElement = {};
+  timers.shift()[0]();
+  assert.ok(!cls.has('show'), 'fokus pryč → schová se');
+});
+
+test('přepínač Svět Mapa ↔ Země: fokus na stejné tlačítko v nové sekci, ne na nadpis; Objevuj: fokus až po vykreslení', () => {
+  const focused = [];
+  const twin = { getClientRects: () => [{}], focus() { focused.push('twin'); } };
+  const h1 = { tabIndex: 0, getClientRects: () => [{}], focus() { focused.push('h1'); } };
+  let shown = true;
+  const ctx = vm.createContext({ document: { body: {} }, CSS: CSSx,
+    $: (s) => (s === '.view.active button[data-w="countries"]' ? (shown ? twin : null) : s === '.view.active h1' ? h1 : null) });
+  vm.runInContext(`${pick('kbSel')}\n${pick('viewFocus')}`, ctx);
+  const zeme = node('BUTTON', { type: 'button', 'data-w': 'countries' }, { closest: (s) => (s === '.view:not(.active)' ? {} : null) });
+  ctx.viewFocus(zeme);
+  assert.deepEqual(focused, ['twin']);
+  shown = false; ctx.viewFocus(zeme);
+  assert.deepEqual(focused, ['twin', 'h1'], 'bez dvojčete nadpis jako dřív');
+  // go(): viewFocus až po lazyView – Objevuj si nadpis překreslí (renderExplore) a fokus na starém by spadl na <body>
+  const go = pick('go');
+  assert.equal(go.split('viewFocus(a0)').length, 2, 'jen jednou');
+  assert.ok(go.indexOf("lazyView('places', '#exploreRoot'") < go.indexOf('viewFocus(a0)'));
+  assert.ok(go.indexOf("lazyView('trip', '#tripRoot'") < go.indexOf('viewFocus(a0)'));
 });

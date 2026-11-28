@@ -170,3 +170,24 @@ test('Shrnutí → Sbaleno: vlastní položka a věci k moři se do uložené ce
   assert.equal(ck.find((x) => x.id === 'pack:doc-op').done, true, 'odškrtnutí zůstalo');
   assert.equal(c.S.trips.length, 1, 'tatáž cesta, bez kopie');
 });
+
+test('Shrnutí → změna balení (autoSoon → saveToPlanner): aktivita průvodce smazaná v Mých cestách se nevrátí, vlastní zůstane', () => {
+  const { c, P, Trip, timers } = wizard();
+  const d = '2027-07-11';
+  const t = { v: 1, created: 1767225600001, adults: 2, bags: 'none', nightsOneWay: 3, booked: {}, step: 'summary', ground: {}, stay: null, car: null,
+    plan: { days: [{ date: d, items: [{ name: 'Alfama' }, { name: 'Belém' }, { name: 'Sintra' }] }] },
+    flight: { out: leg('PRG', 'LIS', '2027-07-10'), back: leg('LIS', 'PRG', '2027-07-17'), flightCzk: 5000 }, dest: { label: 'Lisabon', cc: 'PT', lat: 38.72, lon: -9.14 } };
+  c.S.trip = t;
+  Trip.saveToPlanner({ quiet: true });
+  const saved = () => c.S.trips.find((x) => x.tripId === t.created);
+  assert.deepEqual(plain(saved().days[d]), ['Alfama', 'Belém', 'Sintra']);
+  saved().days[d] = ['Alfama', 'Sintra', 'Fado večer']; // ✕ u Belém (app.js delAct) a vlastní aktivita
+  timers.length = 0;
+  assert.equal(P.addCustom(t, 'Kniha na pláž'), ''); // jen balení ve Shrnutí
+  timers.at(-1)();
+  assert.deepEqual(plain(saved().days[d]), ['Alfama', 'Sintra', 'Fado večer'], 'Belém se nevrátí');
+  assert.deepEqual(plain(saved().genDays[d]), ['Alfama', 'Belém', 'Sintra'], 'genDays ho dál zná');
+  Trip.saveToPlanner({ quiet: true }); // další uložení (třeba „zarezervováno“)
+  assert.deepEqual(plain(saved().days[d]), ['Alfama', 'Sintra', 'Fado večer']);
+  assert.equal(c.S.trips.length, 1);
+});

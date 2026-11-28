@@ -4461,6 +4461,12 @@ let calOut = false; // jedna obsluha klepnutí mimo nabídku „Do kalendáře �
       const was = (v, gen) => gen != null && v !== gen; // změněno v plánovači
       // vlastní aktivity dne a vlastní položky „Sbaleno“ (ne ty, co dřív vygeneroval průvodce)
       const days = { ...entry.days };
+      // aktivity průvodce, které uživatel v plánovači smazal (ve starém genDays jsou, v days už ne), se nevrátí –
+      // genDays je dál má, takže je pozná i další uložení (změna balení ve Shrnutí, „zarezervováno“)
+      for (const d of Object.keys(days)) {
+        const kept = ((old.days || {})[d]) || [], gone = (((old.genDays || {})[d]) || []).filter(x => !kept.includes(x));
+        if (gone.length) days[d] = days[d].filter(x => !gone.includes(x));
+      }
       for (const [d, items] of Object.entries(old.days || {})) {
         const gen = new Set(((old.genDays || {})[d]) || []), mine = (items || []).filter(x => !gen.has(x) && !(days[d] || []).includes(x));
         if (mine.length) days[d] = [...(days[d] || []), ...mine];
