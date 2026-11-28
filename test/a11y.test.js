@@ -142,7 +142,7 @@ test('hledání vypne tlačítko „Najít lety“ – fokus, který tím spadl 
   const s = flightsJs.slice(flightsJs.indexOf('async function startSearch('), flightsJs.indexOf("say('Hledám lety…')"));
   const off = s.indexOf('btn.disabled = true'), fix = s.indexOf('document.activeElement === document.body');
   assert.ok(off > 0 && fix > off, 'až po vypnutí tlačítka');
-  assert.match(s.slice(fix), /^document\.activeElement === document\.body\) \{ const pg = \$\('#progress'\); pg\.tabIndex = -1; pg\.focus\(\{ preventScroll: true \}\); \}/);
+  assert.match(s.slice(fix), /^document\.activeElement === document\.body \|\| document\.activeElement\.matches\('h1, #pageTitle'\)\) \{ const pg = \$\('#progress'\); pg\.tabIndex = -1; pg\.focus\(\{ preventScroll: true \}\); \}/);
   assert.doesNotMatch(s, /fokus zůstal na tlačítku/, 'starý komentář tvrdil, že fokus zůstane na vypnutém tlačítku');
 });
 
@@ -172,7 +172,7 @@ test('přepínače (.seg, dny v týdnu, ± dny): vybraná možnost i pro čtečk
   const b1 = btn(true, null), b2 = btn(false, 'true');
   ctx.segPressed(b1); ctx.segPressed(b2);
   assert.equal(b1.a['aria-pressed'], 'true'); assert.equal(b2.a['aria-pressed'], 'false');
-  assert.match(appJs, /const SEG_BTN = '\.seg>button,\.dow>button,#xFlex>button';/);
+  assert.match(appJs, /const SEG_BTN = '\.seg>button,\.dow>button,#xFlex>button,\.ex-cats>button';/);
   assert.match(appJs, /\}\)\.observe\(document\.body, \{ subtree: true, childList: true, attributes: true, attributeFilter: \['class'\] \}\);\n\$\$\(SEG_BTN\)\.forEach\(segPressed\);/);
   // skupiny přepínačů ve formuláři mají jméno
   for (const id of ['minTemp', 'tripType', 'dateMode', 'xFlex', 'lenPreset', 'bags', 'cVisited', 'outDays', 'backDays']) assert.match(html, new RegExp(`id="${id}" role="group" aria-label="[^"]+"`), id);
@@ -363,7 +363,7 @@ test('název sekce v horní liště je pro čtečku nadpis 1. úrovně – jen v
   vm.runInContext(pick('pageHeading'), ctx);
   ctx.pageHeading();
   assert.deepEqual({ ...a }, { role: 'heading', 'aria-level': '1' }, 'Cesta, Země, Plánovač…');
-  h1 = {}; ctx.pageHeading();
+  h1 = { closest: () => null }; ctx.pageHeading();
   assert.deepEqual({ ...a }, {}, 'Přehled, Lety, Objevuj bez místa: h1 ve fotce');
   h1 = null; ctx.pageHeading(); ctx.pageHeading();
   assert.deepEqual({ ...a }, { role: 'heading', 'aria-level': '1' });

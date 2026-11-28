@@ -521,7 +521,7 @@ test('Lety → Přehled → Lety ze spodní lišty: výpis tam, kde uživatel sk
   vm.createContext(ctx);
   const submit = APP.match(/^document\.addEventListener\('submit', \(\) => \{ flKept = null; \}, true\);$/m);
   assert.ok(submit, 'app.js: odeslání hledání zahodí posun');
-  vm.runInContext(`var activeView = 'flights';\nlet flKept = null;\n${pick('flMark', 'flKeep', 'flBack')}\n${submit[0]}\n${pick('go')}`, ctx);
+  vm.runInContext(`var activeView = 'flights';\nlet flKept = null;\n${pick('flMark', 'flKeep', 'flBack', 'viewFocus')}\n${submit[0]}\n${pick('go')}`, ctx);
   const at = (y) => { ctx.window.scrollY = y; };
   const last = () => scrolls[scrolls.length - 1];
   // výsledky posunuté na 1 800 px → Přehled (nahoru) → Lety: zpět na 1 800

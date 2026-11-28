@@ -57,6 +57,14 @@ function load() { try { const d = JSON.parse(localStorage.getItem(LS)); if (d) r
 function fixState(s) {
   for (const k of ['visited', 'trips', 'watch', 'recent', 'fav', 'mute', 'pins', 'viewed']) if (!Array.isArray(s[k])) s[k] = [];
   for (const k of ['trips', 'watch', 'recent', 'pins']) s[k] = s[k].filter(x => x && typeof x === 'object' && !Array.isArray(x));
+  // obsah cest: Moje cesty čtou t.days[d].map, x.done v Sbaleno a t.start.localeCompare – jedna ručně upravená cesta
+  // by jinak shodila celý seznam (zálohy, přenos a odkazy cesty čistí už samy)
+  for (const t of s.trips) {
+    if (!t.days || typeof t.days !== 'object' || Array.isArray(t.days)) t.days = {};
+    for (const d in t.days) if (!Array.isArray(t.days[d])) delete t.days[d];
+    t.checklist = (Array.isArray(t.checklist) ? t.checklist : []).filter(x => x && typeof x === 'object' && typeof x.t === 'string');
+    for (const k of ['start', 'end', 'name', 'dest']) if (t[k] != null && typeof t[k] !== 'string') t[k] = '';
+  }
   for (const k of ['home', 'form']) if (s[k] && Array.isArray(s[k].from)) s[k] = { ...s[k], from: s[k].from.filter(p => p && typeof p.id === 'string') };
   return s;
 }
@@ -457,6 +465,7 @@ function go(v, opts = {}) {
   activeView = v;
   if (window.Count) Count.view(v, opts.mine || (v === 'trip' && tripMine(S.trip, S.trips))); // souhrnný počet otevření sekce (count.js) – bez údajů o uživateli
   if (v !== 'dashboard') nowAsk = false;
+  const a0 = document.activeElement; // před přepnutím: pak už může být na <body>
   $$('.view').forEach(s => s.classList.toggle('active', s.id === 'view-' + v));
   // aktivní sekce i pro čtečku obrazovky (aria-current) – jen barvou by ji nepoznala
   const cur = (el, on) => { el.classList.toggle('active', on); if (on) el.setAttribute('aria-current', 'page'); else el.removeAttribute('aria-current'); };
@@ -469,6 +478,7 @@ function go(v, opts = {}) {
   // Mapa a Země jsou jedna sekce Svět (přepínač nahoře, v liště i v menu „Svět“) – nadpis Svět, ne „Mapa“; podnadpis
   // podle karty (na počítači jsou v panelu zvlášť a pod stejným „Svět“ se nedalo poznat, co je co)
   const nv = NAV.find(x => x[0] === v); $('#pageTitle').textContent = WORLD_VIEWS.includes(v) ? NAV_INFO.world[0] : nv[1]; $('#pageSub').textContent = nv[2];
+  viewFocus(a0);
   // i left: 0 – posun na (0, 0) prohlížeč provede bez vynuceného rozvržení stránky (jen top by si ho vyžádal)
   if (!opts.keepScroll) window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
   if (flY != null) {
@@ -485,6 +495,16 @@ function go(v, opts = {}) {
   if (v === 'trip') lazyView('trip', '#tripRoot', () => (opts.mine ? Trip.mine() : Trip.render()));
   if (v === 'flights' && window.Flights && Flights.ageCheck) Flights.ageCheck(Boolean(opts.keepScroll)); // výsledky hledání z dřívějška: 🕘 kdy byly
   if (v === 'explore') lazyView('places', '#exploreRoot', () => Places.renderExplore($('#exploreRoot')));
+}
+/**
+ * Fokus zůstal v sekci, kterou go() právě schovalo (Najít lety, „Otevřít vyhledávač →“ na Přehledu): prohlížeč by ho
+ * pustil na začátek stránky a Tab i čtečka by začaly odtamtud. Proto na nadpis nové sekce – h1 ve fotce, je-li vidět,
+ * jinak název v liště. Hledání, které hned naběhne, ho přesune dál na průběh (flights.js startSearch).
+ */
+function viewFocus(a) {
+  if (!a || !a.closest || !a.closest('.view:not(.active)')) return;
+  const h = $('.view.active h1'), el = h && h.getClientRects().length ? h : $('#pageTitle');
+  el.tabIndex = -1; el.focus({ preventScroll: true });
 }
 /** fn s modulem, který se stahuje až po startu (lazy.js): načtený → hned jako dřív, jinak po načtení; bez zavaděče hned. */
 const withMod = (mod, fn) => (window.Lazy ? Lazy.run(mod, fn) : fn());
@@ -549,13 +569,16 @@ function comboAria(input, dd, name) {
 /* Přepínače (.seg – Tam i zpět / Jen tam, Flexibilně, Týden, Kdykoliv / Víkendy…, dny v týdnu, ± dny): vybraná
    možnost se pozná jen barvou (třída on, nastavují ji desítky míst ve všech modulech). Pro čtečku obrazovky stav
    aria-pressed podle třídy – jedno hlídání tříd a nově vykreslených přepínačů místo úprav u každého z nich. */
-const SEG_BTN = '.seg>button,.dow>button,#xFlex>button';
+const SEG_BTN = '.seg>button,.dow>button,#xFlex>button,.ex-cats>button';
 function segPressed(b) { const on = String(b.classList.contains('on')); if (b.getAttribute('aria-pressed') !== on) b.setAttribute('aria-pressed', on); }
 /* Název sekce v horní liště (Cesta, Země, Plánovač…) je pro čtečku nadpis stránky 1. úrovně – navigace po nadpisech
    začínala až nadpisy 2. úrovně v obsahu. Sekce s vlastním h1 ve fotce (Přehled, Lety, Objevuj bez místa) ho nemají
    dvakrát. Role místo <h1>: lišta vypadá stejně (h1 má jiné písmo); hlídá ho stejné sledování změn jako přepínače. */
 function pageHeading() {
-  const t = $('#pageTitle'), own = Boolean($('.view.active h1'));
+  // h1 ve fotce schovaný v CSS (Lety po hledání: sbalený formulář schová fotku s nadpisem; na telefonu i vracející se
+  // uživatel) se nepočítá – jinak by stránka s výsledky neměla nadpis 1. úrovně žádný. Rozměry jen u fotky .fl-hero: čtení
+  // rozvržení při každé změně stránky zdvojnásobilo přepočty stylu při startu (Přehled, h1 tam schovaný nebývá)
+  const t = $('#pageTitle'), h = $('.view.active h1'), own = Boolean(h && (!h.closest('.fl-hero') || h.getClientRects().length));
   if (!t || (t.getAttribute('role') === 'heading') !== own) return;
   if (own) { t.removeAttribute('role'); t.removeAttribute('aria-level'); } else { t.setAttribute('role', 'heading'); t.setAttribute('aria-level', '1'); }
 }
@@ -1113,7 +1136,7 @@ function renderWhatsNew() {
   el.classList.add('welcome');
   // na domov se uvítání neptá – čipy měst jsou přímo pod Odkud v hledání nahoře (flights.js paintHomeAsk); dvě pole
   // Odkud nad sebou nováčka mátla, které vyplnit
-  el.innerHTML = `<h3 class="wc-h">Vítej! Najdu levné letenky a poskládám z nich celou cestu.</h3>
+  el.innerHTML = `<h2 class="wc-h">Vítej! Najdu levné letenky a poskládám z nich celou cestu.</h2>
     <p class="faint wc-how" style="font-size:12.5px;margin:-6px 0 12px">${wcHow(null)}</p>
     <ol class="wc-steps">
       <li><span class="wc-n">1</span><div><b>Napiš, odkud a kam</b><small>město, „kamkoliv“, nebo celou větu – třeba „k moři v květnu do 5000“</small></div></li>
@@ -1595,7 +1618,7 @@ const SAFE_TXT = ['', 'MZV ČR varuje', 'jen nezbytné cesty', 'zvýšená opatr
 function destCard(c, score, why) {
   const months = c.months ? monthRanges(c.months) : '';
   return `<div class="card dest ${visited.has(c.iso2) ? 'visited' : ''}" data-iso="${c.iso2}" data-photo="${esc(c.capCs || c.cap || c.cs)}" style="--h:${ccHue(c.iso2)}">
-    ${score ? `<div class="score-pill">${score}</div>` : `<div class="vmark"><svg viewBox="0 0 24 24" width="13" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></div>`}
+    ${score ? `<div class="score-pill">${score}</div>` : `<div class="vmark"><svg viewBox="0 0 24 24" width="13" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg><span class="sr-only">navštíveno</span></div>`}
     <div class="flag">${flag(c.iso2)}</div>
     <div class="dest-panel"><div class="cname">${c.cs}</div><div class="ccont">${c.cont}${c.cap ? ' · ' + (c.capCs || c.cap) : ''}</div>
     <div class="cblurb">${c.blurb || 'Objev tuto zemi – počasí, ceny i odkazy najdeš uvnitř.'}</div>${why ? recWhy(why, 1) : ''}
@@ -1630,7 +1653,7 @@ function seasonOf(m, key, then) {
     s = SEASON[m] = { cb: {} };
     s.p = fetch('api/climate?month=' + m).then(r => (r.ok ? r.json() : null)).catch(() => null).then(j => {
       SEASON[m] = j && j.countries ? { data: j.countries } : { fail: Date.now() };
-      if (SEASON[m].data) Object.values(s.cb).forEach(fn => fn());
+      Object.values(s.cb).forEach(fn => fn()); // i po chybě – Doporučení řekne, že počítá jen se sezónou
     });
   }
   if (s.cb && key) s.cb[key] = then; // jedno překreslení na místo, i když se mezitím kreslilo víckrát
@@ -1677,7 +1700,10 @@ function renderRecs() {
   // vynechané (ať je vidět proč tu nějaká země není)
   const foot = [hidden.unsafe ? `Doporučení vynechává ${hidden.unsafe} ${hidden.unsafe === 1 ? 'zemi' : hidden.unsafe <= 4 ? 'země' : 'zemí'}, před kterými MZV ČR varuje nebo kam doporučuje jen nezbytné cesty.` : '',
     hidden.mute.length ? `🙈 Vynechané kvůli Nezajímá mě: ${hidden.mute.join(', ')} – seznam upravíš přes ⋯ u cíle ve výsledcích hledání.` : '',
-    season ? 'Teploty jsou dlouhodobý průměr denních maxim u letiště (ne předpověď); teplotu moře Letsi nezná.' : ''].filter(Boolean);
+    season ? 'Teploty jsou dlouhodobý průměr denních maxim u letiště (ne předpověď); teplotu moře Letsi nezná.' : '',
+    SEASON[m] && SEASON[m].fail ? (navigator.onLine === false ? 'Bez připojení – pořadí jen podle sezóny, teploty doplním po připojení.' : 'Teploty se teď nenačetly – pořadí jen podle sezóny.') : ''].filter(Boolean);
+  // po připojení teploty znovu (jinak by méně přesné pořadí zůstalo až do další změny filtru)
+  if (SEASON[m] && SEASON[m].fail && window.Pwa && Pwa.whenOnline) Pwa.whenOnline('recs', () => { SEASON[m] = null; if (activeView === 'recommend') renderRecs(); });
   $('#recFoot').innerHTML = foot.map(x => `<div>${esc(x)}</div>`).join('');
   $$('#recGrid [data-fly]').forEach(b => { b.onclick = e => { e.stopPropagation(); recFly(list[+b.dataset.fly], m); }; });
   bindDest('#recGrid');
@@ -1731,7 +1757,7 @@ function modalOpen(html, o = {}) {
   const was = $('#modalBg').classList.contains('show');
   // tlačítko, které okno otevřelo – po zavření na něj vrátit fokus; okno z okna přes modalClose() a hned modalOpen()
   // (Info o zemi z okna cesty) má fokus ještě na tlačítku zavřeného okna, které zmizí – vrátit na původní tlačítko
-  if (!was && !$('#modal').contains(document.activeElement)) { modalKb.ret = document.activeElement; modalKb.sel = kbSel(modalKb.ret); }
+  if (!was && !$('#modal').contains(document.activeElement)) { modalKb.ret = document.activeElement; modalKb.sel = kbSel(modalKb.ret); modalKb.box = kbSel(modalKb.ret && modalKb.ret.parentElement && modalKb.ret.parentElement.closest('[id]')); }
   // nové okno hned po zavření jiného (Další → ✨ Novinky, 💾 Záloha…): MutationObserver uvidí obě změny třídy najednou
   // („pořád otevřené“) a fokus by nepřesunul – čtečka by nové okno neohlásila
   if (!was) modalKb.fresh = true;
@@ -1797,13 +1823,25 @@ new MutationObserver(() => {
   modalKb.on = on; modalKb.fresh = false;
   const a = document.activeElement;
   if (on) { if (!m.contains(a)) { m.tabIndex = -1; m.focus({ preventScroll: true }); } return; }
-  const r0 = modalKb.ret, sel = modalKb.sel; modalKb.ret = null; modalKb.sel = '';
-  const r = r0 && r0.isConnected ? r0 : sel ? $$(sel).find(x => !m.contains(x) && x.getClientRects().length) : null;
+  const r0 = modalKb.ret, sel = modalKb.sel, box = modalKb.box; modalKb.ret = null; modalKb.sel = modalKb.box = '';
+  const r = (r0 && r0.isConnected ? r0 : sel ? $$(sel).find(x => !m.contains(x) && x.getClientRects().length) : null) || kbNear(box);
   // telefon: do textového pole fokus nevracet – vyskočila by klávesnice, kterou nikdo nechtěl
   if (r && modalKb.touch && modalKb.touch.matches && /^(INPUT|TEXTAREA|SELECT)$/.test(r.tagName)) return;
   // fokus někam přesunula sama akce okna (náhled cíle vrací na 🔎) → nechat
   if ((!a || a === document.body || $('#modalBg').contains(a)) && r && r.getClientRects().length) r.focus({ preventScroll: true });
 }).observe($('#modalBg'), { attributes: true, attributeFilter: ['class'] });
+/**
+ * Tlačítko okna po zavření zmizelo (odebraná navštívená země, karta mimo filtr Navštívené): fokus by spadl na začátek
+ * stránky – místo toho první viditelný prvek v jeho kontejneru (box = selektor), jinak kontejner sám.
+ */
+function kbNear(box) {
+  const b = box && $(box);
+  if (!b || !b.getClientRects().length) return null;
+  const f = $$('a[href],button:not([disabled]),input:not([disabled]):not([type=hidden]),select,textarea,[tabindex]:not([tabindex="-1"])', b).find(x => x.getClientRects().length);
+  if (f) return f;
+  b.tabIndex = -1;
+  return b;
+}
 document.addEventListener('keydown', e => {
   if (e.key !== 'Tab' || e.defaultPrevented || !$('#modalBg').classList.contains('show')) return;
   const m = $('#modal'), a = document.activeElement;
@@ -2470,7 +2508,7 @@ function openTrip(i) {
     pack: `<div class="divider"></div>
     <div class="grid trip-two">
       <div><h3 style="font-size:16px;margin-bottom:10px">Sbaleno</h3><div id="checkList">${(t.checklist || []).map((x, xi) => `<label class="check"><input type="checkbox" ${x.done ? 'checked' : ''} data-check="${xi}"><span style="${x.done ? 'opacity:.5;text-decoration:line-through' : ''}">${esc(x.t)}</span></label>`).join('')}</div><div class="row" style="gap:8px;margin-top:10px"><input class="input" id="newCheck-${i}" data-addcheck placeholder="Přidej položku…" aria-label="Nová položka do seznamu Sbaleno"><button class="btn sm" data-addcheck aria-label="Přidat položku">+</button></div></div>
-      <div><h3 style="font-size:16px;margin-bottom:10px">Rozpočet</h3><div class="field"><label for="bud-${i}">Celkový rozpočet (Kč)</label><input class="input" type="number" id="bud-${i}" value="${esc(t.budget || '')}"></div>${t.budget ? `<div class="muted" style="font-size:13px;margin-top:10px">Na osobu: <b style="color:var(--text)">${Math.round(t.budget / (t.pax || 1)).toLocaleString('cs')} Kč</b></div>` : ''}<div class="field" style="margin-top:14px"><label for="notes-${i}">Poznámky</label><textarea id="notes-${i}" rows="3" placeholder="Cokoliv k cestě…">${esc(t.notes || '')}</textarea></div></div>
+      <div><h3 style="font-size:16px;margin-bottom:10px">Rozpočet</h3><div class="field"><label for="bud-${i}">Celkový rozpočet (Kč)</label><input class="input" type="number" id="bud-${i}" value="${esc(t.budget || '')}"></div><div id="tripPerPax">${perPaxHtml(t)}</div><div class="field" style="margin-top:14px"><label for="notes-${i}">Poznámky</label><textarea id="notes-${i}" rows="3" placeholder="Cokoliv k cestě…">${esc(t.notes || '')}</textarea></div></div>
     </div>`,
   };
   modalOpen(`<div class="modal-hero"><div class="mh-bg ${c && c.cost >= 4 ? 'warm' : ''}"></div><button class="modal-close" data-close aria-label="Zavřít">${ico('M18 6L6 18M6 6l12 12')}</button><div class="modal-hero-inner"><div style="font-size:40px;line-height:1">${c ? flag(t.iso) : '🧳'}</div><h2 style="font-size:25px;margin-top:4px;overflow-wrap:anywhere">${esc(t.name)}</h2><div style="font-size:13px">${esc(t.dest)}${t.start ? ' · ' + dateSpan(t.start, t.end, ' – ') : ''} · ${t.pax} os.</div><button type="button" class="trip-edit" id="tripEdit">${ikona('upravit')} ${tripEditLbl(t)}</button></div></div>
@@ -2518,8 +2556,8 @@ function openTrip(i) {
   const tv = $('#tripVisited');
   if (tv) tv.onclick = () => { const ccs = tripNotVisited(t); ccs.forEach(cc => setVisited(cc, true)); toast(`Na mapě navštívených: ${ccs.map(cc => byIso[cc].cs).join(', ')}`); openTrip(i); };
   const ics = $('#tripIcs'); if (ics) ics.onclick = () => exportPlan(i);
-  // Poznámky se ukládají bez překreslení – odkaz do Google Kalendáře je musí mít aktuální.
-  const gcal = $('#tripGcal'); if (gcal) $('#notes-' + i).addEventListener('change', () => { gcal.href = safeUrl(Ics.gcalUrl(planEvents(t)[0])); });
+  // Poznámky a rozpočet se ukládají bez překreslení – odkaz do Google Kalendáře je musí mít aktuální.
+  const gcal = $('#tripGcal'); if (gcal) for (const f of ['#notes-', '#bud-']) $(f + i).addEventListener('change', () => { gcal.href = safeUrl(Ics.gcalUrl(planEvents(t)[0])); });
   $('#tripShare').onclick = () => sharePlan(i);
   // krátký odkaz se začne ukládat už při dotyku – sdílení pak nečeká (Safari ho chce ještě v obsluze klepnutí)
   $('#tripShare').onpointerdown = () => ShareLink.short('plan', planJson(t));
@@ -2577,7 +2615,7 @@ function planEvents(t) {
 function exportPlan(i) {
   const t = S.trips[i], ev = planEvents(t);
   if (!ev.length) return toast('Nejdřív doplň termíny cesty', 'err');
-  icsDownload('atlas-' + t.name, ev, { name: t.name });
+  icsDownload('letsi-' + t.name, ev, { name: t.name });
 }
 /** Stáhne .ics (i z průvodce cestou); do kalendáře se události dostanou až otevřením souboru. */
 function icsDownload(filename, events, opts) {
@@ -2779,8 +2817,19 @@ function previewPlan(shared) {
 }
 // úprava v okně cesty: uložit a překreslit okno i kartu v plánovači pod ním (rozpočet, aktivity, sbaleno)
 const reTrip = i => { save(); openTrip(i); tripsChanged(); };
-window.addAct = (i, d) => { const inp = $('#act-' + i + '-' + d); const v = inp.value.trim(); if (!v) return; S.trips[i].days[d] = S.trips[i].days[d] || []; S.trips[i].days[d].push(v); reTrip(i); };
-window.delAct = (i, d, ai) => { S.trips[i].days[d].splice(ai, 1); reTrip(i); };
+// po Enteru zpět do (překresleného) pole – další položka jde psát hned, na telefonu nespadne klávesnice (jako addRef)
+const refocus = id => { const el = document.getElementById(id); if (el) el.focus(); };
+window.addAct = (i, d) => { const inp = $('#act-' + i + '-' + d); const v = inp.value.trim(); if (!v) return; S.trips[i].days[d] = S.trips[i].days[d] || []; S.trips[i].days[d].push(v); reTrip(i); refocus('act-' + i + '-' + d); };
+// smaže hned – „↩ Vrátit“ v hlášce ji vrátí na stejné místo (jako smazanou cestu); patří k cestě, ne k pořadí
+window.delAct = (i, d, ai) => {
+  const t = S.trips[i], [a] = t.days[d].splice(ai, 1); reTrip(i);
+  toast('Aktivita smazána', '', 6000, { label: '↩ Vrátit', run: () => {
+    const k = S.trips.indexOf(t); if (k < 0) return;
+    const acts = t.days[d] = Array.isArray(t.days[d]) ? t.days[d] : [];
+    acts.splice(Math.min(ai, acts.length), 0, a);
+    if (tripShown === t && $('#modalBg').classList.contains('show')) reTrip(k); else { save(); tripsChanged(); }
+  } });
+};
 window.toggleCheck = (i, xi) => {
   const t = S.trips[i], x = t.checklist[xi];
   x.done = !x.done;
@@ -2788,7 +2837,7 @@ window.toggleCheck = (i, xi) => {
   if (x.id && t.wizard) { const f = () => PreTrip.fromPlanner(t, x); if (window.PreTrip) f(); else if (window.Lazy) Lazy.need('pretrip').then(f, () => { }); }
   reTrip(i);
 };
-window.addCheck = i => { const inp = $('#newCheck-' + i); const v = inp.value.trim(); if (!v) return; S.trips[i].checklist.push({ t: v, done: false }); reTrip(i); };
+window.addCheck = i => { const inp = $('#newCheck-' + i); const v = inp.value.trim(); if (!v) return; S.trips[i].checklist.push({ t: v, done: false }); reTrip(i); refocus('newCheck-' + i); };
 window.addRef = i => {
   const t = S.trips[i], v = k => ($(`#${k}-${i}`) || { value: '' }).value;
   if (!t || !window.Backup) return;
@@ -2857,7 +2906,14 @@ window.setRideSoon = (i, key, k, v) => { const t = S.trips[tripIdx(i)]; if (t) r
 window.addEventListener('pagehide', flushRide);
 document.addEventListener('visibilitychange', () => { if (document.hidden) flushRide(); });
 // „change“ přijde i při překreslení okna po změně z jiného panelu – patří k cestě v okně (smazaná: nic)
-window.setBudget = (i, v) => { i = tripIdx(i); if (i < 0) return; S.trips[i].budget = v; reTrip(i); };
+// Rozpočet bez překreslení okna (jako poznámky): „change“ přijde při odchodu z pole – překreslení by spolklo klepnutí
+// na ✕ nebo do Poznámek, které ho vyvolalo. Přepíše se jen řádek „Na osobu“.
+window.setBudget = (i, v) => {
+  i = tripIdx(i); if (i < 0) return;
+  const t = S.trips[i]; t.budget = v; save(); tripsChanged();
+  const pp = tripShown === t && $('#tripPerPax'); if (pp) pp.innerHTML = perPaxHtml(t);
+};
+const perPaxHtml = t => (t.budget ? `<div class="muted" style="font-size:13px;margin-top:10px">Na osobu: <b style="color:var(--text)">${Math.round(t.budget / (t.pax || 1)).toLocaleString('cs')} Kč</b></div>` : '');
 window.setNotes = (i, v) => { i = tripIdx(i); if (i < 0) return; S.trips[i].notes = v; save(); };
 // Poznámky už při psaní („change“ přijde až po opuštění pole – obnovení stránky nebo zavřená aplikace by text ztratily).
 // Čekající text patří k cestě (ne k pořadí – mezitím smazaná cesta nic nepřepíše).

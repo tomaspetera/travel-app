@@ -21,8 +21,8 @@ function loadWith(stored) {
 const RADAR = { at: 1, items: [{ to: 'LIS', czk: 2400 }] };
 
 test('load: uložený stav ze starší verze (bez pv) – radar pryč, „naposledy prohlížené“ bez cen; s pv 2 beze změny', () => {
-  const old = loadWith({ radar: RADAR, viewed: [{ key: 'LIS', czk: 2400 }, 'x'], trips: [{ id: 1 }] });
-  assert.deepEqual([old.pv, old.radar, old.viewed, old.trips], [2, null, [{ key: 'LIS', czk: null }, 'x'], [{ id: 1 }]]);
+  const old = loadWith({ radar: RADAR, viewed: [{ key: 'LIS', czk: 2400 }, 'x'], trips: [{ id: 1, days: {}, checklist: [] }] });
+  assert.deepEqual([old.pv, old.radar, old.viewed, old.trips], [2, null, [{ key: 'LIS', czk: null }, 'x'], [{ id: 1, days: {}, checklist: [] }]]);
   const cur = loadWith({ pv: 2, radar: RADAR, viewed: [{ key: 'LIS', czk: 2400 }] });
   assert.deepEqual([cur.radar, cur.viewed], [RADAR, [{ key: 'LIS', czk: 2400 }]]);
   assert.equal(loadWith(undefined).pv, 2, 'nový uživatel');
