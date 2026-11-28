@@ -38,14 +38,16 @@ assert.ok(a > 0 && b > a, 'úsek čistého režimu ve flights.js');
 const F = (health) => new Function('health', 'esc', 'plural', `${fl.slice(a, b)}; return { srcLine, srcBoxHtml, cacheOnly };`)(health, esc, plural);
 
 test('Zdroje cen: zapnutý RegioJet nepřidá zdroj cen letů a nepřepne „orientačně“ na „živě“', () => {
-  // čistý režim tak, jak ho vrátí server: Travelpayouts + OpenStreetMap, RegioJet podle REGIOJET_LIVE
+  // čistý režim tak, jak ho vrátí server: Travelpayouts + OpenStreetMap (bez ceny), RegioJet podle REGIOJET_LIVE
   const prev = { r: config.ryanair, w: config.wizz, k: config.kiwi, x: config.xotelo, l: config.liteapiKey, t: config.travelpayoutsToken };
   Object.assign(config, { ryanair: false, wizz: false, kiwi: false, xotelo: false, liteapiKey: '', travelpayoutsToken: 'test' });
   try {
     for (const live of ['1', '0']) {
       const h = { providers: status(live) };
       const f = F(h);
-      assert.equal(f.srcLine(), 'Ceny orientačně · 2 zdroje', `REGIOJET_LIVE=${live}`);
+      // ubytování z OpenStreetMap je „bez ceny“ – zdroj cen je jen Aviasales
+      assert.equal(f.srcLine(), 'Ceny orientačně · 1 zdroj', `REGIOJET_LIVE=${live}`);
+      assert.doesNotMatch(f.srcBoxHtml(), /OpenStreetMap/);
       assert.doesNotMatch(f.srcBoxHtml(), /RegioJet/);
       assert.equal(f.cacheOnly(), true, 'řádek po hledání „Ceny z posledních 48 h“ zůstane');
     }

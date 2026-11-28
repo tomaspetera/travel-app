@@ -33,7 +33,7 @@ test('řádek po hledání: v čistém režimu stáří dat místo „Prohledán
   assert.equal(all.doneHead(5, false, 0), 'Prohledáno 5 letišť – hned');
   assert.equal(all.doneHead(1, false, 5700), 'Prohledáno 1 letiště za 5,7 s');
   assert.equal(F(null).doneHead(2, true, 1234), 'Prohledáno 2 lety za 1,2 s');
-  assert.match(fl, /const head = res \? doneHead\(multi \? res\.legs\.length : res\.origins\.length, multi, res\.stats\.ms\)/);
+  assert.match(fl, /const head = res \? \(SearchHelp\.allDown\(res\.providers\) \? 'Ceny se nepodařilo načíst' : doneHead\(multi \? res\.legs\.length : res\.origins\.length, multi, res\.stats\.ms\)\)/);
 });
 
 test('hlídání ceny: cílová cena „Upozornit pod“ jen s povolenými upozorněními v prohlížeči, jinak „Zvýraznit pod“', () => {
