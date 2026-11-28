@@ -457,6 +457,7 @@ function go(v, opts = {}) {
   activeView = v;
   if (window.Count) Count.view(v, opts.mine || (v === 'trip' && tripMine(S.trip, S.trips))); // souhrnný počet otevření sekce (count.js) – bez údajů o uživateli
   if (v !== 'dashboard') nowAsk = false;
+  const a0 = document.activeElement; // před přepnutím: pak už může být na <body>
   $$('.view').forEach(s => s.classList.toggle('active', s.id === 'view-' + v));
   // aktivní sekce i pro čtečku obrazovky (aria-current) – jen barvou by ji nepoznala
   const cur = (el, on) => { el.classList.toggle('active', on); if (on) el.setAttribute('aria-current', 'page'); else el.removeAttribute('aria-current'); };
@@ -469,6 +470,7 @@ function go(v, opts = {}) {
   // Mapa a Země jsou jedna sekce Svět (přepínač nahoře, v liště i v menu „Svět“) – nadpis Svět, ne „Mapa“; podnadpis
   // podle karty (na počítači jsou v panelu zvlášť a pod stejným „Svět“ se nedalo poznat, co je co)
   const nv = NAV.find(x => x[0] === v); $('#pageTitle').textContent = WORLD_VIEWS.includes(v) ? NAV_INFO.world[0] : nv[1]; $('#pageSub').textContent = nv[2];
+  viewFocus(a0);
   // i left: 0 – posun na (0, 0) prohlížeč provede bez vynuceného rozvržení stránky (jen top by si ho vyžádal)
   if (!opts.keepScroll) window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
   if (flY != null) {
@@ -485,6 +487,16 @@ function go(v, opts = {}) {
   if (v === 'trip') lazyView('trip', '#tripRoot', () => (opts.mine ? Trip.mine() : Trip.render()));
   if (v === 'flights' && window.Flights && Flights.ageCheck) Flights.ageCheck(Boolean(opts.keepScroll)); // výsledky hledání z dřívějška: 🕘 kdy byly
   if (v === 'explore') lazyView('places', '#exploreRoot', () => Places.renderExplore($('#exploreRoot')));
+}
+/**
+ * Fokus zůstal v sekci, kterou go() právě schovalo (Najít lety, „Otevřít vyhledávač →“ na Přehledu): prohlížeč by ho
+ * pustil na začátek stránky a Tab i čtečka by začaly odtamtud. Proto na nadpis nové sekce – h1 ve fotce, je-li vidět,
+ * jinak název v liště. Hledání, které hned naběhne, ho přesune dál na průběh (flights.js startSearch).
+ */
+function viewFocus(a) {
+  if (!a || !a.closest || !a.closest('.view:not(.active)')) return;
+  const h = $('.view.active h1'), el = h && h.getClientRects().length ? h : $('#pageTitle');
+  el.tabIndex = -1; el.focus({ preventScroll: true });
 }
 /** fn s modulem, který se stahuje až po startu (lazy.js): načtený → hned jako dřív, jinak po načtení; bez zavaděče hned. */
 const withMod = (mod, fn) => (window.Lazy ? Lazy.run(mod, fn) : fn());
@@ -555,7 +567,9 @@ function segPressed(b) { const on = String(b.classList.contains('on')); if (b.ge
    začínala až nadpisy 2. úrovně v obsahu. Sekce s vlastním h1 ve fotce (Přehled, Lety, Objevuj bez místa) ho nemají
    dvakrát. Role místo <h1>: lišta vypadá stejně (h1 má jiné písmo); hlídá ho stejné sledování změn jako přepínače. */
 function pageHeading() {
-  const t = $('#pageTitle'), own = Boolean($('.view.active h1'));
+  // h1 schovaný v CSS (Lety po hledání: sbalený formulář schová fotku s nadpisem) se nepočítá – jinak by stránka s výsledky
+  // neměla nadpis 1. úrovně žádný
+  const t = $('#pageTitle'), h = $('.view.active h1'), own = Boolean(h && h.getClientRects().length);
   if (!t || (t.getAttribute('role') === 'heading') !== own) return;
   if (own) { t.removeAttribute('role'); t.removeAttribute('aria-level'); } else { t.setAttribute('role', 'heading'); t.setAttribute('aria-level', '1'); }
 }
@@ -1113,7 +1127,7 @@ function renderWhatsNew() {
   el.classList.add('welcome');
   // na domov se uvítání neptá – čipy měst jsou přímo pod Odkud v hledání nahoře (flights.js paintHomeAsk); dvě pole
   // Odkud nad sebou nováčka mátla, které vyplnit
-  el.innerHTML = `<h3 class="wc-h">Vítej! Najdu levné letenky a poskládám z nich celou cestu.</h3>
+  el.innerHTML = `<h2 class="wc-h">Vítej! Najdu levné letenky a poskládám z nich celou cestu.</h2>
     <p class="faint wc-how" style="font-size:12.5px;margin:-6px 0 12px">${wcHow(null)}</p>
     <ol class="wc-steps">
       <li><span class="wc-n">1</span><div><b>Napiš, odkud a kam</b><small>město, „kamkoliv“, nebo celou větu – třeba „k moři v květnu do 5000“</small></div></li>
