@@ -64,9 +64,9 @@ lehčí než dnes. Render zdarma po 15 min bez návštěvy usne (první načten�
       doby uchovávání, předání do USA, autorská práva) a `Účinné od: [datum]` – na webu je dnes víckrát „doplníme“.
       Výčet zdrojů (podmínky odd. 2, 4 a 5, zásady 5.1–5.3) už platí pro čistý režim (Ryanair, Wizz Air, Kiwi.com
       a Xotelo jen „pokud jsou zapnuté“). Pak advokát (oddíly Otázky pro advokáta v obou dokumentech).
-- [ ] **Testovací verze**: značka „Testovací verze“ v okně Další a v postranním panelu a nadpis „Testovací verze –
-      krátká otázka“ (`public/js/otazky.js`) nemají vypínač – před D rozhodnout a upravit v kódu (PR), i zmínky
-      v O aplikaci a v zásadách (`atlas_ask`).
+- [x] **Testovací verze**: značka „Testovací verze“ v okně Další a v postranním panelu a nadpis „Testovací verze –
+      krátká otázka“ (`public/js/otazky.js`) zůstávají i po D, dokud majitel neřekne jinak (rozhodnutí 28. 11. 2026).
+      Pak je odebrat v kódu (PR) i se zmínkami v O aplikaci a v zásadách (`atlas_ask`).
 - [ ] Novinka „Řekni mi, co ti vadí“ („Letsi je zatím testovací verze…“) ve `WHATS_NEW` zmizí sama po 14 dnech
       (`WN_DAYS`) – nic nedělat. K D případně nová novinka s vyšším `WN_ID` jen u skutečně nové funkce.
 - [ ] Partnerské odkazy: doplnit `TRAVELPAYOUTS_MARKER` a `TRAVELPAYOUTS_TRS` (app.travelpayouts.com → Profile →
