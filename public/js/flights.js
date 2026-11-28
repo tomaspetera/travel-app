@@ -6125,10 +6125,16 @@
   }
   // dFrom / dTo: odlet kdykoliv v rozmezí (Doporučení – měsíc, na který tip platí); k rozmezí volitelně noci, dny odletu
   // a návratu a předvečer od 16:00 (nMin, nMax, outDays, backDays, depAfter – prodloužený víkend z SearchHelp.holidayDates)
-  function searchTo(items, { xOut = '', xBack = '', dFrom = '', dTo = '', ...more } = {}) {
+  function searchTo(items, opts = {}) {
+    const f = formTo(items, opts);
+    if (!f.from.length) { askFrom(); return; }
+    startSearch();
+  }
+  // Lety a formulář pro cíl items s termínem (volby jako searchTo) – bez hledání; from = vlastní Odkud (jako offerSearch)
+  function formTo(items, { xOut = '', xBack = '', dFrom = '', dTo = '', from = null, ...more } = {}) {
     go('flights');
     // odkud jako minulé hledání, jinak domov radaru
-    const o = S.form && S.form.from?.length ? { from: S.form.from, radius: S.form.radius ?? 200, exclude: S.form.exclude || [] }
+    const o = from ? { from } : S.form && S.form.from?.length ? { from: S.form.from, radius: S.form.radius ?? 200, exclude: S.form.exclude || [] }
       : S.home && S.home.from?.length ? { from: S.home.from, radius: S.home.radius ?? 200, exclude: [] } : {};
     // termín cesty z plánovače (ještě před ní): přesná data, s návratem tam i zpět
     // v mezích serveru: odlet nejvýš ~rok dopředu, zpáteční nejvýš 45 nocí (delší pobyt → jen tam)
@@ -6141,8 +6147,26 @@
     const lw = ex.dateMode === 'flex' ? Object.fromEntries(['nMin', 'nMax', 'outDays', 'backDays', 'depAfter'].filter(k => more[k] !== undefined).map(k => [k, more[k]])) : {};
     const f = { ...defaultForm(), ...prefsOf(S.form), ...o, ...ex, ...lw, to: items }; // odkud jako minulé hledání
     setForm(f);
-    if (!f.from.length) { askFrom(); return; }
-    startSearch();
+    return f;
+  }
+  /**
+   * Odkaz /#hledat=… (SearchHelp.hledatFromHash → h = { from, to, dates }): formulář jen vyplnit, hledání spustí až
+   * uživatel tlačítkem – odkaz otevře i robot, který spouští JS, a /api/search je drahé. Bez Odkud jen výzva, ne
+   * askFrom bez argumentu (ten po výběru místa hledání spustí sám).
+   */
+  function prefill(h) {
+    // letiště odletu se svým názvem z domova / minulého hledání, jinak kód (jako offerSearch)
+    const k = h.from && [...(S.home?.from || []), ...(S.form?.from || [])].find(x => x && x.id === 'ap:' + h.from);
+    const from = h.from ? [k ? { ...k } : { id: 'ap:' + h.from, label: h.from, flag: '', type: 'airport' }] : null;
+    // neznámá země → Kamkoliv
+    const to = h.to.length === 3 ? [{ id: 'ap:' + h.to, label: h.to, type: 'airport' }]
+      : h.to && byIso[h.to] ? [{ id: 'cc:' + h.to, label: byIso[h.to].cs, flag: flag(h.to), type: 'country' }] : [];
+    const f = formTo(to, { ...h.dates, from });
+    draftSoon(); // předvyplněné, ale nehledané – přežije i zavření aplikace
+    expandForm();
+    $('#searchForm').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (f.from.length) toast('Formulář je předvyplněný – hledání spustíš tlačítkem dole');
+    else toast('Vyber, odkud letíš', 'info');
   }
 
   /**
@@ -6341,7 +6365,7 @@
 
   // běží hledání (uživatel, radar, kontrola hlídané ceny)? – PWA se pak po návratu sama neobnoví (zrušila by ho)
   const busy = () => busySearches > 0 || [...wState.values()].includes('run');
-  window.Flights = { init, warm, busy, ageCheck, lastPick, renderQuick, renderResume, resumeTrip, renderWatch, showWatch, renderRadar, renderNews, radarNow, renderFav, trySentence, refreshPrefs: prefsPaint, homeChanged, homeFromChip,renderPins, refreshPins: pinsPaint, openOffer, searchTo, searchLegs, repaintMap: () => { if (view.mode === 'map' && lastResult) rerender(true); }, PlaceInput, smartRun, smartTips, runSearch, watchStatTxt, priceCheck: openPriceCheck, priceTag, watchKey, updateHomeChip,
+  window.Flights = { init, warm, busy, ageCheck, lastPick, renderQuick, renderResume, resumeTrip, renderWatch, showWatch, renderRadar, renderNews, radarNow, renderFav, trySentence, refreshPrefs: prefsPaint, homeChanged, homeFromChip,renderPins, refreshPins: pinsPaint, openOffer, searchTo, prefill, searchLegs, repaintMap: () => { if (view.mode === 'map' && lastResult) rerender(true); }, PlaceInput, smartRun, smartTips, runSearch, watchStatTxt, priceCheck: openPriceCheck, priceTag, watchKey, updateHomeChip,
     // navštívené země se změnily (mapa, země, 💾 obnova) → 🆕 a „jen nové země“ ve výsledcích hned podle nich
     refreshVisited: () => { if (lastResult && lastResult.mode !== 'multi' && !running && $('#results') && $('#results').children.length) rerender(true); },
     // 🏠 vlastní ceny na letiště se změnily (💾 obnova) → náhled letišť a seznam cen ve formuláři znovu

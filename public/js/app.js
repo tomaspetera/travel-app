@@ -2705,6 +2705,20 @@ async function openOfferFromHash() {
   return true;
 }
 /**
+ * Odkaz /#hledat=… z veřejných stránek zemí a měsíců (při startu a při změně adresy): Lety s předvyplněným formulářem
+ * (Flights.prefill), hledání nikdy samo – odkaz otevře i robot Googlu, který spouští JS, a /api/search je drahé. Adresa
+ * se přepíše na #flights jako u #offer= → boolean (true, když šlo o #hledat=; poškozený odkaz jen otevře Lety).
+ */
+function openHledatFromHash() {
+  const hash = location.hash;
+  if (!/^#hledat=/.test(hash)) return false;
+  history.replaceState(null, '', '#flights');
+  go('flights', { noHash: true });
+  const h = window.SearchHelp && SearchHelp.hledatFromHash(hash, todayLocal());
+  if (h && window.Flights) Flights.prefill(h);
+  return true;
+}
+/**
  * Krátký odkaz /c/<id> přesměruje sem na #s=<id> (server/lib/shortlinks.js): cesta nebo plán se stáhne ze serveru
  * a adresa se přepíše na dlouhý tvar #trip= / #plan= – dál se otevře jako dřív. Vypršelý odkaz → hláška a Přehled.
  * → Promise<boolean> (true, když šlo o #s=).
@@ -3092,6 +3106,7 @@ function wireEvents() {
     if (window.Transfer && Transfer.fromHash()) return go('dashboard', { noHash: true }); // 📲 přenos (#sync=)
     if (await openOfferFromHash()) return;
     if (await openJedFromHash()) return;
+    if (openHledatFromHash()) return;
     if (openWatchFromHash()) return;
     hashView();
   });
@@ -3209,7 +3224,7 @@ async function start() {
   const plan = !shared && await importPlanFromHash();
   // 📲 přenos z jiného zařízení (#sync=, transfer.js): Přehled hned, náhled přenosu nad ním, až se odkaz přečte
   if (!shared && !plan && window.Transfer && Transfer.fromHash()) return go('dashboard', { noHash: true });
-  if (!shared && !plan && (await openOfferFromHash() || await openJedFromHash() || openWatchFromHash())) return;
+  if (!shared && !plan && (await openOfferFromHash() || await openJedFromHash() || openHledatFromHash() || openWatchFromHash())) return;
   const v = shared ? 'trip' : plan ? 'planner' : location.hash.slice(1);
   if (v === 'now') return showNow(); // zkratka aplikace „Na cestě“
   // obnovená stránka na #trip: jako záložka Cesty (2+ cesty = Moje cesty); sdílená cesta z odkazu rovnou v průvodci
